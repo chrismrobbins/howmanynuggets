@@ -12,16 +12,28 @@ few surprises for the big spenders.
   into 6-piece boxes. The amount formats with commas as you type.
 - **Visualizes your nuggets** → draws an image for each nugget (capped at 500 on
   screen for performance; the exact count is always shown).
-- **$1M–$10M → 🌪️ Nugget Storm** → nuggets fly across the whole screen until the
-  full count has flown by, with a live counter and a Stop button.
+- **$1M–$10M → 🌪️ Nugget Storm** → nuggets fly across the whole screen with a
+  live counter and a Stop button. The storm escalates through five categories
+  (Flurry → Squall → Cyclone → Hurricane → **The Nuggnado**, complete with
+  vortex swirl and card shake), and each flying nugget represents a batch so
+  even a $10M storm wraps up in about a minute.
+- **The storm is an arcade** — switch games from the HUD:
+  - 🧺 **Catch** — click nuggets out of the air; rare golden nugs are worth 10×.
+  - 🔫 **Blaster** — nuggets rain from the sky while you slide a laser cannon
+    along the bottom (mouse or ← →) and blast them (click or space).
+  - 🐤 **Flappy Nug** — pilot a nugget through scrolling towers of stacked
+    nuggets; each gate banks nugs, golden gates pay 10×.
 - **Over $10M → a friendly reality check** telling you this maybe isn't the right
   payment method.
 
 ## Running it
 
-No build step, no dependencies — it's a single static HTML file.
+No build step, no dependencies — plain static HTML/CSS/JS.
 
-Just open `index.html` in a browser, or serve the folder:
+**Live site** (auto-deploys from `main` via GitHub Pages):
+<https://chrismrobbins.github.io/howmanynuggets/>
+
+Locally, just open `index.html` in a browser, or serve the folder:
 
 ```bash
 python3 -m http.server 8080
@@ -39,5 +51,13 @@ promotions, and tax. This project is **not affiliated with or endorsed by McDona
 
 | File | Purpose |
 |------|---------|
-| `index.html` | The entire app (HTML + CSS + JS) |
-| `nugget.png` | Transparent nugget image used for the hero, grid, and storm |
+| `index.html` | Markup — styles and scripts live in `css/` and `js/` |
+| `css/styles.css` | Base app styles |
+| `css/storm.css` | Storm layer, HUD, and arcade-mode styles |
+| `js/util.js` | Shared number formatters |
+| `js/pricing.js` | ZIP → regional price model |
+| `js/storm.js` | Storm engine, categories, HUD, mode switch |
+| `js/blaster.js` | 🔫 Blaster minigame |
+| `js/flappy.js` | 🐤 Flappy Nug minigame |
+| `js/app.js` | Converter wiring and input formatting |
+| `nugget.png` | Transparent nugget image used everywhere |

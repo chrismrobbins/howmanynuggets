@@ -1,0 +1,231 @@
+/* ---- Nugget storm (amounts over $1,000,000) ---- */
+#nuggetStorm {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  overflow: hidden;
+  pointer-events: none;   /* let clicks pass through, except onto the nuggets */
+  display: none;
+}
+#nuggetStorm.active { display: block; }
+#nuggetStorm img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45));
+  pointer-events: auto;   /* nuggets are catchable */
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+#nuggetStorm img.golden {
+  filter: sepia(1) saturate(3.5) hue-rotate(-15deg) brightness(1.15)
+          drop-shadow(0 0 12px rgba(255, 200, 40, 0.9));
+}
+
+/* ---- Storm HUD ---- */
+.storm-hud {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  pointer-events: auto;
+  display: none;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.9rem;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 0.65rem 1rem;
+  box-shadow: 0 20px 50px -15px rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(6px);
+  max-width: calc(100vw - 2rem);
+}
+.storm-hud.active { display: flex; }
+.storm-hud .label {
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+}
+.storm-hud .tally {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--textMain);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.storm-hud .tally .total { color: var(--textMuted); font-weight: 600; }
+.storm-hud .caught {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #fbbf24;
+  font-variant-numeric: tabular-nums;
+  cursor: help;
+}
+.storm-hud .hint {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--textMuted);
+  font-style: italic;
+}
+.storm-hud button {
+  pointer-events: auto;
+  background: #f43f5e;
+  color: #fff;
+  border: none;
+  border-radius: 0.7rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.storm-hud button:hover { filter: brightness(1.1); }
+.storm-hud button:active { transform: scale(0.95); }
+.storm-hud.done { border-color: rgba(34, 197, 94, 0.5); }
+.storm-hud.done .hint, .storm-hud.done button { display: none; }
+@media (max-width: 560px) {
+  .storm-hud .hint { display: none; }
+}
+
+/* Floating "+1,234" when you snatch a nugget out of the air */
+.catch-pop {
+  position: fixed;
+  z-index: 10000;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  font-weight: 900;
+  font-size: 0.9rem;
+  color: #fbbf24;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+  animation: catchFloat 0.9s ease-out both;
+}
+.catch-pop.golden { color: #fde047; font-size: 1.15rem; }
+@keyframes catchFloat {
+  from { transform: translate(-50%, -50%); opacity: 1; }
+  to   { transform: translate(-50%, calc(-50% - 60px)); opacity: 0; }
+}
+
+/* Cat 5 only: the card trembles in the wind. (Shake the card, not <body> —
+   a transform on <body> would re-anchor the fixed-position storm layer.) */
+@keyframes stormShake {
+  0%, 100% { transform: translate(0, 0); }
+  25%      { transform: translate(1.5px, -1px); }
+  50%      { transform: translate(-1px, 1.5px); }
+  75%      { transform: translate(1px, 1px); }
+}
+body.storm-shake .card { animation: stormShake 0.25s infinite; }
+
+/* ---- Arcade mode switch (🧺 / 🔫 / 🐤) ---- */
+.mode-switch {
+  display: inline-flex;
+  gap: 2px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  padding: 2px;
+}
+.mode-switch button {
+  background: transparent;
+  border: none;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.55rem;
+  cursor: pointer;
+  opacity: 0.45;
+  transition: all 0.15s;
+}
+.mode-switch button:hover { opacity: 0.85; }
+.mode-switch button.on {
+  background: var(--accent);
+  opacity: 1;
+}
+
+/* In the minigames you shoot/dodge nuggets — no grabbing them by hand. */
+body.blaster-mode #nuggetStorm img,
+body.flappy-mode #nuggetStorm img {
+  pointer-events: none;
+  cursor: default;
+}
+
+/* ---- Blaster mode: laser cannon + bolts ---- */
+.blaster-cannon {
+  position: fixed;
+  bottom: 0.75rem;
+  left: -28px;            /* translateX() then centers the cannon on the cursor */
+  z-index: 9999;
+  width: 56px;
+  display: none;
+  pointer-events: none;
+  will-change: transform;
+}
+.blaster-cannon.active { display: block; }
+.blaster-cannon .barrel {
+  width: 10px;
+  height: 26px;
+  margin: 0 auto -4px;
+  background: linear-gradient(#fde047, var(--accent));
+  border-radius: 4px 4px 2px 2px;
+  box-shadow: 0 0 12px var(--accentGlow);
+}
+.blaster-cannon .base {
+  width: 56px;
+  height: 20px;
+  background: linear-gradient(#f59e0b, #b45309);
+  border-radius: 10px 10px 4px 4px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5), 0 0 14px var(--accentGlow);
+}
+.blaster-bolt {
+  position: fixed;
+  top: 0;
+  left: -2px;             /* translate() centers the 4px bolt on its x */
+  z-index: 9998;
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  background: linear-gradient(#fde047, #f43f5e);
+  box-shadow: 0 0 10px rgba(253, 224, 71, 0.9);
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* ---- Flappy Nug: the bird and the nugget towers ---- */
+.flappy-bird {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9998;
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  display: none;
+  pointer-events: none;
+  will-change: transform;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5));
+}
+.flappy-bird.active { display: block; }
+.flappy-pipe {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9997;
+  width: 58px;
+  background-image: url('../nugget.png');
+  background-size: 52px 52px;
+  background-repeat: repeat;
+  pointer-events: none;
+  will-change: transform;
+  filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.4));
+}
+.flappy-pipe.golden {
+  filter: sepia(1) saturate(3.5) hue-rotate(-15deg) brightness(1.15)
+          drop-shadow(0 0 12px rgba(255, 200, 40, 0.8));
+}
