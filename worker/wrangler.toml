@@ -10,10 +10,10 @@ binding = "DB"
 database_name = "howmanynuggets"
 database_id = "2cd74807-a091-45a0-8713-002abc552607"
 
-# Optional: serve the API at api.howmanynuggets.com (same-site with the frontend).
-# Requires the howmanynuggets.com zone to be on this Cloudflare account.
-# Uncomment, then add "https://api.howmanynuggets.com" is NOT needed in CORS —
-# the frontend origin is howmanynuggets.com, which is already allow-listed.
-# [[routes]]
-# pattern = "api.howmanynuggets.com"
-# custom_domain = true
+# Serve the API at api.howmanynuggets.com. wrangler provisions the DNS record
+# and TLS cert on first deploy. This matches the frontend's default API base,
+# and the frontend origin (howmanynuggets.com) is already allow-listed for CORS
+# in src/index.js. Requires the howmanynuggets.com zone on this Cloudflare account.
+[[routes]]
+pattern = "api.howmanynuggets.com"
+custom_domain = true
