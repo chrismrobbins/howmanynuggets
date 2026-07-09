@@ -12,15 +12,21 @@ few surprises for the big spenders.
   into 6-piece boxes. The amount formats with commas as you type.
 - **Visualizes your nuggets** → draws an image for each nugget (capped at 500 on
   screen for performance; the exact count is always shown).
-- **$1M–$10M → 🌪️ Nugget Storm** → nuggets fly across the whole screen with a
-  live counter and a Stop button. The storm escalates through five categories
-  (Flurry → Squall → Cyclone → Hurricane → **The Nuggnado**, complete with
-  vortex swirl and card shake), and each flying nugget represents a batch so
-  even a $10M storm wraps up in about a minute.
-- **The storm is an arcade** — switch games from the HUD:
+- **🕹️ The Nugget Arcade** → press the arcade button to unleash the Nugget
+  Storm at any amount: nuggets fly across the whole screen with a live counter
+  and a Stop button. The storm escalates through five categories with your
+  dollar amount (Flurry → Squall → Cyclone → Hurricane → **The Nuggnado** at
+  $8.5M+, complete with vortex swirl and card shake), and each flying nugget
+  represents a batch so even a $10M storm wraps up in about a minute. Too
+  broke for a storm (under 100 nuggets)? The house comps you a
+  1,000,000-nug session.
+- **Three games** — switch from the HUD:
   - 🧺 **Catch** — click nuggets out of the air; rare golden nugs are worth 10×.
-  - 🔫 **Blaster** — nuggets rain from the sky while you slide a laser cannon
-    along the bottom (mouse or ← →) and blast them (click or space).
+  - 🔫 **Blaster** — Missile Command, fry-station edition: nuggets rain onto a
+    skyline and every landing damages a building (three hits = rubble; lose the
+    block and the city rebuilds). Slide the laser cannon (mouse or ← →), blast
+    nuggets (click or space), and shoot the falling crates for power-ups —
+    ⚡ rapid fire, 🔱 triple shot, 🛡️ city shield.
   - 🐤 **Flappy Nug** — pilot a nugget through scrolling towers of stacked
     nuggets; each gate banks nugs, golden gates pay 10×.
 - **Over $10M → a friendly reality check** telling you this maybe isn't the right

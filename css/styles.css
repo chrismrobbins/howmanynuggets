@@ -173,6 +173,28 @@ input[type=number] { -moz-appearance: textfield; }
 
 .breakdown strong { color: var(--textMain); font-weight: 800; }
 
+.arcade-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #1c1307;
+  border: none;
+  border-radius: 1rem;
+  padding: 0.9rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 10px 30px -10px var(--accentGlow);
+  transition: all 0.2s;
+}
+.arcade-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.arcade-btn:active { transform: scale(0.98); }
+.arcade-btn.running {
+  background: linear-gradient(135deg, #f43f5e, #be123c);
+  color: #fff;
+}
+
 .nugget-grid {
   display: flex;
   flex-wrap: wrap;

@@ -56,6 +56,8 @@
       <div class="breakdown" id="breakdown">Enter an amount to see how many nuggets you can get.</div>
     </div>
 
+    <button class="arcade-btn" id="arcadeBtn" type="button">🕹️ Enter the Nugget Arcade</button>
+
     <div class="nugget-grid" id="nuggetGrid"></div>
 
     <div class="disclaimer">
@@ -76,6 +78,7 @@
     <span class="label" id="stormLabel">🌪️ Nugget Storm</span>
     <span class="tally" id="stormTally"></span>
     <span class="caught" id="stormCaught" title="Catch, blast, or flap for nugs — golden ones are worth 10×">🧺 0</span>
+    <span class="power-chip" id="powerChip"></span>
     <span class="hint" id="stormHint">click nugs to catch 'em!</span>
     <span class="mode-switch" id="modeSwitch">
       <button type="button" data-mode="catch" class="on" title="Catch mode — click nuggets">🧺</button>
@@ -85,11 +88,13 @@
     <button id="stormStop" type="button">Stop</button>
   </div>
 
-  <!-- Blaster mode cannon -->
+  <!-- Blaster mode: cannon, the city you defend, and its power-up shield -->
   <div class="blaster-cannon" id="blasterCannon">
     <div class="barrel"></div>
     <div class="base"></div>
   </div>
+  <div class="city-row" id="cityRow"></div>
+  <div class="city-shield" id="cityShield"></div>
 
   <!-- Flappy Nug player -->
   <img class="flappy-bird" id="flappyBird" src="nugget.png" alt="" />

@@ -1,7 +1,8 @@
-// ---- Nugget storm engine (amounts over $1,000,000) --------------------------
-// The storm escalates through five categories based on the dollar amount —
-// higher tiers mean more nuggets, faster winds, a vortex swirl, and (at Cat 5)
-// a trembling card. Each flying nugget is a "flyer" worth a batch of real
+// ---- Nugget storm engine (the Nugget Arcade) ---------------------------------
+// The user launches the storm from the card's arcade button at any amount.
+// It escalates through five categories based on the dollar amount — higher
+// tiers mean more nuggets, faster winds, a vortex swirl, and (at Cat 5) a
+// trembling card. Each flying nugget is a "flyer" worth a batch of real
 // nuggets so even a $10M storm wraps up in roughly a minute.
 //
 // The storm doubles as an arcade. Three modes, switchable in the HUD:
@@ -19,8 +20,6 @@ const stormHint   = document.getElementById('stormHint');
 const stormStop   = document.getElementById('stormStop');
 const modeSwitch  = document.getElementById('modeSwitch');
 
-const STORM_THRESHOLD = 1000000; // dollars
-
 // Ordered high → low so the first match wins.
 const STORM_CATEGORIES = [
   { min: 8500000, name: 'Cat 5 · The Nuggnado',     emoji: '🌪️', maxOnScreen: 140, spawnPerFrame: 6, speed: 2.1,  vortex: 0.9,  shake: true,  golden: 0.030 },
@@ -36,7 +35,7 @@ const TTL_SECS = 9;   // recycle swirling nuggets that never drift off screen
 
 const MODE_HINTS = {
   catch:   "click nugs to catch 'em!",
-  blaster: '← → to move · space or click to blast',
+  blaster: 'defend the city! ← → to move · space or click to blast',
   flappy:  'space or click to flap — mind the nugget towers!',
 };
 const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤' };
@@ -44,6 +43,7 @@ const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored' };
 
 const storm = {
   running: false,
+  arcade: false,   // user pressed the arcade button; cleared by stopStorm
   mode: 'catch',   // 'catch' | 'blaster' | 'flappy' — sticky across storms
   cat: STORM_CATEGORIES[STORM_CATEGORIES.length - 1],
   total: 0,        // nuggets this storm represents
@@ -230,15 +230,20 @@ function stepStorm(ts) {
   storm.rafId = requestAnimationFrame(stepStorm);
 }
 
-// Little "+1,234" that floats up from a scored nugget.
-function spawnCatchLabel(x, y, worth, golden) {
+// Little text that floats up and fades from a point on screen.
+function spawnPopLabel(x, y, text, cls = '') {
   const label = document.createElement('div');
-  label.className = 'catch-pop' + (golden ? ' golden' : '');
-  label.textContent = (golden ? '✨ +' : '+') + fmt.format(worth);
+  label.className = ('catch-pop ' + cls).trim();
+  label.textContent = text;
   label.style.left = x + 'px';
   label.style.top = y + 'px';
   document.body.appendChild(label);
   label.addEventListener('animationend', () => label.remove());
+}
+
+// "+1,234" for a scored nugget.
+function spawnCatchLabel(x, y, worth, golden) {
+  spawnPopLabel(x, y, (golden ? '✨ +' : '+') + fmt.format(worth), golden ? 'golden' : '');
 }
 
 stormEl.addEventListener('click', (e) => {
@@ -273,10 +278,13 @@ function startStorm(total, dollars) {
   stormHud.classList.remove('done');
   stormHud.classList.add('active');
   setStormMode(storm.mode); // refresh hint/switch, wake the active minigame
+  updateArcadeBtn();
   storm.rafId = requestAnimationFrame(stepStorm);
 }
 
 function stopStorm(completed = false) {
+  storm.arcade = false;
+  updateArcadeBtn();
   if (!storm.running && storm.particles.length === 0 && storm.pool.length === 0) return;
   storm.running = false;
   if (storm.rafId) cancelAnimationFrame(storm.rafId);

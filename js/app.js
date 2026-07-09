@@ -7,7 +7,34 @@ const regionNameEl = document.getElementById('regionName');
 const regionPriceEl = document.getElementById('regionPrice');
 const gridEl = document.getElementById('nuggetGrid');
 const bigMessageEl = document.getElementById('bigMessage');
+const arcadeBtn = document.getElementById('arcadeBtn');
 const BIG_MESSAGE_THRESHOLD = 10000000; // dollars
+
+// The arcade runs at any amount. With a light wallet (or an empty field) it
+// spins up a default "house storm" instead so there's always something to play.
+const HOUSE_STORM_NUGS = 1000000;
+const HOUSE_STORM_DOLLARS = 5000000; // pegs the house storm at Cat 3
+
+function updateArcadeBtn() {
+  arcadeBtn.classList.toggle('running', storm.running);
+  arcadeBtn.textContent = storm.running ? '🛑 Stop the Arcade' : '🕹️ Enter the Nugget Arcade';
+}
+
+// While the arcade is on, keep the storm in sync with whatever's typed.
+function syncArcade(nuggets, dollars) {
+  if (!storm.arcade) return;
+  const total = nuggets >= 100 ? nuggets : HOUSE_STORM_NUGS;
+  startStorm(total, dollars > 0 ? dollars : HOUSE_STORM_DOLLARS);
+}
+
+arcadeBtn.addEventListener('click', () => {
+  if (storm.running) {
+    stopStorm(); // also clears storm.arcade
+    return;
+  }
+  storm.arcade = true;
+  update();
+});
 
 // Cap how many <img> we actually render so huge counts don't freeze the tab.
 // The headline number stays exact; the grid shows a "+N more" note past the cap.
@@ -48,7 +75,7 @@ function update() {
     countEl.textContent = '0';
     breakdownEl.textContent = 'Enter an amount to see how many nuggets you can get.';
     renderNuggets(0);
-    stopStorm();
+    syncArcade(0, 0); // arcade stays up on the house storm
     bigMessageEl.classList.remove('active');
     return;
   }
@@ -77,10 +104,7 @@ function update() {
   breakdownEl.innerHTML = detail;
   renderNuggets(nuggets);
 
-  // $1,000,000–$10,000,000 → unleash the flying nugget storm.
-  // Over $10,000,000 we bail on the storm and just roast them instead.
-  if (dollars > STORM_THRESHOLD && dollars <= BIG_MESSAGE_THRESHOLD) startStorm(nuggets, dollars);
-  else stopStorm();
+  syncArcade(nuggets, dollars);
 
   // Over $10,000,000 → tell them this site isn't for them.
   bigMessageEl.classList.toggle('active', dollars > BIG_MESSAGE_THRESHOLD);
