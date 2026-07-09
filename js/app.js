@@ -50,6 +50,7 @@ function renderNuggets(count) {
     img.src = 'nugget.png';
     img.alt = 'McNugget';
     img.loading = 'lazy';
+    img.draggable = false;
     // slight animation stagger, capped so it never feels sluggish
     img.style.animationDelay = Math.min(i * 4, 400) + 'ms';
     frag.appendChild(img);

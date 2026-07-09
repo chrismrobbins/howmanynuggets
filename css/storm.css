@@ -24,6 +24,17 @@
           drop-shadow(0 0 12px rgba(255, 200, 40, 0.9));
 }
 
+/* While the arcade runs, rapid clicking shouldn't select and drag page text.
+   Inputs keep normal selection so amounts stay editable mid-storm. */
+body.storm-active {
+  -webkit-user-select: none;
+  user-select: none;
+}
+body.storm-active input {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 /* ---- Storm HUD ---- */
 .storm-hud {
   position: fixed;

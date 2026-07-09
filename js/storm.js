@@ -90,6 +90,7 @@ function spawnNugget() {
     el = document.createElement('img');
     el.src = 'nugget.png';
     el.alt = '';
+    el.draggable = false;
     stormEl.appendChild(el);
   }
   el.style.display = 'block';
@@ -274,6 +275,9 @@ function startStorm(total, dollars) {
   storm.last = 0;
   storm.perFlyer = computePerFlyer(total, cat);
   document.body.classList.toggle('storm-shake', cat.shake);
+  document.body.classList.add('storm-active');
+  const sel = window.getSelection();
+  if (sel) sel.removeAllRanges(); // drop any selection made before the game began
   stormEl.classList.add('active');
   stormHud.classList.remove('done');
   stormHud.classList.add('active');
@@ -294,6 +298,7 @@ function stopStorm(completed = false) {
   storm.particles = [];
   storm.pool = [];
   document.body.classList.remove('storm-shake');
+  document.body.classList.remove('storm-active');
   stormEl.classList.remove('active');
   syncBlaster();
   syncFlappy();

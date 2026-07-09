@@ -11,6 +11,12 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Nugget art is decoration/game pieces — never draggable ghost images */
+img {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
 body {
   background: var(--appBg);
   color: var(--textMain);
