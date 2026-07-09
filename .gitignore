@@ -1,0 +1,12 @@
+# Local Claude Code settings
+.claude/
+
+# Internal design spec — not part of this project
+Claude.md
+
+# Unused original image (site uses the transparent nugget.png)
+nugget.jpeg
+
+# OS / editor cruft
+.DS_Store
+*.log
