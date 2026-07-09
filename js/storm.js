@@ -291,6 +291,13 @@ function stopStorm(completed = false) {
   updateArcadeBtn();
   if (!storm.running && storm.particles.length === 0 && storm.pool.length === 0) return;
   storm.running = false;
+
+  // Report this session's score for high-score tracking. No-op when signed out
+  // or when the API isn't reachable (see js/account.js → onArcadeScore).
+  if (storm.caught > 0 && typeof window.onArcadeScore === 'function') {
+    window.onArcadeScore(storm.mode, storm.caught);
+  }
+
   if (storm.rafId) cancelAnimationFrame(storm.rafId);
   storm.rafId = null;
   storm.particles.forEach((p) => p.el.remove());

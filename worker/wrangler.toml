@@ -1,0 +1,19 @@
+name = "howmanynuggets-api"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+# D1 database binding. Create the DB with:
+#   wrangler d1 create howmanynuggets
+# then paste the printed database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "howmanynuggets"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+# Optional: serve the API at api.howmanynuggets.com (same-site with the frontend).
+# Requires the howmanynuggets.com zone to be on this Cloudflare account.
+# Uncomment, then add "https://api.howmanynuggets.com" is NOT needed in CORS —
+# the frontend origin is howmanynuggets.com, which is already allow-listed.
+# [[routes]]
+# pattern = "api.howmanynuggets.com"
+# custom_domain = true

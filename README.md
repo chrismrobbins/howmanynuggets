@@ -66,4 +66,27 @@ promotions, and tax. This project is **not affiliated with or endorsed by McDona
 | `js/blaster.js` | 🔫 Blaster minigame |
 | `js/flappy.js` | 🐤 Flappy Nug minigame |
 | `js/app.js` | Converter wiring and input formatting |
+| `js/api.js` | Client for the accounts + high-scores backend |
+| `js/account.js` | Sign in/up UI, high-scores panel, leaderboard modal |
+| `css/account.css` | Account, high-score, and leaderboard styles |
 | `nugget.png` | Transparent nugget image used everywhere |
+
+## Accounts & high scores (optional backend)
+
+Player accounts and arcade high scores are powered by a small **Cloudflare
+Worker + D1** backend under [`worker/`](worker/). It's optional — without it,
+the site works exactly as before, just with no sign-in or saved scores.
+
+- **Accounts:** username + display name + password (hashed with PBKDF2 —
+  never stored in plaintext). Sessions keep you logged in across visits.
+- **High scores:** best score per game (`catch`, `blaster`, `flappy`), shown in
+  the "Your High Scores" panel.
+- **Leaderboards:** rankings per game, including where you place.
+
+> ⚠️ The sign-up form warns users **not to reuse a real password** — this is a
+> hobby project with best-effort security.
+
+See [`worker/README.md`](worker/README.md) for one-time setup (create the D1
+database, apply `schema.sql`, deploy the Worker). The frontend talks to
+`https://api.howmanynuggets.com` by default; override with
+`window.NUGGET_API_BASE` for local dev.

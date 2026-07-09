@@ -6,9 +6,17 @@
   <title>McNugget Converter</title>
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="stylesheet" href="css/storm.css" />
+  <link rel="stylesheet" href="css/account.css" />
 </head>
 <body>
   <main class="card">
+    <div class="account-bar" id="accountBar">
+      <button class="account-btn" id="accountBtn" type="button" aria-haspopup="dialog">
+        <span class="avatar" id="accountAvatar" style="display:none">?</span>
+        <span id="accountLabel">Sign in</span>
+      </button>
+    </div>
+
     <p class="kicker">The Fry Station</p>
     <h1>McNugget Converter</h1>
     <p class="sub">Enter your ZIP for a local price estimate, then see how many McNuggets your money buys.</p>
@@ -58,6 +66,17 @@
 
     <button class="arcade-btn" id="arcadeBtn" type="button">🕹️ Enter the Nugget Arcade</button>
 
+    <button class="ghost-btn" id="openLeaderboards" type="button" style="width:100%;margin:0 0 1.25rem">🏆 View Leaderboards</button>
+
+    <div class="my-scores" id="myScores">
+      <p class="kicker">Your High Scores</p>
+      <div class="score-tiles">
+        <div class="score-tile"><div class="game">🧺</div><div class="game-name">Catch</div><div class="best" id="myCatch">0</div></div>
+        <div class="score-tile"><div class="game">🎯</div><div class="game-name">Blaster</div><div class="best" id="myBlaster">0</div></div>
+        <div class="score-tile"><div class="game">🐤</div><div class="game-name">Flappy</div><div class="best" id="myFlappy">0</div></div>
+      </div>
+    </div>
+
     <div class="nugget-grid" id="nuggetGrid"></div>
 
     <div class="disclaimer">
@@ -99,11 +118,93 @@
   <!-- Flappy Nug player -->
   <img class="flappy-bird" id="flappyBird" src="nugget.png" alt="" draggable="false" />
 
+  <!-- Account modal: log in / create account / signed-in menu -->
+  <div class="modal-overlay" id="authModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <div class="modal-head">
+        <h2 id="authTitle">Sign in</h2>
+        <button class="modal-close" id="authClose" type="button" aria-label="Close">✕</button>
+      </div>
+
+      <div id="authForms">
+        <div class="tab-row" id="authTabs">
+          <button type="button" data-tab="login" class="on">Log in</button>
+          <button type="button" data-tab="register">Create account</button>
+        </div>
+
+        <form id="loginForm" autocomplete="off">
+          <div class="form-field">
+            <label for="loginUser">Username</label>
+            <input id="loginUser" name="username" type="text" autocomplete="username" />
+          </div>
+          <div class="form-field">
+            <label for="loginPass">Password</label>
+            <input id="loginPass" name="password" type="password" autocomplete="current-password" />
+          </div>
+          <button type="submit" class="primary-btn">Log in</button>
+          <div class="form-error" id="loginError"></div>
+        </form>
+
+        <form id="registerForm" autocomplete="off" style="display:none">
+          <div class="password-warning">
+            <span>⚠️</span>
+            <span><strong>Do not use a password you care about.</strong> This is a
+            hobby project with best-effort security — treat anything you type here as
+            if it could be exposed. Pick a throwaway password you don't reuse anywhere
+            else, and never your email/bank/work password.</span>
+          </div>
+          <div class="form-field">
+            <label for="regUser">Username <span style="opacity:.6">(3–20 · letters, numbers, _)</span></label>
+            <input id="regUser" name="username" type="text" autocomplete="off" />
+          </div>
+          <div class="form-field">
+            <label for="regDisplay">Display name <span style="opacity:.6">(shown on leaderboards)</span></label>
+            <input id="regDisplay" name="displayName" type="text" autocomplete="off" />
+          </div>
+          <div class="form-field">
+            <label for="regPass">Password <span style="opacity:.6">(min 8 · throwaway!)</span></label>
+            <input id="regPass" name="password" type="password" autocomplete="new-password" />
+          </div>
+          <button type="submit" class="primary-btn">Create account</button>
+          <div class="form-error" id="registerError"></div>
+        </form>
+      </div>
+
+      <div id="authMenu" class="account-menu" style="display:none">
+        <div class="whoami">
+          <div class="big-avatar" id="menuAvatar">?</div>
+          <div class="dn" id="menuDisplay"></div>
+          <div class="un" id="menuUsername"></div>
+        </div>
+        <button type="button" class="primary-btn" id="menuLeaderboards" style="margin-bottom:.6rem">🏆 Leaderboards</button>
+        <button type="button" class="ghost-btn" id="menuLogout" style="width:100%">Sign out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaderboard modal: rankings per game + your position -->
+  <div class="modal-overlay" id="lbModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="lbTitle">
+      <div class="modal-head">
+        <h2 id="lbTitle">🏆 Leaderboards</h2>
+        <button class="modal-close" id="lbClose" type="button" aria-label="Close">✕</button>
+      </div>
+      <div class="tab-row" id="lbTabs">
+        <button type="button" data-game="catch" class="on">🧺 Catch</button>
+        <button type="button" data-game="blaster">🎯 Blaster</button>
+        <button type="button" data-game="flappy">🐤 Flappy</button>
+      </div>
+      <div id="lbBody"><div class="lb-loading">Loading…</div></div>
+    </div>
+  </div>
+
   <script src="js/util.js"></script>
   <script src="js/pricing.js"></script>
   <script src="js/storm.js"></script>
   <script src="js/blaster.js"></script>
   <script src="js/flappy.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/account.js"></script>
 </body>
 </html>
