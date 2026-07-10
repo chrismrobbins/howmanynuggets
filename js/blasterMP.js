@@ -8,18 +8,20 @@
   if (!net) return;
 
   const WORLD_W = 1280, WORLD_H = 720;
-  const FIRE_COOLDOWN = 150;  // ms client-side fire throttle (server also enforces)
+  const FIRE_COOLDOWN = 55;   // ms client-side fire throttle (server enforces the real one)
   const CANNON_SPEED = 900;   // world px/s for arrow-key movement
 
-  let stage, hud, hudWaves, hudScores, banner;
+  let stage, hud, hudWaves, hudScores, hudPower, shieldEl, banner;
   let running = false, rafId = null, lastFrame = 0;
   let lastSnap = null;
-  let myX = WORLD_W / 2, lastInputSent = 0, lastInputX = null, lastFire = 0;
+  let myX = WORLD_W / 2, lastInputSent = 0, lastInputX = null, lastFire = 0, firing = false;
   const keys = { left: false, right: false };
-  const pools = { nug: [], bld: [], can: [] };
-  const poolIdx = { nug: 0, bld: 0, can: 0 }; // reset each frame; index into the pools
+  const pools = { nug: [], bld: [], can: [], bolt: [], crate: [] };
+  const poolIdx = { nug: 0, bld: 0, can: 0, bolt: 0, crate: 0 };
 
   const PLAYER_COLORS = ['#f59e0b', '#38bdf8', '#a78bfa', '#f472b6'];
+  const CRATE_EMOJI = { rapid: '⚡', triple: '🔱', shield: '🛡️' };
+  const POWER_LABEL = { rapid: '⚡ RAPID FIRE', triple: '🔱 TRIPLE SHOT', shield: '🛡️ CITY SHIELD' };
 
   // ---- stage / layout ----
   function ensureStage() {
@@ -32,14 +34,18 @@
     hudWaves.className = 'mp-waves';
     hudScores = document.createElement('span');
     hudScores.className = 'mp-scores';
+    hudPower = document.createElement('span');
+    hudPower.className = 'mp-power';
     const leave = document.createElement('button');
     leave.className = 'mp-leave';
     leave.textContent = 'Leave';
     leave.addEventListener('click', () => net.leave());
-    hud.append(hudWaves, hudScores, leave);
+    hud.append(hudWaves, hudScores, hudPower, leave);
+    shieldEl = document.createElement('div');
+    shieldEl.className = 'mp-shield';
     banner = document.createElement('div');
     banner.className = 'mp-banner';
-    stage.append(hud, banner);
+    stage.append(shieldEl, hud, banner);
     document.body.appendChild(stage);
   }
 
@@ -107,33 +113,39 @@
   function addInput() {
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mousedown', onDown);
+    window.addEventListener('mouseup', onUp);
     window.addEventListener('keydown', onKey);
     window.addEventListener('keyup', onKeyUp);
   }
   function removeInput() {
     window.removeEventListener('mousemove', onMove);
     window.removeEventListener('mousedown', onDown);
+    window.removeEventListener('mouseup', onUp);
     window.removeEventListener('keydown', onKey);
     window.removeEventListener('keyup', onKeyUp);
     keys.left = keys.right = false;
+    firing = false;
   }
   function onMove(e) {
     myX = Math.max(0, Math.min(WORLD_W, worldX(e.clientX, layout())));
     sendInput();
   }
   function onDown(e) {
-    if (e.target.closest('.mp-hud')) return;
+    if (e.target && e.target.closest && e.target.closest('.mp-hud')) return; // not HUD buttons
+    firing = true;
     fire();
   }
+  function onUp() { firing = false; }
   function onKey(e) {
     if (e.target && e.target.tagName === 'INPUT') return;
     if (e.code === 'ArrowLeft') { keys.left = true; e.preventDefault(); }
     else if (e.code === 'ArrowRight') { keys.right = true; e.preventDefault(); }
-    else if (e.code === 'Space') { fire(); e.preventDefault(); }
+    else if (e.code === 'Space') { firing = true; fire(); e.preventDefault(); }
   }
   function onKeyUp(e) {
     if (e.code === 'ArrowLeft') keys.left = false;
     else if (e.code === 'ArrowRight') keys.right = false;
+    else if (e.code === 'Space') firing = false;
   }
   function sendInput() {
     const now = performance.now();
@@ -141,12 +153,13 @@
     net.send({ t: 'input', x: Math.round(myX) });
     lastInputSent = now; lastInputX = myX;
   }
+  // The server enforces the real per-power cooldown; the client just avoids
+  // spamming. Kept low so ⚡ rapid fire (60ms server cooldown) can shine.
   function fire() {
     const now = performance.now();
     if (now - lastFire < FIRE_COOLDOWN) return;
     lastFire = now;
-    net.send({ t: 'fire', x: Math.round(myX) });
-    muzzleFlash();
+    net.send({ t: 'fire' });
   }
 
   // ---- render loop ----
@@ -157,6 +170,7 @@
 
     const dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
     if (dir) { myX = Math.max(0, Math.min(WORLD_W, myX + dir * CANNON_SPEED * dt)); sendInput(); }
+    if (firing) fire(); // hold to keep shooting
 
     render();
     rafId = requestAnimationFrame(loop);
@@ -168,7 +182,7 @@
   function render() {
     if (!lastSnap) return;
     const L = layout();
-    poolIdx.nug = poolIdx.bld = poolIdx.can = 0; // rewind the pools for this frame
+    poolIdx.nug = poolIdx.bld = poolIdx.can = poolIdx.bolt = poolIdx.crate = 0; // rewind pools
 
     const nSize = 44 * L.scale;
     let ni = 0;
@@ -221,6 +235,35 @@
       ci++;
     }
     hidePast('can', ci);
+
+    // bolts
+    let boi = 0;
+    for (const b of (lastSnap.bolts || [])) {
+      const el = acquire('bolt', 'div');
+      el.style.left = sx(b.x, L) + 'px';
+      el.style.top = sy(b.y, L) + 'px';
+      boi++;
+    }
+    hidePast('bolt', boi);
+
+    // power-up crates
+    let cri = 0;
+    for (const cr of (lastSnap.crates || [])) {
+      const el = acquire('crate', 'div');
+      el.textContent = CRATE_EMOJI[cr.k] || '🎁';
+      el.style.left = sx(cr.x, L) + 'px';
+      el.style.top = sy(cr.y, L) + 'px';
+      cri++;
+    }
+    hidePast('crate', cri);
+
+    // team shield line
+    if (lastSnap.shield && lastSnap.shieldY != null) {
+      shieldEl.style.display = 'block';
+      shieldEl.style.top = sy(lastSnap.shieldY, L) + 'px';
+    } else {
+      shieldEl.style.display = 'none';
+    }
   }
 
   // HUD is refreshed on each snapshot (20Hz), not every animation frame.
@@ -230,8 +273,14 @@
     const list = (scores || []).slice().sort((a, b) => b.score - a.score);
     hudScores.innerHTML = list.map((p) => {
       const me = p.id === net.you;
-      return `<span class="mp-sc${me ? ' me' : ''}">${escapeHtml(p.name)} ${fmtN(p.score)}</span>`;
+      return `<span class="mp-sc${me ? ' me' : ''}">🍗 ${escapeHtml(p.name)} ${fmtN(p.score)}</span>`;
     }).join('');
+    // my active power-up, plus the team shield indicator
+    const mine = s && s.cannons && s.cannons.find((c) => c.id === net.you);
+    let chip = (mine && mine.p) ? (POWER_LABEL[mine.p] + ' · ' + mine.pt + 's') : '';
+    if (s && s.shield) chip += (chip ? '   ' : '') + '🛡️ SHIELD UP';
+    hudPower.textContent = chip;
+    hudPower.style.display = chip ? 'inline' : 'none';
   }
 
   // ---- element pools ----
@@ -245,6 +294,8 @@
     if (!el) {
       el = document.createElement(tag);
       if (kind === 'nug') { el.className = 'mp-nug'; el.src = 'nugget.png'; el.draggable = false; }
+      else if (kind === 'bolt') el.className = 'mp-bolt2';
+      else if (kind === 'crate') el.className = 'mp-crate';
       stage.appendChild(el);
       pool[i] = el;
     }
