@@ -356,6 +356,10 @@ function stopStorm(completed = false) {
   } else {
     stormHud.classList.remove('active', 'done');
   }
+
+  // Games launched from the 3D hall return there instead of to the page
+  // (see js/arcade.js). No-op when the hall isn't up.
+  if (typeof window.onStormExit === 'function') window.onStormExit(completed);
 }
 
 stormStop.addEventListener('click', () => stopStorm());

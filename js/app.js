@@ -16,8 +16,9 @@ const HOUSE_STORM_NUGS = 1000000;
 const HOUSE_STORM_DOLLARS = 5000000; // pegs the house storm at Cat 3
 
 function updateArcadeBtn() {
-  arcadeBtn.classList.toggle('running', storm.running);
-  arcadeBtn.textContent = storm.running ? '🛑 Stop the Arcade' : '🕹️ Enter the Nugget Arcade';
+  const on = storm.running || (window.NuggetArcade && NuggetArcade.active);
+  arcadeBtn.classList.toggle('running', on);
+  arcadeBtn.textContent = on ? '🛑 Leave the Arcade' : '🕹️ Enter the Nugget Arcade';
 }
 
 // While the arcade is on, keep the storm in sync with whatever's typed.
@@ -32,13 +33,18 @@ function syncArcade(nuggets, dollars) {
   startStorm(total, dollars > 0 ? dollars : HOUSE_STORM_DOLLARS);
 }
 
+// The button opens the 3D arcade hall (js/arcade.js); games are launched by
+// walking up to a cabinet in there. The hall calls back into the storm engine
+// through the same storm.arcade/update() path the button used to drive.
 arcadeBtn.addEventListener('click', () => {
-  if (storm.running) {
-    stopStorm(); // also clears storm.arcade
+  arcadeBtn.blur(); // keep Enter/Space inside the hall from re-clicking this button
+  const hallUp = window.NuggetArcade && NuggetArcade.active;
+  if (storm.running || hallUp) {
+    if (storm.running) stopStorm(); // also clears storm.arcade
+    if (hallUp) NuggetArcade.exit();
     return;
   }
-  storm.arcade = true;
-  update();
+  NuggetArcade.enter();
 });
 
 // Cap how many <img> we actually render so huge counts don't freeze the tab.
