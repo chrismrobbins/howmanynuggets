@@ -45,10 +45,12 @@ few surprises for the big spenders.
     courtyard against waves of waddling sporks (+25), armored sporks (wave 5+,
     two hits, +40), and three-hit Big Forks (+100). ← → move, space jumps
     clean over enemies, click/X slashes; three hearts, brief knockout when
-    they run out, +50 × wave for a clear. **After every wave you choose one
-    of three boons** — character upgrades (reach, swing speed, move speed,
-    damage, jump, extra hearts) or castle defenses (ember-lobbing torches,
-    a shield that blocks hits) — while the waves get faster and meaner.
+    they run out (and you rise at only half hearts), +50 × wave for a clear.
+    **After every wave you choose one of three boons** — character upgrades
+    (reach, swing speed, move speed, damage, jump, extra hearts) or castle
+    defenses (one-time ember-lobbing torches, a shield that blocks hits, and
+    up to four hired **nugget archers** who man the battlements and rain
+    arrows) — while the waves get bigger, faster, and meaner.
   - 🧘 **Nugget Simulator** — the calm one. You are a nugget on a park bench,
     watching a full day/night cycle pass every two minutes: sunrises, drifting
     clouds, migrating birds, fireflies, shooting stars. The nugget ages —

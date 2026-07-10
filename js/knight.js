@@ -19,7 +19,7 @@ const K_MIN_X = 90, K_MAX_X = 1510;
 const SLASH_SECS = 0.26;      // full swing
 const SLASH_FROM = -95, SLASH_TO = 100; // degrees, shoulder-relative
 const SLASH_REACH = 108;      // horizontal reach of the active arc
-const HIT_IFRAMES = 1.1;      // seconds of invincibility after a hit
+const HIT_IFRAMES = 0.85;     // seconds of invincibility after a hit
 const KO_SECS = 1.6;
 const HEARTS_MAX = 3;
 const SPORK_SCORE = 25, FORK_SCORE = 100, WAVE_BONUS = 50;
@@ -32,8 +32,9 @@ const UPGRADES = [
   { key: 'heart',  emoji: '❤️', name: 'Extra Heart',      desc: '+1 max heart & full heal',    ok: (s) => s.maxHearts < 6,  apply: (s) => { s.maxHearts++; knight.hearts = s.maxHearts; } },
   { key: 'sharp',  emoji: '🗡️', name: 'Sharpened Edge',   desc: 'Slashes deal +1 damage',      ok: (s) => s.dmg < 3,        apply: (s) => { s.dmg++; } },
   { key: 'jump',   emoji: '🦵', name: 'Moon Greaves',     desc: 'Jump 12% higher',             ok: (s) => s.jumpV < 1.5,    apply: (s) => { s.jumpV *= 1.12; } },
-  { key: 'torch',  emoji: '🔥', name: 'Vigilant Torches', desc: 'Torches lob embers at foes',  ok: (s) => s.torchLvl < 3,   apply: (s) => { s.torchLvl++; } },
-  { key: 'shield', emoji: '🛡️', name: 'Bulwark Shield',   desc: 'Block 1 hit per wave',        ok: (s) => s.blockMax < 3,   apply: (s) => { s.blockMax++; knight.blockLeft = s.blockMax; } },
+  { key: 'torch',  emoji: '🔥', name: 'Vigilant Torches', desc: 'Torches lob embers at foes',  ok: (s) => s.torchLvl < 1,   apply: (s) => { s.torchLvl++; } },
+  { key: 'archer', emoji: '🏹', name: 'Hire an Archer',   desc: 'A nugget archer mans the wall', ok: (s) => s.archers < 4,  apply: (s) => { s.archers++; spawnArcher(); } },
+  { key: 'shield', emoji: '🛡️', name: 'Bulwark Shield',   desc: 'Block 1 hit per wave',        ok: (s) => s.blockMax < 2,   apply: (s) => { s.blockMax++; knight.blockLeft = s.blockMax; } },
 ];
 
 const knight = {
@@ -62,6 +63,8 @@ const knight = {
   slashDur: SLASH_SECS,
   embers: [],        // torch projectiles { el, x, y, t, target }
   emberT: 0,
+  archers: [],       // wall archers { el, x, shootT }
+  arrows: [],        // { el, x0, y0, t, target }
   refs: null,
 };
 
@@ -243,7 +246,8 @@ function syncKnight() {
   if (active) {
     buildKnightScene();
     knight.x = 800; knight.dir = 1; knight.y = 0; knight.vy = 0;
-    knight.stats = { reach: 1, swing: 1, speed: 1, jumpV: 1, dmg: 1, torchLvl: 0, blockMax: 0, maxHearts: HEARTS_MAX };
+    knight.stats = { reach: 1, swing: 1, speed: 1, jumpV: 1, dmg: 1, torchLvl: 0, blockMax: 0, archers: 0, maxHearts: HEARTS_MAX };
+    clearArchers();
     knight.hearts = HEARTS_MAX; knight.iT = 0; knight.ko = 0;
     knight.blockLeft = 0;
     knight.slashT = 0; knight.phase = 0;
@@ -264,13 +268,47 @@ function clearKnightEnemies() {
   knight.enemies = [];
   knight.embers.forEach((e) => e.el.remove());
   knight.embers = [];
+  knight.arrows.forEach((a) => a.el.remove());
+  knight.arrows = [];
+}
+
+function clearArchers() {
+  knight.archers.forEach((a) => a.el.remove());
+  knight.archers = [];
+}
+
+// ---- Wall archers (🏹 Hire an Archer) ------------------------------------------
+
+const ARCHER_POSTS = [300, 1300, 470, 1130]; // battlement positions, in hire order
+
+function spawnArcher() {
+  const x = ARCHER_POSTS[knight.archers.length % ARCHER_POSTS.length];
+  const g = document.createElementNS(SVG_NS, 'g');
+  g.setAttribute('transform', `translate(${x},400)`);
+  g.innerHTML = `
+    <image href="nugget.png" x="-19" y="-42" width="38" height="38"/>
+    <path d="M-16,-30 Q-17,-43 -1,-44 Q15,-43 14,-30" fill="none" stroke="#8b93a3" stroke-width="6" stroke-linecap="round"/>
+    <path d="M16,-36 q16,14 0,30" fill="none" stroke="#6b4a2c" stroke-width="4" stroke-linecap="round"/>
+    <line x1="16" y1="-36" x2="16" y2="-6" stroke="#d9d2c2" stroke-width="1.5"/>`;
+  knight.refs.enemies.parentNode.insertBefore(g, knight.refs.enemies);
+  knight.archers.push({ el: g, x, shootT: 1 + Math.random() * 1.5 });
+}
+
+function shootArrow(archer, target) {
+  const el = document.createElementNS(SVG_NS, 'g');
+  el.innerHTML = `
+    <line x1="-11" y1="0" x2="9" y2="0" stroke="#6b4a2c" stroke-width="3.5" stroke-linecap="round"/>
+    <path d="M9,0 l7,3 l0,-6 Z" fill="#aab4c2"/>
+    <path d="M-11,0 l-5,4 M-11,0 l-5,-4" stroke="#d9d2c2" stroke-width="2.5"/>`;
+  knight.refs.fx.appendChild(el);
+  knight.arrows.push({ el, x0: archer.x + 16, y0: 372, t: 0, target });
 }
 
 // ---- Waves & enemies ------------------------------------------------------------
 
 function startWave(n) {
   knight.wave = n;
-  knight.pending = 2 + n;
+  knight.pending = 3 + Math.ceil(n * 1.4);
   knight.spawnT = 0.4;
   knight.blockLeft = knight.stats.blockMax;
   updateStormHud();
@@ -327,9 +365,9 @@ function enemySvg(type) {
 }
 
 function spawnEnemy() {
-  const forkChance = knight.wave >= 3 ? Math.min(0.12 * (knight.wave - 2), 0.45) : 0;
+  const forkChance = knight.wave >= 2 ? Math.min(0.15 * (knight.wave - 1), 0.5) : 0;
   let type = Math.random() < forkChance ? 'fork' : 'spork';
-  if (type === 'spork' && knight.wave >= 5 && Math.random() < 0.3) type = 'armored';
+  if (type === 'spork' && knight.wave >= 4 && Math.random() < 0.35) type = 'armored';
   const el = enemySvg(type);
   knight.refs.enemies.appendChild(el);
   knight.spawnSide = -knight.spawnSide;
@@ -337,7 +375,7 @@ function spawnEnemy() {
     el, type,
     x: knight.spawnSide === 1 ? 1660 : -60,
     hp: type === 'fork' ? 3 : type === 'armored' ? 2 : 1,
-    speed: (type === 'fork' ? 55 : type === 'armored' ? 62 : 75) + Math.random() * 40 + knight.wave * 7,
+    speed: (type === 'fork' ? 66 : type === 'armored' ? 75 : 92) + Math.random() * 45 + knight.wave * 9,
     waddle: Math.random() * Math.PI * 2,
     flashT: 0,
     dead: false, vx: 0, vy: 0, rot: 0, y: 0,
@@ -374,7 +412,7 @@ function hurtKnight(fromX) {
   if (knight.iT > 0 || knight.ko > 0) return;
   if (knight.blockLeft > 0) {
     knight.blockLeft--;
-    knight.iT = 0.9;
+    knight.iT = 0.7;
     const [bx, by] = knightToScreen(knight.x, K_GROUND - 130);
     spawnPopLabel(bx, by, '🛡️ blocked!');
     updateStormHud();
@@ -502,7 +540,8 @@ function stepKnight(dt, w, h) {
   if (knight.ko > 0) {
     knight.ko -= dt;
     if (knight.ko <= 0) {
-      knight.hearts = knight.stats.maxHearts;
+      // Getting clanked out stings now: you rise with half your hearts.
+      knight.hearts = Math.ceil(knight.stats.maxHearts / 2);
       knight.iT = 1.4;
       updateStormHud();
     }
@@ -517,7 +556,7 @@ function stepKnight(dt, w, h) {
     if (knight.spawnT <= 0) {
       spawnEnemy();
       knight.pending--;
-      knight.spawnT = Math.max(0.32, 0.7 - knight.wave * 0.03) + Math.random() * 0.8;
+      knight.spawnT = Math.max(0.26, 0.6 - knight.wave * 0.035) + Math.random() * 0.6;
     }
   } else if (!knight.enemies.some((e) => !e.dead)) {
     // wave cleared → bank the bonus, then offer a boon
@@ -589,6 +628,37 @@ function stepKnight(dt, w, h) {
       knight.embers.push({ el, x0: fromX, y0: 420, x: fromX, y: 420, t: 0, target });
     }
   }
+  // Wall archers loose arrows at whatever's waddling
+  if (knight.archers.length) {
+    const alive = knight.enemies.filter((e) => !e.dead);
+    for (const a of knight.archers) {
+      a.shootT -= dt;
+      if (a.shootT <= 0 && alive.length) {
+        a.shootT = 2.4 + Math.random() * 1.2;
+        shootArrow(a, alive[Math.floor(Math.random() * alive.length)]);
+      }
+    }
+  }
+  for (let i = knight.arrows.length - 1; i >= 0; i--) {
+    const ar = knight.arrows[i];
+    ar.t += dt / 0.38;
+    const q3 = Math.min(ar.t, 1);
+    const tx = ar.target.x, ty = K_GROUND - 34;
+    const ax = ar.x0 + (tx - ar.x0) * q3;
+    const ay = ar.y0 + (ty - ar.y0) * q3 + Math.sin(q3 * Math.PI) * -30;
+    const ang = Math.atan2(ty - ar.y0, tx - ar.x0) * 180 / Math.PI;
+    ar.el.setAttribute('transform', `translate(${ax.toFixed(1)},${ay.toFixed(1)}) rotate(${ang.toFixed(0)})`);
+    if (q3 >= 1) {
+      if (!ar.target.dead) {
+        ar.target.hp--;
+        if (ar.target.hp <= 0) killEnemy(ar.target);
+        else ar.target.flashT = 0.18;
+      }
+      ar.el.remove();
+      knight.arrows.splice(i, 1);
+    }
+  }
+
   for (let i = knight.embers.length - 1; i >= 0; i--) {
     const em = knight.embers[i];
     em.t += dt / 0.6;
