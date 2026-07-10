@@ -17,3 +17,13 @@ database_id = "2cd74807-a091-45a0-8713-002abc552607"
 [[routes]]
 pattern = "api.howmanynuggets.com"
 custom_domain = true
+
+# Multiplayer framework: one GameRoom Durable Object per game room. Games plug in
+# as modules (worker/src/games/*). SQLite-backed so it runs on the free plan.
+[[durable_objects.bindings]]
+name = "GAME_ROOMS"
+class_name = "GameRoom"
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["GameRoom"]

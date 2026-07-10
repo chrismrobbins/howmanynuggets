@@ -34,3 +34,23 @@ CREATE TABLE IF NOT EXISTS sessions (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+
+-- Multiplayer match history. One row per finished co-op/versus match; one
+-- match_players row per participant with their score in that match.
+CREATE TABLE IF NOT EXISTS matches (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  game        TEXT    NOT NULL,       -- 'blaster' | ...
+  code        TEXT,                   -- room code
+  waves       INTEGER,                -- shared co-op stat (game-defined)
+  started_at  INTEGER,
+  ended_at    INTEGER
+);
+CREATE TABLE IF NOT EXISTS match_players (
+  match_id    INTEGER NOT NULL,
+  user_id     INTEGER NOT NULL,
+  score       INTEGER NOT NULL,
+  PRIMARY KEY (match_id, user_id),
+  FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_match_players_user ON match_players(user_id);
