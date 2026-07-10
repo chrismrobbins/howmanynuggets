@@ -54,7 +54,23 @@ const NuggetArcade = (() => {
     dust: [], rain: [],
     attractIdx: 0,
     isTouch: 'ontouchstart' in window,
+    // iteration 2: interactive props
+    hotspots: [],           // walk-up interactables that aren't cabinets
+    propBoxes: [],          // extra collision boxes (vending machine, etc.)
+    sparks: [],             // golden-nug celebration particles
+    toast: null,            // { text, until } — transient prompt override
+    lb: { data: {}, at: 0 },// cached leaderboard rows per game
+    lbTimer: 0,
+    mystery: { wiggle: 0, pokes: 0, pos: null },
+    stepAcc: 0,             // footstep distance accumulator
+    prevZ: 99,
+    lastChime: -9,
   };
+
+  // True while any page modal (leaderboards, sign-in) covers the hall.
+  function modalOpen() {
+    return !!document.querySelector('.modal-overlay.active');
+  }
 
   // ---- tiny mat4 (column-major) -------------------------------------------------
 
@@ -396,6 +412,10 @@ void main() {
     const DL = new Builder(), DR = new Builder(); // door leaves
     const DEC = new Builder();    // dark contact-shadow decals
     const SCR = new Builder();    // all cabinet screens (one quad each)
+    const SB = new Builder();     // live leaderboard scoreboard (own texture)
+    const DM = new Builder();     // draped mystery cabinet (own model matrix — it wiggles)
+    const DISCO = new Builder();  // mirror ball (own model matrix — it spins)
+    const FLORA = new Builder();  // alpha-blended extras (the golden nug)
 
     const X = RX, ZB = RZB, CH = RCH;
 
@@ -469,13 +489,175 @@ void main() {
       [[uv.phrase[0], uv.phrase[3]], [uv.phrase[2], uv.phrase[3]], [uv.phrase[2], uv.phrase[1]], [uv.phrase[0], uv.phrase[1]]],
       { e: 1 }
     );
+    // "★ HIGH SCORES ★" neon crowning the live scoreboard below it
     SGN.quadV(
-      [[X - 0.03, 2.5, -17.4], [X - 0.03, 2.5, -14.2], [X - 0.03, 3.3, -14.2], [X - 0.03, 3.3, -17.4]],
+      [[X - 0.03, 3.42, -17.0], [X - 0.03, 3.42, -14.6], [X - 0.03, 4.02, -14.6], [X - 0.03, 4.02, -17.0]],
       [[uv.highscores[0], uv.highscores[3]], [uv.highscores[2], uv.highscores[3]], [uv.highscores[2], uv.highscores[1]], [uv.highscores[0], uv.highscores[1]]],
       { e: 1 }
     );
     H.glows.push({ p: [-X + 0.2, 2.9, -15.8], c: [1, 0.18, 0.63], s: 1.6, a: 0.14, k: 'neon' });
-    H.glows.push({ p: [X - 0.2, 2.9, -15.8], c: [0.22, 1, 0.48], s: 1.6, a: 0.14, k: 'neon' });
+    H.glows.push({ p: [X - 0.2, 3.7, -15.8], c: [0.22, 1, 0.48], s: 1.6, a: 0.14, k: 'neon' });
+
+    // ---- the live scoreboard (east wall): dark frame + a screen fed by the API
+    {
+      const bx = X - 0.08, z1 = -14.2, z2 = -17.4, y1 = 1.7, y2 = 3.3;
+      // backing frame slab (east wall normal is -x → z ascending order... board
+      // faces -x, so wind z1(front-left as seen) descending like the east wall)
+      // east wall faces -x → wind z ascending (z2 is the viewer's left)
+      B.quad([bx + 0.02, y1 - 0.12, z2 - 0.12], [bx + 0.02, y1 - 0.12, z1 + 0.12],
+        [bx + 0.02, y2 + 0.12, z1 + 0.12], [bx + 0.02, y2 + 0.12, z2 - 0.12], uv.dark, { tint: 0.7 });
+      SB.quadV(
+        [[bx, y1, z2], [bx, y1, z1], [bx, y2, z1], [bx, y2, z2]],
+        [[0, 1], [1, 1], [1, 0], [0, 0]],
+        { e: 0.85 }
+      );
+      H.glows.push({ p: [bx - 0.25, (y1 + y2) / 2, (z1 + z2) / 2], c: [0.25, 1, 0.5], s: 1.7, a: 0.1, k: 'neon' });
+      H.hotspots.push({
+        kind: 'board',
+        x: bx, z: (z1 + z2) / 2, r: 3.0,
+        min: [bx - 0.1, y1 - 0.2, z2], max: [X, y2 + 0.2, z1],
+        stand: [bx - 1.6, EYE, (z1 + z2) / 2],
+        label: 'VIEW FULL LEADERBOARDS',
+        act: () => {
+          const btn = document.getElementById('openLeaderboards');
+          if (btn) { btn.click(); sfxBoop(880); }
+        },
+      });
+    }
+
+    // ---- the draped mystery cabinet (west wall, next to the phrase sign)
+    {
+      const mx = -7.0, mz = -16.8, myaw = Math.PI / 2;
+      H.mystery.pos = [mx, mz, myaw];
+      // local geometry (origin at floor center, +z is its front) — the drape
+      // hangs over a lower slab and a smaller head block, like a covered cab
+      const boxes = [
+        [0.55, 0, 1.55, 0.47],   // halfW, y0, y1, halfD — body
+        [0.47, 1.55, 2.02, 0.38] // head
+      ];
+      for (const [hw2, y0, y1b, hd] of boxes) {
+        DM.quad([-hw2, y0, hd], [hw2, y0, hd], [hw2, y1b, hd], [-hw2, y1b, hd], sub(uv.drape, 0.05, 0.08, 0.95, 0.95), {});
+        DM.quad([hw2, y0, -hd], [-hw2, y0, -hd], [-hw2, y1b, -hd], [hw2, y1b, -hd], sub(uv.drape, 0.1, 0.2, 0.9, 0.95), {});
+        DM.quad([-hw2, y0, -hd], [-hw2, y0, hd], [-hw2, y1b, hd], [-hw2, y1b, -hd], sub(uv.drape, 0.15, 0.1, 0.85, 0.95), {});
+        DM.quad([hw2, y0, hd], [hw2, y0, -hd], [hw2, y1b, -hd], [hw2, y1b, hd], sub(uv.drape, 0.12, 0.12, 0.88, 0.95), {});
+        DM.quad([-hw2, y1b, hd], [hw2, y1b, hd], [hw2, y1b, -hd], [-hw2, y1b, -hd], sub(uv.drape, 0.2, 0.02, 0.8, 0.25), {});
+      }
+      DEC.quad(
+        [mx - 0.75, 0.006, mz + 0.75], [mx + 0.75, 0.006, mz + 0.75],
+        [mx + 0.75, 0.006, mz - 0.75], [mx - 0.75, 0.006, mz - 0.75],
+        uv.sw_black, { e: 1 }
+      );
+      H.propBoxes.push({ min: [mx - 0.65, 0, mz - 0.65], max: [mx + 0.65, 2.1, mz + 0.65] });
+      H.hotspots.push({
+        kind: 'mystery',
+        x: mx, z: mz, r: 2.4,
+        min: [mx - 0.62, 0, mz - 0.62], max: [mx + 0.62, 2.1, mz + 0.62],
+        stand: [mx + 1.5, EYE, mz],
+        label: "WHAT'S UNDER THE SHEET?",
+        act: pokeMystery,
+      });
+    }
+
+    // ---- entrance zone --------------------------------------------------------
+
+    // Free-standing box against the south wall, front facing -z into the hall.
+    // Windings follow the wall rules: front x-descending, sides z-asc/desc, top +y.
+    function boxProp(x, z, hw2, hd, hgt, frontUV, frontE) {
+      B.quad([x + hw2, 0, z - hd], [x - hw2, 0, z - hd], [x - hw2, hgt, z - hd], [x + hw2, hgt, z - hd], frontUV, { e: frontE });
+      B.quad([x - hw2, 0, z - hd], [x - hw2, 0, z + hd], [x - hw2, hgt, z + hd], [x - hw2, hgt, z - hd], uv.dark, {});
+      B.quad([x + hw2, 0, z + hd], [x + hw2, 0, z - hd], [x + hw2, hgt, z - hd], [x + hw2, hgt, z + hd], uv.dark, {});
+      B.quad([x - hw2, hgt, z + hd], [x + hw2, hgt, z + hd], [x + hw2, hgt, z - hd], [x - hw2, hgt, z - hd], uv.dark, {});
+    }
+
+    // SAUCE-O-MATIC vending machine (right of the doors, facing the hall)
+    {
+      const vx = 3.1, vz = -0.55, hw2 = 0.5, hd = 0.33, vh = 1.9;
+      boxProp(vx, vz, hw2, hd, vh, uv.vending, 0.35);
+      DEC.quad([vx - 0.7, 0.006, vz + 0.5], [vx + 0.7, 0.006, vz + 0.5], [vx + 0.7, 0.006, vz - 0.5], [vx - 0.7, 0.006, vz - 0.5], uv.sw_black, { e: 1 });
+      H.glows.push({ p: [vx, 1.2, vz - 0.5], c: [1, 0.35, 0.2], s: 1.1, a: 0.13, k: 'neon' });
+      H.propBoxes.push({ min: [vx - 0.6, 0, vz - 0.45], max: [vx + 0.6, vh, vz + 0.45] });
+
+      // the golden nug perched on top (crossed alpha quads + a secret hotspot)
+      const ny = vh + 0.11, ns = 0.13;
+      FLORA.quad([vx - ns, ny - ns, vz], [vx + ns, ny - ns, vz], [vx + ns, ny + ns, vz], [vx - ns, ny + ns, vz], uv.nugGold, { e: 0.35, tint: 1.2 });
+      FLORA.quad([vx, ny - ns, vz + ns], [vx, ny - ns, vz - ns], [vx, ny + ns, vz - ns], [vx, ny + ns, vz + ns], uv.nugGold, { e: 0.35, tint: 1.2 });
+      H.hotspots.push({
+        kind: 'nug',
+        x: vx, z: vz, r: 2.3,
+        min: [vx - 0.2, vh - 0.05, vz - 0.2], max: [vx + 0.2, vh + 0.3, vz + 0.2],
+        stand: [vx, EYE, vz - 1.3],
+        label: 'A GOLDEN NUG?!',
+        act: () => foundGoldenNug(vx, ny, vz),
+      });
+    }
+
+    // change machine (left of the doors) — free play forever
+    {
+      const cx2 = -3.0, cz = -0.5;
+      boxProp(cx2, cz, 0.3, 0.24, 1.5, uv.change, 0.1);
+      H.propBoxes.push({ min: [cx2 - 0.4, 0, cz - 0.35], max: [cx2 + 0.4, 1.5, cz + 0.35] });
+    }
+
+    // velvet ropes guiding you in from the doors (decor — you can step over)
+    for (const side of [-1, 1]) {
+      const posts = [[side * 2.0, -0.8], [side * 2.6, -2.3]];
+      for (const [pxp, pzp] of posts) {
+        B.quad([pxp - 0.035, 0, pzp + 0.035], [pxp + 0.035, 0, pzp + 0.035], [pxp + 0.035, 0.95, pzp + 0.035], [pxp - 0.035, 0.95, pzp + 0.035], uv.metal, { tint: 0.9 });
+        B.quad([pxp + 0.035, 0, pzp - 0.035], [pxp - 0.035, 0, pzp - 0.035], [pxp - 0.035, 0.95, pzp - 0.035], [pxp + 0.035, 0.95, pzp - 0.035], uv.metal, { tint: 0.9 });
+        B.quad([pxp - 0.035, 0, pzp - 0.035], [pxp - 0.035, 0, pzp + 0.035], [pxp - 0.035, 0.95, pzp + 0.035], [pxp - 0.035, 0.95, pzp - 0.035], uv.metal, { tint: 0.9 });
+        B.quad([pxp + 0.035, 0, pzp + 0.035], [pxp + 0.035, 0, pzp - 0.035], [pxp + 0.035, 0.95, pzp - 0.035], [pxp + 0.035, 0.95, pzp + 0.035], uv.metal, { tint: 0.9 });
+        // amber ball cap
+        B.quad([pxp - 0.05, 0.95, pzp + 0.05], [pxp + 0.05, 0.95, pzp + 0.05], [pxp + 0.05, 1.05, pzp], [pxp - 0.05, 1.05, pzp], uv.sw_amber, { e: 0.55 });
+        B.quad([pxp + 0.05, 0.95, pzp - 0.05], [pxp - 0.05, 0.95, pzp - 0.05], [pxp - 0.05, 1.05, pzp], [pxp + 0.05, 1.05, pzp], uv.sw_amber, { e: 0.55 });
+      }
+      // sagging rope between the two posts (thin double-sided ribbon)
+      const [a, b] = posts;
+      for (let s = 0; s < 6; s++) {
+        const t0 = s / 6, t1 = (s + 1) / 6;
+        const sag = (tt) => 0.93 - Math.sin(tt * Math.PI) * 0.16;
+        const p0 = [a[0] + (b[0] - a[0]) * t0, sag(t0), a[1] + (b[1] - a[1]) * t0];
+        const p1 = [a[0] + (b[0] - a[0]) * t1, sag(t1), a[1] + (b[1] - a[1]) * t1];
+        B.quad([p0[0], p0[1] - 0.022, p0[2]], [p1[0], p1[1] - 0.022, p1[2]], [p1[0], p1[1] + 0.022, p1[2]], [p0[0], p0[1] + 0.022, p0[2]], uv.sw_rope, { e: 0.2, tint: 0.95 });
+        B.quad([p1[0], p1[1] - 0.022, p1[2]], [p0[0], p0[1] - 0.022, p0[2]], [p0[0], p0[1] + 0.022, p0[2]], [p1[0], p1[1] + 0.022, p1[2]], uv.sw_rope, { e: 0.2, tint: 0.95 });
+      }
+    }
+
+    // mirror ball over the entrance (own buffer — it spins)
+    {
+      const R = 0.34, STACKS = 6, SLICES = 9;
+      for (let i = 0; i < STACKS; i++) {
+        const ph0 = (i / STACKS) * Math.PI, ph1 = ((i + 1) / STACKS) * Math.PI;
+        for (let j = 0; j < SLICES; j++) {
+          const th0 = (j / SLICES) * Math.PI * 2, th1 = ((j + 1) / SLICES) * Math.PI * 2;
+          const P = (ph, th) => [Math.sin(ph) * Math.cos(th) * R, Math.cos(ph) * R, Math.sin(ph) * Math.sin(th) * R];
+          DISCO.quad(P(ph1, th0), P(ph1, th1), P(ph0, th1), P(ph0, th0),
+            sub(uv.metal, (j % 3) * 0.3, (i % 3) * 0.3, (j % 3) * 0.3 + 0.25, (i % 3) * 0.3 + 0.25),
+            { e: 0.3, tint: 1.25 });
+        }
+      }
+      // hanging rod
+      B.quad([-0.015, 3.86, -2.6], [0.015, 3.86, -2.6], [0.015, RCH, -2.6], [-0.015, RCH, -2.6], uv.dark, {});
+      B.quad([0.015, 3.86, -2.61], [-0.015, 3.86, -2.61], [-0.015, RCH, -2.61], [0.015, RCH, -2.61], uv.dark, {});
+      H.glows.push({ p: [0, 3.52, -2.6], c: [0.8, 0.85, 1], s: 0.8, a: 0.14, k: 'tube' });
+    }
+
+    // exterior windows: OPEN 24/7 neon on the right, dark glass on the left
+    for (const side of [-1, 1]) {
+      const wx1 = side * 2.9, wx2 = side * 4.9;
+      const xa = Math.min(wx1, wx2), xb = Math.max(wx1, wx2);
+      B.quad([xa, 1.45, 0.03], [xb, 1.45, 0.03], [xb, 2.65, 0.03], [xa, 2.65, 0.03], uv.sw_glass, { tint: 1.1 });
+      // frame
+      for (const [fy1, fy2] of [[1.38, 1.45], [2.65, 2.72]])
+        B.quad([xa - 0.07, fy1, 0.035], [xb + 0.07, fy1, 0.035], [xb + 0.07, fy2, 0.035], [xa - 0.07, fy2, 0.035], uv.metal, { tint: 0.8 });
+      for (const fx of [xa - 0.07, xb])
+        B.quad([fx, 1.45, 0.035], [fx + 0.07, 1.45, 0.035], [fx + 0.07, 2.65, 0.035], [fx, 2.65, 0.035], uv.metal, { tint: 0.8 });
+      if (side === 1) {
+        SGN.quad([3.05, 1.62, 0.05], [4.75, 1.62, 0.05], [4.75, 2.47, 0.05], [3.05, 2.47, 0.05], uv.open, { e: 1 });
+        H.glows.push({ p: [3.9, 2.05, 0.35], c: [1, 0.3, 0.6], s: 1.3, a: 0.16, k: 'sign' });
+      } else {
+        H.glows.push({ p: [-3.9, 2.0, 0.3], c: [1, 0.7, 0.35], s: 1.0, a: 0.08, k: 'sign' });
+      }
+    }
 
     // the big exterior sign + a smaller one inside above the doors
     SGN.quad([-3.4, 2.75, 0.12], [3.4, 2.75, 0.12], [3.4, 4.45, 0.12], [-3.4, 4.45, 0.12], uv.sign, { e: 1 });
@@ -550,7 +732,54 @@ void main() {
       static: B.upload(gl), floor: F.upload(gl), sign: SGN.upload(gl),
       doorL: DL.upload(gl), doorR: DR.upload(gl),
       decals: DEC.upload(gl), screens: SCR.upload(gl),
+      board: SB.upload(gl), mystery: DM.upload(gl),
+      disco: DISCO.upload(gl), flora: FLORA.upload(gl),
     };
+  }
+
+  // ---- interactive prop behaviors -------------------------------------------------
+
+  function pokeMystery() {
+    H.mystery.pokes++;
+    H.mystery.wiggle = 1;
+    sfxThump();
+    const lines = [
+      '🥊 …something jabbed back.',
+      '🤫 "soon," whispers the sheet.',
+      '🌶️ SAUCE BRAWL — COMING SOON to this very corner.',
+      '🥊 it is doing tiny footwork drills under there.',
+    ];
+    toast(lines[Math.min(H.mystery.pokes - 1, lines.length - 1)], 2.6);
+  }
+
+  function foundGoldenNug(x, y, z) {
+    for (let i = 0; i < 30; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 0.4 + Math.random() * 1.1;
+      H.sparks.push({
+        x: x + (Math.random() - 0.5) * 0.1, y: y + (Math.random() - 0.5) * 0.1, z: z + (Math.random() - 0.5) * 0.1,
+        vx: Math.cos(a) * sp, vy: 1.0 + Math.random() * 1.6, vz: Math.sin(a) * sp,
+        life: 0.8 + Math.random() * 0.6, max: 1.4,
+      });
+    }
+    sfxShimmer();
+    toast(H.nugFound ? '✨ still golden. still yours in spirit.' : '✨ THE GOLDEN NUG! worth 10× respect.', 2.6);
+    H.nugFound = true;
+  }
+
+  function toast(text, secs) {
+    H.toast = { text, until: H.t + secs };
+  }
+
+  // Pull real top-5s for the scoreboard. Signed-out and offline both fine —
+  // the board just says so. Cached for a minute across hall entries.
+  function fetchLeaderboards() {
+    if (!window.NuggetAPI || Date.now() - H.lb.at < 60000) return;
+    H.lb.at = Date.now();
+    for (const game of ArcadeArt.GAMES) {
+      NuggetAPI.leaderboard(game.mode, 5)
+        .then((d) => { H.lb.data[game.mode] = (d && d.top) || []; })
+        .catch(() => { if (!Array.isArray(H.lb.data[game.mode])) H.lb.data[game.mode] = 'error'; });
+    }
   }
 
   function hexRGB(hex) {
@@ -633,6 +862,12 @@ void main() {
       H.screenTex[game.mode] = makeTexture(gl, c, { mips: false });
     }
 
+    // live leaderboard scoreboard texture
+    H.boardCv = document.createElement('canvas');
+    H.boardCv.width = 512;
+    H.boardCv.height = 256;
+    H.boardTex = makeTexture(gl, H.boardCv, { mips: false });
+
     // dynamic sprite buffer
     H.sprVbo = gl.createBuffer();
 
@@ -666,8 +901,11 @@ void main() {
   };
 
   function bindInput() {
+    // capture phase: see the keystroke BEFORE account.js's document listener
+    // closes a modal, so Esc closes the leaderboards without also exiting the hall
     window.addEventListener('keydown', (e) => {
       if (!H.active || H.suspended) return;
+      if (modalOpen()) return; // a page modal owns the keyboard right now
       if (e.code === 'Escape') {
         e.preventDefault();
         if (H.state === 'intro') skipIntro();
@@ -686,14 +924,14 @@ void main() {
         e.preventDefault();
         activatePrompt();
       }
-    });
+    }, true);
     window.addEventListener('keyup', (e) => {
       if (KEYMAP[e.code]) H.keys[KEYMAP[e.code]] = false;
     });
 
     const cv = H.canvas;
     cv.addEventListener('mousedown', (e) => {
-      if (H.suspended) return;
+      if (H.suspended || modalOpen()) return;
       H.drag = { x: e.clientX, y: e.clientY, moved: 0, t: performance.now(), touch: false };
       cv.classList.add('dragging');
     });
@@ -718,7 +956,7 @@ void main() {
     }, { passive: false });
 
     cv.addEventListener('touchstart', (e) => {
-      if (H.suspended) return;
+      if (H.suspended || modalOpen()) return;
       const t = e.touches[0];
       H.drag = { x: t.clientX, y: t.clientY, moved: 0, t: performance.now(), touch: true };
     }, { passive: true });
@@ -772,6 +1010,9 @@ void main() {
     for (const cab of H.cabinets)
       if (x > cab.min[0] - 0.22 && x < cab.max[0] + 0.22 && z > cab.min[2] - 0.22 && z < cab.max[2] + 0.22)
         return false;
+    for (const box of H.propBoxes)
+      if (x > box.min[0] - 0.18 && x < box.max[0] + 0.18 && z > box.min[2] - 0.18 && z < box.max[2] + 0.18)
+        return false;
     return true;
   }
 
@@ -802,10 +1043,20 @@ void main() {
     ];
     const o = [H.cam.x, H.cam.y, H.cam.z];
 
-    let hit = null, hitT = Infinity;
+    let hit = null, hitT = Infinity, hitSpot = null;
     for (const cab of H.cabinets) {
       const t = rayAABB(o, d, cab.min, cab.max);
-      if (t != null && t < hitT) { hitT = t; hit = cab; }
+      if (t != null && t < hitT) { hitT = t; hit = cab; hitSpot = null; }
+    }
+    for (const spot of H.hotspots) {
+      const t = rayAABB(o, d, spot.min, spot.max);
+      if (t != null && t < hitT) { hitT = t; hit = null; hitSpot = spot; }
+    }
+    if (hitSpot) {
+      const dist = Math.hypot(hitSpot.x - o[0], hitSpot.z - o[2]);
+      if (dist < hitSpot.r) hitSpot.act();
+      else { H.auto = { x: hitSpot.stand[0], z: hitSpot.stand[2], spot: hitSpot, launch: true }; H.state = 'auto'; sfxBoop(); }
+      return;
     }
     if (hit) {
       const dist = Math.hypot(hit.stand[0] - o[0], hit.stand[2] - o[2]);
@@ -839,7 +1090,9 @@ void main() {
 
   function activatePrompt() {
     if (H.promptTarget === 'door') { exit(); return; }
-    if (H.promptTarget) startZoom(H.promptTarget);
+    if (!H.promptTarget) return;
+    if (H.promptTarget.act) H.promptTarget.act();
+    else startZoom(H.promptTarget);
   }
 
   // ---- state flow -----------------------------------------------------------------------
@@ -861,7 +1114,12 @@ void main() {
     H.cam.yaw = 0; H.cam.pitch = 0.02;
     H.auto = null; H.zoomAnim = null; H.promptTarget = null;
     H.introFlags = {};
+    H.toast = null;
+    H.sparks = [];
+    H.stepAcc = 0;
+    H.prevZ = 99;
     readBestScores();
+    fetchLeaderboards();
     H.root.classList.add('active');
     document.body.classList.add('hall-open', 'hall-session');
     H.fade.style.opacity = '1';
@@ -1045,14 +1303,10 @@ void main() {
     const dist = Math.hypot(dx, dz);
     if (dist < 0.14) {
       H.state = 'walk';
-      const cab = a.cab;
+      const cab = a.cab, spot = a.spot;
       H.auto = null;
-      if (cab) {
-        // face the screen; on touch, launch straight away
-        const d = [cab.screen.center[0] - H.cam.x, cab.screen.center[2] - H.cam.z];
-        H.targetYaw = Math.atan2(-d[0], -d[1]);
-        if (a.launch && H.isTouch) startZoom(cab);
-      }
+      if (cab && a.launch && H.isTouch) startZoom(cab);
+      else if (spot && a.launch && H.isTouch) spot.act();
       return;
     }
     const sp = Math.min(3.4 * dt, dist);
@@ -1100,25 +1354,41 @@ void main() {
 
   function updatePrompt() {
     let target = null, label = '';
+    const key = (H.isTouch ? '<span class="key">TAP</span>' : '<span class="key">⏎</span>');
     if (H.state === 'walk' || H.state === 'auto') {
       const f = camFwd(H.cam.yaw, 0);
-      let bestDot = 0.35, bestCab = null;
+      let bestDot = 0.35;
       for (const cab of H.cabinets) {
         const dx = cab.x - H.cam.x, dz = cab.z - H.cam.z;
         const dist = Math.hypot(dx, dz);
         if (dist > 2.6) continue;
         const dot = (dx / dist) * f[0] + (dz / dist) * f[2];
-        if (dot > bestDot) { bestDot = dot; bestCab = cab; }
+        if (dot > bestDot) {
+          bestDot = dot;
+          target = cab;
+          label = key + 'PLAY ' + cab.game.title;
+        }
       }
-      if (bestCab) {
-        target = bestCab;
-        label = (H.isTouch ? '<span class="key">TAP</span>' : '<span class="key">⏎</span>') +
-          'PLAY ' + bestCab.game.title;
-      } else if (H.cam.z > -1.7 && f[2] > 0.35) {
+      for (const spot of H.hotspots) {
+        const dx = spot.x - H.cam.x, dz = spot.z - H.cam.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist > spot.r) continue;
+        const dot = (dx / dist) * f[0] + (dz / dist) * f[2];
+        if (dot > bestDot) {
+          bestDot = dot;
+          target = spot;
+          label = key + spot.label;
+        }
+      }
+      if (!target && H.cam.z > -1.7 && f[2] > 0.35) {
         target = 'door';
-        label = (H.isTouch ? '<span class="key">TAP DOORS</span>' : '<span class="key">⏎</span>') +
-          'BACK TO THE CALCULATOR';
+        label = (H.isTouch ? '<span class="key">TAP DOORS</span>' : key) + 'BACK TO THE CALCULATOR';
       }
+    }
+    // transient toasts (mystery pokes, golden nug) trump the interact label
+    if (H.toast) {
+      if (H.t < H.toast.until) label = H.toast.text;
+      else H.toast = null;
     }
     H.promptTarget = target;
     if (label !== H.promptLabel) {
@@ -1241,12 +1511,29 @@ void main() {
     const [dl, dr] = doorModels();
     const signBoost = 0.15 + 0.85 * sl;
 
+    // dynamic prop models: the sheet wiggles when poked, the mirror ball spins
+    const wig = H.mystery.wiggle;
+    const MM = mMul(
+      mTrans(H.mystery.pos[0], Math.abs(Math.sin(H.t * 22)) * 0.05 * wig, H.mystery.pos[1]),
+      mRotY(H.mystery.pos[2] + Math.sin(H.t * 26) * 0.05 * wig)
+    );
+    const DD = mMul(mTrans(0, 3.55, -2.6), mRotY(H.t * 0.5));
+
+    function drawBoard(model, opts) {
+      gl.bindTexture(gl.TEXTURE_2D, H.boardTex);
+      drawLit(H.bufs.board, model, opts);
+      gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
+    }
+
     // 1) mirrored world beneath the floor plane
     gl.frontFace(gl.CW);
     drawLit(H.bufs.static, MIR, { mirror: 0.33 });
     drawLit(H.bufs.sign, MIR, { mirror: 0.33, boost: signBoost });
     drawLit(H.bufs.doorL, mMul(MIR, dl), { mirror: 0.33 });
     drawLit(H.bufs.doorR, mMul(MIR, dr), { mirror: 0.33 });
+    drawLit(H.bufs.mystery, mMul(MIR, MM), { mirror: 0.33 });
+    drawLit(H.bufs.disco, mMul(MIR, DD), { mirror: 0.33 });
+    drawBoard(MIR, { mirror: 0.38 });
     drawScreens(MIR, { mirror: 0.38 });
     gl.frontFace(gl.CCW);
 
@@ -1261,12 +1548,18 @@ void main() {
     drawLit(H.bufs.sign, I, { boost: signBoost });
     drawLit(H.bufs.doorL, dl, {});
     drawLit(H.bufs.doorR, dr, {});
+    drawLit(H.bufs.mystery, MM, {});
+    drawLit(H.bufs.disco, DD, {});
+    drawBoard(I, {});
     drawScreens(I, {});
 
-    // 4) contact shadows
+    // 4) contact shadows + alpha-cutout extras (the golden nug)
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     drawLit(H.bufs.decals, I, { alpha: 0.5 });
+    gl.depthMask(false);
+    drawLit(H.bufs.flora, I, {});
+    gl.depthMask(true);
 
     // 5) additive sprites: glow halos, dust, rain
     // (disable the lit attribs BEFORE enabling sprite attribs — locations overlap)
@@ -1296,6 +1589,20 @@ void main() {
       for (const rp of H.rain)
         pushSprite(arr, rp.x, rp.y, rp.z, 0.008, 0.16, 0.5, 0.6, 0.8, 0.16, right, [0, 1, 0]);
     }
+    // mirror-ball spots sweeping the entrance floor
+    const SPOTC = [[1, 0.4, 0.7], [0.4, 0.9, 1], [1, 0.9, 0.45], [0.65, 0.5, 1]];
+    for (let k = 0; k < 8; k++) {
+      const ang = H.t * 0.5 + (k * Math.PI) / 4;
+      const rad = 1.6 + (k % 3) * 0.6;
+      const c = SPOTC[k % 4];
+      pushSprite(arr, Math.cos(ang) * rad, 0.03, -2.6 + Math.sin(ang) * rad * 0.8,
+        0.34, 0.34, c[0], c[1], c[2], 0.05, [1, 0, 0], [0, 0, 1]);
+    }
+    // golden-nug celebration sparks
+    for (const s of H.sparks) {
+      const a = 0.55 * Math.min(1, s.life / 0.4);
+      pushSprite(arr, s.x, s.y, s.z, 0.05, 0.05, 1, 0.85, 0.35, a, right, up);
+    }
     gl.bindBuffer(gl.ARRAY_BUFFER, H.sprVbo);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.DYNAMIC_DRAW);
     gl.vertexAttribPointer(H.attrS.aPos, 3, gl.FLOAT, false, 36, 0);
@@ -1315,6 +1622,7 @@ void main() {
     H.last = ts;
     H.t += dt;
 
+    const wasX = H.cam.x, wasZ = H.cam.z;
     if (H.state === 'intro') stepIntro(dt);
     else if (H.state === 'walk') stepWalk(dt);
     else if (H.state === 'auto') stepAuto(dt);
@@ -1322,6 +1630,40 @@ void main() {
     else if (H.state === 'return') {
       H.returnT += dt;
       if (H.returnT > 0.55) H.state = 'walk';
+    }
+
+    // footsteps (walking states only) + the door chime when you cross inside
+    if (H.state === 'walk' || H.state === 'auto') {
+      H.stepAcc += Math.hypot(H.cam.x - wasX, H.cam.z - wasZ);
+      if (H.stepAcc > 0.62) { H.stepAcc = 0; sfxStep(); }
+    }
+    if (H.prevZ > 0.05 && H.cam.z <= 0.05 && H.t - H.lastChime > 3) {
+      H.lastChime = H.t;
+      sfxChime();
+    }
+    H.prevZ = H.cam.z;
+
+    // prop life: mystery-cabinet wiggle decay + golden-nug sparks
+    if (H.mystery.wiggle > 0) H.mystery.wiggle = Math.max(0, H.mystery.wiggle - dt * 1.5);
+    for (let i = H.sparks.length - 1; i >= 0; i--) {
+      const s = H.sparks[i];
+      s.life -= dt;
+      if (s.life <= 0) { H.sparks.splice(i, 1); continue; }
+      s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
+      s.vy -= 3.2 * dt;
+    }
+
+    // live scoreboard: redraw ~6×/sec, cycling through the games
+    H.lbTimer -= dt;
+    if (H.lbTimer <= 0) {
+      H.lbTimer = 0.16;
+      const games = ArcadeArt.GAMES;
+      const game = games[Math.floor(H.t / 4.5) % games.length];
+      const g2 = H.boardCv.getContext('2d');
+      ArcadeArt.drawScoreboard(g2, H.boardCv.width, H.boardCv.height, H.t, game, H.lb.data[game.mode], H.best[game.mode] || 0);
+      const gl = H.gl;
+      gl.bindTexture(gl.TEXTURE_2D, H.boardTex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, H.boardCv);
     }
 
     // ambient particles
@@ -1427,15 +1769,20 @@ void main() {
       const t = Math.max(0, Math.min(1, (H.cam.z + 3) / 4));
       AC.rain.gain.value = 0.005 + 0.04 * t;
     }
-    // sparse chiptune blips drifting over from the cabinets
+    // sparse chiptune blips drifting over from the cabinets — louder when
+    // you're standing near one, faint from across the room
     if (H.t > AC.nextBlip && H.state !== 'intro') {
       AC.nextBlip = H.t + 3 + Math.random() * 6;
+      let near = 99;
+      for (const cab of H.cabinets)
+        near = Math.min(near, Math.hypot(cab.x - H.cam.x, cab.z - H.cam.z));
+      const g = 0.008 + 0.028 * Math.max(0, 1 - near / 9);
       const notes = [523, 587, 659, 784, 880];
       const n = 2 + (Math.random() * 3) | 0;
       for (let i = 0; i < n; i++) {
         const t0 = AC.ctx.currentTime + i * 0.11;
         tone(notes[(Math.random() * notes.length) | 0] * (Math.random() < 0.3 ? 0.5 : 1),
-          t0, 0.09, 0.013, 'square');
+          t0, 0.09, g, 'square');
       }
     }
   }
@@ -1474,6 +1821,32 @@ void main() {
     const t0 = AC.ctx.currentTime;
     for (let i = 0; i < 6; i++)
       tone(50 + Math.random() * 12, t0 + i * 0.14 + Math.random() * 0.05, 0.09, 0.028, 'sawtooth');
+  }
+  function sfxStep() {
+    if (!AC.ctx) return;
+    H.stepFlip = !H.stepFlip;
+    tone(H.stepFlip ? 82 : 74, AC.ctx.currentTime, 0.06, 0.015, 'sine');
+  }
+  function sfxChime() {
+    if (!AC.ctx) return;
+    const t0 = AC.ctx.currentTime;
+    tone(784, t0, 0.18, 0.05, 'triangle');
+    tone(988, t0 + 0.14, 0.32, 0.05, 'triangle');
+  }
+  function sfxThump() {
+    if (!AC.ctx) return;
+    const t0 = AC.ctx.currentTime;
+    tone(70, t0, 0.12, 0.11, 'sine');
+    tone(56, t0 + 0.12, 0.18, 0.08, 'sine');
+  }
+  function sfxShimmer() {
+    if (!AC.ctx) return;
+    const t0 = AC.ctx.currentTime;
+    const notes = [1319, 1568, 1976, 2349, 2637];
+    for (let i = 0; i < 6; i++)
+      tone(notes[(i + ((Math.random() * 2) | 0)) % notes.length], t0 + i * 0.06, 0.22, 0.03, 'triangle');
+    tone(988, t0, 0.09, 0.07, 'triangle');
+    tone(1319, t0 + 0.08, 0.3, 0.07, 'triangle');
   }
 
   // ---- public seam ------------------------------------------------------------------------

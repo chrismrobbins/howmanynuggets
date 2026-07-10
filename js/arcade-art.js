@@ -627,6 +627,210 @@ const ArcadeArt = (() => {
     }
   }
 
+  // Velvet drape for the mystery cabinet: folds, a gold cord, a paper tag.
+  function pDrape(g, w, h) {
+    const base = g.createLinearGradient(0, 0, 0, h);
+    base.addColorStop(0, '#471d5c');
+    base.addColorStop(1, '#250e38');
+    g.fillStyle = base;
+    g.fillRect(0, 0, w, h);
+    // vertical folds: alternating soft light/dark bands that wander
+    const rnd = mulberry(31);
+    for (let i = 0; i < 9; i++) {
+      const x0 = (i / 9) * w + rnd() * 14;
+      const lean = (rnd() - 0.5) * 26;
+      const grad = g.createLinearGradient(x0 - 12, 0, x0 + 14, 0);
+      const lit = i % 2 === 0;
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(0.5, lit ? 'rgba(216,160,255,0.22)' : 'rgba(0,0,0,0.4)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grad;
+      g.beginPath();
+      g.moveTo(x0 - 16, 0);
+      g.quadraticCurveTo(x0 + lean, h * 0.5, x0 - 6, h);
+      g.lineTo(x0 + 22, h);
+      g.quadraticCurveTo(x0 + lean + 26, h * 0.5, x0 + 12, 0);
+      g.closePath();
+      g.fill();
+    }
+    // hem shadow
+    const hem = g.createLinearGradient(0, h - 40, 0, h);
+    hem.addColorStop(0, 'rgba(0,0,0,0)');
+    hem.addColorStop(1, 'rgba(0,0,0,0.6)');
+    g.fillStyle = hem;
+    g.fillRect(0, h - 40, w, 40);
+    // gold cord with a droop + tassels
+    g.strokeStyle = '#d8a933';
+    g.lineWidth = 6;
+    g.shadowColor = '#d8a933'; g.shadowBlur = 6;
+    g.beginPath();
+    g.moveTo(0, h * 0.3);
+    g.quadraticCurveTo(w / 2, h * 0.37, w, h * 0.3);
+    g.stroke();
+    g.shadowBlur = 0;
+    for (const tx of [w * 0.16, w * 0.84]) {
+      g.fillStyle = '#d8a933';
+      g.fillRect(tx - 3, h * 0.31, 6, 22);
+      g.beginPath(); g.arc(tx, h * 0.31 + 24, 6, 0, 7); g.fill();
+    }
+    // hanging paper tag with the question mark
+    g.save();
+    g.translate(w / 2, h * 0.42);
+    g.rotate(-0.08);
+    g.strokeStyle = '#c9b47a';
+    g.lineWidth = 2;
+    g.beginPath(); g.moveTo(0, -h * 0.06); g.lineTo(0, 0); g.stroke();
+    g.fillStyle = '#efe6cc';
+    rr(g, -34, 0, 68, 88, 8); g.fill();
+    g.fillStyle = '#3a2f1b';
+    g.font = '900 54px Georgia, serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('?', 0, 46);
+    g.restore();
+  }
+
+  // SAUCE-O-MATIC vending machine front: glowing header, cups behind glass.
+  function pVending(g, w, h) {
+    const body = g.createLinearGradient(0, 0, w, 0);
+    body.addColorStop(0, '#1c2340');
+    body.addColorStop(0.5, '#242c50');
+    body.addColorStop(1, '#161c34');
+    g.fillStyle = body;
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = 'rgba(0,0,0,0.6)';
+    g.lineWidth = 6;
+    g.strokeRect(3, 3, w - 6, h - 6);
+    // header
+    const head = g.createLinearGradient(0, 8, 0, 62);
+    head.addColorStop(0, '#e8412c');
+    head.addColorStop(1, '#a31f12');
+    g.fillStyle = head;
+    rr(g, 10, 8, w - 20, 54, 8); g.fill();
+    g.save();
+    g.font = '900 26px Impact, "Arial Black", sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.lineJoin = 'round';
+    g.strokeStyle = 'rgba(0,0,0,0.7)'; g.lineWidth = 5;
+    g.strokeText('SAUCE-O-MATIC', w / 2, 36);
+    g.shadowColor = '#ffe23a'; g.shadowBlur = 10;
+    g.fillStyle = '#ffe23a';
+    g.fillText('SAUCE-O-MATIC', w / 2, 36);
+    g.restore();
+    // glass window with shelves of sauce cups
+    const gx = 14, gy = 72, gw = w - 68, gh = 190;
+    g.fillStyle = '#080d18';
+    rr(g, gx, gy, gw, gh, 6); g.fill();
+    const CUPS = ['#d32f2f', '#ff8a3d', '#ffe23a', '#39c96a'];
+    for (let row = 0; row < 3; row++) {
+      const sy = gy + 28 + row * 60;
+      g.fillStyle = '#2a3050';
+      g.fillRect(gx + 6, sy + 22, gw - 12, 4); // shelf
+      for (let col = 0; col < 4; col++) {
+        const cxx = gx + 24 + col * (gw - 44) / 3;
+        const color = CUPS[(col + row) % 4];
+        g.fillStyle = '#f4f0e6';
+        g.beginPath();
+        g.moveTo(cxx - 11, sy); g.lineTo(cxx + 11, sy);
+        g.lineTo(cxx + 8, sy + 21); g.lineTo(cxx - 8, sy + 21);
+        g.closePath(); g.fill();
+        g.fillStyle = color;
+        g.beginPath(); g.ellipse(cxx, sy, 11, 4, 0, 0, 7); g.fill();
+      }
+    }
+    // glass shine
+    g.save();
+    g.beginPath(); rr(g, gx, gy, gw, gh, 6); g.clip();
+    g.fillStyle = 'rgba(255,255,255,0.06)';
+    g.beginPath();
+    g.moveTo(gx, gy + gh); g.lineTo(gx + gw * 0.5, gy); g.lineTo(gx + gw * 0.75, gy);
+    g.lineTo(gx + gw * 0.25, gy + gh);
+    g.closePath(); g.fill();
+    g.restore();
+    g.strokeStyle = '#454c6e'; g.lineWidth = 3;
+    rr(g, gx, gy, gw, gh, 6); g.stroke();
+    // coin column
+    const px = w - 46;
+    g.fillStyle = '#10142a';
+    rr(g, px, gy, 34, gh, 5); g.fill();
+    g.fillStyle = '#000';
+    g.fillRect(px + 11, gy + 16, 12, 22);
+    g.fillStyle = '#39c96a';
+    g.shadowColor = '#39c96a'; g.shadowBlur = 6;
+    g.beginPath(); g.arc(px + 17, gy + 58, 4, 0, 7); g.fill();
+    g.shadowBlur = 0;
+    g.fillStyle = '#8a93b8';
+    g.font = '700 9px Consolas, monospace';
+    g.textAlign = 'center';
+    g.save();
+    g.translate(px + 17, gy + 120);
+    g.rotate(-Math.PI / 2);
+    g.fillText('FREE TODAY', 0, 0);
+    g.restore();
+    // dispensing bin
+    g.fillStyle = '#0c101f';
+    rr(g, 20, h - 96, w - 40, 58, 8); g.fill();
+    g.fillStyle = '#181f38';
+    rr(g, 30, h - 88, w - 60, 42, 6); g.fill();
+    g.fillStyle = '#667';
+    g.font = '700 11px Consolas, monospace';
+    g.textAlign = 'center';
+    g.fillText('DIP RESPONSIBLY', w / 2, h - 18);
+  }
+
+  // Change machine, permanently generous.
+  function pChange(g, w, h) {
+    pMetal(g, w, h);
+    g.fillStyle = 'rgba(8,10,20,0.45)';
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = 'rgba(0,0,0,0.6)'; g.lineWidth = 4;
+    g.strokeRect(2, 2, w - 4, h - 4);
+    g.fillStyle = '#ffb020';
+    rr(g, 8, 8, w - 16, 34, 5); g.fill();
+    g.fillStyle = '#1a1206';
+    g.font = '900 20px Impact, "Arial Black", sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('CHANGE', w / 2, 26);
+    // slots + coin return
+    g.fillStyle = '#05070d';
+    g.fillRect(w * 0.2, 58, w * 0.6, 10);
+    g.fillRect(w * 0.2, 78, w * 0.6, 10);
+    g.fillStyle = '#0c101f';
+    rr(g, w * 0.25, h - 64, w * 0.5, 34, 6); g.fill();
+    // the sticker that explains everything
+    g.save();
+    g.translate(w / 2, h * 0.52);
+    g.rotate(-0.12);
+    g.fillStyle = '#f2ede0';
+    rr(g, -w * 0.42, -26, w * 0.84, 52, 6); g.fill();
+    g.strokeStyle = '#c33'; g.lineWidth = 2;
+    rr(g, -w * 0.42, -26, w * 0.84, 52, 6); g.stroke();
+    g.fillStyle = '#c22';
+    g.font = '900 17px Impact, "Arial Black", sans-serif';
+    g.fillText('FREE PLAY', 0, -8);
+    g.fillStyle = '#333';
+    g.font = '700 11px Consolas, monospace';
+    g.fillText('forever · no quarters', 0, 12);
+    g.restore();
+  }
+
+  // "OPEN 24/7" neon for the exterior window.
+  function pOpen(g, w, h) {
+    g.fillStyle = '#04060d';
+    g.fillRect(0, 0, w, h);
+    neonText(g, 'OPEN', w / 2, h * 0.36, '900 58px Impact, "Arial Black", sans-serif', '#ff2fa0', 18);
+    neonText(g, '24/7', w / 2, h * 0.76, '900 34px Impact, "Arial Black", sans-serif', '#26e0ff', 14);
+  }
+
+  // A lone golden nugget on a transparent tile (crossed-quad pickup sprite).
+  function pNugGold(g, w, h) {
+    g.clearRect(0, 0, w, h);
+    drawNug(g, w / 2, h / 2, w * 0.36, true);
+    g.fillStyle = 'rgba(255,255,255,0.9)';
+    g.font = `${(w * 0.28) | 0}px sans-serif`;
+    g.textAlign = 'center';
+    g.fillText('✨', w * 0.78, h * 0.3);
+  }
+
   function shade(hex, f) {
     const n = parseInt(hex.slice(1), 16);
     const r = ((n >> 16) & 255) * f, gg = ((n >> 8) & 255) * f, b = (n & 255) * f;
@@ -670,7 +874,7 @@ const ArcadeArt = (() => {
     }
 
     // Shelf-packed tallest-first so everything fits in one 2048² page.
-    alloc('carpet', 512, 512, pCarpet);
+    alloc('carpet', 448, 448, pCarpet);
     alloc('door', 192, 448, pDoor);
     for (const game of GAMES)
       alloc('side_' + game.mode, 256, 384, (gg, w, h) => pSideArt(gg, w, h, game));
@@ -678,27 +882,33 @@ const ArcadeArt = (() => {
     alloc('posterBrawl', 256, 384, pPosterBrawl);
     alloc('posterKnight', 256, 384, pPosterKnight);
     alloc('posterPlay', 256, 384, pPosterPlay);
+    alloc('drape', 256, 384, pDrape);
+    alloc('vending', 256, 384, pVending);
     alloc('sign', 1024, 256, pSign);
     alloc('wall', 256, 256, pWall);
     alloc('ceiling', 256, 256, pCeiling);
     alloc('brick', 256, 256, pBrick);
     alloc('sidewalk', 256, 256, pSidewalk);
     alloc('cabFront', 256, 256, pCabFront);
+    alloc('change', 128, 256, pChange);
     alloc('bezel', 256, 192, pBezel);
     for (const game of GAMES)
       alloc('marq_' + game.mode, 512, 128, (gg, w, h) => pMarquee(gg, w, h, game));
+    alloc('open', 256, 128, pOpen);
+    alloc('wainscot', 256, 128, pWainscot);
+    alloc('nugGold', 64, 64, pNugGold);
+    alloc('metal', 128, 128, pMetal);
     alloc('phrase', 512, 128, pPhrase);
     alloc('highscores', 512, 128, pHighScores);
-    alloc('wainscot', 256, 128, pWainscot);
     for (const game of GAMES)
       alloc('panel_' + game.mode, 256, 128, (gg, w, h) => pPanel(gg, w, h, game));
-    alloc('metal', 128, 128, pMetal);
     alloc('dark', 128, 128, pDark);
     // Solid color swatches for untextured geometry (neon strips, decals…).
     const SWATCHES = {
       white: '#ffffff', cyan: '#26e0ff', magenta: '#ff2fa0', amber: '#ffb020',
       yellow: '#ffe23a', green: '#39ff7a', red: '#ff3d3d', violet: '#7c4dff',
-      warm: '#ffd9a0', black: '#000000', tube: '#cfe8ff',
+      warm: '#ffd9a0', black: '#000000', tube: '#cfe8ff', rope: '#d4356b',
+      glass: '#0a1626',
     };
     for (const [name, color] of Object.entries(SWATCHES)) {
       alloc('sw_' + name, 24, 24, (gg, w, h) => { gg.fillStyle = color; gg.fillRect(0, 0, w, h); });
@@ -1014,5 +1224,80 @@ const ArcadeArt = (() => {
     g.fillRect(0, 0, w, h);
   }
 
-  return { GAMES, makeAtlas, makeGlow, drawAttract };
+  // ---- Live leaderboard scoreboard ------------------------------------------------
+  // Mounted on the east wall; js/arcade.js feeds it real rows from the API and
+  // cycles through the games. rows: array of {rank, displayName, score},
+  // 'error' when the API is unreachable, or undefined while loading.
+
+  function drawScoreboard(g, w, h, t, game, rows, best) {
+    g.fillStyle = '#03100a';
+    g.fillRect(0, 0, w, h);
+    // phosphor grid
+    g.strokeStyle = 'rgba(57,255,122,0.05)';
+    g.lineWidth = 1;
+    for (let y = 0; y < h; y += 16) {
+      g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
+    }
+    g.textBaseline = 'middle';
+    g.textAlign = 'center';
+    // header
+    g.font = '900 22px Consolas, monospace';
+    g.fillStyle = '#39ff7a';
+    g.shadowColor = '#39ff7a'; g.shadowBlur = 10;
+    g.fillText('★  H I G H   S C O R E S  ★', w / 2, 24);
+    g.shadowBlur = 0;
+    // current game line
+    g.font = '900 24px Impact, "Arial Black", sans-serif';
+    g.fillStyle = game.c1;
+    g.fillText(game.icon + '  ' + game.title + '  ' + game.icon, w / 2, 58);
+
+    if (rows === 'error') {
+      g.font = '700 18px Consolas, monospace';
+      g.fillStyle = '#8a93b8';
+      g.fillText('SCOREBOARD OFFLINE', w / 2, h * 0.52);
+      g.fillStyle = '#39ff7a';
+      g.fillText('BE THE LEGEND WHEN IT WAKES', w / 2, h * 0.64);
+    } else if (!rows) {
+      const dots = '.'.repeat(1 + (Math.floor(t * 2.5) % 3));
+      g.font = '700 18px Consolas, monospace';
+      g.fillStyle = '#9be8ff';
+      g.fillText('DIALING THE NUGNET' + dots, w / 2, h * 0.55);
+    } else if (!rows.length) {
+      g.font = '700 18px Consolas, monospace';
+      g.fillStyle = '#9be8ff';
+      g.fillText('NO SCORES YET', w / 2, h * 0.5);
+      g.fillStyle = '#ffe23a';
+      g.fillText('BE THE FIRST — PLAY IT', w / 2, h * 0.62);
+    } else {
+      const RANKC = ['#ffd23a', '#c9cfe0', '#d08a4a', '#7f8ab0', '#7f8ab0'];
+      g.font = '700 17px Consolas, monospace';
+      for (let i = 0; i < Math.min(rows.length, 5); i++) {
+        const r = rows[i], y = 88 + i * 27;
+        g.textAlign = 'left';
+        g.fillStyle = RANKC[i];
+        g.fillText((r.rank || i + 1) + '.', 26, y);
+        const name = String(r.displayName || '???').toUpperCase().slice(0, 14);
+        g.fillStyle = i === 0 ? '#fff' : '#c9d4f0';
+        g.fillText(name, 60, y);
+        g.textAlign = 'right';
+        g.fillStyle = RANKC[i];
+        g.fillText(Number(r.score).toLocaleString(), w - 26, y);
+        // dotted leader between name and score
+        g.fillStyle = 'rgba(120,140,180,0.35)';
+        const x0 = 60 + g.measureText('').width + name.length * 9.4 + 14;
+        for (let x = x0; x < w - 40 - String(r.score).length * 9; x += 8)
+          g.fillRect(x, y + 2, 2, 2);
+      }
+    }
+    // footer
+    g.textAlign = 'center';
+    if (Math.floor(t * 1.6) % 2 === 0) {
+      g.font = '700 13px Consolas, monospace';
+      g.fillStyle = '#ffe23a';
+      g.fillText(best > 0 ? 'YOUR BEST HERE: ' + best.toLocaleString() : '· PRESS ⏎ FOR FULL LEADERBOARDS ·', w / 2, h - 14);
+    }
+    scanlines(g, w, h, t);
+  }
+
+  return { GAMES, makeAtlas, makeGlow, drawAttract, drawScoreboard };
 })();
