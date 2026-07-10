@@ -307,7 +307,7 @@ async function createRoom(request, env, origin) {
 
   const code = newRoomCode();
   const stub = env.GAME_ROOMS.getByName(code);
-  await stub.configure(code, game);
+  await stub.configure(code, game, u.id); // the creator is the host
   return json({ code, game }, 201, origin);
 }
 

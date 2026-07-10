@@ -79,7 +79,10 @@
   net.on('started', () => { if (net.game === 'blaster') start(); });
   net.on('gameover', (m) => { if (running) showGameover(m); stop(); });
   net.on('left', stop);
-  net.on('snapshot', (m) => { prevSnap = lastSnap; prevAt = lastAt; lastSnap = m.s; lastAt = performance.now(); });
+  net.on('snapshot', (m) => {
+    prevSnap = lastSnap; prevAt = lastAt; lastSnap = m.s; lastAt = performance.now();
+    if (running) updateHud(m.s, m.scores);
+  });
   net.on('event', onEvent);
 
   function onEvent(m) {
@@ -201,13 +204,13 @@
 
     // cannons (mine predicted, others interpolated)
     const prevC = prevSnap ? indexById2(prevSnap.cannons) : null;
-    let ci = 0;
+    let ci = 0, mineDrawn = false;
     for (const c of lastSnap.cannons) {
       let cx = c.x;
-      if (c.id === net.you) cx = myX;
+      const mine = c.id === net.you;
+      if (mine) { cx = myX; mineDrawn = true; }
       else if (prevC && prevC[c.id]) cx = prevC[c.id].x + (c.x - prevC[c.id].x) * f;
       const el = acquire('can', 'div');
-      const mine = c.id === net.you;
       el.className = 'mp-cannon' + (mine ? ' me' : '');
       el.style.setProperty('--c', PLAYER_COLORS[ci % PLAYER_COLORS.length]);
       el.style.left = sx(cx, L) + 'px';
@@ -215,15 +218,26 @@
       el.textContent = c.name;
       ci++;
     }
+    // Always show your own cannon, even before the snapshot includes it.
+    if (!mineDrawn && net.you) {
+      const me = net.players.find((p) => p.id === net.you);
+      const el = acquire('can', 'div');
+      el.className = 'mp-cannon me';
+      el.style.setProperty('--c', PLAYER_COLORS[0]);
+      el.style.left = sx(myX, L) + 'px';
+      el.style.top = (sy(WORLD_H, L) - 26 * L.scale) + 'px';
+      el.textContent = me ? me.name : 'you';
+      ci++;
+    }
     hidePast('can', ci);
-
-    hudWaves.textContent = '🌊 Wave ' + (lastSnap.waves || 0);
-    drawScores();
   }
 
-  function drawScores() {
-    const s = (net.scores || []).slice().sort((a, b) => b.score - a.score);
-    hudScores.innerHTML = s.map((p) => {
+  // HUD is refreshed on each snapshot (20Hz), not every animation frame.
+  function updateHud(s, scores) {
+    if (!stage) return;
+    hudWaves.textContent = '🌊 Wave ' + ((s && s.waves) || 0);
+    const list = (scores || []).slice().sort((a, b) => b.score - a.score);
+    hudScores.innerHTML = list.map((p) => {
       const me = p.id === net.you;
       return `<span class="mp-sc${me ? ' me' : ''}">${escapeHtml(p.name)} ${fmtN(p.score)}</span>`;
     }).join('');

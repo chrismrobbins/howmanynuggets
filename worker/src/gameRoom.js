@@ -2,15 +2,21 @@
 //
 // One GameRoom Durable Object instance per room (routed by code via
 // getByName(code)). It owns everything game-agnostic: WebSocket connections,
-// the player roster, lobby → playing → over phase, the tick loop, snapshot
+// the player roster, lobby → playing → over phase, the game loop, snapshot
 // broadcasting, and writing match results to D1. All game-specific logic lives
 // in a GameModule (see games/registry.js) that this room drives.
+//
+// Real-time note: we use plain (non-hibernating) WebSockets and an in-memory
+// setInterval loop while a match is live. Open sockets keep the DO resident, so
+// the loop ticks smoothly with no per-tick storage writes. (An earlier version
+// used alarms for the loop — that was durable but far too slow for 20Hz.)
 //
 // A game module implements:
 //   static maxPlayers
 //   constructor(room)          room API: addScore(pid,n), players(), event(obj), rand()
 //   onStart(players)           build the world (in the module's virtual units)
 //   onInput(playerId, msg)     game-specific inputs, e.g. {t:'input'} / {t:'fire'}
+//   onPlayerJoin(playerId, p)  a player joined mid-match
 //   onPlayerLeave(playerId)
 //   tick(dtMs)                 advance the authoritative world
 //   snapshot()                 -> serializable state broadcast to clients
@@ -20,47 +26,45 @@
 import { DurableObject } from 'cloudflare:workers';
 import { GAME_MODULES } from './games/registry.js';
 
-const TICK_MS = 50;             // ~20 Hz authoritative tick
-const LOBBY_TTL_MS = 30 * 60 * 1000;
+const TICK_MS = 50; // ~20 Hz
 
 export class GameRoom extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.env = env;
-    this.mod = null;            // active GameModule instance
-    this.game = null;           // game id, e.g. 'blaster'
+    this.mod = null;
+    this.game = null;
     this.code = null;
-    this.phase = 'lobby';       // 'lobby' | 'playing' | 'over'
+    this.hostUserId = 0;
+    this.phase = 'lobby';        // 'lobby' | 'playing' | 'over'
     this.startedAt = 0;
-    this.matchId = null;
-    // playerId -> { id, userId, name, ready, score, host }
+    this.timer = null;
+    // playerId -> { id, userId, name, ready, score, host, ws }
     this.players = new Map();
 
     ctx.blockConcurrencyWhile(async () => {
-      ctx.storage.sql.exec(
-        `CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)`
-      );
-      const row = ctx.storage.sql.exec(`SELECT v FROM meta WHERE k = 'room'`).toArray()[0];
+      ctx.storage.sql.exec(`CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)`);
+      const row = ctx.storage.sql.exec(`SELECT v FROM meta WHERE k='room'`).toArray()[0];
       if (row) {
-        const saved = JSON.parse(row.v);
-        this.game = saved.game;
-        this.code = saved.code;
+        const s = JSON.parse(row.v);
+        this.game = s.game; this.code = s.code; this.hostUserId = s.hostUserId || 0;
       }
     });
   }
 
-  // ---- Called by the Worker right after a room is created ----
-  configure(code, game) {
+  // Called by the Worker right after a room is created. The creator is the host.
+  configure(code, game, hostUserId) {
     this.code = code;
     this.game = game;
+    this.hostUserId = hostUserId || 0;
     this.ctx.storage.sql.exec(
       `INSERT OR REPLACE INTO meta (k, v) VALUES ('room', ?)`,
-      JSON.stringify({ code, game })
+      JSON.stringify({ code, game, hostUserId: this.hostUserId })
     );
     return { ok: true };
   }
 
-  // ---- WebSocket lifecycle (Hibernation API) ----
+  // ---- WebSocket connect ----
   async fetch(request) {
     const url = new URL(request.url);
     if (request.headers.get('Upgrade') !== 'websocket') {
@@ -72,19 +76,19 @@ export class GameRoom extends DurableObject {
     const userId = Number(url.searchParams.get('uid')) || 0;
     const name = (url.searchParams.get('name') || 'Nugget').slice(0, 40);
 
-    const pair = new WebSocketPair();
-    const [client, server] = Object.values(pair);
+    const { 0: client, 1: server } = new WebSocketPair();
+    server.accept();
     const playerId = crypto.randomUUID();
+    const host = userId !== 0 && userId === this.hostUserId;
+    const player = { id: playerId, userId, name, ready: false, score: 0, host, ws: server };
+    this.players.set(playerId, player);
 
-    this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({ playerId, userId, name });
+    // Late joiners (and reconnects) fold into a match already in progress.
+    if (this.phase === 'playing' && this.mod) this.mod.onPlayerJoin?.(playerId, player);
 
-    const host = this.players.size === 0;
-    this.players.set(playerId, { id: playerId, userId, name, ready: false, score: 0, host });
-    // Late joiners (and reconnects) get folded into a match already in progress.
-    if (this.phase === 'playing' && this.mod) {
-      this.mod.onPlayerJoin?.(playerId, this.players.get(playerId));
-    }
+    server.addEventListener('message', (ev) => this.onMessage(player, ev.data));
+    server.addEventListener('close', () => this.onClose(player));
+    server.addEventListener('error', () => this.onClose(player));
 
     server.send(JSON.stringify({
       t: 'welcome', you: playerId, game: this.game, code: this.code,
@@ -94,51 +98,29 @@ export class GameRoom extends DurableObject {
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  async webSocketMessage(ws, raw) {
-    const att = ws.deserializeAttachment();
-    const p = att && this.players.get(att.playerId);
-    if (!p) return;
+  onMessage(player, raw) {
+    if (!this.players.has(player.id)) return;
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
 
-    // Generic lobby controls.
-    if (msg.t === 'ready') {
-      p.ready = !!msg.ready;
-      this.broadcastRoster();
-      this.maybeAutoStart();
-      return;
-    }
-    if (msg.t === 'start') {
-      if (p.host) this.startMatch();
-      return;
-    }
-    if (msg.t === 'ping') { ws.send(JSON.stringify({ t: 'pong' })); return; }
-
-    // Game-specific inputs go to the module while a match is live.
-    if (this.phase === 'playing' && this.mod) this.mod.onInput(att.playerId, msg);
+    if (msg.t === 'ready') { player.ready = !!msg.ready; this.broadcastRoster(); this.maybeAutoStart(); return; }
+    if (msg.t === 'start') { if (player.host) this.startMatch(); return; }
+    if (msg.t === 'ping') { try { player.ws.send(JSON.stringify({ t: 'pong' })); } catch {} return; }
+    if (this.phase === 'playing' && this.mod) this.mod.onInput(player.id, msg);
   }
 
-  async webSocketClose(ws) {
-    const att = ws.deserializeAttachment();
-    if (!att) return;
-    this.players.delete(att.playerId);
-    if (this.mod) this.mod.onPlayerLeave?.(att.playerId);
+  onClose(player) {
+    if (!this.players.has(player.id)) return;
+    this.players.delete(player.id);
+    if (this.mod) this.mod.onPlayerLeave?.(player.id);
     this.broadcastRoster();
-    if (this.players.size === 0) {
-      // Everyone left — end any live match and let the room go idle.
-      if (this.phase === 'playing') await this.endMatch(false);
-      this.phase = 'lobby';
-    }
+    if (this.players.size === 0) this.endMatch(false);
   }
-
-  async webSocketError(ws) { /* close handler does the cleanup */ }
 
   // ---- Match lifecycle ----
   maybeAutoStart() {
     const all = [...this.players.values()];
-    if (this.phase === 'lobby' && all.length >= 1 && all.every((p) => p.ready)) {
-      this.startMatch();
-    }
+    if (this.phase === 'lobby' && all.length >= 1 && all.every((p) => p.ready)) this.startMatch();
   }
 
   startMatch() {
@@ -151,26 +133,25 @@ export class GameRoom extends DurableObject {
     for (const p of this.players.values()) { p.score = 0; p.ready = false; }
     this.mod.onStart([...this.players.values()]);
     this.broadcast({ t: 'started', game: this.game });
-    this.ctx.storage.setAlarm(Date.now() + TICK_MS);
+    if (this.timer) clearInterval(this.timer);
+    this.timer = setInterval(() => this.tick(), TICK_MS);
   }
 
-  async alarm() {
+  tick() {
     if (this.phase !== 'playing' || !this.mod) return;
     this.mod.tick(TICK_MS);
     this.broadcast({ t: 'snapshot', s: this.mod.snapshot(), scores: this.scores() });
-    if (this.mod.isOver()) { await this.endMatch(true); return; }
-    this.ctx.storage.setAlarm(Date.now() + TICK_MS);
+    if (this.mod.isOver()) this.endMatch(true);
   }
 
   async endMatch(completed) {
+    if (this.timer) { clearInterval(this.timer); this.timer = null; }
     if (this.phase !== 'playing') return;
     this.phase = 'over';
-    await this.ctx.storage.deleteAlarm();
     const results = this.mod ? this.mod.results() : { waves: 0, players: [] };
     await this.persistResults(results).catch(() => {});
     this.broadcast({ t: 'gameover', completed, results });
     this.mod = null;
-    // Back to lobby so the group can rematch.
     for (const p of this.players.values()) p.ready = false;
     this.phase = 'lobby';
     this.broadcastRoster();
@@ -185,21 +166,21 @@ export class GameRoom extends DurableObject {
     ).bind(this.game, this.code, results.waves ?? null, this.startedAt || now, now).first();
     const matchId = row.id;
     for (const r of results.players) {
-      if (!r.userId) continue; // signed-out guests aren't recorded
+      if (!r.userId) continue;
+      const score = Math.max(0, Math.floor(r.score) || 0);
       await this.env.DB.prepare(
         `INSERT OR REPLACE INTO match_players (match_id, user_id, score) VALUES (?, ?, ?)`
-      ).bind(matchId, r.userId, Math.max(0, Math.floor(r.score) || 0)).run();
-      // Also fold into the solo best-score board for the game.
+      ).bind(matchId, r.userId, score).run();
       await this.env.DB.prepare(
         `INSERT INTO scores (user_id, game, best_score, updated_at) VALUES (?, ?, ?, ?)
            ON CONFLICT(user_id, game) DO UPDATE SET
              best_score = MAX(best_score, excluded.best_score),
              updated_at = excluded.updated_at`
-      ).bind(r.userId, this.game, Math.max(0, Math.floor(r.score) || 0), now).run();
+      ).bind(r.userId, this.game, score, now).run();
     }
   }
 
-  // ---- Room API handed to game modules ----
+  // ---- Room API for game modules ----
   roomApi() {
     return {
       players: () => [...this.players.values()],
@@ -211,18 +192,14 @@ export class GameRoom extends DurableObject {
 
   // ---- Helpers ----
   roster() {
-    return [...this.players.values()].map((p) => ({
-      id: p.id, name: p.name, ready: p.ready, host: p.host,
-    }));
+    return [...this.players.values()].map((p) => ({ id: p.id, name: p.name, ready: p.ready, host: p.host }));
   }
   scores() {
     return [...this.players.values()].map((p) => ({ id: p.id, name: p.name, score: p.score }));
   }
   broadcast(obj) {
     const s = JSON.stringify(obj);
-    for (const ws of this.ctx.getWebSockets()) {
-      try { ws.send(s); } catch { /* socket closing */ }
-    }
+    for (const p of this.players.values()) { try { p.ws.send(s); } catch {} }
   }
   broadcastRoster() {
     this.broadcast({ t: 'roster', phase: this.phase, players: this.roster() });
