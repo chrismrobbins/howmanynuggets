@@ -1,0 +1,29 @@
+/* ---- Nugget Run ---- */
+
+#runWorld {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  display: none;
+  pointer-events: none;
+  background: #101f30; /* matches the wall while slice-cropping */
+}
+#runWorld.active { display: block; }
+#runWorld svg { display: block; }
+
+/* Sprint blinks every few seconds */
+@keyframes runBlink {
+  0%, 94%, 100% { transform: scaleY(1); }
+  96%, 98%      { transform: scaleY(0.08); }
+}
+.run-blink {
+  animation: runBlink 3.4s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Golden pickup mini-nugs */
+.run-gold {
+  filter: sepia(1) saturate(3) hue-rotate(-12deg) brightness(1.2)
+          drop-shadow(0 0 6px rgba(255, 200, 60, 0.8));
+}

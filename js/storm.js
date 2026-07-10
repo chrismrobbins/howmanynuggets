@@ -39,15 +39,17 @@ const MODE_HINTS = {
   flappy:  'space or click to flap — mind the nugget towers!',
   dunk:    'time it! space or click to dunk each nugget in the sauce',
   sim:     'you are a nugget. sit. watch. accrue wisdom.',
+  run:     'space/click to jump (twice = flip!) · hold ↓ to slide',
 };
-const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘' };
-const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated' };
+const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘', run: '🏃' };
+const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated', run: 'ran' };
 
 // Self-contained minigames run their own entities and pause the storm's own
 // falling-nugget spawner + auto-complete (like Flappy). Catch and Blaster both
 // use the storm particles, so they are NOT in this set.
 function pausesStorm() {
-  return storm.mode === 'flappy' || storm.mode === 'dunk' || storm.mode === 'sim';
+  return storm.mode === 'flappy' || storm.mode === 'dunk' || storm.mode === 'sim' ||
+         storm.mode === 'run';
 }
 
 const storm = {
@@ -86,6 +88,7 @@ function setStormMode(mode) {
   syncFlappy();
   syncDunk();
   syncSim();
+  syncRun();
   updateStormHud();
 }
 
@@ -170,6 +173,9 @@ function updateStormHud() {
     // The simulator has no storm to tally — show the nugget's life instead.
     stormLabel.textContent = '🧘 Nugget Simulator';
     stormTally.textContent = simTally();
+  } else if (storm.mode === 'run') {
+    stormLabel.textContent = '🏃 Nugget Run';
+    stormTally.textContent = runTally();
   } else {
     const shown = Math.min(storm.launched, storm.total);
     stormLabel.textContent = storm.cat.emoji + ' ' + storm.cat.name;
@@ -240,6 +246,7 @@ function stepStorm(ts) {
   else if (storm.mode === 'flappy') stepFlappy(dt, w, h);
   else if (storm.mode === 'dunk') stepDunk(dt, w, h);
   else if (storm.mode === 'sim') stepSim(dt, w, h);
+  else if (storm.mode === 'run') stepRun(dt, w, h);
 
   updateStormHud();
 
@@ -330,6 +337,7 @@ function stopStorm(completed = false) {
   syncFlappy();
   syncDunk();
   syncSim();
+  syncRun();
   if (completed) {
     // Leave a short victory-lap summary in the HUD, then tuck it away.
     stormLabel.textContent = '✅ Storm complete';

@@ -23,7 +23,7 @@ const ALLOWED_ORIGINS = new Set([
   'http://localhost:5173',
 ]);
 
-const GAMES = new Set(['catch', 'blaster', 'flappy', 'dunk', 'sim']);
+const GAMES = new Set(['catch', 'blaster', 'flappy', 'dunk', 'sim', 'run']);
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const PBKDF2_ITERATIONS = 100000;
 const MAX_SCORE = 1e15; // sanity cap so a bad client can't poison the board
@@ -114,7 +114,7 @@ async function scoresForUser(env, userId) {
   const { results } = await env.DB.prepare(
     'SELECT game, best_score FROM scores WHERE user_id = ?'
   ).bind(userId).all();
-  const map = { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0 };
+  const map = { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0 };
   for (const r of results) map[r.game] = r.best_score;
   return map;
 }

@@ -33,6 +33,13 @@ few surprises for the big spenders.
     cup; tap SPACE (or click) to dunk each one in the sweet spot. Hit the green
     PERFECT band for double points and chain dunks for a rising combo multiplier;
     golden nuggets pay 10×.
+  - 🏃 **Nugget Run** — an endless runner with the arcade's first fully
+    animated character: Sprint the nugget (headband, googly eyes, floating
+    sneakers) runs a late-night kitchen counter with a real phase-driven run
+    cycle. Jump ketchup bottles (space/↑/click), double-jump fry-box towers —
+    he does a full flip — and slide under spatula gates (hold ↓). Crashing
+    scatters his limbs before he reassembles. 1 point per meter; golden
+    mini-nugs +20; the counter speeds up the longer you survive.
   - 🧘 **Nugget Simulator** — the calm one. You are a nugget on a park bench,
     watching a full day/night cycle pass every two minutes: sunrises, drifting
     clouds, migrating birds, fireflies, shooting stars. The nugget ages —
@@ -78,6 +85,8 @@ promotions, and tax. This project is **not affiliated with or endorsed by McDona
 | `js/dunk.js` | 🥣 Sauce Dunk minigame |
 | `js/sim.js` | 🧘 Nugget Simulator (SVG diorama + the void) |
 | `css/sim.css` | Simulator animations and layers |
+| `js/run.js` | 🏃 Nugget Run (rigged runner, parallax kitchen) |
+| `css/run.css` | Runner layer, blink, golden pickups |
 | `js/app.js` | Converter wiring and input formatting |
 | `js/api.js` | Client for the accounts + high-scores backend |
 | `js/account.js` | Sign in/up UI, high-scores panel, leaderboard modal |

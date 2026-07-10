@@ -35,6 +35,7 @@
   const myFlappy = document.getElementById('myFlappy');
   const myDunk = document.getElementById('myDunk');
   const mySim = document.getElementById('mySim');
+  const myRun = document.getElementById('myRun');
 
   // Leaderboard modal
   const openLeaderboards = document.getElementById('openLeaderboards');
@@ -51,12 +52,13 @@
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   function setScores(scores) {
-    scores = scores || { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0 };
+    scores = scores || { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0 };
     myCatch.textContent = fmtNum(scores.catch || 0);
     myBlaster.textContent = fmtNum(scores.blaster || 0);
     myFlappy.textContent = fmtNum(scores.flappy || 0);
     myDunk.textContent = fmtNum(scores.dunk || 0);
     mySim.textContent = fmtNum(scores.sim || 0);
+    myRun.textContent = fmtNum(scores.run || 0);
   }
 
   function applyUser(user, scores) {
@@ -163,7 +165,7 @@
   });
 
   // ---- Leaderboards ----
-  const GAME_LABEL = { catch: '🧺 Catch', blaster: '🎯 Blaster', flappy: '🐤 Flappy', dunk: '🥣 Dunk', sim: '🧘 Sim' };
+  const GAME_LABEL = { catch: '🧺 Catch', blaster: '🎯 Blaster', flappy: '🐤 Flappy', dunk: '🥣 Dunk', sim: '🧘 Sim', run: '🏃 Run' };
 
   menuLeaderboards.addEventListener('click', () => { closeModal(authModal); openLb(); });
   openLeaderboards.addEventListener('click', openLb);
@@ -223,7 +225,7 @@
     if (!currentUser || !score || score <= 0) return;
     try {
       const res = await API.submitScore(game, score);
-      const el = { catch: myCatch, blaster: myBlaster, flappy: myFlappy, dunk: myDunk, sim: mySim }[game];
+      const el = { catch: myCatch, blaster: myBlaster, flappy: myFlappy, dunk: myDunk, sim: mySim, run: myRun }[game];
       if (el && res && typeof res.best === 'number') el.textContent = fmtNum(res.best);
     } catch { /* offline / not deployed — scores just don't persist */ }
   };
