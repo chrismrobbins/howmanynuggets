@@ -38,15 +38,16 @@ const MODE_HINTS = {
   blaster: 'defend the city! ← → to move · space or click to blast',
   flappy:  'space or click to flap — mind the nugget towers!',
   dunk:    'time it! space or click to dunk each nugget in the sauce',
+  sim:     'you are a nugget. sit. watch. accrue wisdom.',
 };
-const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣' };
-const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked' };
+const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘' };
+const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated' };
 
 // Self-contained minigames run their own entities and pause the storm's own
 // falling-nugget spawner + auto-complete (like Flappy). Catch and Blaster both
 // use the storm particles, so they are NOT in this set.
 function pausesStorm() {
-  return storm.mode === 'flappy' || storm.mode === 'dunk';
+  return storm.mode === 'flappy' || storm.mode === 'dunk' || storm.mode === 'sim';
 }
 
 const storm = {
@@ -84,6 +85,7 @@ function setStormMode(mode) {
   syncBlaster();
   syncFlappy();
   syncDunk();
+  syncSim();
   updateStormHud();
 }
 
@@ -164,10 +166,16 @@ function catchParticle(p, labelX, labelY) {
 }
 
 function updateStormHud() {
-  const shown = Math.min(storm.launched, storm.total);
-  stormLabel.textContent = storm.cat.emoji + ' ' + storm.cat.name;
-  stormTally.innerHTML = fmt.format(shown) +
-    ' <span class="total">/ ' + fmt.format(storm.total) + ' nugs</span>';
+  if (storm.mode === 'sim') {
+    // The simulator has no storm to tally — show the nugget's life instead.
+    stormLabel.textContent = '🧘 Nugget Simulator';
+    stormTally.textContent = simTally();
+  } else {
+    const shown = Math.min(storm.launched, storm.total);
+    stormLabel.textContent = storm.cat.emoji + ' ' + storm.cat.name;
+    stormTally.innerHTML = fmt.format(shown) +
+      ' <span class="total">/ ' + fmt.format(storm.total) + ' nugs</span>';
+  }
   stormCaught.textContent = MODE_BADGE[storm.mode] + ' ' + fmt.format(storm.caught);
 }
 
@@ -231,6 +239,7 @@ function stepStorm(ts) {
   if (storm.mode === 'blaster') stepBlaster(dt, w, h);
   else if (storm.mode === 'flappy') stepFlappy(dt, w, h);
   else if (storm.mode === 'dunk') stepDunk(dt, w, h);
+  else if (storm.mode === 'sim') stepSim(dt, w, h);
 
   updateStormHud();
 
@@ -320,6 +329,7 @@ function stopStorm(completed = false) {
   syncBlaster();
   syncFlappy();
   syncDunk();
+  syncSim();
   if (completed) {
     // Leave a short victory-lap summary in the HUD, then tuck it away.
     stormLabel.textContent = '✅ Storm complete';

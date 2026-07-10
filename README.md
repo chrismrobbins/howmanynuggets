@@ -33,6 +33,12 @@ few surprises for the big spenders.
     cup; tap SPACE (or click) to dunk each one in the sweet spot. Hit the green
     PERFECT band for double points and chain dunks for a rising combo multiplier;
     golden nuggets pay 10×.
+  - 🧘 **Nugget Simulator** — the calm one. You are a nugget on a park bench,
+    watching a full day/night cycle pass every two minutes: sunrises, drifting
+    clouds, migrating birds, fireflies, shooting stars. The nugget ages —
+    reading glasses at 10 days, a cane at 20 — and wisdom accrues at 1/sec
+    (birds +25, shooting stars +100). Two sub-modes: 🌄 the scenic diorama, or
+    🕶️ **Ultra Realistic**, which is a pitch-black screen. Nuggets cannot see.
 - **Over $10M → a friendly reality check** telling you this maybe isn't the right
   payment method.
 
@@ -70,6 +76,8 @@ promotions, and tax. This project is **not affiliated with or endorsed by McDona
 | `js/blaster.js` | 🔫 Blaster minigame |
 | `js/flappy.js` | 🐤 Flappy Nug minigame |
 | `js/dunk.js` | 🥣 Sauce Dunk minigame |
+| `js/sim.js` | 🧘 Nugget Simulator (SVG diorama + the void) |
+| `css/sim.css` | Simulator animations and layers |
 | `js/app.js` | Converter wiring and input formatting |
 | `js/api.js` | Client for the accounts + high-scores backend |
 | `js/account.js` | Sign in/up UI, high-scores panel, leaderboard modal |

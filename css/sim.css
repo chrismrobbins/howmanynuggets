@@ -1,0 +1,100 @@
+/* ---- Nugget Simulator ---- */
+
+/* The diorama takes over the whole screen (below the HUD). */
+#simWorld {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  display: none;
+  pointer-events: none;
+  background: #0b1120; /* letterbox color while the SVG covers via slice */
+}
+#simWorld.active { display: block; }
+#simWorld svg { display: block; }
+
+/* 🕶️ Ultra Realistic mode. Nuggets cannot see. */
+#simVoid {
+  position: fixed;
+  inset: 0;
+  z-index: 9991;
+  display: none;
+  background: #000;
+  pointer-events: none;
+}
+#simVoid.active { display: block; }
+
+/* Sub-mode switch lives in the HUD, only while the simulator is running */
+#simSubSwitch { display: none; }
+#simSubSwitch.active { display: inline-flex; }
+
+/* Twinkling stars */
+@keyframes simTwinkle {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
+}
+.sim-star { animation: simTwinkle 3s ease-in-out infinite; }
+
+/* Firefly wander + blink */
+@keyframes simFlyDrift {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(26px, -20px); }
+  50%  { transform: translate(-14px, -34px); }
+  75%  { transform: translate(-30px, -10px); }
+  100% { transform: translate(0, 0); }
+}
+@keyframes simFlyBlink {
+  0%, 100% { opacity: 0.15; }
+  12%, 22% { opacity: 1; }
+  34%      { opacity: 0.2; }
+}
+.sim-fly {
+  animation: simFlyDrift 11s ease-in-out infinite, simFlyBlink 4.5s ease-in-out infinite;
+}
+
+/* Canopy sway — anchored at the trunk so the tree leans, not slides */
+@keyframes simSway {
+  0%, 100% { transform: rotate(-0.7deg); }
+  50%      { transform: rotate(0.9deg); }
+}
+.sim-canopy {
+  animation: simSway 7s ease-in-out infinite;
+  transform-origin: 1210px 640px;
+  transform-box: view-box;
+}
+
+/* Grass shiver */
+@keyframes simGrassSway {
+  0%, 100% { transform: skewX(-3deg); }
+  50%      { transform: skewX(4deg); }
+}
+.sim-sway {
+  animation: simGrassSway 3.6s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: bottom center;
+}
+
+/* The nugget's gentle idle breathing */
+@keyframes simBreathe {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  50%      { transform: translateY(1.6px) scale(1.012, 0.988); }
+}
+.sim-breathe {
+  animation: simBreathe 4.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+/* Wing flap for passing flocks */
+@keyframes simFlap {
+  0%, 100% { transform: scaleY(1); }
+  50%      { transform: scaleY(0.35); }
+}
+.sim-wing {
+  animation: simFlap 0.6s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Aging accessories fade in gracefully */
+#simGlasses, #simTuft, #simCane { transition: opacity 1.2s ease; }
+#simNugImg { transition: filter 2s linear; }

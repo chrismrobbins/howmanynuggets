@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="stylesheet" href="css/storm.css" />
   <link rel="stylesheet" href="css/account.css" />
+  <link rel="stylesheet" href="css/sim.css" />
 </head>
 <body>
   <main class="card">
@@ -75,6 +76,7 @@
         <div class="score-tile"><div class="game">🎯</div><div class="game-name">Blaster</div><div class="best" id="myBlaster">0</div></div>
         <div class="score-tile"><div class="game">🐤</div><div class="game-name">Flappy</div><div class="best" id="myFlappy">0</div></div>
         <div class="score-tile"><div class="game">🥣</div><div class="game-name">Dunk</div><div class="best" id="myDunk">0</div></div>
+        <div class="score-tile"><div class="game">🧘</div><div class="game-name">Sim</div><div class="best" id="mySim">0</div></div>
       </div>
     </div>
 
@@ -100,11 +102,16 @@
     <span class="caught" id="stormCaught" title="Catch, blast, or flap for nugs — golden ones are worth 10×">🧺 0</span>
     <span class="power-chip" id="powerChip"></span>
     <span class="hint" id="stormHint">click nugs to catch 'em!</span>
+    <span class="mode-switch" id="simSubSwitch">
+      <button type="button" data-sub="regular" class="on" title="Regular mode — the scenic diorama">🌄</button>
+      <button type="button" data-sub="ultra" title="Ultra Realistic mode — nuggets cannot see">🕶️</button>
+    </span>
     <span class="mode-switch" id="modeSwitch">
       <button type="button" data-mode="catch" class="on" title="Catch mode — click nuggets">🧺</button>
       <button type="button" data-mode="blaster" title="Blaster mode — shoot the falling nuggets">🔫</button>
       <button type="button" data-mode="flappy" title="Flappy Nug — fly through the nugget towers">🐤</button>
       <button type="button" data-mode="dunk" title="Sauce Dunk — time your taps to dunk nuggets in the sauce">🥣</button>
+      <button type="button" data-mode="sim" title="Nugget Simulator — sit on a bench and watch the world go by">🧘</button>
     </span>
     <button id="stormStop" type="button">Stop</button>
   </div>
@@ -125,6 +132,10 @@
   <div class="dunk-zone" id="dunkZone"><span class="perfect"></span></div>
   <div class="dunk-cup" id="dunkCup"><span class="sauce"></span></div>
   <div class="dunk-combo" id="dunkCombo"></div>
+
+  <!-- Nugget Simulator: the diorama (SVG injected by js/sim.js) and the void -->
+  <div id="simWorld"></div>
+  <div id="simVoid"></div>
 
   <!-- Account modal: log in / create account / signed-in menu -->
   <div class="modal-overlay" id="authModal">
@@ -202,6 +213,7 @@
         <button type="button" data-game="blaster">🎯 Blaster</button>
         <button type="button" data-game="flappy">🐤 Flappy</button>
         <button type="button" data-game="dunk">🥣 Dunk</button>
+        <button type="button" data-game="sim">🧘 Sim</button>
       </div>
       <div id="lbBody"><div class="lb-loading">Loading…</div></div>
     </div>
@@ -213,6 +225,7 @@
   <script src="js/blaster.js"></script>
   <script src="js/flappy.js"></script>
   <script src="js/dunk.js"></script>
+  <script src="js/sim.js"></script>
   <script src="js/app.js"></script>
   <script src="js/api.js"></script>
   <script src="js/account.js"></script>

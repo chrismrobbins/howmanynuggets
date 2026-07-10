@@ -15,7 +15,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username COLLATE N
 -- One best score per (user, game). Submitting a lower score never lowers the best.
 CREATE TABLE IF NOT EXISTS scores (
   user_id     INTEGER NOT NULL,
-  game        TEXT    NOT NULL,     -- 'catch' | 'blaster' | 'flappy'
+  game        TEXT    NOT NULL,     -- 'catch' | 'blaster' | 'flappy' | 'dunk' | 'sim'
   best_score  INTEGER NOT NULL,
   updated_at  INTEGER NOT NULL,     -- epoch ms
   PRIMARY KEY (user_id, game),
