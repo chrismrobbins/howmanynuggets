@@ -81,6 +81,10 @@ export class GameRoom extends DurableObject {
 
     const host = this.players.size === 0;
     this.players.set(playerId, { id: playerId, userId, name, ready: false, score: 0, host });
+    // Late joiners (and reconnects) get folded into a match already in progress.
+    if (this.phase === 'playing' && this.mod) {
+      this.mod.onPlayerJoin?.(playerId, this.players.get(playerId));
+    }
 
     server.send(JSON.stringify({
       t: 'welcome', you: playerId, game: this.game, code: this.code,
