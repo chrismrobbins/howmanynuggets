@@ -24,6 +24,18 @@ const KO_SECS = 1.6;
 const HEARTS_MAX = 3;
 const SPORK_SCORE = 25, FORK_SCORE = 100, WAVE_BONUS = 50;
 
+// Between-wave boons: pick 1 of 3. Character upgrades or castle defenses.
+const UPGRADES = [
+  { key: 'reach',  emoji: '📏', name: 'Longer Reach',     desc: 'Sword reach +22%',            ok: (s) => s.reach < 2.2,    apply: (s) => { s.reach *= 1.22; } },
+  { key: 'swing',  emoji: '🌀', name: 'Quick Swing',      desc: 'Swing 15% faster',            ok: (s) => s.swing > 0.55,   apply: (s) => { s.swing *= 0.85; } },
+  { key: 'speed',  emoji: '💨', name: 'Swift Boots',      desc: 'Move 15% faster',             ok: (s) => s.speed < 1.9,    apply: (s) => { s.speed *= 1.15; } },
+  { key: 'heart',  emoji: '❤️', name: 'Extra Heart',      desc: '+1 max heart & full heal',    ok: (s) => s.maxHearts < 6,  apply: (s) => { s.maxHearts++; knight.hearts = s.maxHearts; } },
+  { key: 'sharp',  emoji: '🗡️', name: 'Sharpened Edge',   desc: 'Slashes deal +1 damage',      ok: (s) => s.dmg < 3,        apply: (s) => { s.dmg++; } },
+  { key: 'jump',   emoji: '🦵', name: 'Moon Greaves',     desc: 'Jump 12% higher',             ok: (s) => s.jumpV < 1.5,    apply: (s) => { s.jumpV *= 1.12; } },
+  { key: 'torch',  emoji: '🔥', name: 'Vigilant Torches', desc: 'Torches lob embers at foes',  ok: (s) => s.torchLvl < 3,   apply: (s) => { s.torchLvl++; } },
+  { key: 'shield', emoji: '🛡️', name: 'Bulwark Shield',   desc: 'Block 1 hit per wave',        ok: (s) => s.blockMax < 3,   apply: (s) => { s.blockMax++; knight.blockLeft = s.blockMax; } },
+];
+
 const knight = {
   on: false,
   built: false,
@@ -43,6 +55,13 @@ const knight = {
   breakT: 0,         // pause between waves
   spawnSide: 1,
   enemies: [],       // { el, type, x, hp, speed, waddle, dead, vx, vy, rot }
+  stats: null,       // upgrade multipliers, reset per session (see syncKnight)
+  blockLeft: 0,      // Bulwark charges remaining this wave
+  choosing: false,   // upgrade cards on screen; combat is frozen
+  choices: [],
+  slashDur: SLASH_SECS,
+  embers: [],        // torch projectiles { el, x, y, t, target }
+  emberT: 0,
   refs: null,
 };
 
@@ -51,8 +70,10 @@ function knightActive() {
 }
 
 function knightTally() {
-  const hearts = '❤️'.repeat(knight.hearts) + '🖤'.repeat(HEARTS_MAX - knight.hearts);
-  return `Wave ${Math.max(knight.wave, 1)} · ${hearts}`;
+  const max = knight.stats ? knight.stats.maxHearts : HEARTS_MAX;
+  const hearts = '❤️'.repeat(knight.hearts) + '🖤'.repeat(Math.max(max - knight.hearts, 0));
+  const shield = knight.stats && knight.stats.blockMax ? ` · 🛡️${knight.blockLeft}` : '';
+  return `Wave ${Math.max(knight.wave, 1)} · ${hearts}${shield}`;
 }
 
 // ---- Scene ------------------------------------------------------------------------
@@ -222,12 +243,18 @@ function syncKnight() {
   if (active) {
     buildKnightScene();
     knight.x = 800; knight.dir = 1; knight.y = 0; knight.vy = 0;
+    knight.stats = { reach: 1, swing: 1, speed: 1, jumpV: 1, dmg: 1, torchLvl: 0, blockMax: 0, maxHearts: HEARTS_MAX };
     knight.hearts = HEARTS_MAX; knight.iT = 0; knight.ko = 0;
+    knight.blockLeft = 0;
     knight.slashT = 0; knight.phase = 0;
     knight.wave = 0;
     knight.breakT = 1.2; // brief beat, then wave 1
+    knight.choosing = false;
+    hideUpgradeUI();
     clearKnightEnemies();
   } else {
+    knight.choosing = false;
+    hideUpgradeUI();
     clearKnightEnemies();
   }
 }
@@ -235,6 +262,8 @@ function syncKnight() {
 function clearKnightEnemies() {
   knight.enemies.forEach((e) => e.el.remove());
   knight.enemies = [];
+  knight.embers.forEach((e) => e.el.remove());
+  knight.embers = [];
 }
 
 // ---- Waves & enemies ------------------------------------------------------------
@@ -243,6 +272,8 @@ function startWave(n) {
   knight.wave = n;
   knight.pending = 2 + n;
   knight.spawnT = 0.4;
+  knight.blockLeft = knight.stats.blockMax;
+  updateStormHud();
   const [px, py] = knightToScreen(800, 330);
   spawnPopLabel(px, py, `⚔️ Wave ${n}`, 'big');
 }
@@ -263,6 +294,21 @@ function enemySvg(type) {
         <path d="M-14,-52 L-2,-48 M14,-52 L2,-48" stroke="#39404c" stroke-width="3" stroke-linecap="round"/>
         <path d="M-8,-8 l-6,8 M8,-8 l6,8" stroke="#525c6b" stroke-width="5" stroke-linecap="round"/>
       </g>`;
+  } else if (type === 'armored') {
+    g.innerHTML = `
+      <g class="k-en-rig">
+        <rect x="-4" y="-34" width="8" height="34" rx="3.5" fill="#6e7889"/>
+        <path d="M0,-56 m-15,10 a15,14 0 1,1 30,0 q0,12 -15,12 q-15,0 -15,-12 Z" fill="#8b93a3"/>
+        <path d="M-16,-52 a16,11 0 0 1 32,0 Z" fill="#454e5e"/>
+        <path d="M-10,-58 L-10,-66 M0,-60 L0,-69 M10,-58 L10,-66"
+              stroke="#8b93a3" stroke-width="5" stroke-linecap="round" fill="none"/>
+        <ellipse cx="-6" cy="-44" rx="4.5" ry="5.5" fill="#fdfdf8"/>
+        <ellipse cx="7" cy="-44" rx="4.5" ry="5.5" fill="#fdfdf8"/>
+        <circle cx="-4.5" cy="-43" r="2.2" fill="#23232b"/>
+        <circle cx="8.5" cy="-43" r="2.2" fill="#23232b"/>
+        <path d="M-12,-50 L-1,-47 M12,-50 L2,-47" stroke="#2c333f" stroke-width="3" stroke-linecap="round"/>
+        <path d="M-6,-6 l-5,6 M6,-6 l5,6" stroke="#525c6b" stroke-width="4" stroke-linecap="round"/>
+      </g>`;
   } else {
     g.innerHTML = `
       <g class="k-en-rig">
@@ -282,15 +328,16 @@ function enemySvg(type) {
 
 function spawnEnemy() {
   const forkChance = knight.wave >= 3 ? Math.min(0.12 * (knight.wave - 2), 0.45) : 0;
-  const type = Math.random() < forkChance ? 'fork' : 'spork';
+  let type = Math.random() < forkChance ? 'fork' : 'spork';
+  if (type === 'spork' && knight.wave >= 5 && Math.random() < 0.3) type = 'armored';
   const el = enemySvg(type);
   knight.refs.enemies.appendChild(el);
   knight.spawnSide = -knight.spawnSide;
   knight.enemies.push({
     el, type,
     x: knight.spawnSide === 1 ? 1660 : -60,
-    hp: type === 'fork' ? 3 : 1,
-    speed: (type === 'fork' ? 55 : 75) + Math.random() * 40 + knight.wave * 4,
+    hp: type === 'fork' ? 3 : type === 'armored' ? 2 : 1,
+    speed: (type === 'fork' ? 55 : type === 'armored' ? 62 : 75) + Math.random() * 40 + knight.wave * 7,
     waddle: Math.random() * Math.PI * 2,
     flashT: 0,
     dead: false, vx: 0, vy: 0, rot: 0, y: 0,
@@ -307,7 +354,7 @@ function killEnemy(e) {
   e.dead = true;
   e.vx = (e.x < knight.x ? -1 : 1) * (250 + Math.random() * 180);
   e.vy = -(320 + Math.random() * 260);
-  const score = e.type === 'fork' ? FORK_SCORE : SPORK_SCORE;
+  const score = e.type === 'fork' ? FORK_SCORE : e.type === 'armored' ? 40 : SPORK_SCORE;
   storm.caught += score;
   const [px, py] = knightToScreen(e.x, K_GROUND - 70);
   spawnPopLabel(px, py, '+' + score, e.type === 'fork' ? 'golden' : '');
@@ -317,13 +364,22 @@ function killEnemy(e) {
 // ---- Combat -----------------------------------------------------------------------
 
 function knightSlash() {
-  if (!knightActive() || knight.ko > 0 || knight.slashT > 0) return;
-  knight.slashT = SLASH_SECS;
+  if (!knightActive() || knight.ko > 0 || knight.slashT > 0 || knight.choosing) return;
+  knight.slashDur = SLASH_SECS * knight.stats.swing;
+  knight.slashT = knight.slashDur;
   knight.slashHits = new Set();
 }
 
 function hurtKnight(fromX) {
   if (knight.iT > 0 || knight.ko > 0) return;
+  if (knight.blockLeft > 0) {
+    knight.blockLeft--;
+    knight.iT = 0.9;
+    const [bx, by] = knightToScreen(knight.x, K_GROUND - 130);
+    spawnPopLabel(bx, by, '🛡️ blocked!');
+    updateStormHud();
+    return;
+  }
   knight.hearts--;
   knight.iT = HIT_IFRAMES;
   knight.x += (knight.x < fromX ? -1 : 1) * 70;
@@ -339,15 +395,77 @@ function hurtKnight(fromX) {
   updateStormHud();
 }
 
+// ---- Upgrade cards ------------------------------------------------------------------
+
+let kUpOverlay = null;
+
+function ensureUpgradeUI() {
+  if (kUpOverlay) return;
+  kUpOverlay = document.createElement('div');
+  kUpOverlay.className = 'k-upgrade';
+  kUpOverlay.innerHTML = '<div class="k-up-title">⚔️ Choose thy boon</div><div class="k-up-cards"></div>';
+  document.body.appendChild(kUpOverlay);
+  kUpOverlay.addEventListener('mousedown', (e) => e.stopPropagation()); // no slashing through the menu
+  kUpOverlay.querySelector('.k-up-cards').addEventListener('click', (e) => {
+    const card = e.target.closest('button');
+    if (card) pickUpgrade(Number(card.dataset.idx));
+  });
+}
+
+function showUpgrades() {
+  ensureUpgradeUI();
+  const pool = UPGRADES.filter((u) => u.ok(knight.stats));
+  // Shuffle and deal three (fewer if the build is nearly maxed).
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  knight.choices = pool.slice(0, 3);
+  if (!knight.choices.length) { // fully maxed build — straight to the next wave
+    knight.breakT = 2.2;
+    return;
+  }
+  knight.choosing = true;
+  kUpOverlay.querySelector('.k-up-cards').innerHTML = knight.choices.map((u, i) =>
+    `<button type="button" data-idx="${i}">
+      <span class="k-up-emoji">${u.emoji}</span>
+      <span class="k-up-name">${u.name}</span>
+      <span class="k-up-desc">${u.desc}</span>
+      <span class="k-up-key">${i + 1}</span>
+    </button>`).join('');
+  kUpOverlay.classList.add('active');
+}
+
+function pickUpgrade(i) {
+  const u = knight.choices[i];
+  if (!u || !knight.choosing) return;
+  u.apply(knight.stats);
+  knight.choosing = false;
+  hideUpgradeUI();
+  const [px, py] = knightToScreen(knight.x, K_GROUND - 150);
+  spawnPopLabel(px, py, `${u.emoji} ${u.name}!`, 'golden');
+  knight.breakT = 1.4;
+  updateStormHud();
+}
+
+function hideUpgradeUI() {
+  if (kUpOverlay) kUpOverlay.classList.remove('active');
+}
+
 // ---- Input ------------------------------------------------------------------------
 
 window.addEventListener('keydown', (e) => {
   if (!knightActive()) return;
+  if (knight.choosing && ['Digit1', 'Digit2', 'Digit3'].includes(e.code)) {
+    pickUpgrade(Number(e.code.slice(-1)) - 1);
+    e.preventDefault();
+    return;
+  }
   if (e.target && e.target.tagName === 'INPUT') return;
   if (e.code === 'ArrowLeft' || e.code === 'KeyA')       { knight.keys.left = true;  e.preventDefault(); }
   else if (e.code === 'ArrowRight' || e.code === 'KeyD') { knight.keys.right = true; e.preventDefault(); }
   else if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
-    if (knight.y <= 0 && knight.ko <= 0) knight.vy = K_JUMP_V;
+    if (knight.y <= 0 && knight.ko <= 0 && !knight.choosing) knight.vy = K_JUMP_V * knight.stats.jumpV;
     e.preventDefault();
   } else if (e.code === 'KeyX' || e.code === 'KeyZ') {
     knightSlash();
@@ -371,12 +489,20 @@ window.addEventListener('mousedown', (e) => {
 function stepKnight(dt, w, h) {
   const r = knight.refs;
 
+  // Upgrade cards on screen: the courtyard holds its breath.
+  if (knight.choosing) {
+    const idle = Math.sin(performance.now() / 600) * 2;
+    r.body.setAttribute('transform', `translate(0,${(-4 + idle).toFixed(1)})`);
+    r.plume.setAttribute('transform', `rotate(${(Math.sin(performance.now() / 400) * 4).toFixed(1)})`);
+    return;
+  }
+
   // Timers
   if (knight.iT > 0) knight.iT -= dt;
   if (knight.ko > 0) {
     knight.ko -= dt;
     if (knight.ko <= 0) {
-      knight.hearts = HEARTS_MAX;
+      knight.hearts = knight.stats.maxHearts;
       knight.iT = 1.4;
       updateStormHud();
     }
@@ -391,16 +517,16 @@ function stepKnight(dt, w, h) {
     if (knight.spawnT <= 0) {
       spawnEnemy();
       knight.pending--;
-      knight.spawnT = 0.7 + Math.random() * 0.9;
+      knight.spawnT = Math.max(0.32, 0.7 - knight.wave * 0.03) + Math.random() * 0.8;
     }
   } else if (!knight.enemies.some((e) => !e.dead)) {
-    // wave cleared
+    // wave cleared → bank the bonus, then offer a boon
     const bonus = WAVE_BONUS * knight.wave;
     storm.caught += bonus;
     const [px, py] = knightToScreen(800, 300);
     spawnPopLabel(px, py, `🏰 Wave ${knight.wave} cleared +${bonus}`, 'golden');
-    knight.breakT = 2.2;
     updateStormHud();
+    showUpgrades();
   }
 
   // Movement (disabled while KO'd)
@@ -409,7 +535,7 @@ function stepKnight(dt, w, h) {
     const dir = (knight.keys.right ? 1 : 0) - (knight.keys.left ? 1 : 0);
     if (dir) {
       knight.dir = dir;
-      knight.x = Math.min(Math.max(knight.x + dir * K_WALK * dt, K_MIN_X), K_MAX_X);
+      knight.x = Math.min(Math.max(knight.x + dir * K_WALK * knight.stats.speed * dt, K_MIN_X), K_MAX_X);
       knight.moving = true;
       knight.phase += dt * 13;
     }
@@ -425,7 +551,7 @@ function stepKnight(dt, w, h) {
   let trailOpacity = 0;
   if (knight.slashT > 0) {
     knight.slashT -= dt;
-    const q = Math.min(1 - knight.slashT / SLASH_SECS, 1);
+    const q = Math.min(1 - knight.slashT / knight.slashDur, 1);
     const eased = Math.pow(q, 0.75);
     swordAngle = SLASH_FROM + (SLASH_TO - SLASH_FROM) * eased;
     trailOpacity = q > 0.08 && q < 0.8 ? 0.4 * (1 - q) : 0;
@@ -434,9 +560,9 @@ function stepKnight(dt, w, h) {
       for (const e of knight.enemies) {
         if (e.dead || knight.slashHits.has(e)) continue;
         const rel = (e.x - knight.x) * knight.dir;
-        if (rel > -6 && rel < SLASH_REACH) {
+        if (rel > -6 && rel < SLASH_REACH * knight.stats.reach) {
           knight.slashHits.add(e);
-          e.hp--;
+          e.hp -= knight.stats.dmg;
           if (e.hp <= 0) killEnemy(e);
           else {
             e.flashT = 0.18;
@@ -444,6 +570,44 @@ function stepKnight(dt, w, h) {
           }
         }
       }
+    }
+  }
+
+  // Vigilant Torches: lob embers at the nearest threats
+  if (knight.stats.torchLvl > 0) {
+    knight.emberT -= dt;
+    const alive = knight.enemies.filter((e) => !e.dead);
+    if (knight.emberT <= 0 && alive.length) {
+      knight.emberT = 5.5 / knight.stats.torchLvl;
+      const target = alive[Math.floor(Math.random() * alive.length)];
+      const fromX = Math.abs(target.x - 560) < Math.abs(target.x - 1040) ? 560 : 1040;
+      const el = document.createElementNS(SVG_NS, 'circle');
+      el.setAttribute('r', '7');
+      el.setAttribute('fill', '#fbbf24');
+      el.setAttribute('style', 'filter: drop-shadow(0 0 7px rgba(245,158,11,0.9))');
+      knight.refs.fx.appendChild(el);
+      knight.embers.push({ el, x0: fromX, y0: 420, x: fromX, y: 420, t: 0, target });
+    }
+  }
+  for (let i = knight.embers.length - 1; i >= 0; i--) {
+    const em = knight.embers[i];
+    em.t += dt / 0.6;
+    const tx = em.target.x, ty = K_GROUND - 30;
+    const q2 = Math.min(em.t, 1);
+    em.x = em.x0 + (tx - em.x0) * q2;
+    em.y = em.y0 + (ty - em.y0) * q2 - Math.sin(q2 * Math.PI) * 120; // arcing lob
+    em.el.setAttribute('cx', em.x.toFixed(1));
+    em.el.setAttribute('cy', em.y.toFixed(1));
+    if (q2 >= 1) {
+      if (!em.target.dead) {
+        em.target.hp--;
+        if (em.target.hp <= 0) killEnemy(em.target);
+        else {
+          em.target.flashT = 0.18;
+        }
+      }
+      em.el.remove();
+      knight.embers.splice(i, 1);
     }
   }
 
@@ -523,7 +687,7 @@ function stepKnight(dt, w, h) {
     // A wedge sweeping behind the blade.
     const a0 = (swordAngle - 55) * Math.PI / 180;
     const a1 = swordAngle * Math.PI / 180;
-    const R = 100;
+    const R = 100 * knight.stats.reach;
     r.trail.setAttribute('d',
       `M0,0 L${(Math.cos(a0) * R).toFixed(1)},${(Math.sin(a0) * R).toFixed(1)} ` +
       `A${R},${R} 0 0 1 ${(Math.cos(a1) * R).toFixed(1)},${(Math.sin(a1) * R).toFixed(1)} Z`);
@@ -556,6 +720,11 @@ window.knightDebug = function (opts) {
   if (opts.y !== undefined) { knight.y = opts.y; knight.vy = 0; }
   if (opts.slash) { knightSlash(); knight.slashT = SLASH_SECS * (1 - (opts.slashQ || 0.4)); }
   if (opts.ko) { knight.hearts = 1; hurtKnight(knight.x + 10); }
+  if (opts.upgrade) {
+    const u = UPGRADES.find((x) => x.key === opts.upgrade);
+    if (u) u.apply(knight.stats);
+  }
+  if (opts.showCards) { knight.pending = 0; clearKnightEnemies(); showUpgrades(); }
   stepKnight(opts.dt || 0.016, window.innerWidth, window.innerHeight);
   knight.keys.right = false;
 };

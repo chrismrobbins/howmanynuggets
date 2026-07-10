@@ -42,9 +42,13 @@ few surprises for the big spenders.
     mini-nugs +20; the counter speeds up the longer you survive.
   - ⚔️ **Nugget Knight** — hold the castle gate! Sir Nugget (helm, plume,
     round shield, and a sword with a real swing arc) defends a torchlit
-    courtyard against waves of waddling sporks (+25) and three-hit Big Forks
-    (+100). ← → move, space jumps clean over enemies, click/X slashes; three
-    hearts, brief knockout when they run out, +50 × wave for a clear.
+    courtyard against waves of waddling sporks (+25), armored sporks (wave 5+,
+    two hits, +40), and three-hit Big Forks (+100). ← → move, space jumps
+    clean over enemies, click/X slashes; three hearts, brief knockout when
+    they run out, +50 × wave for a clear. **After every wave you choose one
+    of three boons** — character upgrades (reach, swing speed, move speed,
+    damage, jump, extra hearts) or castle defenses (ember-lobbing torches,
+    a shield that blocks hits) — while the waves get faster and meaner.
   - 🧘 **Nugget Simulator** — the calm one. You are a nugget on a park bench,
     watching a full day/night cycle pass every two minutes: sunrises, drifting
     clouds, migrating birds, fireflies, shooting stars. The nugget ages —
