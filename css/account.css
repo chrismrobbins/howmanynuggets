@@ -112,6 +112,9 @@
   animation: modalpop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 @keyframes modalpop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* The leaderboard modal fits seven game tabs — give it room to breathe */
+#lbModal .modal { max-width: 470px; }
 .modal-head {
   display: flex;
   align-items: center;
@@ -139,11 +142,13 @@
 /* Tabs (Login / Register, and game tabs) */
 .tab-row {
   display: flex;
+  flex-wrap: wrap; /* seven game tabs now — wrap instead of overflowing the modal */
   gap: 0.4rem;
   margin-bottom: 1rem;
 }
 .tab-row button {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 72px;
   background: var(--panelBgAlt);
   border: 1px solid var(--border);
   color: var(--textMuted);
