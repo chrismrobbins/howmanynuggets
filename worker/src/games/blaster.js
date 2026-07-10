@@ -44,6 +44,11 @@ export class BlasterGame {
     });
   }
 
+  onPlayerJoin(pid, player) {
+    if (this.cannons.has(pid)) return;
+    this.cannons.set(pid, { x: WORLD_W * (0.2 + 0.6 * this.room.rand()), name: player.name, cd: 0 });
+  }
+
   onPlayerLeave(pid) { this.cannons.delete(pid); }
 
   onInput(pid, msg) {
