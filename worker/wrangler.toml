@@ -1,6 +1,8 @@
 name = "howmanynuggets-api"
 main = "src/index.js"
 compatibility_date = "2026-01-01"
+# We serve only on the api.howmanynuggets.com custom domain, never workers.dev.
+workers_dev = false
 
 # D1 database binding. Create the DB with:
 #   wrangler d1 create howmanynuggets
