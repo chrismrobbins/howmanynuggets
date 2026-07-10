@@ -41,7 +41,7 @@ const MODE_HINTS = {
   sim:     'you are a nugget. sit. watch. accrue wisdom.',
   run:     'space/click to jump (twice = flip!) · hold ↓ to slide',
   knight:  'defend the gate! ← → move · space jump · click/X slash',
-  brawl:   'throw hands! ← → move · click/X punch (chain 3!) · space dodge',
+  brawl:   'walk right, clean the kitchen! ←→↑↓ move · X/click punch · space dodge',
 };
 const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘', run: '🏃', knight: '⚔️', brawl: '🥊' };
 const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated', run: 'ran', knight: 'vanquished', brawl: 'sauced' };
