@@ -40,6 +40,11 @@ few surprises for the big spenders.
     he does a full flip — and slide under spatula gates (hold ↓). Crashing
     scatters his limbs before he reassembles. 1 point per meter; golden
     mini-nugs +20; the counter speeds up the longer you survive.
+  - ⚔️ **Nugget Knight** — hold the castle gate! Sir Nugget (helm, plume,
+    round shield, and a sword with a real swing arc) defends a torchlit
+    courtyard against waves of waddling sporks (+25) and three-hit Big Forks
+    (+100). ← → move, space jumps clean over enemies, click/X slashes; three
+    hearts, brief knockout when they run out, +50 × wave for a clear.
   - 🧘 **Nugget Simulator** — the calm one. You are a nugget on a park bench,
     watching a full day/night cycle pass every two minutes: sunrises, drifting
     clouds, migrating birds, fireflies, shooting stars. The nugget ages —
@@ -87,6 +92,8 @@ promotions, and tax. This project is **not affiliated with or endorsed by McDona
 | `css/sim.css` | Simulator animations and layers |
 | `js/run.js` | 🏃 Nugget Run (rigged runner, parallax kitchen) |
 | `css/run.css` | Runner layer, blink, golden pickups |
+| `js/knight.js` | ⚔️ Nugget Knight (combat rig, wave survival) |
+| `css/knight.css` | Courtyard layer, torch flicker, hit flashes |
 | `js/app.js` | Converter wiring and input formatting |
 | `js/api.js` | Client for the accounts + high-scores backend |
 | `js/account.js` | Sign in/up UI, high-scores panel, leaderboard modal |

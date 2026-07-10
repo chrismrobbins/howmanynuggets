@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="css/account.css" />
   <link rel="stylesheet" href="css/sim.css" />
   <link rel="stylesheet" href="css/run.css" />
+  <link rel="stylesheet" href="css/knight.css" />
 </head>
 <body>
   <main class="card">
@@ -79,6 +80,7 @@
         <div class="score-tile"><div class="game">🥣</div><div class="game-name">Dunk</div><div class="best" id="myDunk">0</div></div>
         <div class="score-tile"><div class="game">🧘</div><div class="game-name">Sim</div><div class="best" id="mySim">0</div></div>
         <div class="score-tile"><div class="game">🏃</div><div class="game-name">Run</div><div class="best" id="myRun">0</div></div>
+        <div class="score-tile"><div class="game">⚔️</div><div class="game-name">Knight</div><div class="best" id="myKnight">0</div></div>
       </div>
     </div>
 
@@ -115,6 +117,7 @@
       <button type="button" data-mode="dunk" title="Sauce Dunk — time your taps to dunk nuggets in the sauce">🥣</button>
       <button type="button" data-mode="sim" title="Nugget Simulator — sit on a bench and watch the world go by">🧘</button>
       <button type="button" data-mode="run" title="Nugget Run — endless runner: jump, flip, and slide">🏃</button>
+      <button type="button" data-mode="knight" title="Nugget Knight — defend the gate from waddling sporks">🗡️</button>
     </span>
     <button id="stormStop" type="button">Stop</button>
   </div>
@@ -142,6 +145,9 @@
 
   <!-- Nugget Run: the kitchen-counter runner (SVG injected by js/run.js) -->
   <div id="runWorld"></div>
+
+  <!-- Nugget Knight: the castle courtyard (SVG injected by js/knight.js) -->
+  <div id="knightWorld"></div>
 
   <!-- Account modal: log in / create account / signed-in menu -->
   <div class="modal-overlay" id="authModal">
@@ -221,6 +227,7 @@
         <button type="button" data-game="dunk">🥣 Dunk</button>
         <button type="button" data-game="sim">🧘 Sim</button>
         <button type="button" data-game="run">🏃 Run</button>
+        <button type="button" data-game="knight">⚔️ Knight</button>
       </div>
       <div id="lbBody"><div class="lb-loading">Loading…</div></div>
     </div>
@@ -234,6 +241,7 @@
   <script src="js/dunk.js"></script>
   <script src="js/sim.js"></script>
   <script src="js/run.js"></script>
+  <script src="js/knight.js"></script>
   <script src="js/app.js"></script>
   <script src="js/api.js"></script>
   <script src="js/account.js"></script>

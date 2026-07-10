@@ -1,0 +1,42 @@
+/* ---- Nugget Knight ---- */
+
+#knightWorld {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  display: none;
+  pointer-events: none;
+  background: #131029;
+}
+#knightWorld.active { display: block; }
+#knightWorld svg { display: block; }
+
+/* Torch flames flicker (inner group only — position lives on the outer g) */
+@keyframes kFlicker {
+  0%, 100% { transform: scale(1, 1); }
+  30%      { transform: scale(0.92, 1.08) rotate(-2deg); }
+  55%      { transform: scale(1.06, 0.94) rotate(2deg); }
+  80%      { transform: scale(0.96, 1.05); }
+}
+.k-flame {
+  animation: kFlicker 0.9s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+/* Pennants wave gently */
+@keyframes kWave {
+  0%, 100% { transform: skewY(0deg); }
+  50%      { transform: skewY(5deg); }
+}
+.k-pennant { animation: kWave 2.6s ease-in-out infinite; }
+
+/* Taking a hit: quick red flash on the whole rig */
+@keyframes kHurt {
+  0%   { filter: saturate(3) hue-rotate(-30deg) brightness(1.4); }
+  100% { filter: none; }
+}
+.k-hurt { animation: kHurt 0.45s ease-out 1; }
+
+/* An enemy that soaked a hit flashes white */
+.k-en-flash { filter: brightness(2.2) saturate(0.4); }
