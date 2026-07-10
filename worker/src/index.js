@@ -106,9 +106,7 @@ const validDisplay = (d) => typeof d === 'string' && d.trim().length >= 1 && d.t
 const validPassword = (p) => typeof p === 'string' && p.length >= 8 && p.length <= 200;
 
 // ---- Sessions ---------------------------------------------------------------
-async function getSessionUser(request, env) {
-  const auth = request.headers.get('Authorization') || '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+async function getUserByToken(env, token) {
   if (!token) return null;
   const row = await env.DB.prepare(
     `SELECT u.id, u.username, u.display_name, s.expires_at
@@ -121,6 +119,12 @@ async function getSessionUser(request, env) {
     return null;
   }
   return { id: row.id, username: row.username, displayName: row.display_name, token };
+}
+
+async function getSessionUser(request, env) {
+  const auth = request.headers.get('Authorization') || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  return getUserByToken(env, token);
 }
 
 async function scoresForUser(env, userId) {
@@ -280,12 +284,64 @@ async function leaderboard(request, env, origin) {
   return json({ game, top, mine }, 200, origin);
 }
 
+// ---- Multiplayer rooms ------------------------------------------------------
+// The GameRoom Durable Object must be exported from the Worker entry so wrangler
+// can bind it (see wrangler.toml).
+export { GameRoom } from './gameRoom.js';
+
+const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous 0/O/1/I
+function newRoomCode() {
+  let s = '';
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  for (const b of bytes) s += ROOM_CODE_ALPHABET[b % ROOM_CODE_ALPHABET.length];
+  return s;
+}
+
+// POST /api/rooms { game } — create a room, configure its DO, return the code.
+async function createRoom(request, env, origin) {
+  const u = await getSessionUser(request, env);
+  if (!u) return json({ error: 'Sign in to host a room.' }, 401, origin);
+  const body = await request.json().catch(() => ({}));
+  const game = body.game;
+  if (!MULTIPLAYER_GAMES.has(game)) return json({ error: 'That game has no multiplayer yet.' }, 400, origin);
+
+  const code = newRoomCode();
+  const stub = env.GAME_ROOMS.getByName(code);
+  await stub.configure(code, game);
+  return json({ code, game }, 201, origin);
+}
+
+// GET /room/:code (WebSocket upgrade). Browsers can't send auth headers on a WS
+// handshake, so the session token rides in the query string; the Worker
+// validates it here and forwards only the user id + name to the DO.
+async function joinRoom(request, env, url) {
+  const code = url.pathname.split('/')[2] || '';
+  if (!/^[A-Z0-9]{4,8}$/.test(code)) return new Response('bad room code', { status: 400 });
+  const user = await getUserByToken(env, url.searchParams.get('token') || '');
+  if (!user) return new Response('unauthorized', { status: 401 });
+
+  const stub = env.GAME_ROOMS.getByName(code);
+  const fwd = new URL(request.url);
+  fwd.searchParams.set('uid', String(user.id));
+  fwd.searchParams.set('name', user.displayName);
+  fwd.searchParams.delete('token');
+  return stub.fetch(new Request(fwd.toString(), request));
+}
+
+// Which games currently have a multiplayer module (mirrors games/registry.js).
+const MULTIPLAYER_GAMES = new Set(['blaster']);
+
 // ---- Router -----------------------------------------------------------------
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const origin = request.headers.get('Origin') || '';
     const path = url.pathname.replace(/\/+$/, '') || '/';
+
+    // WebSocket upgrades bypass CORS/JSON handling entirely.
+    if (path.startsWith('/room/') && request.headers.get('Upgrade') === 'websocket') {
+      return joinRoom(request, env, url);
+    }
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
@@ -300,6 +356,7 @@ export default {
       if (path === '/api/score' && m === 'POST') return await submitScore(request, env, origin);
       if (path === '/api/scores/me' && m === 'GET') return await myScores(request, env, origin);
       if (path === '/api/leaderboard' && m === 'GET') return await leaderboard(request, env, origin);
+      if (path === '/api/rooms' && m === 'POST') return await createRoom(request, env, origin);
       if (path === '/' || path === '/api') return json({ ok: true, service: 'howmanynuggets-api' }, 200, origin);
       return json({ error: 'Not found' }, 404, origin);
     } catch (err) {
