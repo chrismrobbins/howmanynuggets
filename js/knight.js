@@ -30,13 +30,60 @@ const UPGRADES = [
   { key: 'reach',  emoji: '📏', name: 'Longer Reach',     desc: 'Sword reach +22%',            ok: (s) => s.reach < 2.2,    apply: (s) => { s.reach *= 1.22; } },
   { key: 'swing',  emoji: '🌀', name: 'Quick Swing',      desc: 'Swing 15% faster',            ok: (s) => s.swing > 0.55,   apply: (s) => { s.swing *= 0.85; } },
   { key: 'speed',  emoji: '💨', name: 'Swift Boots',      desc: 'Move 15% faster',             ok: (s) => s.speed < 1.9,    apply: (s) => { s.speed *= 1.15; } },
-  { key: 'heart',  emoji: '❤️', name: 'Extra Heart',      desc: '+1 max heart & full heal',    ok: (s) => s.maxHearts < 6,  apply: (s) => { s.maxHearts++; knight.hearts = s.maxHearts; } },
+  { key: 'heart',  emoji: '❤️', name: 'Extra Heart',      desc: '+1 max heart & full heal',    ok: (s) => s.maxHearts < (knight.cfg ? knight.cfg.heartCap : 6), apply: (s) => { s.maxHearts++; knight.hearts = s.maxHearts; } },
   { key: 'sharp',  emoji: '🗡️', name: 'Sharpened Edge',   desc: 'Slashes deal +1 damage',      ok: (s) => s.dmg < 3,        apply: (s) => { s.dmg++; } },
   { key: 'jump',   emoji: '🦵', name: 'Moon Greaves',     desc: 'Jump 12% higher',             ok: (s) => s.jumpV < 1.5,    apply: (s) => { s.jumpV *= 1.12; } },
   { key: 'torch',  emoji: '🔥', name: 'Vigilant Torches', desc: 'Torches lob embers at foes',  ok: (s) => s.torchLvl < 1,   apply: (s) => { s.torchLvl++; } },
   { key: 'archer', emoji: '🏹', name: 'Hire an Archer',   desc: 'A nugget archer mans the wall', ok: (s) => s.archers < 4,  apply: (s) => { s.archers++; spawnArcher(); } },
   { key: 'shield', emoji: '🛡️', name: 'Bulwark Shield',   desc: 'Block 1 hit per wave',        ok: (s) => s.blockMax < 2,   apply: (s) => { s.blockMax++; knight.blockLeft = s.blockMax; } },
 ];
+
+// ---- Oaths (difficulty) -------------------------------------------------------------
+// Chosen when the game opens. Higher oaths aren't just stat sliders: boons come
+// slower, enemies get "seasoned" elite variants, spoons lead their lobs, knives
+// dash harder, KOs sting, and the Whisk enrages. Score multipliers make the
+// leaderboard reward courage. THE NUGGMARE must be earned (wave 8 on Knight's).
+const OATHS = {
+  squire: {
+    emoji: '🛡️', name: "Squire's Oath", mult: 1,
+    flavor: 'A gentle patrol. The sporks are mostly polite. 1× score.',
+    startHearts: 3, heartCap: 6,
+    speed: 0.9, count: 1, gap: 1.15, hpUp: 0, elite: 0,
+    boonEvery: 1, koHearts: (m) => Math.ceil(m / 2), mercy: 0.25,
+    bossEvery: 5, bossHp: 0.85, aimLead: 0, knifeDash: 700, defense: 1, enrage: false,
+  },
+  knight: {
+    emoji: '⚔️', name: "Knight's Oath", mult: 1.75,
+    flavor: 'The true test. The cutlery is furious. 1.75× score.',
+    startHearts: 3, heartCap: 5,
+    speed: 1.2, count: 1.3, gap: 0.75, hpUp: 1, elite: 0.2,
+    boonEvery: 2, koHearts: () => 1, mercy: 0.45,
+    bossEvery: 5, bossHp: 1.5, aimLead: 130, knifeDash: 900, defense: 1.15, enrage: false,
+  },
+  nuggmare: {
+    emoji: '💀', name: 'THE NUGGMARE', mult: 3,
+    flavor: 'The Whisk remembers you. No mercy while you are down. 3× score.',
+    startHearts: 2, heartCap: 3,
+    speed: 1.45, count: 1.6, gap: 0.6, hpUp: 1, elite: 0.45,
+    boonEvery: 3, koHearts: () => 1, mercy: 1,
+    bossEvery: 4, bossHp: 2, aimLead: 170, knifeDash: 1050, defense: 1.3, enrage: true,
+  },
+};
+const NUGGMARE_UNLOCK_WAVE = 8; // reach this on Knight's Oath to earn the 💀
+
+function loadOathRecords() {
+  try { return JSON.parse(localStorage.getItem('kOathBest') || '{}'); } catch (e) { return {}; }
+}
+function saveOathRecord(oath, wave) {
+  const rec = loadOathRecords();
+  if (wave > (rec[oath] || 0)) {
+    rec[oath] = wave;
+    try { localStorage.setItem('kOathBest', JSON.stringify(rec)); } catch (e) { /* ok */ }
+  }
+}
+function nuggmareUnlocked() {
+  return (loadOathRecords().knight || 0) >= NUGGMARE_UNLOCK_WAVE;
+}
 
 const knight = {
   on: false,
@@ -61,6 +108,9 @@ const knight = {
   blockLeft: 0,      // Bulwark charges remaining this wave
   choosing: false,   // upgrade cards on screen; combat is frozen
   choices: [],
+  oath: 'knight',    // difficulty key into OATHS (last pick is remembered)
+  cfg: OATHS.knight,
+  oathOpen: false,   // oath-select screen showing; combat is frozen
   slashDur: SLASH_SECS,
   embers: [],        // torch projectiles { el, x, y, t, target }
   emberT: 0,
@@ -75,12 +125,13 @@ function knightActive() {
 }
 
 function knightTally() {
+  if (knight.oathOpen) return 'Choose your oath…';
   const max = knight.stats ? knight.stats.maxHearts : HEARTS_MAX;
   const hearts = '❤️'.repeat(knight.hearts) + '🖤'.repeat(Math.max(max - knight.hearts, 0));
   const shield = knight.stats && knight.stats.blockMax ? ` · 🛡️${knight.blockLeft}` : '';
   const boss = knight.enemies && knight.enemies.find((e) => e.type === 'whisk' && !e.dead);
   const bossTxt = boss ? ` · 🌀${boss.hp}` : '';
-  return `Wave ${Math.max(knight.wave, 1)} · ${hearts}${shield}${bossTxt}`;
+  return `${knight.cfg.emoji} Wave ${Math.max(knight.wave, 1)} · ${hearts}${shield}${bossTxt}`;
 }
 
 // ---- Scene ------------------------------------------------------------------------
@@ -256,13 +307,16 @@ function syncKnight() {
     knight.blockLeft = 0;
     knight.slashT = 0; knight.phase = 0;
     knight.wave = 0;
-    knight.breakT = 1.2; // brief beat, then wave 1
+    knight.breakT = 0; // waits for the oath pick
     knight.choosing = false;
     hideUpgradeUI();
     clearKnightEnemies();
+    showOathSelect(); // choose your difficulty before wave 1
   } else {
     knight.choosing = false;
+    knight.oathOpen = false;
     hideUpgradeUI();
+    hideOathUI();
     clearKnightEnemies();
   }
 }
@@ -309,7 +363,10 @@ function lobSauce(spoon) {
   shadow.setAttribute('opacity', '0');
   knight.refs.fx.appendChild(shadow);
   knight.refs.fx.appendChild(el);
-  knight.globs.push({ el, shadow, x0: spoon.x, y0: K_GROUND - 62, tx: knight.x, t: 0 });
+  // Harder oaths lead the shot — the spoon aims where you're HEADED.
+  const lead = knight.moving ? knight.dir * knight.cfg.aimLead : 0;
+  const tx = Math.min(Math.max(knight.x + lead, K_MIN_X), K_MAX_X);
+  knight.globs.push({ el, shadow, x0: spoon.x, y0: K_GROUND - 62, tx, t: 0 });
 }
 
 function shootArrow(archer, target) {
@@ -326,13 +383,18 @@ function shootArrow(archer, target) {
 
 function startWave(n) {
   knight.wave = n;
-  knight.pending = 3 + Math.ceil(n * 1.4);
+  knight.pending = Math.ceil((3 + Math.ceil(n * 1.4)) * knight.cfg.count);
   knight.spawnT = 0.4;
   knight.blockLeft = knight.stats.blockMax;
+  saveOathRecord(knight.oath, n);
   updateStormHud();
   const [px, py] = knightToScreen(800, 330);
-  if (n % 5 === 0) {
+  if (n % knight.cfg.bossEvery === 0) {
     spawnEnemy('whisk');
+    if (knight.oath === 'nuggmare') { // the Whisk brings an honor guard
+      spawnEnemy('spork');
+      spawnEnemy('spork');
+    }
     spawnPopLabel(px, py, `🌀 Wave ${n} — THE WHISK approaches`, 'big');
   } else {
     spawnPopLabel(px, py, `⚔️ Wave ${n}`, 'big');
@@ -453,15 +515,27 @@ function rollEnemyType(wave) {
 
 function spawnEnemy(forceType) {
   const type = forceType || rollEnemyType(knight.wave);
+  const cfg = knight.cfg;
   const el = enemySvg(type);
   knight.refs.enemies.appendChild(el);
   knight.spawnSide = -knight.spawnSide;
-  const maxHp = type === 'whisk' ? 10 + knight.wave : ENEMY_HP[type];
+  // Sporks stay 1-hp fodder on every oath (slicing through them is the joy);
+  // everything sturdier gains hp on the harder oaths.
+  let maxHp = type === 'whisk'
+    ? Math.round((10 + knight.wave) * cfg.bossHp)
+    : ENEMY_HP[type] + (type === 'spork' ? 0 : cfg.hpUp);
+  // "Seasoned" elites: hotter, tougher, worth double.
+  const elite = !forceType && type !== 'whisk' && Math.random() < cfg.elite;
+  if (elite) {
+    maxHp += 1;
+    el.classList.add('k-elite');
+  }
   knight.enemies.push({
-    el, type,
+    el, type, elite,
     x: knight.spawnSide === 1 ? 1660 : -60,
     hp: maxHp, maxHp,
-    speed: ENEMY_SPEED[type] + Math.random() * 45 + knight.wave * (type === 'whisk' ? 2 : 9),
+    speed: (ENEMY_SPEED[type] + Math.random() * 45 + knight.wave * (type === 'whisk' ? 2 : 9)) *
+      cfg.speed * (elite ? 1.25 : 1),
     waddle: Math.random() * Math.PI * 2,
     flashT: 0,
     state: 'approach', stateT: 0,
@@ -481,17 +555,19 @@ function killEnemy(e) {
   e.dead = true;
   e.vx = (e.x < knight.x ? -1 : 1) * (250 + Math.random() * 180);
   e.vy = -(320 + Math.random() * 260);
-  const score = { spork: SPORK_SCORE, armored: 40, fork: FORK_SCORE, spoon: SPOON_SCORE, knife: KNIFE_SCORE, whisk: WHISK_SCORE }[e.type];
+  const base = { spork: SPORK_SCORE, armored: 40, fork: FORK_SCORE, spoon: SPOON_SCORE, knife: KNIFE_SCORE, whisk: WHISK_SCORE }[e.type];
+  const score = Math.round(base * (e.elite ? 2 : 1) * knight.cfg.mult);
   storm.caught += score;
   const [px, py] = knightToScreen(e.x, K_GROUND - 70);
-  spawnPopLabel(px, py, '+' + score, e.type === 'fork' || e.type === 'whisk' ? 'golden' : '');
+  spawnPopLabel(px, py, (e.elite ? '🌶️ +' : '+') + score,
+    e.elite || e.type === 'fork' || e.type === 'whisk' ? 'golden' : '');
   updateStormHud();
 }
 
 // ---- Combat -----------------------------------------------------------------------
 
 function knightSlash() {
-  if (!knightActive() || knight.ko > 0 || knight.slashT > 0 || knight.choosing) return;
+  if (!knightActive() || knight.ko > 0 || knight.slashT > 0 || knight.choosing || knight.oathOpen) return;
   knight.slashDur = SLASH_SECS * knight.stats.swing;
   knight.slashT = knight.slashDur;
   knight.slashHits = new Set();
@@ -520,6 +596,81 @@ function hurtKnight(fromX, source) {
     spawnPopLabel(px, py, '💫 clanked out!', 'big');
   }
   updateStormHud();
+}
+
+// ---- Oath select (difficulty) -------------------------------------------------------
+
+let kOathOverlay = null;
+
+function ensureOathUI() {
+  if (kOathOverlay) return;
+  kOathOverlay = document.createElement('div');
+  kOathOverlay.className = 'k-upgrade k-oath';
+  kOathOverlay.innerHTML = '<div class="k-up-title">🏰 Swear your oath, Sir Nugget</div><div class="k-up-cards"></div><div class="k-oath-note"></div>';
+  document.body.appendChild(kOathOverlay);
+  kOathOverlay.addEventListener('mousedown', (e) => e.stopPropagation()); // no slashing through the menu
+  kOathOverlay.querySelector('.k-up-cards').addEventListener('click', (e) => {
+    const card = e.target.closest('button');
+    if (card) pickOath(card.dataset.oath);
+  });
+}
+
+function showOathSelect() {
+  ensureOathUI();
+  knight.oathOpen = true;
+  const rec = loadOathRecords();
+  const unlocked = nuggmareUnlocked();
+  try { knight.oath = localStorage.getItem('kOathLast') || 'knight'; } catch (e) { /* ok */ }
+  if (knight.oath === 'nuggmare' && !unlocked) knight.oath = 'knight';
+  kOathOverlay.querySelector('.k-up-cards').innerHTML = Object.entries(OATHS).map(([key, o], i) => {
+    const locked = key === 'nuggmare' && !unlocked;
+    const best = rec[key] ? `best: wave ${rec[key]}` : '';
+    return `<button type="button" data-oath="${key}"
+      class="${locked ? 'k-locked' : ''}${key === knight.oath ? ' k-last' : ''}">
+      <span class="k-up-emoji">${locked ? '🔒' : o.emoji}</span>
+      <span class="k-up-name">${locked ? '???' : o.name}</span>
+      <span class="k-up-desc">${locked
+        ? `Sealed. Reach wave ${NUGGMARE_UNLOCK_WAVE} under the Knight's Oath.`
+        : o.flavor}</span>
+      <span class="k-oath-mult">${locked ? '' : '×' + o.mult + ' score'}</span>
+      <span class="k-oath-best">${locked ? '' : best}</span>
+      <span class="k-up-key">${i + 1}</span>
+    </button>`;
+  }).join('');
+  kOathOverlay.querySelector('.k-oath-note').textContent =
+    unlocked ? 'the third oath has been earned.' : 'press 1 · 2 · 3 or click';
+  kOathOverlay.classList.add('active');
+  updateStormHud();
+}
+
+function pickOath(key) {
+  const o = OATHS[key];
+  if (!o || !knight.oathOpen) return;
+  if (key === 'nuggmare' && !nuggmareUnlocked()) {
+    // rattle the lock
+    const btn = kOathOverlay.querySelector('button[data-oath="nuggmare"]');
+    if (btn) {
+      btn.classList.remove('k-shake');
+      void btn.offsetWidth;
+      btn.classList.add('k-shake');
+    }
+    return;
+  }
+  knight.oath = key;
+  knight.cfg = o;
+  try { localStorage.setItem('kOathLast', key); } catch (e) { /* ok */ }
+  knight.oathOpen = false;
+  hideOathUI();
+  knight.stats.maxHearts = o.startHearts;
+  knight.hearts = o.startHearts;
+  const [px, py] = knightToScreen(800, 320);
+  spawnPopLabel(px, py, `${o.emoji} ${o.name} sworn`, 'big');
+  knight.breakT = 1.2;
+  updateStormHud();
+}
+
+function hideOathUI() {
+  if (kOathOverlay) kOathOverlay.classList.remove('active');
 }
 
 // ---- Upgrade cards ------------------------------------------------------------------
@@ -583,6 +734,11 @@ function hideUpgradeUI() {
 
 window.addEventListener('keydown', (e) => {
   if (!knightActive()) return;
+  if (knight.oathOpen && ['Digit1', 'Digit2', 'Digit3'].includes(e.code)) {
+    pickOath(Object.keys(OATHS)[Number(e.code.slice(-1)) - 1]);
+    e.preventDefault();
+    return;
+  }
   if (knight.choosing && ['Digit1', 'Digit2', 'Digit3'].includes(e.code)) {
     pickUpgrade(Number(e.code.slice(-1)) - 1);
     e.preventDefault();
@@ -592,7 +748,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'ArrowLeft' || e.code === 'KeyA')       { knight.keys.left = true;  e.preventDefault(); }
   else if (e.code === 'ArrowRight' || e.code === 'KeyD') { knight.keys.right = true; e.preventDefault(); }
   else if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
-    if (knight.y <= 0 && knight.ko <= 0 && !knight.choosing) knight.vy = K_JUMP_V * knight.stats.jumpV;
+    if (knight.y <= 0 && knight.ko <= 0 && !knight.choosing && !knight.oathOpen) knight.vy = K_JUMP_V * knight.stats.jumpV;
     e.preventDefault();
   } else if (e.code === 'KeyX' || e.code === 'KeyZ') {
     knightSlash();
@@ -616,8 +772,8 @@ window.addEventListener('mousedown', (e) => {
 function stepKnight(dt, w, h) {
   const r = knight.refs;
 
-  // Upgrade cards on screen: the courtyard holds its breath.
-  if (knight.choosing) {
+  // Upgrade cards or the oath screen on screen: the courtyard holds its breath.
+  if (knight.choosing || knight.oathOpen) {
     const idle = Math.sin(performance.now() / 600) * 2;
     r.body.setAttribute('transform', `translate(0,${(-4 + idle).toFixed(1)})`);
     r.plume.setAttribute('transform', `rotate(${(Math.sin(performance.now() / 400) * 4).toFixed(1)})`);
@@ -629,8 +785,9 @@ function stepKnight(dt, w, h) {
   if (knight.ko > 0) {
     knight.ko -= dt;
     if (knight.ko <= 0) {
-      // Getting clanked out stings now: you rise with half your hearts.
-      knight.hearts = Math.ceil(knight.stats.maxHearts / 2);
+      // Getting clanked out stings by oath: half hearts as a squire, ONE
+      // heart under the harder oaths.
+      knight.hearts = knight.cfg.koHearts(knight.stats.maxHearts);
       knight.iT = 1.4;
       updateStormHud();
     }
@@ -645,16 +802,17 @@ function stepKnight(dt, w, h) {
     if (knight.spawnT <= 0) {
       spawnEnemy();
       knight.pending--;
-      knight.spawnT = Math.max(0.26, 0.6 - knight.wave * 0.035) + Math.random() * 0.6;
+      knight.spawnT = (Math.max(0.26, 0.6 - knight.wave * 0.035) + Math.random() * 0.6) * knight.cfg.gap;
     }
   } else if (!knight.enemies.some((e) => !e.dead)) {
-    // wave cleared → bank the bonus, then offer a boon
-    const bonus = WAVE_BONUS * knight.wave;
+    // wave cleared → bank the bonus; boons come slower on the harder oaths
+    const bonus = Math.round(WAVE_BONUS * knight.wave * knight.cfg.mult);
     storm.caught += bonus;
     const [px, py] = knightToScreen(800, 300);
     spawnPopLabel(px, py, `🏰 Wave ${knight.wave} cleared +${bonus}`, 'golden');
     updateStormHud();
-    showUpgrades();
+    if (knight.wave % knight.cfg.boonEvery === 0) showUpgrades();
+    else knight.breakT = 2.0;
   }
 
   // Movement (disabled while KO'd)
@@ -706,7 +864,7 @@ function stepKnight(dt, w, h) {
     knight.emberT -= dt;
     const alive = knight.enemies.filter((e) => !e.dead);
     if (knight.emberT <= 0 && alive.length) {
-      knight.emberT = 5.5 / knight.stats.torchLvl;
+      knight.emberT = (5.5 / knight.stats.torchLvl) * knight.cfg.defense; // sleepier on hard oaths
       const target = alive[Math.floor(Math.random() * alive.length)];
       const fromX = Math.abs(target.x - 560) < Math.abs(target.x - 1040) ? 560 : 1040;
       const el = document.createElementNS(SVG_NS, 'circle');
@@ -743,7 +901,7 @@ function stepKnight(dt, w, h) {
     for (const a of knight.archers) {
       a.shootT -= dt;
       if (a.shootT <= 0 && alive.length) {
-        a.shootT = 2.4 + Math.random() * 1.2;
+        a.shootT = (2.4 + Math.random() * 1.2) * knight.cfg.defense;
         shootArrow(a, alive[Math.floor(Math.random() * alive.length)]);
       }
     }
@@ -808,9 +966,18 @@ function stepKnight(dt, w, h) {
     }
     if (e.flashT > 0) e.flashT -= dt;
     e.el.classList.toggle('k-en-flash', e.flashT > 0);
+    // The Whisk enrages below a third health under THE NUGGMARE.
+    if (e.type === 'whisk' && knight.cfg.enrage && !e.enraged && e.hp <= e.maxHp * 0.35) {
+      e.enraged = true;
+      e.speed *= 1.8;
+      e.el.classList.add('k-elite');
+      const [wx, wy] = knightToScreen(e.x, K_GROUND - 160);
+      spawnPopLabel(wx, wy, '🌀 THE WHISK IS FURIOUS', 'big');
+    }
     const toward = Math.sign(knight.x - e.x) || 1;
-    // KO'd knight gets a moment's mercy — the horde mills about instead of piling on.
-    const advance = knight.ko > 0 ? 0.25 : 1;
+    // KO'd knight gets a moment's mercy — except under THE NUGGMARE (mercy 1
+    // means they keep coming while you're down).
+    const advance = knight.ko > 0 ? knight.cfg.mercy : 1;
     const dist = Math.abs(e.x - knight.x);
     e.waddle += dt * (e.type === 'fork' || e.type === 'whisk' ? 5 : 8);
     let hop = Math.abs(Math.sin(e.waddle)) * (e.type === 'fork' ? 4 : e.type === 'whisk' ? 3 : 6);
@@ -840,7 +1007,7 @@ function stepKnight(dt, w, h) {
         e.el.classList.toggle('k-en-flash', Math.floor(e.stateT * 12) % 2 === 0);
         if (e.stateT <= 0) { e.state = 'dash'; e.stateT = 0.5; }
       } else if (e.state === 'dash') {
-        e.x += e.dashDir * 700 * dt;
+        e.x += e.dashDir * knight.cfg.knifeDash * dt;
         tilt = 64 * e.dashDir; // blade-first lunge
         hop = 2;
         if (e.stateT <= 0) { e.state = 'approach'; e.atkT = 1.8 + Math.random(); }

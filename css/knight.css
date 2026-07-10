@@ -99,3 +99,42 @@
   border-radius: 5px;
   padding: 1px 5px;
 }
+
+/* ---- The oath select (difficulty) ---- */
+.k-oath { top: 18%; }
+.k-oath .k-up-cards button { width: 178px; min-height: 190px; }
+.k-oath .k-up-cards button.k-last { border-color: #f59e0b; box-shadow: 0 0 22px rgba(245, 158, 11, 0.35); }
+.k-oath .k-up-cards button[data-oath="nuggmare"]:not(.k-locked) {
+  border-color: rgba(220, 38, 38, 0.7);
+}
+.k-oath .k-up-cards button[data-oath="nuggmare"]:not(.k-locked):hover {
+  border-color: #ef4444;
+  box-shadow: 0 0 26px rgba(239, 68, 68, 0.5);
+}
+.k-oath .k-up-cards button.k-locked {
+  filter: grayscale(0.9);
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+.k-oath-mult { font-size: 0.72rem; font-weight: 900; color: #fbbf24; }
+.k-oath-best { font-size: 0.62rem; font-weight: 700; color: #64748b; min-height: 0.8em; }
+.k-oath-note {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.08em;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+}
+@keyframes kShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+}
+.k-oath .k-up-cards button.k-shake { animation: kShake 0.4s ease-out 1; }
+
+/* "Seasoned" elite enemies + the enraged Whisk burn hot */
+.k-elite {
+  filter: drop-shadow(0 0 9px rgba(255, 61, 61, 0.9)) saturate(1.5);
+}

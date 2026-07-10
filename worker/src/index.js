@@ -37,7 +37,7 @@ const GAME_MAX_SCORE = {
   flappy: 40e6, dunk: 40e6,         // gate/dunk banking over a very long session
   sim: 2e6,                         // 1 wisdom/sec + events — covers ~10 days
   run: 2e6,                         // ~68k/hour at max speed + pickups
-  knight: 10e6,                     // kills + wave bonuses, marathon headroom
+  knight: 30e6,                     // kills + wave bonuses; NUGGMARE oath pays 3x
   brawl: 10e6,                      // KOs + round bonuses, same shape as knight
 };
 const MIN_SUBMIT_INTERVAL_MS = 10000; // one score per 10s per account
