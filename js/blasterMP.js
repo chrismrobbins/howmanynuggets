@@ -8,16 +8,16 @@
   if (!net) return;
 
   const WORLD_W = 1280, WORLD_H = 720;
-  const RENDER_DELAY = 100;   // ms interpolation buffer (render slightly behind)
   const FIRE_COOLDOWN = 150;  // ms client-side fire throttle (server also enforces)
   const CANNON_SPEED = 900;   // world px/s for arrow-key movement
 
   let stage, hud, hudWaves, hudScores, banner;
   let running = false, rafId = null, lastFrame = 0;
-  let prevSnap = null, lastSnap = null, prevAt = 0, lastAt = 0;
+  let lastSnap = null;
   let myX = WORLD_W / 2, lastInputSent = 0, lastInputX = null, lastFire = 0;
   const keys = { left: false, right: false };
-  const pools = { nug: [], bld: [], can: [], label: [] };
+  const pools = { nug: [], bld: [], can: [] };
+  const poolIdx = { nug: 0, bld: 0, can: 0 }; // reset each frame; index into the pools
 
   const PLAYER_COLORS = ['#f59e0b', '#38bdf8', '#a78bfa', '#f472b6'];
 
@@ -58,7 +58,7 @@
     if (typeof stopStorm === 'function') stopStorm(); // never overlap the SP arcade
     ensureStage();
     running = true;
-    prevSnap = lastSnap = null;
+    lastSnap = null;
     myX = WORLD_W / 2;
     lastFrame = performance.now();
     stage.classList.add('active');
@@ -80,7 +80,7 @@
   net.on('gameover', (m) => { if (running) showGameover(m); stop(); });
   net.on('left', stop);
   net.on('snapshot', (m) => {
-    prevSnap = lastSnap; prevAt = lastAt; lastSnap = m.s; lastAt = performance.now();
+    lastSnap = m.s;
     if (running) updateHud(m.s, m.scores);
   });
   net.on('event', onEvent);
@@ -158,32 +158,25 @@
     const dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
     if (dir) { myX = Math.max(0, Math.min(WORLD_W, myX + dir * CANNON_SPEED * dt)); sendInput(); }
 
-    render(now);
+    render();
     rafId = requestAnimationFrame(loop);
   }
 
-  function indexById(arr) { const m = {}; for (const n of arr) m[n.i] = n; return m; }
-
-  function render(now) {
+  // Render the latest snapshot directly — 20Hz is smooth enough for this game,
+  // and skipping interpolation avoids a class of timing bugs. Your own cannon is
+  // drawn at your local predicted position for zero-latency movement.
+  function render() {
     if (!lastSnap) return;
     const L = layout();
-    let f = 1;
-    if (prevSnap && lastAt > prevAt) {
-      f = (now - RENDER_DELAY - prevAt) / (lastAt - prevAt);
-      f = Math.max(0, Math.min(1, f));
-    }
-    const prevN = prevSnap ? indexById(prevSnap.nuggets) : null;
+    poolIdx.nug = poolIdx.bld = poolIdx.can = 0; // rewind the pools for this frame
 
-    // nuggets (interpolated)
     const nSize = 44 * L.scale;
     let ni = 0;
     for (const n of lastSnap.nuggets) {
-      let x = n.x, y = n.y;
-      if (prevN && prevN[n.i]) { const p = prevN[n.i]; x = p.x + (n.x - p.x) * f; y = p.y + (n.y - p.y) * f; }
       const el = acquire('nug', 'img');
       el.style.width = el.style.height = nSize + 'px';
       el.classList.toggle('golden', !!n.g);
-      el.style.transform = `translate(${sx(x, L) - nSize / 2}px, ${sy(y, L) - nSize / 2}px)`;
+      el.style.transform = `translate(${sx(n.x, L) - nSize / 2}px, ${sy(n.y, L) - nSize / 2}px)`;
       ni++;
     }
     hidePast('nug', ni);
@@ -202,14 +195,12 @@
     }
     hidePast('bld', bi);
 
-    // cannons (mine predicted, others interpolated)
-    const prevC = prevSnap ? indexById2(prevSnap.cannons) : null;
+    // cannons — your own at your predicted myX, others at their authoritative x
     let ci = 0, mineDrawn = false;
     for (const c of lastSnap.cannons) {
-      let cx = c.x;
       const mine = c.id === net.you;
-      if (mine) { cx = myX; mineDrawn = true; }
-      else if (prevC && prevC[c.id]) cx = prevC[c.id].x + (c.x - prevC[c.id].x) * f;
+      if (mine) mineDrawn = true;
+      const cx = mine ? myX : c.x;
       const el = acquire('can', 'div');
       el.className = 'mp-cannon' + (mine ? ' me' : '');
       el.style.setProperty('--c', PLAYER_COLORS[ci % PLAYER_COLORS.length]);
@@ -244,23 +235,26 @@
   }
 
   // ---- element pools ----
+  // Reuse pooled elements by index each frame, creating one only when the pool
+  // needs to grow. (The old version searched for a display:'none' element, which
+  // never matched mid-frame, so it leaked a fresh element every frame.)
   function acquire(kind, tag) {
     const pool = pools[kind];
-    let el = pool.find((e) => e.style.display === 'none');
+    const i = poolIdx[kind]++;
+    let el = pool[i];
     if (!el) {
       el = document.createElement(tag);
       if (kind === 'nug') { el.className = 'mp-nug'; el.src = 'nugget.png'; el.draggable = false; }
       stage.appendChild(el);
-      pool.push(el);
+      pool[i] = el;
     }
     el.style.display = '';
     return el;
   }
   function hidePast(kind, used) {
     const pool = pools[kind];
-    for (let i = 0; i < pool.length; i++) if (i >= used) pool[i].style.display = 'none';
+    for (let i = used; i < pool.length; i++) pool[i].style.display = 'none';
   }
-  function indexById2(arr) { const m = {}; for (const c of arr) m[c.id] = c; return m; }
 
   function spawnLabel(x, y, text, golden) {
     if (typeof spawnPopLabel === 'function') { spawnPopLabel(x, y, text, golden ? 'golden' : ''); return; }
