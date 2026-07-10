@@ -26,7 +26,20 @@ const ALLOWED_ORIGINS = new Set([
 const GAMES = new Set(['catch', 'blaster', 'flappy', 'dunk', 'sim', 'run', 'knight']);
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const PBKDF2_ITERATIONS = 100000;
-const MAX_SCORE = 1e15; // sanity cap so a bad client can't poison the board
+const MAX_SCORE = 1e15; // absolute backstop (per-game caps below are the real gate)
+
+// Anti-cheat: per-game plausibility ceilings. The frontend clamps storms at the
+// $10M-equivalent (~13M nuggets); with golden multipliers the burst games top
+// out well under 20M per session. Time-accruing games get generous multi-hour
+// ceilings. Anything beyond these did not come from the game.
+const GAME_MAX_SCORE = {
+  catch: 20e6, blaster: 20e6,       // one storm, ~13M nugs, golden 10x headroom
+  flappy: 40e6, dunk: 40e6,         // gate/dunk banking over a very long session
+  sim: 2e6,                         // 1 wisdom/sec + events — covers ~10 days
+  run: 2e6,                         // ~68k/hour at max speed + pickups
+  knight: 10e6,                     // kills + wave bonuses, marathon headroom
+};
+const MIN_SUBMIT_INTERVAL_MS = 10000; // one score per 10s per account
 
 // ---- CORS / JSON helpers ----------------------------------------------------
 function corsHeaders(origin) {
@@ -197,6 +210,20 @@ async function submitScore(request, env, origin) {
   if (!GAMES.has(game)) return json({ error: 'Unknown game' }, 400, origin);
   if (!Number.isFinite(score) || score < 0) return json({ error: 'Invalid score' }, 400, origin);
   if (score > MAX_SCORE) score = MAX_SCORE;
+
+  // Plausibility cap: the game cannot produce this number.
+  if (score > GAME_MAX_SCORE[game]) {
+    return json({ error: 'Score exceeds what this game can produce. The Nugget Council has reviewed your submission and voted no.' }, 422, origin);
+  }
+
+  // Rate limit: scores land when a session ends, which takes longer than 10s.
+  // (Every submission bumps updated_at via the upsert, so MAX() is "last submit".)
+  const lastSub = await env.DB.prepare(
+    'SELECT MAX(updated_at) AS t FROM scores WHERE user_id = ?'
+  ).bind(u.id).first();
+  if (lastSub && lastSub.t && Date.now() - lastSub.t < MIN_SUBMIT_INTERVAL_MS) {
+    return json({ error: 'Easy there, sharpshooter — one score every 10 seconds.' }, 429, origin);
+  }
 
   await env.DB.prepare(
     `INSERT INTO scores (user_id, game, best_score, updated_at) VALUES (?, ?, ?, ?)

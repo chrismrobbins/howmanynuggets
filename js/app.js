@@ -21,9 +21,14 @@ function updateArcadeBtn() {
 }
 
 // While the arcade is on, keep the storm in sync with whatever's typed.
+// Storm totals clamp at the $10M-equivalent — the roast message already told
+// bigger spenders this site isn't for them, and the leaderboard's server-side
+// plausibility caps assume this ceiling.
+const ARCADE_MAX_NUGS = 13000000;
+
 function syncArcade(nuggets, dollars) {
   if (!storm.arcade) return;
-  const total = nuggets >= 100 ? nuggets : HOUSE_STORM_NUGS;
+  const total = Math.min(nuggets >= 100 ? nuggets : HOUSE_STORM_NUGS, ARCADE_MAX_NUGS);
   startStorm(total, dollars > 0 ? dollars : HOUSE_STORM_DOLLARS);
 }
 

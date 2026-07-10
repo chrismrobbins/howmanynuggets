@@ -79,3 +79,18 @@ Add any new frontend origins there.
 - All SQL uses bound parameters.
 - This is a hobby project. The frontend warns users not to reuse a real
   password; treat the whole thing as best-effort, not bank-grade security.
+
+## Anti-cheat
+
+`POST /api/score` enforces two integrity gates (no schema changes needed):
+
+- **Plausibility caps per game** — submissions beyond what the game can
+  mathematically produce are rejected with `422`. The frontend clamps arcade
+  storms at ~13M nuggets, so burst games (catch/blaster) cap at 20M with
+  golden-multiplier headroom; time-accruing games get generous multi-hour
+  ceilings (see `GAME_MAX_SCORE` in `src/index.js`).
+- **Rate limit** — one score submission per account per 10 seconds (`429`),
+  measured off `scores.updated_at`, which every submission bumps.
+
+Existing best scores are never modified — the gates only apply to new
+submissions.
