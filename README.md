@@ -42,8 +42,11 @@ few surprises for the big spenders.
     mini-nugs +20; the counter speeds up the longer you survive.
   - ⚔️ **Nugget Knight** — hold the castle gate! Sir Nugget (helm, plume,
     round shield, and a sword with a real swing arc) defends a torchlit
-    courtyard against waves of waddling sporks (+25), armored sporks (wave 5+,
-    two hits, +40), and three-hit Big Forks (+100). ← → move, space jumps
+    courtyard against waves of waddling sporks (+25), armored sporks (+40),
+    three-hit Big Forks (+100), sauce-lobbing Spoon Slingers (+60 — dodge the
+    shadow!), dashing Kitchen Knives (+75 — jump the lunge), and every fifth
+    wave **THE WHISK**: a spinning mini-boss with a health bar whose wind
+    gust shoves you across the courtyard (+500). ← → move, space jumps
     clean over enemies, click/X slashes; three hearts, brief knockout when
     they run out (and you rise at only half hearts), +50 × wave for a clear.
     **After every wave you choose one of three boons** — character upgrades

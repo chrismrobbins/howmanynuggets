@@ -23,6 +23,7 @@ const HIT_IFRAMES = 0.85;     // seconds of invincibility after a hit
 const KO_SECS = 1.6;
 const HEARTS_MAX = 3;
 const SPORK_SCORE = 25, FORK_SCORE = 100, WAVE_BONUS = 50;
+const SPOON_SCORE = 60, KNIFE_SCORE = 75, WHISK_SCORE = 500;
 
 // Between-wave boons: pick 1 of 3. Character upgrades or castle defenses.
 const UPGRADES = [
@@ -65,6 +66,7 @@ const knight = {
   emberT: 0,
   archers: [],       // wall archers { el, x, shootT }
   arrows: [],        // { el, x0, y0, t, target }
+  globs: [],         // spoon sauce lobs { el, shadow, x0, y0, tx, t }
   refs: null,
 };
 
@@ -76,7 +78,9 @@ function knightTally() {
   const max = knight.stats ? knight.stats.maxHearts : HEARTS_MAX;
   const hearts = '❤️'.repeat(knight.hearts) + '🖤'.repeat(Math.max(max - knight.hearts, 0));
   const shield = knight.stats && knight.stats.blockMax ? ` · 🛡️${knight.blockLeft}` : '';
-  return `Wave ${Math.max(knight.wave, 1)} · ${hearts}${shield}`;
+  const boss = knight.enemies && knight.enemies.find((e) => e.type === 'whisk' && !e.dead);
+  const bossTxt = boss ? ` · 🌀${boss.hp}` : '';
+  return `Wave ${Math.max(knight.wave, 1)} · ${hearts}${shield}${bossTxt}`;
 }
 
 // ---- Scene ------------------------------------------------------------------------
@@ -270,6 +274,8 @@ function clearKnightEnemies() {
   knight.embers = [];
   knight.arrows.forEach((a) => a.el.remove());
   knight.arrows = [];
+  knight.globs.forEach((g) => { g.el.remove(); g.shadow.remove(); });
+  knight.globs = [];
 }
 
 function clearArchers() {
@@ -294,6 +300,18 @@ function spawnArcher() {
   knight.archers.push({ el: g, x, shootT: 1 + Math.random() * 1.5 });
 }
 
+function lobSauce(spoon) {
+  const el = document.createElementNS(SVG_NS, 'g');
+  el.innerHTML = '<circle r="9" fill="#c8362b"/><circle cx="-2.5" cy="-2.5" r="2.6" fill="rgba(255,255,255,0.35)"/>';
+  const shadow = document.createElementNS(SVG_NS, 'ellipse');
+  shadow.setAttribute('rx', '20'); shadow.setAttribute('ry', '5');
+  shadow.setAttribute('fill', 'rgba(200,54,43,0.5)');
+  shadow.setAttribute('opacity', '0');
+  knight.refs.fx.appendChild(shadow);
+  knight.refs.fx.appendChild(el);
+  knight.globs.push({ el, shadow, x0: spoon.x, y0: K_GROUND - 62, tx: knight.x, t: 0 });
+}
+
 function shootArrow(archer, target) {
   const el = document.createElementNS(SVG_NS, 'g');
   el.innerHTML = `
@@ -313,12 +331,68 @@ function startWave(n) {
   knight.blockLeft = knight.stats.blockMax;
   updateStormHud();
   const [px, py] = knightToScreen(800, 330);
-  spawnPopLabel(px, py, `⚔️ Wave ${n}`, 'big');
+  if (n % 5 === 0) {
+    spawnEnemy('whisk');
+    spawnPopLabel(px, py, `🌀 Wave ${n} — THE WHISK approaches`, 'big');
+  } else {
+    spawnPopLabel(px, py, `⚔️ Wave ${n}`, 'big');
+  }
 }
 
 function enemySvg(type) {
   const g = document.createElementNS(SVG_NS, 'g');
-  if (type === 'fork') {
+  if (type === 'spoon') {
+    // Spoon Slinger: solid bowl, leans back to catapult sauce globs.
+    g.innerHTML = `
+      <g class="k-en-rig">
+        <rect x="-4" y="-36" width="8" height="36" rx="3.5" fill="#b8a48e"/>
+        <ellipse cx="0" cy="-52" rx="17" ry="20" fill="#cbb79e"/>
+        <ellipse cx="-3" cy="-56" rx="9" ry="11" fill="#b8a48e" opacity="0.6"/>
+        <ellipse cx="-6" cy="-48" rx="4.5" ry="5.5" fill="#fdfdf8"/>
+        <ellipse cx="7" cy="-48" rx="4.5" ry="5.5" fill="#fdfdf8"/>
+        <circle cx="-4.5" cy="-47" r="2.2" fill="#23232b"/>
+        <circle cx="8.5" cy="-47" r="2.2" fill="#23232b"/>
+        <circle class="k-sauce-held" cx="0" cy="-70" r="7" fill="#c8362b" opacity="0"/>
+        <path d="M-6,-6 l-5,6 M6,-6 l5,6" stroke="#8a7a66" stroke-width="4" stroke-linecap="round"/>
+      </g>`;
+  } else if (type === 'knife') {
+    // Kitchen Knife: stalks, telegraphs, then lunges blade-first.
+    g.innerHTML = `
+      <g class="k-en-rig">
+        <path d="M-3,-22 L-8,-62 Q-8,-70 0,-70 Q6,-68 5,-60 L4,-22 Z" fill="#c4ccd8"/>
+        <path d="M-6,-40 L3,-40" stroke="#9aa6ba" stroke-width="2"/>
+        <rect x="-6" y="-24" width="12" height="24" rx="5" fill="#3d2b1c"/>
+        <circle cx="-3" cy="-14" r="2" fill="#8a7a66"/>
+        <circle cx="3" cy="-14" r="2" fill="#8a7a66"/>
+        <ellipse cx="-4" cy="-50" rx="3.8" ry="4.8" fill="#fdfdf8"/>
+        <ellipse cx="4" cy="-52" rx="3.8" ry="4.8" fill="#fdfdf8"/>
+        <circle cx="-3" cy="-49" r="1.9" fill="#23232b"/>
+        <circle cx="5" cy="-51" r="1.9" fill="#23232b"/>
+        <path d="M-8,-56 L-1,-54 M8,-58 L2,-55" stroke="#39404c" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M-4,-2 l-4,4 M4,-2 l4,4" stroke="#2c2015" stroke-width="4" stroke-linecap="round"/>
+      </g>`;
+  } else if (type === 'whisk') {
+    // THE WHISK: a mini-boss. Wire balloon, angry brows, spin attacks.
+    g.innerHTML = `
+      <g class="k-en-rig">
+        <rect x="-7" y="-46" width="14" height="46" rx="6" fill="#525c6b"/>
+        <g class="k-whisk-wires">
+          <ellipse cx="0" cy="-82" rx="30" ry="40" fill="none" stroke="#aab4c2" stroke-width="5"/>
+          <ellipse cx="0" cy="-82" rx="18" ry="40" fill="none" stroke="#98a2b3" stroke-width="5"/>
+          <ellipse cx="0" cy="-82" rx="6" ry="40" fill="none" stroke="#8b93a3" stroke-width="5"/>
+        </g>
+        <ellipse cx="-10" cy="-84" rx="6.5" ry="8" fill="#fdfdf8"/>
+        <ellipse cx="12" cy="-84" rx="6.5" ry="8" fill="#fdfdf8"/>
+        <circle cx="-7.5" cy="-83" r="3.2" fill="#23232b"/>
+        <circle cx="14.5" cy="-83" r="3.2" fill="#23232b"/>
+        <path d="M-19,-94 L-3,-89 M21,-94 L5,-89" stroke="#2c333f" stroke-width="4" stroke-linecap="round"/>
+        <path d="M-9,-4 l-7,8 M9,-4 l7,8" stroke="#39404c" stroke-width="6" stroke-linecap="round"/>
+      </g>
+      <g class="k-boss-hp">
+        <rect x="-34" y="-140" width="68" height="8" rx="4" fill="rgba(10,12,20,0.75)"/>
+        <rect class="k-boss-hp-fill" x="-31" y="-138" width="62" height="4" rx="2" fill="#f43f5e"/>
+      </g>`;
+  } else if (type === 'fork') {
     g.innerHTML = `
       <g class="k-en-rig">
         <rect x="-5" y="-52" width="10" height="52" rx="4" fill="#9aa6ba"/>
@@ -364,20 +438,35 @@ function enemySvg(type) {
   return g;
 }
 
-function spawnEnemy() {
-  const forkChance = knight.wave >= 2 ? Math.min(0.15 * (knight.wave - 1), 0.5) : 0;
-  let type = Math.random() < forkChance ? 'fork' : 'spork';
-  if (type === 'spork' && knight.wave >= 4 && Math.random() < 0.35) type = 'armored';
+const ENEMY_HP    = { spork: 1, armored: 2, fork: 3, spoon: 2, knife: 1, whisk: 0 /* set per wave */ };
+const ENEMY_SPEED = { spork: 92, armored: 75, fork: 66, spoon: 70, knife: 52, whisk: 34 };
+
+function rollEnemyType(wave) {
+  const r = Math.random();
+  let acc = 0;
+  if (wave >= 2 && r < (acc += Math.min(0.15 * (wave - 1), 0.32))) return 'fork';
+  if (wave >= 3 && r < (acc += 0.18)) return 'spoon';
+  if (wave >= 5 && r < (acc += 0.15)) return 'knife';
+  if (wave >= 4 && r < (acc += 0.22)) return 'armored';
+  return 'spork';
+}
+
+function spawnEnemy(forceType) {
+  const type = forceType || rollEnemyType(knight.wave);
   const el = enemySvg(type);
   knight.refs.enemies.appendChild(el);
   knight.spawnSide = -knight.spawnSide;
+  const maxHp = type === 'whisk' ? 10 + knight.wave : ENEMY_HP[type];
   knight.enemies.push({
     el, type,
     x: knight.spawnSide === 1 ? 1660 : -60,
-    hp: type === 'fork' ? 3 : type === 'armored' ? 2 : 1,
-    speed: (type === 'fork' ? 66 : type === 'armored' ? 75 : 92) + Math.random() * 45 + knight.wave * 9,
+    hp: maxHp, maxHp,
+    speed: ENEMY_SPEED[type] + Math.random() * 45 + knight.wave * (type === 'whisk' ? 2 : 9),
     waddle: Math.random() * Math.PI * 2,
     flashT: 0,
+    state: 'approach', stateT: 0,
+    atkT: type === 'spoon' ? 1.4 : type === 'knife' ? 1.6 : 4,
+    dashDir: 1,
     dead: false, vx: 0, vy: 0, rot: 0, y: 0,
   });
 }
@@ -392,10 +481,10 @@ function killEnemy(e) {
   e.dead = true;
   e.vx = (e.x < knight.x ? -1 : 1) * (250 + Math.random() * 180);
   e.vy = -(320 + Math.random() * 260);
-  const score = e.type === 'fork' ? FORK_SCORE : e.type === 'armored' ? 40 : SPORK_SCORE;
+  const score = { spork: SPORK_SCORE, armored: 40, fork: FORK_SCORE, spoon: SPOON_SCORE, knife: KNIFE_SCORE, whisk: WHISK_SCORE }[e.type];
   storm.caught += score;
   const [px, py] = knightToScreen(e.x, K_GROUND - 70);
-  spawnPopLabel(px, py, '+' + score, e.type === 'fork' ? 'golden' : '');
+  spawnPopLabel(px, py, '+' + score, e.type === 'fork' || e.type === 'whisk' ? 'golden' : '');
   updateStormHud();
 }
 
@@ -408,7 +497,7 @@ function knightSlash() {
   knight.slashHits = new Set();
 }
 
-function hurtKnight(fromX) {
+function hurtKnight(fromX, source) {
   if (knight.iT > 0 || knight.ko > 0) return;
   if (knight.blockLeft > 0) {
     knight.blockLeft--;
@@ -628,6 +717,26 @@ function stepKnight(dt, w, h) {
       knight.embers.push({ el, x0: fromX, y0: 420, x: fromX, y: 420, t: 0, target });
     }
   }
+  // Sauce globs arc toward where the knight was standing
+  for (let i = knight.globs.length - 1; i >= 0; i--) {
+    const g = knight.globs[i];
+    g.t += dt / 1.0;
+    const q4 = Math.min(g.t, 1);
+    const gx = g.x0 + (g.tx - g.x0) * q4;
+    const gy = g.y0 + (K_GROUND - 12 - g.y0) * q4 - Math.sin(q4 * Math.PI) * 250;
+    g.el.setAttribute('transform', `translate(${gx.toFixed(1)},${gy.toFixed(1)})`);
+    g.shadow.setAttribute('transform', `translate(${g.tx},${K_GROUND - 4}) scale(${(0.4 + q4).toFixed(2)})`);
+    g.shadow.setAttribute('opacity', (0.5 * q4).toFixed(2));
+    if (q4 >= 1) {
+      if (Math.abs(g.tx - knight.x) < 38 && knight.y < 46) hurtKnight(g.tx, 'sauce');
+      // splat
+      g.el.innerHTML = '<ellipse rx="16" ry="5" fill="#c8362b" opacity="0.8"/>';
+      const el = g.el, sh = g.shadow;
+      setTimeout(() => { el.remove(); sh.remove(); }, 500);
+      knight.globs.splice(i, 1);
+    }
+  }
+
   // Wall archers loose arrows at whatever's waddling
   if (knight.archers.length) {
     const alive = knight.enemies.filter((e) => !e.dead);
@@ -700,17 +809,75 @@ function stepKnight(dt, w, h) {
     if (e.flashT > 0) e.flashT -= dt;
     e.el.classList.toggle('k-en-flash', e.flashT > 0);
     const toward = Math.sign(knight.x - e.x) || 1;
-    // KO'd knight gets a moment's mercy — sporks mill about instead of piling on.
+    // KO'd knight gets a moment's mercy — the horde mills about instead of piling on.
     const advance = knight.ko > 0 ? 0.25 : 1;
-    e.x += toward * e.speed * advance * dt;
-    e.waddle += dt * (e.type === 'fork' ? 5 : 8);
-    const hop = Math.abs(Math.sin(e.waddle)) * (e.type === 'fork' ? 4 : 6);
-    const tilt = Math.sin(e.waddle) * (e.type === 'fork' ? 6 : 10);
+    const dist = Math.abs(e.x - knight.x);
+    e.waddle += dt * (e.type === 'fork' || e.type === 'whisk' ? 5 : 8);
+    let hop = Math.abs(Math.sin(e.waddle)) * (e.type === 'fork' ? 4 : e.type === 'whisk' ? 3 : 6);
+    let tilt = Math.sin(e.waddle) * (e.type === 'fork' ? 6 : e.type === 'whisk' ? 4 : 10);
+
+    if (e.type === 'spoon') {
+      // Advance to lob range, then catapult sauce on a timer.
+      if (dist > 380) e.x += toward * e.speed * advance * dt;
+      else {
+        e.atkT -= dt * advance;
+        const held = e.el.querySelector('.k-sauce-held');
+        if (e.atkT < 0.5) { tilt = -14 * toward; if (held) held.setAttribute('opacity', '1'); } // wind-up telegraph
+        else if (held) held.setAttribute('opacity', '0');
+        if (e.atkT <= 0) {
+          e.atkT = 2.6 + Math.random() * 1.2;
+          lobSauce(e);
+        }
+      }
+    } else if (e.type === 'knife') {
+      e.stateT -= dt;
+      if (e.state === 'approach') {
+        e.x += toward * e.speed * advance * dt;
+        e.atkT -= dt * advance;
+        if (e.atkT <= 0 && dist < 520 && dist > 120) { e.state = 'windup'; e.stateT = 0.55; e.dashDir = toward; }
+      } else if (e.state === 'windup') {
+        tilt = -22 * e.dashDir + Math.sin(e.waddle * 4) * 4; // lean back, quiver
+        e.el.classList.toggle('k-en-flash', Math.floor(e.stateT * 12) % 2 === 0);
+        if (e.stateT <= 0) { e.state = 'dash'; e.stateT = 0.5; }
+      } else if (e.state === 'dash') {
+        e.x += e.dashDir * 700 * dt;
+        tilt = 64 * e.dashDir; // blade-first lunge
+        hop = 2;
+        if (e.stateT <= 0) { e.state = 'approach'; e.atkT = 1.8 + Math.random(); }
+      }
+    } else if (e.type === 'whisk') {
+      e.atkT -= dt;
+      if (e.state === 'spin') {
+        e.stateT -= dt;
+        e.rot += 900 * dt;
+        tilt = e.rot % 360; // the whole whisk whirls
+        hop = 4;
+        // Wind gust shoves the knight away.
+        if (dist < 440 && knight.ko <= 0) {
+          knight.x = Math.min(Math.max(knight.x + toward * -240 * dt, K_MIN_X), K_MAX_X);
+        }
+        if (e.stateT <= 0) { e.state = 'approach'; e.rot = 0; }
+      } else {
+        e.x += toward * e.speed * advance * dt;
+        if (e.atkT <= 0) {
+          e.state = 'spin'; e.stateT = 1.3; e.atkT = 6;
+          const [gx, gy] = knightToScreen(e.x, K_GROUND - 170);
+          spawnPopLabel(gx, gy, '🌀');
+        }
+      }
+      // Boss hp bar
+      const fill = e.el.querySelector('.k-boss-hp-fill');
+      if (fill) fill.setAttribute('width', String(Math.max(0, 62 * e.hp / e.maxHp)));
+    } else {
+      e.x += toward * e.speed * advance * dt;
+    }
+
     e.el.setAttribute('transform',
       `translate(${e.x.toFixed(1)},${(K_GROUND - hop).toFixed(1)}) rotate(${tilt.toFixed(1)}) scale(${toward},1)`);
     // Contact damage (jump over them to avoid it)
-    if (Math.abs(e.x - knight.x) < (e.type === 'fork' ? 46 : 38) && knight.y < 44) {
-      hurtKnight(e.x);
+    const reach = e.type === 'fork' ? 46 : e.type === 'whisk' ? 58 : e.type === 'knife' && e.state === 'dash' ? 44 : 38;
+    if (dist < reach && knight.y < (e.type === 'whisk' ? 90 : 44)) {
+      hurtKnight(e.x, e.type);
     }
   }
 
@@ -773,15 +940,11 @@ window.knightDebug = function (opts) {
   if (opts.wave !== undefined) { knight.breakT = 0; startWave(opts.wave); knight.pending = 0; }
   if (opts.spawn) {
     for (let i = 0; i < (opts.n || 1); i++) {
-      spawnEnemy();
+      spawnEnemy(opts.spawn);
       const e = knight.enemies[knight.enemies.length - 1];
-      e.type = opts.spawn;
-      e.hp = opts.spawn === 'fork' ? 3 : 1;
-      const el = enemySvg(opts.spawn);
-      e.el.replaceWith(el);
-      e.el = el;
-      knight.refs.enemies.appendChild(el);
       e.x = opts.at !== undefined ? opts.at + i * 90 : 1100 + i * 90;
+      if (opts.state) { e.state = opts.state; e.stateT = opts.stateT || 0.5; e.dashDir = -1; }
+      if (opts.atkT !== undefined) e.atkT = opts.atkT;
     }
   }
   if (opts.x !== undefined) knight.x = opts.x;
