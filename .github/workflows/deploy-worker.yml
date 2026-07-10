@@ -17,6 +17,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Best-effort: keep the remote D1 schema current. Idempotent
+      # (CREATE TABLE IF NOT EXISTS). continue-on-error so a token without D1
+      # permission can never block the Worker deploy.
+      - name: Apply D1 schema
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          command: d1 execute howmanynuggets --remote --file=./schema.sql -y
+
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
