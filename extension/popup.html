@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="popup.css" />
+  <title>Nugget Currency</title>
+</head>
+<body>
+  <header>
+    <img src="icons/icon48.png" alt="" width="26" height="26" />
+    <div>
+      <h1>Nugget Currency</h1>
+      <p class="sub">prices, but in nuggets</p>
+    </div>
+    <label class="switch" title="Enable everywhere">
+      <input type="checkbox" id="enabled" />
+      <span class="slider"></span>
+    </label>
+  </header>
+
+  <main>
+    <div class="field">
+      <label for="zip">ZIP code <span class="hint">(for your local nug price)</span></label>
+      <input id="zip" type="text" inputmode="numeric" maxlength="5" placeholder="90210" />
+      <div class="region" id="region">📍 National estimate · $5.00 / 6pc</div>
+    </div>
+
+    <div class="field">
+      <label for="unit">Show prices as</label>
+      <select id="unit">
+        <option value="auto">Auto (nugs → boxes → storms)</option>
+        <option value="nugs">Nuggets</option>
+        <option value="boxes">Six-piece boxes</option>
+      </select>
+    </div>
+
+    <div class="field site-row">
+      <label class="switch small">
+        <input type="checkbox" id="siteEnabled" />
+        <span class="slider"></span>
+      </label>
+      <span id="siteLabel">Enabled on this site</span>
+    </div>
+
+    <p class="note">Changes apply when you refresh the page.</p>
+  </main>
+
+  <footer>
+    <a href="https://howmanynuggets.com" target="_blank" rel="noopener">howmanynuggets.com 🍗</a>
+  </footer>
+
+  <script src="pricing.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
