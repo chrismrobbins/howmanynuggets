@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="css/sim.css" />
   <link rel="stylesheet" href="css/run.css" />
   <link rel="stylesheet" href="css/knight.css" />
+  <link rel="stylesheet" href="css/brawl.css" />
   <link rel="stylesheet" href="css/arcade.css" />
   <link rel="stylesheet" href="css/multiplayer.css" />
 </head>
@@ -85,6 +86,7 @@
         <div class="score-tile"><div class="game">🧘</div><div class="game-name">Sim</div><div class="best" id="mySim">0</div></div>
         <div class="score-tile"><div class="game">🏃</div><div class="game-name">Run</div><div class="best" id="myRun">0</div></div>
         <div class="score-tile"><div class="game">⚔️</div><div class="game-name">Knight</div><div class="best" id="myKnight">0</div></div>
+        <div class="score-tile"><div class="game">🥊</div><div class="game-name">Brawl</div><div class="best" id="myBrawl">0</div></div>
       </div>
     </div>
 
@@ -125,6 +127,7 @@
       <button type="button" data-mode="sim" title="Nugget Simulator — sit on a bench and watch the world go by">🧘</button>
       <button type="button" data-mode="run" title="Nugget Run — endless runner: jump, flip, and slide">🏃</button>
       <button type="button" data-mode="knight" title="Nugget Knight — defend the gate from waddling sporks">🗡️</button>
+      <button type="button" data-mode="brawl" title="Sauce Brawl — pixel fists vs. angry sauce cups">🥊</button>
     </span>
     <button id="stormStop" type="button">Stop</button>
   </div>
@@ -155,6 +158,9 @@
 
   <!-- Nugget Knight: the castle courtyard (SVG injected by js/knight.js) -->
   <div id="knightWorld"></div>
+
+  <!-- Sauce Brawl: the pixel kitchen arena (canvas injected by js/brawl.js) -->
+  <div id="brawlWorld"></div>
 
   <!-- Account modal: log in / create account / signed-in menu -->
   <div class="modal-overlay" id="authModal">
@@ -235,6 +241,7 @@
         <button type="button" data-game="sim">🧘 Sim</button>
         <button type="button" data-game="run">🏃 Run</button>
         <button type="button" data-game="knight">⚔️ Knight</button>
+        <button type="button" data-game="brawl">🥊 Brawl</button>
       </div>
       <div id="lbBody"><div class="lb-loading">Loading…</div></div>
     </div>
@@ -285,6 +292,7 @@
   <script src="js/sim.js"></script>
   <script src="js/run.js"></script>
   <script src="js/knight.js"></script>
+  <script src="js/brawl.js"></script>
   <script src="js/arcade-art.js"></script>
   <script src="js/arcade.js"></script>
   <script src="js/app.js"></script>

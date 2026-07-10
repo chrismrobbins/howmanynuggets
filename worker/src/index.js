@@ -23,7 +23,7 @@ const ALLOWED_ORIGINS = new Set([
   'http://localhost:5173',
 ]);
 
-const GAMES = new Set(['catch', 'blaster', 'flappy', 'dunk', 'sim', 'run', 'knight']);
+const GAMES = new Set(['catch', 'blaster', 'flappy', 'dunk', 'sim', 'run', 'knight', 'brawl']);
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const PBKDF2_ITERATIONS = 100000;
 const MAX_SCORE = 1e15; // absolute backstop (per-game caps below are the real gate)
@@ -38,6 +38,7 @@ const GAME_MAX_SCORE = {
   sim: 2e6,                         // 1 wisdom/sec + events — covers ~10 days
   run: 2e6,                         // ~68k/hour at max speed + pickups
   knight: 10e6,                     // kills + wave bonuses, marathon headroom
+  brawl: 10e6,                      // KOs + round bonuses, same shape as knight
 };
 const MIN_SUBMIT_INTERVAL_MS = 10000; // one score per 10s per account
 
@@ -131,7 +132,7 @@ async function scoresForUser(env, userId) {
   const { results } = await env.DB.prepare(
     'SELECT game, best_score FROM scores WHERE user_id = ?'
   ).bind(userId).all();
-  const map = { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0, knight: 0 };
+  const map = { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0, knight: 0, brawl: 0 };
   for (const r of results) map[r.game] = r.best_score;
   return map;
 }

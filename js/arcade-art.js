@@ -16,6 +16,7 @@ const ArcadeArt = (() => {
     { mode: 'dunk',    title: 'SAUCE DUNK',    icon: '🥣', c1: '#ff8a3d', c2: '#d32f2f', tag: 'TIMING IS FLAVOR'  },
     { mode: 'run',     title: 'NUGGET RUN',    icon: '🏃', c1: '#39ff7a', c2: '#26e0ff', tag: 'JUMP · FLIP · SLIDE' },
     { mode: 'sim',     title: 'NUGGET SIM',    icon: '🧘', c1: '#7c4dff', c2: '#26e0ff', tag: 'SIT. WATCH. BE.'   },
+    { mode: 'brawl',   title: 'SAUCE BRAWL',   icon: '🥊', c1: '#ff5252', c2: '#8a1c10', tag: 'PIXEL FISTS · REAL FLAVOR' },
     { mode: 'knight',  title: 'NUGGET KNIGHT', icon: '⚔️', c1: '#ffb020', c2: '#ff3d3d', tag: 'HOLD THE GATE'     },
   ];
 
@@ -576,7 +577,7 @@ const ArcadeArt = (() => {
     g.save();
     g.translate(w * 0.5, h * 0.6);
     g.rotate(Math.PI / 2);
-    g.font = '900 36px Impact, "Arial Black", sans-serif';
+    g.font = '900 30px Impact, "Arial Black", sans-serif';
     g.textAlign = 'center'; g.textBaseline = 'middle';
     g.lineWidth = 6; g.lineJoin = 'round';
     g.strokeStyle = '#05050c';
@@ -877,11 +878,11 @@ const ArcadeArt = (() => {
     alloc('carpet', 448, 448, pCarpet);
     alloc('door', 192, 448, pDoor);
     for (const game of GAMES)
-      alloc('side_' + game.mode, 256, 384, (gg, w, h) => pSideArt(gg, w, h, game));
-    alloc('posterGolden', 256, 384, pPosterGolden);
-    alloc('posterBrawl', 256, 384, pPosterBrawl);
-    alloc('posterKnight', 256, 384, pPosterKnight);
-    alloc('posterPlay', 256, 384, pPosterPlay);
+      alloc('side_' + game.mode, 224, 336, (gg, w, h) => pSideArt(gg, w, h, game));
+    alloc('posterGolden', 224, 336, pPosterGolden);
+    alloc('posterBrawl', 224, 336, pPosterBrawl);
+    alloc('posterKnight', 224, 336, pPosterKnight);
+    alloc('posterPlay', 224, 336, pPosterPlay);
     alloc('drape', 256, 384, pDrape);
     alloc('vending', 256, 384, pVending);
     alloc('sign', 1024, 256, pSign);
@@ -901,7 +902,7 @@ const ArcadeArt = (() => {
     alloc('phrase', 512, 128, pPhrase);
     alloc('highscores', 512, 128, pHighScores);
     for (const game of GAMES)
-      alloc('panel_' + game.mode, 256, 128, (gg, w, h) => pPanel(gg, w, h, game));
+      alloc('panel_' + game.mode, 224, 112, (gg, w, h) => pPanel(gg, w, h, game));
     alloc('dark', 128, 128, pDark);
     // Solid color swatches for untextured geometry (neon strips, decals…).
     const SWATCHES = {
@@ -1156,6 +1157,62 @@ const ArcadeArt = (() => {
       g.moveTo(4, 8); g.lineTo(4 + 5 * leg, 16);
       g.stroke();
       g.restore();
+    },
+    brawl(g, w, h, t) {
+      // pixel kitchen: checker floor + two fighters trading blows
+      g.imageSmoothingEnabled = false;
+      g.fillStyle = '#15202c';
+      g.fillRect(0, 24, w, h);
+      for (let y = h * 0.62; y < h; y += 8) {
+        const row = Math.floor((y - h * 0.62) / 8);
+        for (let x = (row % 2) * 8 - 8; x < w; x += 16) {
+          g.fillStyle = '#1b2434'; g.fillRect(x, y, 8, 8);
+          g.fillStyle = '#242f44'; g.fillRect(x + 8, y, 8, 8);
+        }
+      }
+      const gy = h * 0.62;
+      const beat = Math.floor(t * 2.2) % 4;
+      const px2 = w * 0.38, ex = w * 0.62 - (beat === 1 ? 10 : 0);
+      // player nugget (blocky) with red gloves
+      g.fillStyle = '#e8a83e';
+      g.fillRect(px2 - 10, gy - 22, 20, 18);
+      g.fillStyle = '#8a5a1d';
+      g.fillRect(px2 - 10, gy - 22, 20, 2);
+      g.fillStyle = '#d32f2f';
+      g.fillRect(px2 - 8, gy - 18, 16, 3); // headband
+      g.fillStyle = '#fff';
+      g.fillRect(px2 + 2, gy - 14, 3, 3);
+      const punch = beat === 1 ? 14 : 0;
+      g.fillStyle = '#d32f2f';
+      g.fillRect(px2 + 8 + punch, gy - 13, 6, 6); // lead glove
+      g.fillRect(px2 - 12, gy - 8, 6, 6);
+      // sauce cup opponent
+      g.fillStyle = '#f4f0e6';
+      g.fillRect(ex - 8, gy - 16, 16, 14);
+      g.fillStyle = '#d32f2f';
+      g.fillRect(ex - 7, gy - 21, 14, 6);
+      g.fillStyle = '#1a0f08';
+      g.fillRect(ex - 4, gy - 19, 2, 2);
+      g.fillRect(ex + 2, gy - 19, 2, 2);
+      if (beat === 1) { // impact!
+        g.fillStyle = '#ffe23a';
+        for (let i = 0; i < 5; i++) {
+          const a = i * 1.25;
+          g.fillRect(ex - 10 + Math.cos(a) * 9, gy - 16 + Math.sin(a) * 9, 3, 3);
+        }
+      }
+      if (beat === 2) {
+        g.font = '900 15px Consolas, monospace';
+        g.fillStyle = '#ff5252';
+        g.textAlign = 'center';
+        g.fillText('K.O.!', ex, gy - 30);
+      }
+      if (Math.floor(t * 1.1) % 3 === 0) {
+        g.font = '900 18px Consolas, monospace';
+        g.fillStyle = '#ffe23a';
+        g.textAlign = 'center';
+        g.fillText('FIGHT!', w / 2, h * 0.3);
+      }
     },
     knight(g, w, h, t) {
       // torch-lit battlement

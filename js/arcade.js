@@ -28,8 +28,13 @@ const NuggetArcade = (() => {
     ['catch', 7.02, -5.5, -Math.PI / 2],
     ['run', 7.02, -9.5, -Math.PI / 2],
     ['sim', 7.02, -13.5, -Math.PI / 2],
+    ['brawl', -7.0, -16.8, Math.PI / 2], // hides under the drape until revealed
     ['knight', 0, -18.7, 0],
   ];
+
+  // Sauce Brawl ships under the sheet: three pokes and it's yours forever.
+  let brawlRevealed = false;
+  try { brawlRevealed = localStorage.getItem('nugBrawlRevealed') === '1'; } catch (e) { /* ok */ }
 
   const H = {
     built: false,
@@ -62,6 +67,7 @@ const NuggetArcade = (() => {
     lb: { data: {}, at: 0 },// cached leaderboard rows per game
     lbTimer: 0,
     mystery: { wiggle: 0, pokes: 0, pos: null },
+    reveal: null, // { t } while the drape drops off the brawl cabinet
     stepAcc: 0,             // footstep distance accumulator
     prevZ: 99,
     lastChime: -9,
@@ -547,15 +553,16 @@ void main() {
         [mx + 0.75, 0.006, mz - 0.75], [mx - 0.75, 0.006, mz - 0.75],
         uv.sw_black, { e: 1 }
       );
-      H.propBoxes.push({ min: [mx - 0.65, 0, mz - 0.65], max: [mx + 0.65, 2.1, mz + 0.65] });
-      H.hotspots.push({
-        kind: 'mystery',
-        x: mx, z: mz, r: 2.4,
-        min: [mx - 0.62, 0, mz - 0.62], max: [mx + 0.62, 2.1, mz + 0.62],
-        stand: [mx + 1.5, EYE, mz],
-        label: "WHAT'S UNDER THE SHEET?",
-        act: pokeMystery,
-      });
+      if (!brawlRevealed) {
+        H.hotspots.push({
+          kind: 'mystery',
+          x: mx, z: mz, r: 2.4,
+          min: [mx - 0.62, 0, mz - 0.62], max: [mx + 0.62, 2.1, mz + 0.62],
+          stand: [mx + 1.5, EYE, mz],
+          label: "WHAT'S UNDER THE SHEET?",
+          act: pokeMystery,
+        });
+      }
     }
 
     // ---- entrance zone --------------------------------------------------------
@@ -674,6 +681,7 @@ void main() {
         B, uv, game, px, pz, yaw,
         deluxe ? 1.55 : 1, deluxe ? 1.18 : 1, deluxe ? 1.15 : 1
       );
+      if (mode === 'brawl') cab.hidden = !brawlRevealed; // under the sheet until poked free
       // screen quad (own texture per game, uploaded live)
       cab.screenIndex = SCR.i.length; // index offset for its 6 indices
       SCR.quadV(
@@ -740,16 +748,42 @@ void main() {
   // ---- interactive prop behaviors -------------------------------------------------
 
   function pokeMystery() {
+    if (brawlRevealed || H.reveal) return;
     H.mystery.pokes++;
     H.mystery.wiggle = 1;
     sfxThump();
+    if (H.mystery.pokes >= 3) { startBrawlReveal(); return; }
     const lines = [
       '🥊 …something jabbed back.',
-      '🤫 "soon," whispers the sheet.',
-      '🌶️ SAUCE BRAWL — COMING SOON to this very corner.',
-      '🥊 it is doing tiny footwork drills under there.',
+      '👀 the sheet is coming loose. one more.',
     ];
     toast(lines[Math.min(H.mystery.pokes - 1, lines.length - 1)], 2.6);
+  }
+
+  // Third poke: the sheet drops, the cabinet was here the whole time.
+  function startBrawlReveal() {
+    H.reveal = { t: 0 };
+    try { localStorage.setItem('nugBrawlRevealed', '1'); } catch (e) { /* ok */ }
+    const [mx, mz] = H.mystery.pos;
+    for (let i = 0; i < 40; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 0.5 + Math.random() * 1.4;
+      H.sparks.push({
+        x: mx + (Math.random() - 0.5) * 0.9, y: 0.3 + Math.random() * 1.8, z: mz + (Math.random() - 0.5) * 0.9,
+        vx: Math.cos(a) * sp, vy: 0.8 + Math.random() * 1.8, vz: Math.sin(a) * sp,
+        life: 0.9 + Math.random() * 0.7, max: 1.6,
+      });
+    }
+    sfxFanfare();
+    toast('🥊 SAUCE BRAWL — NOW SERVING', 3.2);
+  }
+
+  function finishBrawlReveal() {
+    brawlRevealed = true;
+    H.reveal = null;
+    const cab = H.cabinets.find((c2) => c2.game.mode === 'brawl');
+    if (cab) cab.hidden = false;
+    const i = H.hotspots.findIndex((s) => s.kind === 'mystery');
+    if (i >= 0) H.hotspots.splice(i, 1);
   }
 
   function foundGoldenNug(x, y, z) {
@@ -1045,6 +1079,7 @@ void main() {
 
     let hit = null, hitT = Infinity, hitSpot = null;
     for (const cab of H.cabinets) {
+      if (cab.hidden) continue;
       const t = rayAABB(o, d, cab.min, cab.max);
       if (t != null && t < hitT) { hitT = t; hit = cab; hitSpot = null; }
     }
@@ -1236,7 +1271,7 @@ void main() {
   function readBestScores() {
     const ids = {
       catch: 'myCatch', blaster: 'myBlaster', flappy: 'myFlappy', dunk: 'myDunk',
-      sim: 'mySim', run: 'myRun', knight: 'myKnight',
+      sim: 'mySim', run: 'myRun', knight: 'myKnight', brawl: 'myBrawl',
     };
     for (const [mode, id] of Object.entries(ids)) {
       const el = document.getElementById(id);
@@ -1359,6 +1394,7 @@ void main() {
       const f = camFwd(H.cam.yaw, 0);
       let bestDot = 0.35;
       for (const cab of H.cabinets) {
+        if (cab.hidden) continue;
         const dx = cab.x - H.cam.x, dz = cab.z - H.cam.z;
         const dist = Math.hypot(dx, dz);
         if (dist > 2.6) continue;
@@ -1513,10 +1549,16 @@ void main() {
 
     // dynamic prop models: the sheet wiggles when poked, the mirror ball spins
     const wig = H.mystery.wiggle;
-    const MM = mMul(
+    const drapeUp = !brawlRevealed; // drape exists until the reveal finishes
+    let MM = mMul(
       mTrans(H.mystery.pos[0], Math.abs(Math.sin(H.t * 22)) * 0.05 * wig, H.mystery.pos[1]),
       mRotY(H.mystery.pos[2] + Math.sin(H.t * 26) * 0.05 * wig)
     );
+    if (H.reveal) {
+      // the sheet crumples to the floor: squash down, bulge out
+      const rt = easeInOut(Math.min(H.reveal.t, 1));
+      MM = mMul(MM, mScale(1 + rt * 0.35, Math.max(1 - rt * 0.985, 0.015), 1 + rt * 0.35));
+    }
     const DD = mMul(mTrans(0, 3.55, -2.6), mRotY(H.t * 0.5));
 
     function drawBoard(model, opts) {
@@ -1531,7 +1573,7 @@ void main() {
     drawLit(H.bufs.sign, MIR, { mirror: 0.33, boost: signBoost });
     drawLit(H.bufs.doorL, mMul(MIR, dl), { mirror: 0.33 });
     drawLit(H.bufs.doorR, mMul(MIR, dr), { mirror: 0.33 });
-    drawLit(H.bufs.mystery, mMul(MIR, MM), { mirror: 0.33 });
+    if (drapeUp) drawLit(H.bufs.mystery, mMul(MIR, MM), { mirror: 0.33 });
     drawLit(H.bufs.disco, mMul(MIR, DD), { mirror: 0.33 });
     drawBoard(MIR, { mirror: 0.38 });
     drawScreens(MIR, { mirror: 0.38 });
@@ -1548,7 +1590,7 @@ void main() {
     drawLit(H.bufs.sign, I, { boost: signBoost });
     drawLit(H.bufs.doorL, dl, {});
     drawLit(H.bufs.doorR, dr, {});
-    drawLit(H.bufs.mystery, MM, {});
+    if (drapeUp) drawLit(H.bufs.mystery, MM, {});
     drawLit(H.bufs.disco, DD, {});
     drawBoard(I, {});
     drawScreens(I, {});
@@ -1645,6 +1687,10 @@ void main() {
 
     // prop life: mystery-cabinet wiggle decay + golden-nug sparks
     if (H.mystery.wiggle > 0) H.mystery.wiggle = Math.max(0, H.mystery.wiggle - dt * 1.5);
+    if (H.reveal) {
+      H.reveal.t += dt / 1.1;
+      if (H.reveal.t >= 1.15) finishBrawlReveal();
+    }
     for (let i = H.sparks.length - 1; i >= 0; i--) {
       const s = H.sparks[i];
       s.life -= dt;
@@ -1838,6 +1884,14 @@ void main() {
     const t0 = AC.ctx.currentTime;
     tone(70, t0, 0.12, 0.11, 'sine');
     tone(56, t0 + 0.12, 0.18, 0.08, 'sine');
+  }
+  function sfxFanfare() {
+    if (!AC.ctx) return;
+    const t0 = AC.ctx.currentTime;
+    [392, 523, 659, 784].forEach((f, i) => tone(f, t0 + i * 0.12, 0.28, 0.07, 'square'));
+    tone(1047, t0 + 0.48, 0.55, 0.08, 'triangle');
+    for (let i = 0; i < 5; i++)
+      tone(1568 + Math.random() * 800, t0 + 0.5 + i * 0.06, 0.18, 0.025, 'triangle');
   }
   function sfxShimmer() {
     if (!AC.ctx) return;

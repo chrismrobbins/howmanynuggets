@@ -1,0 +1,44 @@
+/* ---- Sauce Brawl (pixel-art kitchen beat-em-up, js/brawl.js) ---- */
+#brawlWorld {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  display: none;
+  background: #0d131f;
+}
+body.brawl-mode #brawlWorld { display: block; }
+
+#brawlWorld canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Round / FIGHT! / boss banners */
+.brawl-banner {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  transform: translate(-50%, -50%) scale(0.6);
+  font: 900 clamp(1.6rem, 5vw, 3.2rem)/1 Consolas, 'Courier New', monospace;
+  letter-spacing: 0.12em;
+  color: #ffe23a;
+  text-shadow: 3px 3px 0 #8a1c10, 0 0 24px rgba(255, 226, 58, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.brawl-banner.show {
+  animation: brawl-banner-pop 0.35s ease-out forwards;
+}
+.brawl-banner.fight { color: #ff5252; text-shadow: 3px 3px 0 #3a0808, 0 0 24px rgba(255, 82, 82, 0.6); }
+.brawl-banner.boss { color: #39c96a; text-shadow: 3px 3px 0 #0a2814, 0 0 24px rgba(57, 201, 106, 0.6); }
+
+@keyframes brawl-banner-pop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  60% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}

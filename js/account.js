@@ -37,6 +37,7 @@
   const mySim = document.getElementById('mySim');
   const myRun = document.getElementById('myRun');
   const myKnight = document.getElementById('myKnight');
+  const myBrawl = document.getElementById('myBrawl');
 
   // Leaderboard modal
   const openLeaderboards = document.getElementById('openLeaderboards');
@@ -53,7 +54,7 @@
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   function setScores(scores) {
-    scores = scores || { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0, knight: 0 };
+    scores = scores || { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0, knight: 0, brawl: 0 };
     myCatch.textContent = fmtNum(scores.catch || 0);
     myBlaster.textContent = fmtNum(scores.blaster || 0);
     myFlappy.textContent = fmtNum(scores.flappy || 0);
@@ -61,6 +62,7 @@
     mySim.textContent = fmtNum(scores.sim || 0);
     myRun.textContent = fmtNum(scores.run || 0);
     myKnight.textContent = fmtNum(scores.knight || 0);
+    myBrawl.textContent = fmtNum(scores.brawl || 0);
   }
 
   function applyUser(user, scores) {
@@ -167,7 +169,7 @@
   });
 
   // ---- Leaderboards ----
-  const GAME_LABEL = { catch: '🧺 Catch', blaster: '🎯 Blaster', flappy: '🐤 Flappy', dunk: '🥣 Dunk', sim: '🧘 Sim', run: '🏃 Run', knight: '⚔️ Knight' };
+  const GAME_LABEL = { catch: '🧺 Catch', blaster: '🎯 Blaster', flappy: '🐤 Flappy', dunk: '🥣 Dunk', sim: '🧘 Sim', run: '🏃 Run', knight: '⚔️ Knight', brawl: '🥊 Brawl' };
 
   menuLeaderboards.addEventListener('click', () => { closeModal(authModal); openLb(); });
   openLeaderboards.addEventListener('click', openLb);
@@ -227,7 +229,7 @@
     if (!currentUser || !score || score <= 0) return;
     try {
       const res = await API.submitScore(game, score);
-      const el = { catch: myCatch, blaster: myBlaster, flappy: myFlappy, dunk: myDunk, sim: mySim, run: myRun, knight: myKnight }[game];
+      const el = { catch: myCatch, blaster: myBlaster, flappy: myFlappy, dunk: myDunk, sim: mySim, run: myRun, knight: myKnight, brawl: myBrawl }[game];
       if (el && res && typeof res.best === 'number') el.textContent = fmtNum(res.best);
     } catch { /* offline / not deployed — scores just don't persist */ }
   };

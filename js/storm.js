@@ -41,16 +41,17 @@ const MODE_HINTS = {
   sim:     'you are a nugget. sit. watch. accrue wisdom.',
   run:     'space/click to jump (twice = flip!) · hold ↓ to slide',
   knight:  'defend the gate! ← → move · space jump · click/X slash',
+  brawl:   'throw hands! ← → move · click/X punch (chain 3!) · space dodge',
 };
-const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘', run: '🏃', knight: '⚔️' };
-const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated', run: 'ran', knight: 'vanquished' };
+const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘', run: '🏃', knight: '⚔️', brawl: '🥊' };
+const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated', run: 'ran', knight: 'vanquished', brawl: 'sauced' };
 
 // Self-contained minigames run their own entities and pause the storm's own
 // falling-nugget spawner + auto-complete (like Flappy). Catch and Blaster both
 // use the storm particles, so they are NOT in this set.
 function pausesStorm() {
   return storm.mode === 'flappy' || storm.mode === 'dunk' || storm.mode === 'sim' ||
-         storm.mode === 'run' || storm.mode === 'knight';
+         storm.mode === 'run' || storm.mode === 'knight' || storm.mode === 'brawl';
 }
 
 const storm = {
@@ -91,6 +92,7 @@ function setStormMode(mode) {
   syncSim();
   syncRun();
   syncKnight();
+  syncBrawl();
   updateStormHud();
 }
 
@@ -181,6 +183,9 @@ function updateStormHud() {
   } else if (storm.mode === 'knight') {
     stormLabel.textContent = '🗡️ Nugget Knight';
     stormTally.textContent = knightTally();
+  } else if (storm.mode === 'brawl') {
+    stormLabel.textContent = '🥊 Sauce Brawl';
+    stormTally.textContent = brawlTally();
   } else {
     const shown = Math.min(storm.launched, storm.total);
     stormLabel.textContent = storm.cat.emoji + ' ' + storm.cat.name;
@@ -253,6 +258,7 @@ function stepStorm(ts) {
   else if (storm.mode === 'sim') stepSim(dt, w, h);
   else if (storm.mode === 'run') stepRun(dt, w, h);
   else if (storm.mode === 'knight') stepKnight(dt, w, h);
+  else if (storm.mode === 'brawl') stepBrawl(dt, w, h);
 
   updateStormHud();
 
@@ -345,6 +351,7 @@ function stopStorm(completed = false) {
   syncSim();
   syncRun();
   syncKnight();
+  syncBrawl();
   if (completed) {
     // Leave a short victory-lap summary in the HUD, then tuck it away.
     stormLabel.textContent = '✅ Storm complete';
