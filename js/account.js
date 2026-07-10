@@ -33,6 +33,7 @@
   const myCatch = document.getElementById('myCatch');
   const myBlaster = document.getElementById('myBlaster');
   const myFlappy = document.getElementById('myFlappy');
+  const myDunk = document.getElementById('myDunk');
 
   // Leaderboard modal
   const openLeaderboards = document.getElementById('openLeaderboards');
@@ -49,10 +50,11 @@
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   function setScores(scores) {
-    scores = scores || { catch: 0, blaster: 0, flappy: 0 };
+    scores = scores || { catch: 0, blaster: 0, flappy: 0, dunk: 0 };
     myCatch.textContent = fmtNum(scores.catch || 0);
     myBlaster.textContent = fmtNum(scores.blaster || 0);
     myFlappy.textContent = fmtNum(scores.flappy || 0);
+    myDunk.textContent = fmtNum(scores.dunk || 0);
   }
 
   function applyUser(user, scores) {
@@ -159,7 +161,7 @@
   });
 
   // ---- Leaderboards ----
-  const GAME_LABEL = { catch: '🧺 Catch', blaster: '🎯 Blaster', flappy: '🐤 Flappy' };
+  const GAME_LABEL = { catch: '🧺 Catch', blaster: '🎯 Blaster', flappy: '🐤 Flappy', dunk: '🥣 Dunk' };
 
   menuLeaderboards.addEventListener('click', () => { closeModal(authModal); openLb(); });
   openLeaderboards.addEventListener('click', openLb);
@@ -219,7 +221,7 @@
     if (!currentUser || !score || score <= 0) return;
     try {
       const res = await API.submitScore(game, score);
-      const el = { catch: myCatch, blaster: myBlaster, flappy: myFlappy }[game];
+      const el = { catch: myCatch, blaster: myBlaster, flappy: myFlappy, dunk: myDunk }[game];
       if (el && res && typeof res.best === 'number') el.textContent = fmtNum(res.best);
     } catch { /* offline / not deployed — scores just don't persist */ }
   };

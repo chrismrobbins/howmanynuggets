@@ -29,6 +29,10 @@ few surprises for the big spenders.
     ⚡ rapid fire, 🔱 triple shot, 🛡️ city shield.
   - 🐤 **Flappy Nug** — pilot a nugget through scrolling towers of stacked
     nuggets; each gate banks nugs, golden gates pay 10×.
+  - 🥣 **Sauce Dunk** — a timing game: nuggets ride a conveyor toward a sauce
+    cup; tap SPACE (or click) to dunk each one in the sweet spot. Hit the green
+    PERFECT band for double points and chain dunks for a rising combo multiplier;
+    golden nuggets pay 10×.
 - **Over $10M → a friendly reality check** telling you this maybe isn't the right
   payment method.
 
@@ -65,6 +69,7 @@ promotions, and tax. This project is **not affiliated with or endorsed by McDona
 | `js/storm.js` | Storm engine, categories, HUD, mode switch |
 | `js/blaster.js` | 🔫 Blaster minigame |
 | `js/flappy.js` | 🐤 Flappy Nug minigame |
+| `js/dunk.js` | 🥣 Sauce Dunk minigame |
 | `js/app.js` | Converter wiring and input formatting |
 | `js/api.js` | Client for the accounts + high-scores backend |
 | `js/account.js` | Sign in/up UI, high-scores panel, leaderboard modal |

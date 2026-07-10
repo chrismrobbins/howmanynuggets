@@ -60,7 +60,7 @@
 .my-scores .kicker { margin-bottom: 0.5rem; }
 .score-tiles {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 0.5rem;
 }
 .score-tile {
@@ -148,11 +148,12 @@
   border: 1px solid var(--border);
   color: var(--textMuted);
   border-radius: 0.7rem;
-  padding: 0.5rem;
-  font-size: 0.72rem;
+  padding: 0.5rem 0.35rem;
+  font-size: 0.7rem;
   font-weight: 800;
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 .tab-row button.on {
   color: #1a1205;

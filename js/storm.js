@@ -37,9 +37,17 @@ const MODE_HINTS = {
   catch:   "click nugs to catch 'em!",
   blaster: 'defend the city! ← → to move · space or click to blast',
   flappy:  'space or click to flap — mind the nugget towers!',
+  dunk:    'time it! space or click to dunk each nugget in the sauce',
 };
-const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤' };
-const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored' };
+const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣' };
+const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked' };
+
+// Self-contained minigames run their own entities and pause the storm's own
+// falling-nugget spawner + auto-complete (like Flappy). Catch and Blaster both
+// use the storm particles, so they are NOT in this set.
+function pausesStorm() {
+  return storm.mode === 'flappy' || storm.mode === 'dunk';
+}
 
 const storm = {
   running: false,
@@ -75,6 +83,7 @@ function setStormMode(mode) {
     b.classList.toggle('on', b.dataset.mode === mode));
   syncBlaster();
   syncFlappy();
+  syncDunk();
   updateStormHud();
 }
 
@@ -170,8 +179,8 @@ function stepStorm(ts) {
   const w = window.innerWidth, h = window.innerHeight, margin = 120;
   const cat = storm.cat;
 
-  // Flappy mode pauses the launch counter — the sky belongs to the bird.
-  if (storm.launched < storm.total && storm.mode !== 'flappy') {
+  // Flappy and Dunk pause the launch counter — those modes own the screen.
+  if (storm.launched < storm.total && !pausesStorm()) {
     const room = cat.maxOnScreen - storm.particles.length;
     const toSpawn = Math.min(room, cat.spawnPerFrame);
     for (let i = 0; i < toSpawn && storm.launched < storm.total; i++) spawnNugget();
@@ -221,10 +230,11 @@ function stepStorm(ts) {
 
   if (storm.mode === 'blaster') stepBlaster(dt, w, h);
   else if (storm.mode === 'flappy') stepFlappy(dt, w, h);
+  else if (storm.mode === 'dunk') stepDunk(dt, w, h);
 
   updateStormHud();
 
-  if (storm.launched >= storm.total && storm.particles.length === 0 && storm.mode !== 'flappy') {
+  if (storm.launched >= storm.total && storm.particles.length === 0 && !pausesStorm()) {
     stopStorm(true);
     return;
   }
@@ -309,6 +319,7 @@ function stopStorm(completed = false) {
   stormEl.classList.remove('active');
   syncBlaster();
   syncFlappy();
+  syncDunk();
   if (completed) {
     // Leave a short victory-lap summary in the HUD, then tuck it away.
     stormLabel.textContent = '✅ Storm complete';
