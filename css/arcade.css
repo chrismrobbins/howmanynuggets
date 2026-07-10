@@ -1,0 +1,142 @@
+/* ---- The Nugget Arcade hall (the 3D arcade you walk around in) ----
+   The hall itself is a WebGL canvas (js/arcade.js). These styles cover the
+   overlay chrome: fade/flash layers, the interact prompt, hints, and mute. */
+
+#arcadeHall {
+  position: fixed;
+  inset: 0;
+  z-index: 9985; /* below the game layers (9990+) — hall hides while a game runs */
+  display: none;
+  background: #05040a;
+}
+#arcadeHall.active { display: block; }
+
+#arcadeHall canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#arcadeHall canvas.dragging { cursor: grabbing; }
+
+.hall-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 52%, rgba(0, 0, 0, 0.6) 100%);
+}
+
+/* "Press ENTER — play NUGGET KNIGHT" chip above the bottom edge */
+.hall-prompt {
+  position: absolute;
+  left: 50%;
+  bottom: 11%;
+  transform: translateX(-50%);
+  padding: 0.6rem 1.1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(38, 224, 255, 0.65);
+  background: rgba(5, 8, 20, 0.82);
+  color: #e7f8ff;
+  font: 700 0.85rem/1.2 Consolas, 'Courier New', monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 0 18px rgba(38, 224, 255, 0.35), inset 0 0 12px rgba(38, 224, 255, 0.12);
+  text-shadow: 0 0 8px rgba(38, 224, 255, 0.8);
+  opacity: 0;
+  transition: opacity 0.25s;
+  pointer-events: none;
+  max-width: calc(100vw - 2rem);
+}
+.hall-prompt.on { opacity: 1; }
+.hall-prompt .key {
+  display: inline-block;
+  padding: 0.05rem 0.4rem;
+  margin-right: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 0.3rem;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Controls hint, top-left. Fades itself out after a few seconds. */
+.hall-hint {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 0.6rem;
+  background: rgba(5, 8, 20, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(231, 248, 255, 0.85);
+  font: 600 0.72rem/1.5 Consolas, 'Courier New', monospace;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.8s;
+  max-width: min(320px, calc(100vw - 2rem));
+}
+.hall-hint.on { opacity: 1; }
+
+.hall-mute {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(5, 8, 20, 0.7);
+  color: #fff;
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+.hall-mute:hover { background: rgba(30, 40, 70, 0.8); }
+
+.hall-skip {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(5, 8, 20, 0.7);
+  color: rgba(255, 255, 255, 0.85);
+  font: 700 0.72rem/1 Consolas, 'Courier New', monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: none;
+}
+.hall-skip.on { display: block; }
+.hall-skip:hover { background: rgba(30, 40, 70, 0.8); }
+
+/* Full-screen fades: black for scene transitions, white for the CRT launch flash */
+.hall-fade {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 1;
+  transition: opacity 0.7s ease;
+  pointer-events: none;
+}
+.hall-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+}
+.hall-flash.zap { transition: none; opacity: 1; }
+.hall-flash.fadeout { transition: opacity 0.45s ease; opacity: 0; }
+
+/* While the hall (or a game launched from it) owns the screen */
+body.hall-open { overflow: hidden; }
+
+/* Games launched from the hall: the cabinet IS the mode switch, so hide the
+   HUD's mode buttons — Stop returns you to the hall to pick another cabinet. */
+body.hall-session #modeSwitch { display: none; }
