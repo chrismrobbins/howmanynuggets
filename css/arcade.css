@@ -140,3 +140,75 @@ body.hall-open { overflow: hidden; }
 /* Games launched from the hall: the cabinet IS the mode switch, so hide the
    HUD's mode buttons — Stop returns you to the hall to pick another cabinet. */
 body.hall-session #modeSwitch { display: none; }
+
+/* ---- street dialogue panel (talking to the regulars out front) ---- */
+.hall-dialog {
+  position: absolute;
+  left: 50%;
+  bottom: 7%;
+  transform: translateX(-50%) translateY(12px);
+  width: min(620px, calc(100vw - 2rem));
+  padding: 0.85rem 1.1rem 0.75rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 209, 102, 0.55);
+  background: rgba(5, 8, 20, 0.88);
+  box-shadow: 0 0 24px rgba(255, 176, 32, 0.22), inset 0 0 14px rgba(255, 176, 32, 0.07);
+  font: 600 0.9rem/1.45 Consolas, 'Courier New', monospace;
+  color: #e7f8ff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s, transform 0.22s;
+}
+.hall-dialog.on {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+.hall-dialog .hd-name {
+  color: #ffd166;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-shadow: 0 0 8px rgba(255, 209, 102, 0.7);
+  margin-bottom: 0.35rem;
+}
+.hall-dialog .hd-text {
+  min-height: 2.6em;
+  color: rgba(231, 248, 255, 0.95);
+}
+.hall-dialog .hd-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.55rem;
+}
+.hall-dialog .hd-opts button {
+  all: unset;
+  cursor: pointer;
+  padding: 0.32rem 0.6rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(38, 224, 255, 0.35);
+  background: rgba(38, 224, 255, 0.06);
+  color: #bfefff;
+  font: 600 0.82rem/1.3 Consolas, 'Courier New', monospace;
+  transition: background 0.12s, border-color 0.12s;
+}
+.hall-dialog .hd-opts button:hover,
+.hall-dialog .hd-opts button:focus-visible {
+  background: rgba(38, 224, 255, 0.16);
+  border-color: rgba(38, 224, 255, 0.8);
+}
+.hall-dialog .hd-opts button .num {
+  display: inline-block;
+  min-width: 1.1rem;
+  margin-right: 0.45rem;
+  color: #ffd166;
+  opacity: 0.85;
+}
+.hall-dialog .hd-hint {
+  margin-top: 0.45rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  color: rgba(231, 248, 255, 0.45);
+  text-transform: uppercase;
+}

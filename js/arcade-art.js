@@ -923,6 +923,352 @@ const ArcadeArt = (() => {
     return { canvas: c, uv };
   }
 
+  // ---- the street atlas ------------------------------------------------------------
+  // Everything OUTSIDE the hall packs into its own 1024² page so the (nearly
+  // full) main atlas never risks an overflow. Same shelf packer, same rules.
+
+  function pStreetShop(g, w, h, kind) {
+    // shared brick shell
+    g.fillStyle = '#231b20';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#1a1318';
+    for (let y = 0; y < h; y += 16)
+      for (let x = (y / 16) % 2 ? 16 : 0; x < w; x += 32) g.fillRect(x, y, 30, 14);
+    const shade = g.createLinearGradient(0, 0, 0, h);
+    shade.addColorStop(0, 'rgba(0,0,6,0.65)');
+    shade.addColorStop(1, 'rgba(0,0,6,0.05)');
+    g.fillStyle = shade;
+    g.fillRect(0, 0, w, h);
+
+    if (kind === 'noodle') {
+      // warm window, a nug slurping noodles inside, red awning
+      g.fillStyle = '#2a1608'; g.fillRect(20, 92, 216, 110);
+      g.fillStyle = '#3a2410'; g.fillRect(26, 98, 204, 98);
+      const warm = g.createLinearGradient(0, 98, 0, 196);
+      warm.addColorStop(0, '#ffd9a0'); warm.addColorStop(1, '#c9822e');
+      g.fillStyle = warm; g.fillRect(32, 104, 192, 86);
+      // counter + slurper silhouette
+      g.fillStyle = '#7a4a16'; g.fillRect(32, 162, 192, 10);
+      g.fillStyle = '#5c3610';
+      g.beginPath(); g.arc(120, 148, 17, 0, 7); g.fill();
+      g.fillRect(104, 156, 32, 10);
+      g.strokeStyle = '#5c3610'; g.lineWidth = 3;
+      g.beginPath(); g.moveTo(132, 150); g.lineTo(150, 138); g.stroke(); // chopsticks
+      g.fillStyle = '#f4ecd4'; g.fillRect(146, 150, 22, 8); // the bowl
+      // steam
+      g.strokeStyle = 'rgba(255,235,200,0.5)'; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(152, 146); g.quadraticCurveTo(148, 136, 154, 128); g.stroke();
+      // awning
+      for (let i = 0; i < 8; i++) {
+        g.fillStyle = i % 2 ? '#d32f2f' : '#f4ecd4';
+        g.fillRect(12 + i * 29, 70, 29, 20);
+      }
+      g.fillStyle = '#8a1c10'; g.fillRect(12, 66, 232, 6);
+      // neon sign
+      g.font = '900 26px Consolas, monospace';
+      g.textAlign = 'center';
+      g.shadowColor = '#ff2fa0'; g.shadowBlur = 14;
+      g.fillStyle = '#ff9ac8';
+      g.fillText('NOODLE NUG', w / 2, 46);
+      g.shadowBlur = 0;
+    } else if (kind === 'laundro') {
+      // glass front, a row of washers, one cup asleep on a bench
+      g.fillStyle = '#0d1626'; g.fillRect(18, 84, 220, 118);
+      g.fillStyle = 'rgba(120,180,220,0.1)'; g.fillRect(18, 84, 220, 30);
+      for (let i = 0; i < 4; i++) {
+        const wx = 36 + i * 52;
+        g.fillStyle = '#2a3550'; g.fillRect(wx, 118, 44, 60);
+        g.fillStyle = '#0a0d1c';
+        g.beginPath(); g.arc(wx + 22, 148, 15, 0, 7); g.fill();
+        g.strokeStyle = '#8a93b8'; g.lineWidth = 2;
+        g.beginPath(); g.arc(wx + 22, 148, 15, 0, 7); g.stroke();
+        if (i === 1) { // one still tumbling
+          g.fillStyle = 'rgba(160,200,255,0.35)';
+          g.beginPath(); g.arc(wx + 22, 148, 10, 1 + Math.PI, 2.2 + Math.PI); g.lineTo(wx + 22, 148); g.fill();
+        }
+      }
+      g.fillStyle = '#39465c'; g.fillRect(18, 196, 220, 8);
+      g.font = '900 24px Consolas, monospace';
+      g.textAlign = 'center';
+      g.shadowColor = '#26e0ff'; g.shadowBlur = 14;
+      g.fillStyle = '#9be8ff';
+      g.fillText('SUDS & SPUDS', w / 2, 46);
+      g.shadowBlur = 0;
+      g.font = '700 13px Consolas, monospace';
+      g.fillStyle = '#39465c';
+      g.fillText('wash · dry · fold · 24H', w / 2, 66);
+    } else {
+      // the GREASE GARAGE: shuttered, padlocked, something under a tarp inside
+      g.fillStyle = '#141014'; g.fillRect(16, 74, 224, 130);
+      g.fillStyle = '#3a3630';
+      for (let y = 80; y < 198; y += 14) g.fillRect(20, y, 216, 10);
+      g.fillStyle = 'rgba(0,0,8,0.35)';
+      for (let y = 80; y < 198; y += 14) g.fillRect(20, y + 8, 216, 2);
+      // small dusty window above the shutter — a tarp with WHEELS peeking out
+      g.fillStyle = '#0d0a14'; g.fillRect(76, 26, 104, 40);
+      g.fillStyle = '#2a2436';
+      g.beginPath(); g.moveTo(86, 62); g.quadraticCurveTo(128, 26, 170, 62); g.closePath(); g.fill();
+      g.fillStyle = '#0a0810';
+      g.beginPath(); g.arc(104, 62, 8, Math.PI, 0); g.fill();
+      g.beginPath(); g.arc(152, 62, 8, Math.PI, 0); g.fill();
+      g.strokeStyle = '#39465c'; g.lineWidth = 3;
+      g.strokeRect(76, 26, 104, 40);
+      // chain + padlock
+      g.strokeStyle = '#565f85'; g.lineWidth = 4;
+      g.beginPath(); g.moveTo(60, 130); g.lineTo(196, 150); g.stroke();
+      g.fillStyle = '#8a7a4a'; g.fillRect(120, 138, 18, 20);
+      g.fillStyle = '#42320e'; g.fillRect(126, 146, 6, 6);
+      // stencil
+      g.font = '900 22px Consolas, monospace';
+      g.textAlign = 'center';
+      g.fillStyle = 'rgba(255,226,58,0.75)';
+      g.fillText('GREASE GARAGE', w / 2, 18);
+      g.font = '700 12px Consolas, monospace';
+      g.fillStyle = '#6a6456';
+      g.fillText('closed — back someday', w / 2, 216);
+    }
+  }
+
+  function pAcross(g, w, h) {
+    // the far side of the street: rooftops against the rain haze
+    const sky = g.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, '#07091a');
+    sky.addColorStop(1, '#131a30');
+    g.fillStyle = sky;
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#8a93b8';
+    for (let i = 0; i < 40; i++) g.fillRect((i * 89) % w, (i * 31) % (h * 0.35), 1, 1);
+    for (let i = 0; i < 9; i++) {
+      const bw = 42 + ((i * 37) % 46), bh = 60 + ((i * 53) % 90);
+      const bx = i * 58;
+      g.fillStyle = i % 2 ? '#0d1220' : '#111828';
+      g.fillRect(bx, h - bh, bw, bh);
+      g.fillStyle = '#39465c';
+      for (let z = 0; z < 10; z++)
+        if ((z * 7 + i * 13) % 3 === 0)
+          g.fillRect(bx + 6 + (z % 3) * 12, h - bh + 10 + Math.floor(z / 3) * 18, 6, 9);
+      if (i === 4) { // one warm window: somebody's still up
+        g.fillStyle = '#ffd9a0';
+        g.fillRect(bx + 18, h - bh + 28, 7, 10);
+      }
+    }
+    // a distant neon smudge down the block
+    g.font = '900 15px Consolas, monospace';
+    g.textAlign = 'center';
+    g.shadowColor = '#ff2fa0'; g.shadowBlur = 10;
+    g.fillStyle = 'rgba(255,140,190,0.5)';
+    g.fillText('NUGGETOWN', w * 0.82, h * 0.42);
+    g.shadowBlur = 0;
+  }
+
+  function pRoad(g, w, h) {
+    g.fillStyle = '#141419';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#1a1a21';
+    for (let i = 0; i < 90; i++)
+      g.fillRect((i * 53) % w, (i * 37) % h, 3 + (i % 3), 2);
+    g.fillStyle = 'rgba(230,235,255,0.08)'; // wet sheen patches
+    for (let i = 0; i < 6; i++) {
+      g.beginPath();
+      g.ellipse((i * 73 + 20) % w, (i * 47 + 30) % h, 16 + (i % 3) * 8, 6, 0, 0, 7);
+      g.fill();
+    }
+    // lane dash along the middle
+    g.fillStyle = 'rgba(255,226,58,0.4)';
+    for (let x = 8; x < w; x += 48) g.fillRect(x, h / 2 - 3, 26, 6);
+  }
+
+  function pBusSign(g, w, h) {
+    rr(g, 4, 4, w - 8, h - 8, 10);
+    g.fillStyle = '#ffd166';
+    g.fill();
+    g.strokeStyle = '#42320e'; g.lineWidth = 4;
+    rr(g, 4, 4, w - 8, h - 8, 10);
+    g.stroke();
+    g.fillStyle = '#1a0f08';
+    g.textAlign = 'center';
+    g.font = '900 20px Consolas, monospace';
+    g.fillText('BUS', w / 2, 32);
+    g.font = '900 12px Consolas, monospace';
+    g.fillText('→ THE', w / 2, 58);
+    g.fillText('CALCULATOR', w / 2, 74);
+    g.font = '700 10px Consolas, monospace';
+    g.fillText('runs: whenever', w / 2, 98);
+    g.fillText('fare: 0 nugs', w / 2, 112);
+  }
+
+  // The street regulars. Painted on transparency; rendered as crossed quads.
+  function pNpcCrumb(g, w, h) {
+    drawNug(g, w / 2, h * 0.56, 46, false);
+    // sunglasses at night. of course.
+    g.fillStyle = '#0a0a12';
+    g.fillRect(w * 0.24, h * 0.44, w * 0.52, 13);
+    g.fillStyle = 'rgba(160,190,255,0.35)';
+    g.fillRect(w * 0.28, h * 0.46, 12, 4);
+    g.fillRect(w * 0.56, h * 0.46, 12, 4);
+    // earpiece + wire
+    g.fillStyle = '#0a0a12';
+    g.beginPath(); g.arc(w * 0.79, h * 0.5, 5, 0, 7); g.fill();
+    g.strokeStyle = '#0a0a12'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(w * 0.8, h * 0.53); g.quadraticCurveTo(w * 0.86, h * 0.62, w * 0.78, h * 0.72); g.stroke();
+    // velvet-rope-red bowtie
+    g.fillStyle = '#c9203a';
+    g.beginPath();
+    g.moveTo(w / 2, h * 0.78);
+    g.lineTo(w * 0.36, h * 0.72); g.lineTo(w * 0.36, h * 0.84); g.closePath(); g.fill();
+    g.beginPath();
+    g.moveTo(w / 2, h * 0.78);
+    g.lineTo(w * 0.64, h * 0.72); g.lineTo(w * 0.64, h * 0.84); g.closePath(); g.fill();
+    // unimpressed mouth
+    g.strokeStyle = '#5c3610'; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(w * 0.42, h * 0.66); g.lineTo(w * 0.58, h * 0.66); g.stroke();
+  }
+
+  function pNpcGravy(g, w, h) {
+    // a retired gravy cup, lid slightly ajar, eyes half-closed
+    g.fillStyle = '#e8e2d0';
+    g.fillRect(w * 0.22, h * 0.34, w * 0.56, h * 0.52);
+    g.fillStyle = '#d4ccb4';
+    g.fillRect(w * 0.22, h * 0.34, w * 0.1, h * 0.52);
+    g.fillStyle = '#6d4a1e'; // the band
+    g.fillRect(w * 0.22, h * 0.5, w * 0.56, h * 0.14);
+    g.fillStyle = '#f4ecd4';
+    g.font = '900 13px Consolas, monospace';
+    g.textAlign = 'center';
+    g.fillText('GRAVY', w / 2, h * 0.6);
+    // lid, tilted like a flat cap
+    g.save();
+    g.translate(w / 2, h * 0.31);
+    g.rotate(-0.12);
+    g.fillStyle = '#c9c0a8';
+    g.fillRect(-w * 0.34, -8, w * 0.68, 12);
+    g.fillStyle = '#a89e84';
+    g.fillRect(-w * 0.34, -8, w * 0.68, 4);
+    g.restore();
+    // tired eyes + a small content smile
+    g.fillStyle = '#1a0f08';
+    g.fillRect(w * 0.36, h * 0.42, 9, 4);
+    g.fillRect(w * 0.56, h * 0.42, 9, 4);
+    g.strokeStyle = '#1a0f08'; g.lineWidth = 2;
+    g.beginPath(); g.arc(w / 2, h * 0.45, 7, 0.3, Math.PI - 0.3); g.stroke();
+    // steam wisp — still warm after all these years
+    g.strokeStyle = 'rgba(240,235,220,0.4)'; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(w * 0.62, h * 0.24); g.quadraticCurveTo(w * 0.7, h * 0.14, w * 0.62, h * 0.05); g.stroke();
+  }
+
+  function pNpcHood(g, w, h) {
+    // a nugget in a rain hoodie, face mostly shadow
+    g.fillStyle = '#232336';
+    g.beginPath();
+    g.moveTo(w * 0.14, h * 0.9);
+    g.quadraticCurveTo(w * 0.1, h * 0.3, w / 2, h * 0.12);
+    g.quadraticCurveTo(w * 0.9, h * 0.3, w * 0.86, h * 0.9);
+    g.closePath();
+    g.fill();
+    g.fillStyle = '#191926';
+    g.beginPath();
+    g.ellipse(w / 2, h * 0.46, w * 0.26, h * 0.24, 0, 0, 7);
+    g.fill();
+    // just a hint of crispy chin catching the streetlight
+    g.fillStyle = '#a3641c';
+    g.beginPath();
+    g.ellipse(w / 2, h * 0.6, w * 0.15, h * 0.07, 0, 0, 7);
+    g.fill();
+    // two glints watching the street
+    g.fillStyle = '#ffe23a';
+    g.fillRect(w * 0.4, h * 0.42, 6, 4);
+    g.fillRect(w * 0.56, h * 0.42, 6, 4);
+    // drawstrings
+    g.strokeStyle = '#565f85'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(w * 0.44, h * 0.66); g.lineTo(w * 0.42, h * 0.8); g.stroke();
+    g.beginPath(); g.moveTo(w * 0.56, h * 0.66); g.lineTo(w * 0.59, h * 0.82); g.stroke();
+  }
+
+  function pNpcHen(g, w, h) {
+    // Henrietta. no relation. (allegedly.)
+    g.fillStyle = '#f4ecd4';
+    g.beginPath();
+    g.ellipse(w * 0.46, h * 0.58, w * 0.3, h * 0.24, -0.1, 0, 7);
+    g.fill();
+    // tail
+    g.fillStyle = '#d8d0b8';
+    g.beginPath();
+    g.moveTo(w * 0.18, h * 0.52);
+    g.lineTo(w * 0.02, h * 0.3); g.lineTo(w * 0.14, h * 0.56);
+    g.lineTo(w * 0.04, h * 0.44); g.lineTo(w * 0.2, h * 0.62);
+    g.closePath(); g.fill();
+    // wing
+    g.fillStyle = '#e0d8c0';
+    g.beginPath();
+    g.ellipse(w * 0.44, h * 0.6, w * 0.16, h * 0.12, -0.2, 0, 7);
+    g.fill();
+    // neck + head
+    g.fillStyle = '#f4ecd4';
+    g.fillRect(w * 0.6, h * 0.28, w * 0.18, h * 0.3);
+    g.beginPath(); g.arc(w * 0.69, h * 0.28, w * 0.13, 0, 7); g.fill();
+    // comb + wattle
+    g.fillStyle = '#d32f2f';
+    g.beginPath(); g.arc(w * 0.64, h * 0.17, 5, 0, 7); g.fill();
+    g.beginPath(); g.arc(w * 0.7, h * 0.14, 6, 0, 7); g.fill();
+    g.beginPath(); g.arc(w * 0.76, h * 0.17, 5, 0, 7); g.fill();
+    g.beginPath(); g.arc(w * 0.78, h * 0.4, 5, 0, 7); g.fill();
+    // beak + a skeptical eye
+    g.fillStyle = '#e8a020';
+    g.beginPath();
+    g.moveTo(w * 0.8, h * 0.26); g.lineTo(w * 0.94, h * 0.3); g.lineTo(w * 0.8, h * 0.34);
+    g.closePath(); g.fill();
+    g.fillStyle = '#1a0f08';
+    g.fillRect(w * 0.7, h * 0.24, 5, 5);
+    g.strokeStyle = '#1a0f08'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(w * 0.67, h * 0.21); g.lineTo(w * 0.76, h * 0.22); g.stroke(); // unamused brow
+    // legs
+    g.strokeStyle = '#e8a020'; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(w * 0.42, h * 0.8); g.lineTo(w * 0.42, h * 0.92); g.moveTo(w * 0.38, h * 0.92); g.lineTo(w * 0.48, h * 0.92); g.stroke();
+    g.beginPath(); g.moveTo(w * 0.54, h * 0.8); g.lineTo(w * 0.54, h * 0.92); g.moveTo(w * 0.5, h * 0.92); g.lineTo(w * 0.6, h * 0.92); g.stroke();
+  }
+
+  function makeStreetAtlas() {
+    const S = 1024;
+    const c = cv(S, S);
+    const g = c.getContext('2d');
+    // transparent page: NPC cutouts need alpha; solid regions paint their own bg
+    const uv = {};
+    let cx = 0, cy = 0, rowH = 0;
+    const PAD = 8;
+    function alloc(name, w, h, painter) {
+      if (cx + w + PAD > S) { cx = 0; cy += rowH + PAD; rowH = 0; }
+      if (cy + h > S) console.warn('ArcadeArt street atlas overflow at', name);
+      g.save();
+      g.translate(cx, cy);
+      g.beginPath(); g.rect(0, 0, w, h); g.clip();
+      painter(g, w, h);
+      g.restore();
+      uv[name] = [(cx + 1.5) / S, (cy + 1.5) / S, (cx + w - 1.5) / S, (cy + h - 1.5) / S];
+      cx += w + PAD;
+      rowH = Math.max(rowH, h);
+    }
+
+    alloc('shopNoodle', 256, 224, (gg, w, h) => pStreetShop(gg, w, h, 'noodle'));
+    alloc('shopLaundro', 256, 224, (gg, w, h) => pStreetShop(gg, w, h, 'laundro'));
+    alloc('shopGarage', 256, 224, (gg, w, h) => pStreetShop(gg, w, h, 'garage'));
+    alloc('brick', 256, 256, pBrick);
+    alloc('across', 512, 192, pAcross);
+    alloc('road', 192, 192, pRoad);
+    alloc('busSign', 96, 128, pBusSign);
+    alloc('npcCrumb', 128, 160, pNpcCrumb);
+    alloc('npcGravy', 128, 160, pNpcGravy);
+    alloc('npcHood', 128, 160, pNpcHood);
+    alloc('npcHen', 128, 160, pNpcHen);
+    const SW2 = { iron: '#3a4256', wood: '#6d5426', woodDark: '#42320e', red: '#e8412c', amber: '#ffb020', curb: '#3c3c46' };
+    for (const [name, color] of Object.entries(SW2)) {
+      alloc('sw_' + name, 24, 24, (gg, w, h) => { gg.fillStyle = color; gg.fillRect(0, 0, w, h); });
+      const r = uv['sw_' + name];
+      const mx = (r[0] + r[2]) / 2, my = (r[1] + r[3]) / 2;
+      uv['sw_' + name] = [mx - 0.001, my - 0.001, mx + 0.001, my + 0.001];
+    }
+    return { canvas: c, uv };
+  }
+
   // Soft radial sprite used (tinted) for every glow halo, dust mote, and raindrop.
   function makeGlow() {
     const c = cv(128, 128);
@@ -1403,5 +1749,5 @@ const ArcadeArt = (() => {
     scanlines(g, w, h, t);
   }
 
-  return { GAMES, makeAtlas, makeGlow, drawAttract, drawScoreboard };
+  return { GAMES, makeAtlas, makeStreetAtlas, makeGlow, drawAttract, drawScoreboard };
 })();

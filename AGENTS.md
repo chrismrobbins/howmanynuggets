@@ -45,6 +45,15 @@ already bitten someone.
   a vending machine / change machine / velvet ropes.
 - **Walk-up interactables** live in `H.hotspots` (label + AABB + `act()`).
   Cabinets get prompts automatically from `H.cabinets`.
+- **The street** (outside the doors, z > 0) is a real place: shops, lamps,
+  a bus-stop exit hotspot, and NPCs with branching dialogue (`NPCS` +
+  `openDialog` in arcade.js — nodes() rebuilds per chat so lines can react
+  to progress flags like `brawlRevealed`/`brawlBest()`). Street textures
+  come from a SECOND atlas (`ArcadeArt.makeStreetAtlas`, 1024²) with its
+  own overflow warning — never add street art to the main 2048² page.
+  While `H.dialog` is set, movement/prompt/tap input is owned by the
+  dialogue panel; ESC closes the dialog before it can exit the hall.
+  The walkable street is x ∈ (−21.1, 21.1), z ∈ (0.1, 13.5) in `posValid`.
 
 ## Verifying changes (the pattern that works)
 

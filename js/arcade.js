@@ -69,6 +69,10 @@ const NuggetArcade = (() => {
     lbTimer: 0,
     mystery: { wiggle: 0, pokes: 0, pos: null },
     reveal: null, // { t } while the drape drops off the brawl cabinet
+    // iteration 3: the street out front
+    dialog: null,           // { npc, nodes, key, typed, doneTyping } while chatting
+    dlg: null, dlgName: null, dlgText: null, dlgOpts: null, dlgHint: null,
+    wentOutside: false,     // first-steps-outside toast fired this session
     stepAcc: 0,             // footstep distance accumulator
     prevZ: 99,
     lastChime: -9,
@@ -731,9 +735,9 @@ void main() {
         vx: (Math.random() - 0.5) * 0.05, vy: 0.02 + Math.random() * 0.04, vz: (Math.random() - 0.5) * 0.05,
         s: 0.02 + Math.random() * 0.035, ph: Math.random() * 7,
       });
-    for (let i = 0; i < 90; i++)
+    for (let i = 0; i < 170; i++)
       H.rain.push({
-        x: -10 + Math.random() * 20, y: Math.random() * 5, z: 0.3 + Math.random() * 7,
+        x: -20 + Math.random() * 40, y: Math.random() * 5, z: 0.3 + Math.random() * 13,
         v: 7 + Math.random() * 4,
       });
 
@@ -785,6 +789,356 @@ void main() {
     if (cab) cab.hidden = false;
     const i = H.hotspots.findIndex((s) => s.kind === 'mystery');
     if (i >= 0) H.hotspots.splice(i, 1);
+  }
+
+  // ---- the street out front ---------------------------------------------------------
+  // Walk out the doors: Nuggetown after dark. Shops, rain, streetlamps, and a
+  // few regulars who'll talk if you will. Textures come from a SECOND atlas
+  // (ArcadeArt.makeStreetAtlas) so the nearly-full main page never overflows.
+
+  // The regulars. Each has a spot on the sidewalk and a branching conversation:
+  // nodes() is rebuilt per chat so lines can react to what you've done (drape
+  // revealed, golden nug found, Brawlers campaign cleared…). opts pick the
+  // next node; next:null ends the chat.
+  const NPCS = [
+    {
+      id: 'crumb', name: 'BIG CRUMB', icon: '🕶️', tex: 'npcCrumb',
+      x: 2.5, z: 1.2, y0: 0, w: 0.68, h: 1.0, sdx: 0, sdz: 1.25,
+      nodes: () => ({
+        root: {
+          line: "evening. hall's open all night. no outside sauce — house rule.",
+          opts: [
+            { t: "what's good in there tonight?", next: 'games' },
+            { t: 'any secrets I should know about?', next: 'secrets' },
+            { t: 'just getting some air.', next: 'air' },
+          ],
+        },
+        games: {
+          line: 'the KNIGHT cab gets a line on weekends. three oaths — folks say the third one changes you.',
+          opts: [
+            { t: 'how do I get the third oath?', next: 'oath3' },
+            { t: 'what about the new brawler?', next: 'brawler' },
+            { t: 'thanks, Crumb.', next: null },
+          ],
+        },
+        oath3: { line: "survive to wave 8 on the knight's oath. THEN the skull stops being locked. you didn't hear it from me.", opts: [] },
+        brawler: { line: 'BATTERED BRAWLERS. proper campaign now — three acts. bring a friend, the cab takes two sets of gloves. and when a big mayo boy guards up? uppercut.', opts: [] },
+        secrets: {
+          line: !brawlRevealed
+            ? "you didn't hear this from me: the sheet in the back corner isn't just a sheet. it moves when you poke it. three pokes, maybe."
+            : (!H.nugFound
+              ? 'check the top of the sauce-o-matic sometime. something up there catches the light.'
+              : "you found the nug AND the brawler cab. you're the secret now."),
+          opts: [
+            { t: 'my lips are sealed.', next: 'sealed' },
+            { t: 'why are you telling me this?', next: 'why' },
+          ],
+        },
+        sealed: { line: '*nods slowly and goes back to watching the rain*', opts: [] },
+        why: { line: 'you look like someone who reads the walls. most people just walk past.', opts: [] },
+        air: { line: "yeah. rain does the neon good. take your time — I'll hold your high scores.", opts: [] },
+      }),
+    },
+    {
+      id: 'gravy', name: 'GRAVY JONES', icon: '🥣', tex: 'npcGravy',
+      x: 9.3, z: 0.78, y0: 0.42, w: 0.5, h: 0.62, sdx: 0, sdz: 1.35,
+      nodes: () => {
+        const cleared = typeof brawlBest === 'function' &&
+          ((brawlBest().spicy || {}).clears > 0 || (brawlBest().hell || {}).clears > 0);
+        return {
+          root: {
+            line: '*rain taps his lid* …I used to run with the mustard crowd, y\'know. penthouse security.',
+            opts: [
+              { t: 'you worked for DIJON?', next: 'dijon' },
+              { t: 'why sit out in the rain?', next: 'rain' },
+              cleared
+                ? { t: "I'm the one who cleared the Sauce Works.", next: 'cleared' }
+                : { t: 'take it easy, old timer.', next: 'easy' },
+            ],
+          },
+          dijon: {
+            line: 'artisanal contract. no overtime. then some nugget in red gloves came up the stairs and, well. you seen the penthouse lately?',
+            opts: [
+              { t: 'any advice for fighting cups?', next: 'tips' },
+              { t: 'sorry about the job.', next: 'sorry' },
+            ],
+          },
+          tips: { line: "watch for the wind-up sparkle — that's your cue to dodge. the Baron's cane comes out when you crowd him. and never stand in a shockwave lane; step UP or DOWN the belt.", opts: [] },
+          sorry: { line: 'don\'t be. the tips were good and the mustard was fresh. it was honest villain work.', opts: [] },
+          rain: { line: "cups don't rust, kid. and the neon looks better wet. gravy gets it.", opts: [] },
+          cleared: { line: "…so YOU'RE the red gloves. the coop's still finding feathers. she'll remember you, champ. wear it proud.", opts: [] },
+          easy: { line: 'easy is all I do now. bench, rain, repeat.', opts: [] },
+        };
+      },
+    },
+    {
+      id: 'hood', name: 'THE HOODED NUG', icon: '👁️', tex: 'npcHood',
+      x: -13.6, z: 1.35, y0: 0, w: 0.66, h: 0.95, sdx: 0, sdz: 1.3,
+      nodes: () => ({
+        root: {
+          line: '*a hooded nugget leans against the garage shutter* you didn\'t see me.',
+          opts: [
+            { t: "what's with the garage?", next: 'garage' },
+            { t: 'heard any rumors?', next: 'rumors' },
+            { t: "you're just a weird nugget in a hood.", next: 'weird' },
+          ],
+        },
+        garage: {
+          line: "locked for years. but some nights there's an ENGINE idling in there. small one. angry. like a go-kart with opinions.",
+          opts: [
+            { t: 'go-karts?!', next: 'karts' },
+            { t: 'sure, buddy.', next: null },
+          ],
+        },
+        karts: { line: "grease-lightning down Sauce Street, is what I hear. maybe someday the shutter opens. keep your quarters — it'll be free play anyway.", opts: [] },
+        rumors: {
+          line: 'the harbor nugs say something BIG circles the pier after midnight. bring a rod, if you ever find the pier.',
+          opts: [
+            { t: 'anything else?', next: 'rumors2' },
+            { t: "the pier isn't real.", next: 'pier' },
+          ],
+        },
+        rumors2: { line: "a cup with turntables keeps asking around for a rhythm section. when the beat drops… you'd better drop with it.", opts: [] },
+        pier: { line: "that's what they said about the arcade basement. *pause* forget I said basement.", opts: [] },
+        weird: { line: "and yet you're the one out here talking to me. *taps hood* think about it.", opts: [] },
+      }),
+    },
+    {
+      id: 'hen', name: 'HENRIETTA', icon: '🐔', tex: 'npcHen',
+      x: 17.8, z: 2.4, y0: 0, w: 0.58, h: 0.52, sdx: 0, sdz: 1.2,
+      nodes: () => {
+        const saidIt = typeof brawlHellUnlocked === 'function' && brawlHellUnlocked();
+        return {
+          root: {
+            line: 'bwok. …what? never seen a hen outside an arcade before?',
+            opts: [
+              { t: 'any relation to… the Mother Clucker?', next: 'clucker' },
+              { t: 'what do you think of the ranch game?', next: 'ranch' },
+              { t: 'nice night, huh?', next: 'night' },
+            ],
+          },
+          clucker: {
+            line: saidIt
+              ? "we are ESTRANGED. she went corporate. …word on the street is some nugget walked into her coop and said SEE YOU IN HELL. *slow clap with wings* bwok."
+              : 'we are ESTRANGED. she went corporate, started "shipping product." I raise my chicks honest.',
+            opts: [
+              { t: 'will she come back?', next: 'back' },
+              { t: "family's complicated.", next: 'family' },
+            ],
+          },
+          back: { line: 'villains with themes always come back. keep your gloves oiled and bring a friend.', opts: [] },
+          family: { line: '*stares into the middle distance* bwok.', opts: [] },
+          ranch: { line: 'feed your birds. keep the bin full. ship the GROWN hens, not the chicks. my cousin runs that farm and she is doing FINE, thank you for asking.', opts: [] },
+          night: { line: "every night's a nice night when you're not in a nugget box. no offense.", opts: [] },
+        };
+      },
+    },
+  ];
+
+  // ---- dialogue engine (DOM panel; movement freezes while it's open) ----------------
+
+  function openDialog(npc) {
+    if (H.dialog) return;
+    H.dialog = { npc, nodes: npc.nodes(), key: 'root', typed: 0, doneTyping: false, lastShown: -1 };
+    H.dlgName.textContent = npc.icon + ' ' + npc.name;
+    H.dlgText.textContent = '';
+    H.dlgOpts.innerHTML = '';
+    H.dlgHint.textContent = '';
+    H.dlg.classList.add('on');
+    sfxTalk();
+  }
+
+  function dialogNode() {
+    const d = H.dialog;
+    return d && d.nodes[d.key];
+  }
+
+  function showDialogNode() {
+    const d = H.dialog;
+    d.typed = 0;
+    d.doneTyping = false;
+    d.lastShown = -1;
+    H.dlgText.textContent = '';
+    H.dlgOpts.innerHTML = '';
+    H.dlgHint.textContent = '';
+    sfxTalk();
+  }
+
+  function stepDialog(dt) {
+    const d = H.dialog;
+    if (!d || d.doneTyping) return;
+    const line = dialogNode().line;
+    d.typed = Math.min(line.length, d.typed + dt * 46);
+    const n = Math.floor(d.typed);
+    if (n !== d.lastShown) {
+      d.lastShown = n;
+      H.dlgText.textContent = line.slice(0, n);
+    }
+    if (d.typed >= line.length) {
+      d.doneTyping = true;
+      showDialogOpts();
+    }
+  }
+
+  function showDialogOpts() {
+    const opts = dialogNode().opts || [];
+    if (!opts.length) {
+      H.dlgHint.textContent = H.isTouch ? 'TAP — done' : 'ENTER — done';
+      return;
+    }
+    H.dlgHint.textContent = H.isTouch ? 'tap a reply' : 'press 1 · 2 · 3';
+    H.dlgOpts.innerHTML = opts.map((o, i) =>
+      '<button type="button" data-i="' + i + '"><span class="num">' + (i + 1) + '</span>' + o.t + '</button>').join('');
+    for (const b of H.dlgOpts.querySelectorAll('button'))
+      b.addEventListener('click', () => chooseDialogOpt(+b.dataset.i));
+  }
+
+  function chooseDialogOpt(i) {
+    const d = H.dialog;
+    if (!d || !d.doneTyping) return;
+    const o = (dialogNode().opts || [])[i];
+    if (!o) return;
+    sfxBoop(700 + i * 90);
+    if (o.next && d.nodes[o.next]) {
+      d.key = o.next;
+      showDialogNode();
+    } else closeDialog();
+  }
+
+  // Enter/tap: finish the typewriter, or close a node with no replies left.
+  function dialogAdvance() {
+    const d = H.dialog;
+    if (!d) return;
+    if (!d.doneTyping) { d.typed = dialogNode().line.length; return; }
+    if (!(dialogNode().opts || []).length) closeDialog();
+  }
+
+  function closeDialog() {
+    if (!H.dialog) return;
+    H.dialog = null;
+    H.dlg.classList.remove('on');
+    sfxBoop(494);
+  }
+
+  // ---- street geometry ----------------------------------------------------------------
+
+  function buildStreet(gl, suv) {
+    const ST = new Builder(); // opaque street set (own texture page)
+    const NP = new Builder(); // NPC cutouts (alpha-blended, gentle bob)
+
+    // block walls: facade extensions flush with the arcade front, side caps,
+    // and the far side of the street. Windings follow the interior wall rules.
+    wallZ(ST, 0, -21.5, -11, 0, 5, suv.brick, 2.2, 2.2, {});
+    wallZ(ST, 0, 11, 21.5, 0, 5, suv.brick, 2.2, 2.2, {});
+    wallX(ST, -21.5, 13.9, 0, 0, 6, suv.brick, 2.2, 2.2, {});  // west cap → +x
+    wallX(ST, 21.5, 0, 13.9, 0, 6, suv.brick, 2.2, 2.2, {});   // east cap → -x
+    wallZ(ST, 13.9, 21.5, -21.5, 0, 5.4, suv.across, 21.5, 5.4, { e: 0.22 }); // faces -z
+
+    // storefronts sit proud of the brick
+    const shop = (x0, x1, name, e) =>
+      ST.quad([x0, 0, 0.04], [x1, 0, 0.04], [x1, 4.4, 0.04], [x0, 4.4, 0.04], suv[name], { e });
+    shop(-21.3, -17.5, 'shopLaundro', 0.3);
+    shop(-17.1, -12.1, 'shopGarage', 0.12);
+    shop(12.1, 17.1, 'shopNoodle', 0.3);
+
+    // the road + curb (sidewalk itself is the reflective floor plane)
+    planeY(ST, 0.004, -21.5, 21.5, 8, 13.9, suv.road, 4.3, false, {});
+    wallZ(ST, 8, 21.5, -21.5, 0, 0.09, suv.sw_curb, 4, 0.09, {}); // curb face → -z
+    planeY(ST, 0.09, -21.5, 21.5, 7.72, 8.01, suv.sw_curb, 4, false, {});
+
+    // streetlamps down the curb line
+    for (const lx of [-15, -5.5, 5, 15]) {
+      const lz = 7.3;
+      ST.quad([lx - 0.07, 0, lz + 0.07], [lx + 0.07, 0, lz + 0.07], [lx + 0.07, 3.2, lz + 0.07], [lx - 0.07, 3.2, lz + 0.07], suv.sw_iron, { tint: 0.85 });
+      ST.quad([lx + 0.07, 0, lz - 0.07], [lx - 0.07, 0, lz - 0.07], [lx - 0.07, 3.2, lz - 0.07], [lx + 0.07, 3.2, lz - 0.07], suv.sw_iron, { tint: 0.85 });
+      ST.quad([lx - 0.07, 0, lz - 0.07], [lx - 0.07, 0, lz + 0.07], [lx - 0.07, 3.2, lz + 0.07], [lx - 0.07, 3.2, lz - 0.07], suv.sw_iron, { tint: 0.85 });
+      ST.quad([lx + 0.07, 0, lz + 0.07], [lx + 0.07, 0, lz - 0.07], [lx + 0.07, 3.2, lz - 0.07], [lx + 0.07, 3.2, lz + 0.07], suv.sw_iron, { tint: 0.85 });
+      // arm reaching over the sidewalk (both faces — it's seen from below too)
+      ST.quad([lx - 0.045, 3.14, lz], [lx + 0.045, 3.14, lz], [lx + 0.045, 3.2, lz - 0.6], [lx - 0.045, 3.2, lz - 0.6], suv.sw_iron, { tint: 0.85 });
+      ST.quad([lx + 0.045, 3.14, lz], [lx - 0.045, 3.14, lz], [lx - 0.045, 3.2, lz - 0.6], [lx + 0.045, 3.2, lz - 0.6], suv.sw_iron, { tint: 0.85 });
+      ST.quad([lx + 0.16, 2.98, lz - 0.72], [lx - 0.16, 2.98, lz - 0.72], [lx - 0.16, 3.12, lz - 0.72], [lx + 0.16, 3.12, lz - 0.72], suv.sw_amber, { e: 1 });
+      ST.quad([lx - 0.16, 2.98, lz - 0.42], [lx + 0.16, 2.98, lz - 0.42], [lx + 0.16, 3.12, lz - 0.42], [lx - 0.16, 3.12, lz - 0.42], suv.sw_amber, { e: 1 });
+      ST.quad([lx - 0.16, 2.98, lz - 0.72], [lx - 0.16, 2.98, lz - 0.42], [lx - 0.16, 3.12, lz - 0.42], [lx - 0.16, 3.12, lz - 0.72], suv.sw_amber, { e: 1 });
+      ST.quad([lx + 0.16, 2.98, lz - 0.42], [lx + 0.16, 2.98, lz - 0.72], [lx + 0.16, 3.12, lz - 0.72], [lx + 0.16, 3.12, lz - 0.42], suv.sw_amber, { e: 1 });
+      ST.quad([lx - 0.16, 2.98, lz - 0.72], [lx + 0.16, 2.98, lz - 0.72], [lx + 0.16, 2.98, lz - 0.42], [lx - 0.16, 2.98, lz - 0.42], suv.sw_amber, { e: 1 }); // underside faces down
+      H.glows.push({ p: [lx, 3.0, lz - 0.57], c: [1, 0.72, 0.35], s: 1.5, a: 0.2, k: 'sign' });
+      H.propBoxes.push({ min: [lx - 0.15, 0, lz - 0.15], max: [lx + 0.15, 3.3, lz + 0.15] });
+    }
+
+    // a bench for Gravy (seat + back + legs)
+    {
+      const bx0 = 8.3, bx1 = 10.3, bz = 0.62;
+      planeY(ST, 0.45, bx0, bx1, bz, bz + 0.42, suv.sw_wood, 2.2, false, {});
+      ST.quad([bx0, 0.45, bz], [bx1, 0.45, bz], [bx1, 0.95, bz], [bx0, 0.95, bz], suv.sw_wood, { tint: 0.9 });
+      ST.quad([bx1, 0.45, bz - 0.02], [bx0, 0.45, bz - 0.02], [bx0, 0.95, bz - 0.02], [bx1, 0.95, bz - 0.02], suv.sw_wood, { tint: 0.75 });
+      for (const lx2 of [bx0 + 0.15, bx1 - 0.15]) {
+        ST.quad([lx2 - 0.04, 0, bz + 0.42], [lx2 + 0.04, 0, bz + 0.42], [lx2 + 0.04, 0.45, bz + 0.42], [lx2 - 0.04, 0.45, bz + 0.42], suv.sw_woodDark, {});
+        ST.quad([lx2 + 0.04, 0, bz + 0.02], [lx2 - 0.04, 0, bz + 0.02], [lx2 - 0.04, 0.45, bz + 0.02], [lx2 + 0.04, 0.45, bz + 0.02], suv.sw_woodDark, {});
+      }
+      H.propBoxes.push({ min: [bx0, 0, bz - 0.05], max: [bx1, 0.95, bz + 0.5] });
+    }
+
+    // hydrant
+    {
+      const hx = -7.5, hz = 0.95;
+      // outward box faces: z+ x-asc, z- x-desc, x- z-asc, x+ z-desc
+      for (const [a, b] of [[[hx - 0.14, hz + 0.14], [hx + 0.14, hz + 0.14]], [[hx + 0.14, hz - 0.14], [hx - 0.14, hz - 0.14]],
+        [[hx - 0.14, hz - 0.14], [hx - 0.14, hz + 0.14]], [[hx + 0.14, hz + 0.14], [hx + 0.14, hz - 0.14]]])
+        ST.quad([a[0], 0, a[1]], [b[0], 0, b[1]], [b[0], 0.52, b[1]], [a[0], 0.52, a[1]], suv.sw_red, { tint: 0.9 });
+      ST.quad([hx - 0.09, 0.52, hz + 0.09], [hx + 0.09, 0.52, hz + 0.09], [hx + 0.09, 0.66, hz], [hx - 0.09, 0.66, hz], suv.sw_red, { tint: 0.8 });
+      ST.quad([hx + 0.09, 0.52, hz - 0.09], [hx - 0.09, 0.52, hz - 0.09], [hx - 0.09, 0.66, hz], [hx + 0.09, 0.66, hz], suv.sw_red, { tint: 0.8 });
+      H.propBoxes.push({ min: [hx - 0.2, 0, hz - 0.2], max: [hx + 0.2, 0.7, hz + 0.2] });
+    }
+
+    // crates by the noodle shop (Henrietta's turf)
+    for (const [cx2, cz2, s] of [[19.4, 0.9, 0.55], [19.55, 0.9 + 0.06, 0.4]]) {
+      const y0 = cx2 === 19.4 ? 0 : 0.55;
+      for (const [a, b] of [[[cx2 - s / 2, cz2 + s / 2], [cx2 + s / 2, cz2 + s / 2]], [[cx2 + s / 2, cz2 - s / 2], [cx2 - s / 2, cz2 - s / 2]],
+        [[cx2 - s / 2, cz2 - s / 2], [cx2 - s / 2, cz2 + s / 2]], [[cx2 + s / 2, cz2 + s / 2], [cx2 + s / 2, cz2 - s / 2]]])
+        ST.quad([a[0], y0, a[1]], [b[0], y0, b[1]], [b[0], y0 + s, b[1]], [a[0], y0 + s, a[1]], suv.sw_wood, { tint: 0.9 });
+      planeY(ST, y0 + s, cx2 - s / 2, cx2 + s / 2, cz2 - s / 2, cz2 + s / 2, suv.sw_woodDark, s, false, {});
+    }
+    H.propBoxes.push({ min: [19.0, 0, 0.5], max: [19.9, 1.1, 1.3] });
+
+    // the bus stop: your ride back to the calculator
+    {
+      const sx = -4.2, sz = 7.3;
+      ST.quad([sx - 0.04, 0, sz], [sx + 0.04, 0, sz], [sx + 0.04, 2.4, sz], [sx - 0.04, 2.4, sz], suv.sw_iron, { tint: 0.85 });
+      ST.quad([sx + 0.04, 0, sz - 0.01], [sx - 0.04, 0, sz - 0.01], [sx - 0.04, 2.4, sz - 0.01], [sx + 0.04, 2.4, sz - 0.01], suv.sw_iron, { tint: 0.85 });
+      ST.quad([sx - 0.36, 1.5, sz + 0.02], [sx + 0.36, 1.5, sz + 0.02], [sx + 0.36, 2.42, sz + 0.02], [sx - 0.36, 2.42, sz + 0.02], suv.busSign, { e: 0.3 });
+      ST.quad([sx + 0.36, 1.5, sz - 0.02], [sx - 0.36, 1.5, sz - 0.02], [sx - 0.36, 2.42, sz - 0.02], [sx + 0.36, 2.42, sz - 0.02], suv.busSign, { e: 0.3 });
+      H.propBoxes.push({ min: [sx - 0.12, 0, sz - 0.12], max: [sx + 0.12, 2.5, sz + 0.12] });
+      H.hotspots.push({
+        kind: 'bus',
+        x: sx, z: sz, r: 2.4,
+        min: [sx - 0.42, 0, sz - 0.15], max: [sx + 0.42, 2.5, sz + 0.15],
+        stand: [sx, EYE, sz - 1.2],
+        label: 'CALL IT A NIGHT — BACK TO THE CALCULATOR',
+        act: () => exit(),
+      });
+    }
+
+    // the regulars themselves: crossed alpha quads + a prompt hotspot each
+    for (const npc of NPCS) {
+      const hw = npc.w / 2, y0 = npc.y0, y1 = npc.y0 + npc.h;
+      const u = suv[npc.tex];
+      NP.quad([npc.x - hw, y0, npc.z], [npc.x + hw, y0, npc.z], [npc.x + hw, y1, npc.z], [npc.x - hw, y1, npc.z], u, { e: 0.18, tint: 1.05 });
+      NP.quad([npc.x + hw, y0, npc.z], [npc.x - hw, y0, npc.z], [npc.x - hw, y1, npc.z], [npc.x + hw, y1, npc.z], u, { e: 0.18, tint: 1.05 });
+      NP.quad([npc.x, y0, npc.z + hw], [npc.x, y0, npc.z - hw], [npc.x, y1, npc.z - hw], [npc.x, y1, npc.z + hw], u, { e: 0.18, tint: 1.05 });
+      NP.quad([npc.x, y0, npc.z - hw], [npc.x, y0, npc.z + hw], [npc.x, y1, npc.z + hw], [npc.x, y1, npc.z - hw], u, { e: 0.18, tint: 1.05 });
+      H.glows.push({ p: [npc.x, y1 + 0.14, npc.z], c: [1, 0.85, 0.5], s: 0.3, a: 0.09, k: 'neon' });
+      H.propBoxes.push({ min: [npc.x - 0.22, 0, npc.z - 0.22], max: [npc.x + 0.22, y1, npc.z + 0.22] });
+      H.hotspots.push({
+        kind: 'npc',
+        x: npc.x, z: npc.z, r: 2.3,
+        min: [npc.x - 0.35, y0, npc.z - 0.35], max: [npc.x + 0.35, y1 + 0.1, npc.z + 0.35],
+        stand: [npc.x + npc.sdx, EYE, npc.z + npc.sdz],
+        label: 'TALK TO ' + npc.name,
+        act: () => openDialog(npc),
+      });
+    }
+
+    return { solid: ST.upload(gl), npc: NP.upload(gl) };
   }
 
   function foundGoldenNug(x, y, z) {
@@ -846,6 +1200,7 @@ void main() {
       '<div class="hall-hint"></div>' +
       '<button class="hall-mute" type="button" title="Sound on/off">🔊</button>' +
       '<button class="hall-skip" type="button">▶ skip intro</button>' +
+      '<div class="hall-dialog"><div class="hd-name"></div><div class="hd-text"></div><div class="hd-opts"></div><div class="hd-hint"></div></div>' +
       '<div class="hall-flash"></div>' +
       '<div class="hall-fade"></div>';
     H.root = root;
@@ -856,6 +1211,11 @@ void main() {
     H.flash = root.querySelector('.hall-flash');
     H.skipBtn = root.querySelector('.hall-skip');
     H.muteBtn = root.querySelector('.hall-mute');
+    H.dlg = root.querySelector('.hall-dialog');
+    H.dlgName = root.querySelector('.hd-name');
+    H.dlgText = root.querySelector('.hd-text');
+    H.dlgOpts = root.querySelector('.hd-opts');
+    H.dlgHint = root.querySelector('.hd-hint');
 
     const gl = H.canvas.getContext('webgl', { antialias: true });
     if (!gl) return false;
@@ -886,6 +1246,9 @@ void main() {
     H.texAtlas = makeTexture(gl, atlas.canvas);
     H.texGlow = makeTexture(gl, ArcadeArt.makeGlow());
     H.bufs = buildScene(gl, atlas.uv);
+    const street = ArcadeArt.makeStreetAtlas();
+    H.texStreet = makeTexture(gl, street.canvas);
+    H.bufsStreet = buildStreet(gl, street.uv);
 
     // live attract-mode screens: one canvas + texture per game
     H.screenTex = {};
@@ -941,6 +1304,14 @@ void main() {
     window.addEventListener('keydown', (e) => {
       if (!H.active || H.suspended) return;
       if (modalOpen()) return; // a page modal owns the keyboard right now
+      if (H.dialog) {
+        // a conversation owns the keys: numbers pick, enter advances, esc bails
+        e.preventDefault();
+        if (e.code === 'Escape' || e.code === 'KeyQ') closeDialog();
+        else if (e.code.startsWith('Digit')) chooseDialogOpt(Number(e.code.slice(-1)) - 1);
+        else if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyE') dialogAdvance();
+        return;
+      }
       if (e.code === 'Escape') {
         e.preventDefault();
         if (H.state === 'intro') skipIntro();
@@ -1040,7 +1411,8 @@ void main() {
   function posValid(x, z) {
     const inside = x > -(RX - 0.5) && x < RX - 0.5 && z > RZB + 0.6 && z < -0.1;
     const doorway = Math.abs(x) < 1.0 && z >= -0.3 && z <= 0.3 && H.doorsOpen > 0.7;
-    const outside = x > -10.2 && x < 10.2 && z > 0.1 && z < 7.4;
+    const outside = x > -21.1 && x < 21.1 && z > 0.1 && z < 13.5; // the whole street
+
     if (!(inside || doorway || outside)) return false;
     for (const cab of H.cabinets)
       if (x > cab.min[0] - 0.22 && x < cab.max[0] + 0.22 && z > cab.min[2] - 0.22 && z < cab.max[2] + 0.22)
@@ -1059,6 +1431,7 @@ void main() {
 
   // Screen → world ray, then: cabinet hit → walk to it / play; floor → walk there.
   function handleTap(px, py, isTouch) {
+    if (H.dialog) { dialogAdvance(); return; } // taps feed the conversation
     if (H.state !== 'walk' && H.state !== 'auto') return;
     const ndcX = (px / innerWidth) * 2 - 1;
     const ndcY = 1 - (py / innerHeight) * 2;
@@ -1125,7 +1498,13 @@ void main() {
   }
 
   function activatePrompt() {
-    if (H.promptTarget === 'door') { exit(); return; }
+    if (H.promptTarget === 'door') {
+      // stroll out into the rain (the bus stop out there goes back to the calculator)
+      H.auto = { x: 0, z: 2.4, cab: null };
+      H.state = 'auto';
+      sfxBoop();
+      return;
+    }
     if (!H.promptTarget) return;
     if (H.promptTarget.act) H.promptTarget.act();
     else startZoom(H.promptTarget);
@@ -1151,6 +1530,9 @@ void main() {
     H.auto = null; H.zoomAnim = null; H.promptTarget = null;
     H.introFlags = {};
     H.toast = null;
+    H.dialog = null;
+    H.wentOutside = false;
+    if (H.dlg) H.dlg.classList.remove('on');
     H.sparks = [];
     H.stepAcc = 0;
     H.prevZ = 99;
@@ -1186,8 +1568,8 @@ void main() {
     H.state = 'walk';
     H.skipBtn.classList.remove('on');
     H.hint.innerHTML = H.isTouch
-      ? 'DRAG — look around · TAP — walk / play<br>Two-finger drag — walk · Tap the doors to leave'
-      : 'WASD / ARROWS — walk · DRAG — look around<br>ENTER — play a machine · ESC — leave';
+      ? 'DRAG — look around · TAP — walk / play / talk<br>Two-finger drag — walk · the STREET is out the doors'
+      : 'WASD / ARROWS — walk · DRAG — look around<br>ENTER — play / talk · the STREET is out the doors · ESC — leave';
     H.hint.classList.add('on');
     clearTimeout(H.hintTimer);
     H.hintTimer = setTimeout(() => H.hint.classList.remove('on'), 9000);
@@ -1255,6 +1637,8 @@ void main() {
     H.active = false;
     H.suspended = false;
     H.state = 'idle';
+    H.dialog = null;
+    if (H.dlg) H.dlg.classList.remove('on');
     const teardown = () => {
       H.root.classList.remove('active');
       document.body.classList.remove('hall-open', 'hall-session');
@@ -1317,6 +1701,7 @@ void main() {
   }
 
   function stepWalk(dt) {
+    if (H.dialog) { H.cam.y = EYE; return; } // feet stay planted mid-conversation
     const sp = 3.1 * dt;
     let mx = 0, mz = 0;
     if (H.keys.f) mz += 1;
@@ -1389,6 +1774,14 @@ void main() {
   }
 
   function updatePrompt() {
+    if (H.dialog) { // the dialogue panel replaces the prompt while talking
+      H.promptTarget = null;
+      if (H.promptLabel) {
+        H.promptLabel = '';
+        H.prompt.classList.remove('on');
+      }
+      return;
+    }
     let target = null, label = '';
     const key = (H.isTouch ? '<span class="key">TAP</span>' : '<span class="key">⏎</span>');
     if (H.state === 'walk' || H.state === 'auto') {
@@ -1417,9 +1810,9 @@ void main() {
           label = key + spot.label;
         }
       }
-      if (!target && H.cam.z > -1.7 && f[2] > 0.35) {
+      if (!target && H.cam.z > -1.7 && H.cam.z <= 0 && f[2] > 0.35) {
         target = 'door';
-        label = (H.isTouch ? '<span class="key">TAP DOORS</span>' : key) + 'BACK TO THE CALCULATOR';
+        label = (H.isTouch ? '<span class="key">TAP DOORS</span>' : key) + 'STEP OUTSIDE';
       }
     }
     // transient toasts (mystery pokes, golden nug) trump the interact label
@@ -1528,10 +1921,20 @@ void main() {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
 
-    // animated light intensities
+    // animated light intensities. Out on the street the ceiling tubes can't
+    // reach, so their slots become the streetlamps + shop neon instead.
+    const onStreet = H.cam.z > 0.6;
+    const STREET_LIGHTS = {
+      1: { p: [-15, 3.0, 6.9], c: [1.35, 0.95, 0.5], k: 'tube' },
+      2: { p: [-5.5, 3.0, 6.9], c: [1.35, 0.95, 0.5], k: 'tube' },
+      3: { p: [5, 3.0, 6.9], c: [1.35, 0.95, 0.5], k: 'tube' },
+      5: { p: [14.5, 2.2, 0.9], c: [1.2, 0.5, 0.8], k: 'neon' },
+      6: { p: [-19.4, 2.2, 0.9], c: [0.35, 0.95, 1.15], k: 'neon' },
+    };
     const sl = signLevel(H.t);
     const lp = new Float32Array(24), lc = new Float32Array(24);
-    LIGHTS.forEach((L, i) => {
+    LIGHTS.forEach((L0, i) => {
+      const L = onStreet && STREET_LIGHTS[i] ? STREET_LIGHTS[i] : L0;
       let f = 1;
       if (L.k === 'sign') f = sl;
       else if (L.k === 'tube') f = 0.97 + 0.05 * Math.sin(H.t * 6.5 + i * 2.1);
@@ -1578,6 +1981,10 @@ void main() {
     drawLit(H.bufs.disco, mMul(MIR, DD), { mirror: 0.33 });
     drawBoard(MIR, { mirror: 0.38 });
     drawScreens(MIR, { mirror: 0.38 });
+    // the street set reflects in the wet sidewalk too (own texture page)
+    gl.bindTexture(gl.TEXTURE_2D, H.texStreet);
+    drawLit(H.bufsStreet.solid, MIR, { mirror: 0.33 });
+    gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
     gl.frontFace(gl.CCW);
 
     // 2) the floor itself, slightly translucent so the reflection ghosts through
@@ -1595,13 +2002,19 @@ void main() {
     drawLit(H.bufs.disco, DD, {});
     drawBoard(I, {});
     drawScreens(I, {});
+    gl.bindTexture(gl.TEXTURE_2D, H.texStreet);
+    drawLit(H.bufsStreet.solid, I, {});
+    gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
 
-    // 4) contact shadows + alpha-cutout extras (the golden nug)
+    // 4) contact shadows + alpha-cutout extras (the golden nug, the regulars)
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     drawLit(H.bufs.decals, I, { alpha: 0.5 });
     gl.depthMask(false);
     drawLit(H.bufs.flora, I, {});
+    gl.bindTexture(gl.TEXTURE_2D, H.texStreet);
+    drawLit(H.bufsStreet.npc, mTrans(0, Math.sin(H.t * 1.7) * 0.012, 0), {});
+    gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
     gl.depthMask(true);
 
     // 5) additive sprites: glow halos, dust, rain
@@ -1684,6 +2097,13 @@ void main() {
       H.lastChime = H.t;
       sfxChime();
     }
+    if (H.prevZ <= 0.05 && H.cam.z > 0.05 && H.state !== 'intro') {
+      if (H.t - H.lastChime > 3) { H.lastChime = H.t; sfxChime(); }
+      if (!H.wentOutside) {
+        H.wentOutside = true;
+        toast('🌧️ NUGGETOWN AFTER DARK — the regulars will talk. the bus stop goes home.', 5);
+      }
+    }
     H.prevZ = H.cam.z;
 
     // prop life: mystery-cabinet wiggle decay + golden-nug sparks
@@ -1723,10 +2143,11 @@ void main() {
     if (H.cam.z > -3)
       for (const rp of H.rain) {
         rp.y -= rp.v * dt;
-        if (rp.y < 0.05) { rp.y = 4.6 + Math.random(); rp.x = -10 + Math.random() * 20; }
+        if (rp.y < 0.05) { rp.y = 4.6 + Math.random(); rp.x = -20 + Math.random() * 40; }
       }
 
     stepAudio(dt);
+    stepDialog(dt);
     updateAttracts();
     updatePrompt();
     render();
@@ -1885,6 +2306,13 @@ void main() {
     const t0 = AC.ctx.currentTime;
     tone(70, t0, 0.12, 0.11, 'sine');
     tone(56, t0 + 0.12, 0.18, 0.08, 'sine');
+  }
+  function sfxTalk() {
+    if (!AC.ctx) return;
+    const t0 = AC.ctx.currentTime;
+    tone(392, t0, 0.06, 0.03, 'square');
+    tone(494, t0 + 0.07, 0.06, 0.03, 'square');
+    tone(440, t0 + 0.14, 0.08, 0.025, 'square');
   }
   function sfxFanfare() {
     if (!AC.ctx) return;
