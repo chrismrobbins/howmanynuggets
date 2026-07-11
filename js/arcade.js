@@ -701,9 +701,9 @@ void main() {
         vx: (Math.random() - 0.5) * 0.05, vy: 0.02 + Math.random() * 0.04, vz: (Math.random() - 0.5) * 0.05,
         s: 0.02 + Math.random() * 0.035, ph: Math.random() * 7,
       });
-    for (let i = 0; i < 170; i++)
+    for (let i = 0; i < 190; i++)
       H.rain.push({
-        x: -20 + Math.random() * 40, y: Math.random() * 5, z: 0.3 + Math.random() * 13,
+        x: -20 + Math.random() * 56, y: Math.random() * 5, z: 0.3 + Math.random() * 13, // reaches the pier
         v: 7 + Math.random() * 4,
       });
 
@@ -819,9 +819,14 @@ void main() {
       id: 'hood', name: 'THE HOODED NUG', icon: '👁️',
       x: -13.6, z: 1.35, h: 1.05, sdx: 0, sdz: 1.3,
       baseYaw: -0.5, curYaw: -0.5, bobSpd: 1.2, bobAmp: 0.006, phase: 4.2, yBase: 0,
-      nodes: () => ({
+      nodes: () => {
+        const sawStorm = typeof reelStormLanded === 'function' && reelStormLanded();
+        const fished = (H.best && H.best.reel > 0) || sawStorm;
+        return {
         root: {
-          line: '*the hooded nugget stands by the OPEN garage bay, radiating smug* you hear that engine? that\'s the sound of me being right.',
+          line: sawStorm
+            ? '*the hooded nugget is uncharacteristically quiet* …you went to the pier. at midnight. and it LOOKED at you. I can tell. you walk different now.'
+            : '*the hooded nugget stands by the OPEN garage bay, radiating smug* you hear that engine? that\'s the sound of me being right. TWICE, now that the pier gate\'s open.',
           opts: [
             { t: 'the shutter… it\'s open!', next: 'garage' },
             { t: 'heard any rumors?', next: 'rumors' },
@@ -838,19 +843,28 @@ void main() {
         },
         called: {
           line: (H.best && H.best.kart > 0)
-            ? "and YOU'VE already been behind the wheel — I can smell the nitro on you. my rumors deliver. speaking of which… ever been to the pier at midnight?"
-            : "I call everything. the garage. the beat that's coming. the pier. cabinet's in the hall, west wall, front — go on. and remember where you heard it.",
+            ? "and YOU'VE already been behind the wheel — I can smell the nitro on you. my rumors deliver. speaking of which… the pier gate at the end of the road? open. rod's provided. midnight's provided too."
+            : "I call everything. the garage. the beat that's coming. the pier — gate's OPEN now, east end of the road. go on. and remember where you heard it.",
           opts: [],
         },
         tips: { line: "brake INTO the hairpin, chili OUT of it. the tankers ride low and slow — pass 'em clean, it pays. and when a billboard asks about a storm… keep driving.", opts: [] },
         rumors: {
-          line: 'the harbor nugs say something BIG circles the pier after midnight. swirling. golden at the edges. almost like… weather.',
+          line: sawStorm
+            ? "rumors? friend, you OUTRANK my rumors now. you hooked the thing the harbor nugs only whisper about. …fine. one left: a cup with turntables, asking around for a rhythm section."
+            : fished
+              ? 'the harbor nugs say you\'ve been casting. good. keep going DEEP — what circles out there is golden at the edges. almost like… weather.'
+              : 'the pier gate is OPEN — end of the road, east, past the noodle shop. something BIG circles out there after midnight. swirling. golden at the edges. almost like… weather.',
           opts: [
             { t: '…like a storm?', next: 'hoodStorm' },
             { t: 'anything else?', next: 'rumors2' },
           ],
         },
-        hoodStorm: { line: "I don't say the s-word near open water. but if a certain missing storm wanted to hide, a pier at midnight is where I'd look. bring a rod. tell no one.", opts: [] },
+        hoodStorm: {
+          line: sawStorm
+            ? "you KNOW what it was. it didn't drown out there — it moved in. the syndicate dumped it off the pier and the storm just… kept swirling. tell the pickle. or don't. it's not going anywhere."
+            : "I don't say the s-word near open water. but if a certain missing storm wanted to hide, a pier at midnight is where I'd look. rod's provided at the gate. tell no one.",
+          opts: [],
+        },
         rumors2: { line: "a cup with turntables keeps asking around for a rhythm section. when the beat drops… you'd better drop with it.", opts: [] },
         incident: {
           line: 'the night it vanished? tanker trucks idled out back at 3am. unmarked. riding LOW — like a million nuggets low. they rolled toward the harbor. or the Sauce Works. same direction, if you think about it.',
@@ -861,7 +875,8 @@ void main() {
         },
         hoodDill: { line: 'pickles and I have history. tell him yourself — and leave my hood out of it.', opts: [] },
         weird: { line: "and yet you're the one out here talking to me. *taps hood* think about it.", opts: [] },
-      }),
+        };
+      },
     },
     {
       id: 'hen', name: 'HENRIETTA', icon: '🐔',
@@ -908,16 +923,29 @@ void main() {
       id: 'dill', name: 'DETECTIVE DILL', icon: '🥒',
       x: -2.6, z: 1.5, h: 1.12, sdx: 0, sdz: 1.2,
       baseYaw: Math.PI, curYaw: Math.PI, bobSpd: 1.3, bobAmp: 0.005, phase: 3.3, yBase: 0,
-      nodes: () => ({
+      nodes: () => {
+        const sawStorm = typeof reelStormLanded === 'function' && reelStormLanded();
+        return {
         root: {
           line: '*flat voice* detective dill, NPD. this street is a crime scene. technically the whole street. don\'t touch the tape.',
           opts: [
-            { t: 'what happened in there?', next: 'what' },
+            sawStorm
+              ? { t: 'detective. I hooked the storm. at the pier.', next: 'sawIt' }
+              : { t: 'what happened in there?', next: 'what' },
             { t: 'got any suspects?', next: 'suspects' },
             { t: 'can I help?', next: 'help' },
             { t: 'stay salty, detective.', next: 'bye' },
           ],
         },
+        sawIt: {
+          line: '*flips the notepad so fast a page tears* you HOOKED it. golden at the edges, swirling, VERY at large. so the syndicate dumped a living storm off my pier and it just… moved in. *long exhale* that\'s not larceny anymore, kid. that\'s habitat.',
+          opts: [
+            { t: 'so is the case closed?', next: 'sawIt2' },
+            { t: 'it pulled HARD, detective.', next: 'sawIt3' },
+          ],
+        },
+        sawIt2: { line: 'closed? the evidence WEATHER-PATTERN is circling the pier eating batter eels. the case has never been more open. but between us — *tips tiny hat* — best civilian work I\'ve ever seen. the tip line remembers.', opts: [] },
+        sawIt3: { line: 'of course it pulled. it\'s a MILLION nuggets with a grudge. *scribbles* "do not attempt subpoena." *underlines it twice*', opts: [] },
         what: {
           line: 'somebody emptied the nugget catch cabinet overnight. an entire storm. no prints, no witnesses, no crumbs. there are ALWAYS crumbs. that\'s what worries me.',
           opts: [
@@ -934,9 +962,15 @@ void main() {
           ],
         },
         works: { line: "*long pause* I can't get a warrant for a chicken coop, kid. but if a civilian in boxing gloves happened to see something in there… my tip line is open.", opts: [] },
-        help: { line: "keep your gloves on and your eyes open. and if you're ever near the pier after midnight and the water starts… swirling? you call it in. do NOT go fishing.", opts: [] },
+        help: {
+          line: sawStorm
+            ? 'you\'ve done plenty. *glances at the pier gate* keep a line in the water. if it starts moving TOWARD town, you know the number. 555-DILL.'
+            : 'keep your gloves on and your eyes open. and now somebody\'s opened a FISHING PIER off my crime scene — gate at the east end, "bait provided." if the water starts… swirling? you call it in. do NOT hook it. *pause* …that\'s official advice.',
+          opts: [],
+        },
         bye: { line: '*tips tiny hat* NPD appreciates your cooperation.', opts: [] },
-      }),
+        };
+      },
     },
   ];
 
@@ -1037,7 +1071,10 @@ void main() {
     wallZ(ST, 0, -21.5, -11, 0, 5, suv.brick, 2.2, 2.2, {});
     wallZ(ST, 0, 11, 21.5, 0, 5, suv.brick, 2.2, 2.2, {});
     wallX(ST, -21.5, 13.9, 0, 0, 6, suv.brick, 2.2, 2.2, {});  // west cap → +x
-    wallX(ST, 21.5, 0, 13.9, 0, 6, suv.brick, 2.2, 2.2, {});   // east cap → -x
+    // east cap → -x, now with a gap: the PIER GATE is open (Keeping It Reel)
+    wallX(ST, 21.5, 0, 9.0, 0, 6, suv.brick, 2.2, 2.2, {});
+    wallX(ST, 21.5, 12.8, 13.9, 0, 6, suv.brick, 2.2, 2.2, {});
+    wallX(ST, 21.5, 9.0, 12.8, 3.6, 6, suv.brick, 2.2, 2.2, {}); // archway header
     wallZ(ST, 13.9, 21.5, -21.5, 0, 5.4, suv.across, 21.5, 5.4, { e: 0.22 }); // faces -z
 
     // storefronts sit proud of the brick
@@ -1121,6 +1158,84 @@ void main() {
         stand: [sx, EYE, sz - 1.2],
         label: 'CALL IT A NIGHT — BACK TO THE CALCULATOR',
         act: () => exit(),
+      });
+    }
+
+    // ---- THE PIER (Keeping It Reel's front door) --------------------------------
+    // Through the gap in the east wall: a boardwalk out over the harbor. Its own
+    // Builder so the water plane never joins the mirrored-reflection pass (a
+    // mirrored sea would hover over the street like a very wet ghost).
+    const PR = new Builder();
+    {
+      const px0 = 21.5, px1 = 33.6, pz0 = 9.3, pz1 = 12.5, deckY = 0.05;
+
+      // the harbor itself (big dark apron; moon + swirl glows live on top)
+      planeY(PR, -0.42, 21.5, 46, 2, 20, suv.water, 6, false, { e: 0.06 });
+
+      // the deck + skirts down to the waterline
+      planeY(PR, deckY, px0, px1, pz0, pz1, suv.pierWood, 1.6, false, {});
+      wallZ(PR, pz0, px1, px0, -0.5, deckY, suv.sw_woodDark, 3, 0.6, {}); // faces -z (the road side)
+      wallZ(PR, pz1, px0, px1, -0.5, deckY, suv.sw_woodDark, 3, 0.6, {}); // faces +z
+      wallX(PR, px1, pz0, pz1, -0.5, deckY, suv.sw_woodDark, 3, 0.6, {}); // end cap → -x
+
+      // pilings + railing posts (4 outward faces each, hydrant-style)
+      const post = (cx2, cz2, y0, y1, s2, u) => {
+        for (const [a, b] of [[[cx2 - s2, cz2 + s2], [cx2 + s2, cz2 + s2]], [[cx2 + s2, cz2 - s2], [cx2 - s2, cz2 - s2]],
+          [[cx2 - s2, cz2 - s2], [cx2 - s2, cz2 + s2]], [[cx2 + s2, cz2 + s2], [cx2 + s2, cz2 - s2]]])
+          PR.quad([a[0], y0, a[1]], [b[0], y0, b[1]], [b[0], y1, b[1]], [a[0], y1, a[1]], u, { tint: 0.85 });
+      };
+      for (const lx of [23.2, 26.6, 30.0, 33.3]) {
+        post(lx, pz0 + 0.09, -0.5, 0.95, 0.07, suv.sw_wood);
+        post(lx, pz1 - 0.09, -0.5, 0.95, 0.07, suv.sw_wood);
+      }
+      // rails (inward + outward faces so they read from the walkway and the water)
+      const rail = (rz, y0, y1) => {
+        PR.quad([px0, y0, rz], [px1, y0, rz], [px1, y1, rz], [px0, y1, rz], suv.sw_wood, { tint: 0.75 });
+        PR.quad([px1, y0, rz], [px0, y0, rz], [px0, y1, rz], [px1, y1, rz], suv.sw_wood, { tint: 0.75 });
+      };
+      rail(pz0 + 0.09, 0.82, 0.95);
+      rail(pz1 - 0.09, 0.82, 0.95);
+      // end rail (so nobody keeps walking into the lore)
+      PR.quad([px1 - 0.1, 0.5, pz0], [px1 - 0.1, 0.5, pz1], [px1 - 0.1, 0.62, pz1], [px1 - 0.1, 0.62, pz0], suv.sw_wood, { tint: 0.75 });
+      PR.quad([px1 - 0.1, 0.82, pz0], [px1 - 0.1, 0.82, pz1], [px1 - 0.1, 0.95, pz1], [px1 - 0.1, 0.95, pz0], suv.sw_wood, { tint: 0.75 });
+
+      // the gate sign over the entrance (both faces)
+      PR.quad([px0 - 0.06, 2.4, 9.55], [px0 - 0.06, 2.4, 12.25], [px0 - 0.06, 3.5, 12.25], [px0 - 0.06, 3.5, 9.55], suv.pierSign, { e: 0.35 });
+      PR.quad([px0 + 0.02, 2.4, 12.25], [px0 + 0.02, 2.4, 9.55], [px0 + 0.02, 3.5, 9.55], [px0 + 0.02, 3.5, 12.25], suv.pierSign, { e: 0.2 });
+      H.glows.push({ p: [px0 - 0.3, 2.95, 10.9], c: [0.25, 0.85, 1], s: 1.3, a: 0.12, k: 'neon' });
+
+      // lanterns on the south rail
+      for (const lx of [25.5, 30.5]) {
+        post(lx, pz1 - 0.09, deckY, 1.45, 0.045, suv.sw_iron);
+        post(lx, pz1 - 0.11, 1.45, 1.62, 0.09, suv.sw_amber);
+        H.glows.push({ p: [lx, 1.52, pz1 - 0.1], c: [1, 0.72, 0.35], s: 1.1, a: 0.16, k: 'sign' });
+        H.propBoxes.push({ min: [lx - 0.1, 0, pz1 - 0.25], max: [lx + 0.1, 1.7, pz1 + 0.05] });
+      }
+
+      // the rod stand at the end: a leaning rod + bait bucket (walk up, cast off)
+      PR.quad([32.7, deckY, 10.7], [32.76, deckY, 10.7], [33.34, 1.5, 11.05], [33.28, 1.5, 11.05], suv.sw_wood, { tint: 0.9 });
+      PR.quad([32.76, deckY, 10.72], [32.7, deckY, 10.72], [33.28, 1.5, 11.07], [33.34, 1.5, 11.07], suv.sw_wood, { tint: 0.9 });
+      post(32.5, 11.5, deckY, 0.42, 0.16, suv.sw_iron); // the bait bucket
+      H.propBoxes.push({ min: [32.3, 0, 11.3], max: [32.7, 0.5, 11.7] });
+
+      // the moon over the harbor + THE SWIRL, golden at the edges (k:'swirl'
+      // glows orbit their anchor in the sprite pass — see render())
+      H.glows.push({ p: [44, 5.2, 10.9], c: [0.7, 0.78, 1], s: 2.8, a: 0.13, k: 'neon' });
+      H.glows.push({ p: [44, 0.0, 10.9], c: [0.5, 0.6, 0.9], s: 1.8, a: 0.07, k: 'neon' }); // its reflection
+      for (let i = 0; i < 3; i++)
+        H.glows.push({ p: [40, -0.28, 10.9], c: [1, 0.78, 0.25], s: 0.75, a: 0.18, k: 'swirl', ph: i * 2.1, r: 1.5 + i * 0.4 });
+
+      H.hotspots.push({
+        kind: 'reel',
+        x: 32.6, z: 10.9, r: 2.6,
+        min: [32.2, 0, 10.4], max: [33.4, 1.6, 11.4],
+        stand: [31.4, EYE, 10.9],
+        label: '🎣 KEEPING IT REEL — CAST A LINE',
+        act: () => {
+          H.lastCab = null;
+          H.lastSpot = { stand: [31.4, 10.9], look: [33.4, 0.6, 10.9] };
+          launchGame('reel');
+        },
       });
     }
 
@@ -1274,7 +1389,7 @@ void main() {
       }
     }
 
-    return { solid: ST.upload(gl), npcs: npcBufs };
+    return { solid: ST.upload(gl), pier: PR.upload(gl), npcs: npcBufs };
   }
 
   function foundGoldenNug(x, y, z) {
@@ -1300,7 +1415,7 @@ void main() {
   function fetchLeaderboards() {
     if (!window.NuggetAPI || Date.now() - H.lb.at < 60000) return;
     H.lb.at = Date.now();
-    for (const game of ArcadeArt.GAMES) {
+    for (const game of ArcadeArt.GAMES.concat(ArcadeArt.STREET_GAMES || [])) {
       NuggetAPI.leaderboard(game.mode, 5)
         .then((d) => { H.lb.data[game.mode] = (d && d.top) || []; })
         .catch(() => { if (!Array.isArray(H.lb.data[game.mode])) H.lb.data[game.mode] = 'error'; });
@@ -1582,8 +1697,9 @@ void main() {
     const inside = x > -(RX - 0.5) && x < RX - 0.5 && z > RZB + 0.6 && z < -0.1;
     const doorway = Math.abs(x) < 1.0 && z >= -0.3 && z <= 0.3 && H.doorsOpen > 0.7;
     const outside = x > -21.1 && x < 21.1 && z > 0.1 && z < 13.5; // the whole street
+    const pier = x > 21.05 && x < 33.0 && z > 9.5 && z < 12.3;    // through the gate, over the water
 
-    if (!(inside || doorway || outside)) return false;
+    if (!(inside || doorway || outside || pier)) return false;
     for (const cab of H.cabinets)
       if (x > cab.min[0] - 0.22 && x < cab.max[0] + 0.22 && z > cab.min[2] - 0.22 && z < cab.max[2] + 0.22)
         return false;
@@ -1702,6 +1818,8 @@ void main() {
     H.toast = null;
     H.dialog = null;
     H.wentOutside = false;
+    H.wentPier = false;
+    H.lastSpot = null;
     if (H.dlg) H.dlg.classList.remove('on');
     H.sparks = [];
     H.stepAcc = 0;
@@ -1756,6 +1874,7 @@ void main() {
     H.state = 'zoom';
     H.auto = null;
     H.lastCab = cab;
+    H.lastSpot = null; // cabinet launches return to the cabinet, not the pier
     const sc = cab.screen.center, n = cab.screen.normal;
     const to = {
       x: sc[0] + n[0] * 0.58, y: sc[1] + n[1] * 0.58 + 0.05, z: sc[2] + n[2] * 0.58,
@@ -1794,9 +1913,14 @@ void main() {
     H.suspended = false;
     H.state = 'return';
     H.returnT = 0;
+    // Street-launched games (the pier) come back to their hotspot; cabinet
+    // games walk back out of the CRT like always.
+    const spot = H.lastSpot;
     const cab = H.lastCab || H.cabinets[0];
-    H.cam.x = cab.stand[0]; H.cam.y = EYE; H.cam.z = cab.stand[2];
-    const d = [cab.screen.center[0] - H.cam.x, cab.screen.center[1] - EYE, cab.screen.center[2] - H.cam.z];
+    if (spot) { H.cam.x = spot.stand[0]; H.cam.y = EYE; H.cam.z = spot.stand[1]; }
+    else { H.cam.x = cab.stand[0]; H.cam.y = EYE; H.cam.z = cab.stand[2]; }
+    const look = spot ? spot.look : cab.screen.center;
+    const d = [look[0] - H.cam.x, look[1] - EYE, look[2] - H.cam.z];
     const dl = Math.hypot(...d);
     H.cam.yaw = Math.atan2(-d[0] / dl, -d[2] / dl);
     H.cam.pitch = Math.asin(d[1] / dl) * 0.6;
@@ -1835,7 +1959,7 @@ void main() {
     const ids = {
       catch: 'myCatch', blaster: 'myBlaster', flappy: 'myFlappy', dunk: 'myDunk',
       sim: 'mySim', run: 'myRun', knight: 'myKnight', brawl: 'myBrawl', ranch: 'myRanch',
-      kart: 'myKart',
+      kart: 'myKart', reel: 'myReel',
     };
     for (const [mode, id] of Object.entries(ids)) {
       const el = document.getElementById(id);
@@ -2119,10 +2243,20 @@ void main() {
       5: { p: [14.5, 2.2, 0.9], c: [1.2, 0.5, 0.8], k: 'neon' },
       6: { p: [-19.4, 2.2, 0.9], c: [0.35, 0.95, 1.15], k: 'neon' },
     };
+    // out on the pier the streetlamps hand over to lanterns, moonlight, and
+    // whatever is glowing under the water
+    const onPier = onStreet && H.cam.x > 19.5;
+    const PIER_LIGHTS = {
+      1: { p: [25.5, 1.6, 12.3], c: [1.3, 0.9, 0.45], k: 'torch' },
+      2: { p: [30.5, 1.6, 12.3], c: [1.3, 0.9, 0.45], k: 'torch' },
+      3: { p: [40, 3.2, 10.9], c: [0.5, 0.62, 1.0], k: 'neon' },   // the moon, off the water
+      5: { p: [36, 0.3, 10.9], c: [1.0, 0.75, 0.25], k: 'neon' },  // the swirl reaches up
+    };
     const sl = signLevel(H.t);
     const lp = new Float32Array(24), lc = new Float32Array(24);
     LIGHTS.forEach((L0, i) => {
-      const L = onStreet && STREET_LIGHTS[i] ? STREET_LIGHTS[i] : L0;
+      const L = onPier && PIER_LIGHTS[i] ? PIER_LIGHTS[i]
+        : onStreet && STREET_LIGHTS[i] ? STREET_LIGHTS[i] : L0;
       let f = 1;
       if (L.k === 'sign') f = sl;
       else if (L.k === 'tube') f = 0.97 + 0.05 * Math.sin(H.t * 6.5 + i * 2.1);
@@ -2192,6 +2326,7 @@ void main() {
     drawScreens(I, {});
     gl.bindTexture(gl.TEXTURE_2D, H.texStreet);
     drawLit(H.bufsStreet.solid, I, {});
+    drawLit(H.bufsStreet.pier, I, {}); // world pass only — the sea does not reflect in itself
     gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
     drawNpcs(null, {}); // the regulars: real geometry now, lit like the room
 
@@ -2221,7 +2356,15 @@ void main() {
     for (const gsp of H.glows) {
       let a = gsp.a * (0.9 + 0.1 * Math.sin(H.t * 2.4 + gsp.p[0] * 3 + gsp.p[2]));
       if (gsp.k === 'sign') a *= sl;
-      pushSprite(arr, gsp.p[0], gsp.p[1], gsp.p[2], gsp.s, gsp.s, gsp.c[0], gsp.c[1], gsp.c[2], a, right, up);
+      let gx = gsp.p[0], gz = gsp.p[2];
+      if (gsp.k === 'swirl') {
+        // the golden something circling off the pier — it never quite stops
+        const ang = H.t * 1.1 + gsp.ph;
+        gx += Math.cos(ang) * gsp.r;
+        gz += Math.sin(ang) * gsp.r * 0.45;
+        a = gsp.a * (0.7 + 0.3 * Math.sin(H.t * 3 + gsp.ph));
+      }
+      pushSprite(arr, gx, gsp.p[1], gz, gsp.s, gsp.s, gsp.c[0], gsp.c[1], gsp.c[2], a, right, up);
     }
     for (const m of H.dust) {
       const tw = 0.5 + 0.5 * Math.sin(H.t * 1.7 + m.ph);
@@ -2290,6 +2433,10 @@ void main() {
         toast('🌧️ NUGGETOWN AFTER DARK — the regulars will talk. the bus stop goes home.', 5);
       }
     }
+    if (!H.wentPier && H.cam.x > 21.3 && H.state !== 'intro') {
+      H.wentPier = true;
+      toast('🌊 THE PIER AT MIDNIGHT — out in the deep, the water is… swirling.', 5);
+    }
     H.prevZ = H.cam.z;
 
     // prop life: golden-nug sparks
@@ -2305,7 +2452,7 @@ void main() {
     H.lbTimer -= dt;
     if (H.lbTimer <= 0) {
       H.lbTimer = 0.16;
-      const games = ArcadeArt.GAMES;
+      const games = ArcadeArt.GAMES.concat(ArcadeArt.STREET_GAMES || []);
       const game = games[Math.floor(H.t / 4.5) % games.length];
       const g2 = H.boardCv.getContext('2d');
       ArcadeArt.drawScoreboard(g2, H.boardCv.width, H.boardCv.height, H.t, game, H.lb.data[game.mode], H.best[game.mode] || 0);
@@ -2324,7 +2471,7 @@ void main() {
     if (H.cam.z > -3)
       for (const rp of H.rain) {
         rp.y -= rp.v * dt;
-        if (rp.y < 0.05) { rp.y = 4.6 + Math.random(); rp.x = -20 + Math.random() * 40; }
+        if (rp.y < 0.05) { rp.y = 4.6 + Math.random(); rp.x = -20 + Math.random() * 56; }
       }
 
     stepAudio(dt);

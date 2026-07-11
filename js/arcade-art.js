@@ -22,6 +22,13 @@ const ArcadeArt = (() => {
     { mode: 'kart',    title: 'FAST FOOD',     icon: '🏎️', c1: '#39ff7a', c2: '#0a7a3a', tag: 'PEDAL TO THE BATTER' },
   ];
 
+  // Games that live OUTSIDE the hall (no cabinet, no main-atlas art — the packed
+  // 2048² page is FULL at 10). They still cycle on the scoreboard and fetch
+  // leaderboards; their world art lives on the street atlas instead.
+  const STREET_GAMES = [
+    { mode: 'reel', title: 'KEEPING IT REEL', icon: '🎣', c1: '#26e0ff', c2: '#0a5a7a', tag: 'THE PIER AT MIDNIGHT' },
+  ];
+
   const NEON = ['#ff2fa0', '#26e0ff', '#ffe23a', '#7c4dff', '#39ff7a'];
 
   function cv(w, h) {
@@ -1256,6 +1263,10 @@ const ArcadeArt = (() => {
     // the Catch Incident
     alloc('tape', 256, 32, pTape);
     alloc('crimeSign', 128, 96, pCrimeSign);
+    // the pier (Keeping It Reel's front door)
+    alloc('pierWood', 128, 128, pPierWood);
+    alloc('water', 128, 128, pWater);
+    alloc('pierSign', 192, 96, pPierSign);
     const SW2 = {
       iron: '#3a4256', wood: '#6d5426', woodDark: '#42320e', red: '#e8412c',
       amber: '#ffb020', curb: '#3c3c46', black: '#0a0a12', white: '#f4f0e6',
@@ -1268,6 +1279,75 @@ const ArcadeArt = (() => {
       uv['sw_' + name] = [mx - 0.001, my - 0.001, mx + 0.001, my + 0.001];
     }
     return { canvas: c, uv };
+  }
+
+  // Weathered boardwalk planks, seen a thousand midnights.
+  function pPierWood(g, w, h) {
+    g.fillStyle = '#241a08';
+    g.fillRect(0, 0, w, h);
+    const rowH = 16;
+    for (let y = 0; y < h; y += rowH) {
+      const shade = 0.75 + ((y / rowH) % 3) * 0.12;
+      g.fillStyle = 'rgba(109,84,38,' + (0.5 * shade) + ')';
+      g.fillRect(0, y + 1, w, rowH - 3);
+      // grain streaks
+      g.strokeStyle = 'rgba(20,13,4,0.55)';
+      g.lineWidth = 1;
+      for (let i = 0; i < 3; i++) {
+        const gy = y + 3 + ((y * 7 + i * 41) % (rowH - 6));
+        g.beginPath();
+        g.moveTo(0, gy);
+        g.bezierCurveTo(w * 0.3, gy + 1.5, w * 0.6, gy - 1.5, w, gy);
+        g.stroke();
+      }
+      // plank gaps + nails
+      g.fillStyle = 'rgba(0,0,0,0.7)';
+      g.fillRect(0, y + rowH - 2, w, 2);
+      g.fillStyle = 'rgba(58,66,86,0.8)';
+      g.fillRect(9, y + rowH / 2, 2, 2);
+      g.fillRect(w - 12, y + rowH / 2, 2, 2);
+    }
+    speckle(g, w, h, 90, '#0a0805', 0.4, 2);
+  }
+
+  // Harbor water after midnight: near-black teal with faint wave streaks.
+  // (The moon shimmer and the golden swirl are live glow sprites in arcade.js.)
+  function pWater(g, w, h) {
+    const grad = g.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#0a2438');
+    grad.addColorStop(1, '#050f1a');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, w, h);
+    withWrap(g, w, h, () => {
+      for (let i = 0; i < 26; i++) {
+        const y = (i * 37 + 11) % h;
+        const x = (i * 53) % w;
+        const len = 14 + (i * 13) % 26;
+        g.strokeStyle = 'rgba(120,190,230,' + (0.04 + (i % 4) * 0.02) + ')';
+        g.lineWidth = 1;
+        g.beginPath();
+        g.moveTo(x, y);
+        g.quadraticCurveTo(x + len / 2, y - 1.5, x + len, y);
+        g.stroke();
+      }
+    });
+  }
+
+  // The gate sign over the pier entrance. Bait provided. Tell no one.
+  function pPierSign(g, w, h) {
+    g.fillStyle = '#1a1206';
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#42320e';
+    g.lineWidth = 5;
+    g.strokeRect(3, 3, w - 6, h - 6);
+    // plank seams
+    g.strokeStyle = 'rgba(0,0,0,0.5)';
+    g.lineWidth = 1;
+    for (const y of [h * 0.33, h * 0.66]) {
+      g.beginPath(); g.moveTo(6, y); g.lineTo(w - 6, y); g.stroke();
+    }
+    neonText(g, 'KEEPING IT REEL', w / 2, h * 0.36, '900 23px Impact, "Arial Black", sans-serif', '#26e0ff', 12);
+    neonText(g, 'bait provided · tell no one', w / 2, h * 0.72, '700 11px Consolas, monospace', '#ffb020', 7);
   }
 
   // Soft radial sprite used (tinted) for every glow halo, dust mote, and raindrop.
@@ -1851,5 +1931,5 @@ const ArcadeArt = (() => {
     scanlines(g, w, h, t);
   }
 
-  return { GAMES, makeAtlas, makeStreetAtlas, makeGlow, drawAttract, drawScoreboard };
+  return { GAMES, STREET_GAMES, makeAtlas, makeStreetAtlas, makeGlow, drawAttract, drawScoreboard };
 })();

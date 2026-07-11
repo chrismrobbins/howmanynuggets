@@ -18,21 +18,34 @@ already bitten someone.
 5. `worker/src/index.js`: the `GAMES` set, a `GAME_MAX_SCORE` plausibility
    cap, and the zero-map in `scoresForUser`. Pushing `worker/**` auto-deploys.
 6. Arcade hall: an entry in `ArcadeArt.GAMES` (palette + attract scene in
-   `js/arcade-art.js`) and `PLACEMENT` in `js/arcade.js`. Read the hall
-   gotchas below first.
+   `js/arcade-art.js`) and `PLACEMENT` in `js/arcade.js` — **but the main
+   atlas is FULL at 10 cabinets**, so new games go in `ArcadeArt.STREET_GAMES`
+   with a street/world entry point instead (see the pier pattern below).
+   Read the hall gotchas below first.
 7. Score through `storm.caught += ...` (scaled by `storm.perFlyer` for
    parity with the other games) and let `stopStorm()` submit it.
 
 ## Arcade hall gotchas (js/arcade.js + js/arcade-art.js)
 
 - **Texture atlas budget.** All hall art packs into ONE 2048×2048 canvas
-  with a naive shelf packer. Every game adds a marquee (512×128), side art
-  (200×300), and control panel (224×112). It is FULL at 10 games (FAST FOOD
-  took the last slot — verified headless, zero overflow warnings) — an 11th
-  game REQUIRES packer work or a second page. Watch the DevTools console for
-  `ArcadeArt atlas overflow at <name>` warnings; overflowed regions render
-  BLACK (this shipped once: a 9th game silently blacked out the light tubes,
-  neon strips, and five control panels). Don't ignore the warning.
+  with a naive shelf packer. Every game in `ArcadeArt.GAMES` adds a marquee
+  (512×128), side art (200×300), and control panel (224×112). It is FULL at
+  10 cabinets (FAST FOOD took the last slot) — that's why game 11 (KEEPING IT
+  REEL) is a **street game**: it lives in `ArcadeArt.STREET_GAMES` instead,
+  gets NO cabinet/marquee/panel, and its world art goes on the street atlas.
+  A 12th CABINET still requires packer work or a second page. Watch the
+  DevTools console for `ArcadeArt atlas overflow at <name>` warnings;
+  overflowed regions render BLACK (this shipped once: a 9th game silently
+  blacked out the light tubes, neon strips, and five control panels).
+- **Street games (the pier pattern).** `ArcadeArt.STREET_GAMES` entries cycle
+  on the hall scoreboard and fetch leaderboards like cabinet games, but their
+  entry point is a street hotspot (the pier's rod stand calls `launchGame`
+  directly and sets `H.lastSpot` so `resumeHall` returns the player to the
+  hotspot instead of a cabinet — `startZoom` clears it). The pier geometry is
+  its own Builder buffer (`bufsStreet.pier`) drawn ONLY in the world pass:
+  putting the water plane in the mirrored-reflection pass makes a second sea
+  hover over the street. Pier walkable corridor is in `posValid`
+  (x 21.05..33.0, z 9.5..12.3, through the gap in the east cap wall).
 - **Quad winding.** New geometry must follow the per-wall winding rules
   documented in `buildScene` (see `wallX`/`wallZ` comments) or it will be
   back-face culled — "built but invisible" bugs (a cabinet was once placed
@@ -67,10 +80,17 @@ already bitten someone.
   2048² page.
   While `H.dialog` is set, movement/prompt/tap input is owned by the
   dialogue panel; ESC closes the dialog before it can exit the hall.
-  The walkable street is x ∈ (−21.1, 21.1), z ∈ (0.1, 13.5) in `posValid`.
-  The GREASE GARAGE (x −17.1..−12.1) is OPEN as of FAST FOOD shipping —
-  the Hooded Nug's dialogue is a "told you so"; his remaining unresolved
-  rumors (the pier/fishing, the rhythm cup) still seed future games.
+  The walkable street is x ∈ (−21.1, 21.1), z ∈ (0.1, 13.5) in `posValid`,
+  plus the PIER corridor east of the gate (see the pier pattern above).
+  The GREASE GARAGE (x −17.1..−12.1) is OPEN (FAST FOOD), and the PIER GATE
+  (east cap wall, z 9.0..12.8) is OPEN (KEEPING IT REEL, mode `reel`) — the
+  Hooded Nug is two-for-two; his last unresolved rumor is the rhythm cup.
+  Landing THE STORM in Keeping It Reel sets localStorage `nugReelStorm`
+  (read via `reelStormLanded()` in js/reel.js) — the Hooded Nug and Detective
+  Dill both have dialogue branches keyed on it. CANON UPDATE: the stolen
+  storm from THE CATCH INCIDENT is ALIVE in the harbor off the pier (the
+  syndicate dumped it); the case is "open forever", not closed — future
+  games can still pull on this thread.
 
 ## Verifying changes (the pattern that works)
 

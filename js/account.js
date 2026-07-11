@@ -40,6 +40,7 @@
   const myBrawl = document.getElementById('myBrawl');
   const myRanch = document.getElementById('myRanch');
   const myKart = document.getElementById('myKart');
+  const myReel = document.getElementById('myReel');
 
   // Leaderboard modal
   const openLeaderboards = document.getElementById('openLeaderboards');
@@ -56,7 +57,7 @@
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   function setScores(scores) {
-    scores = scores || { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0, knight: 0, brawl: 0, ranch: 0, kart: 0 };
+    scores = scores || { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0, knight: 0, brawl: 0, ranch: 0, kart: 0, reel: 0 };
     myCatch.textContent = fmtNum(scores.catch || 0);
     myBlaster.textContent = fmtNum(scores.blaster || 0);
     myFlappy.textContent = fmtNum(scores.flappy || 0);
@@ -67,6 +68,7 @@
     myBrawl.textContent = fmtNum(scores.brawl || 0);
     myRanch.textContent = fmtNum(scores.ranch || 0);
     myKart.textContent = fmtNum(scores.kart || 0);
+    myReel.textContent = fmtNum(scores.reel || 0);
   }
 
   function applyUser(user, scores) {
@@ -173,7 +175,7 @@
   });
 
   // ---- Leaderboards ----
-  const GAME_LABEL = { catch: '🧺 Catch', blaster: '🎯 Blaster', flappy: '🐤 Flappy', dunk: '🥣 Dunk', sim: '🧘 Sim', run: '🏃 Run', knight: '⚔️ Knight', brawl: '🥊 Brawl', ranch: '🐔 Ranch', kart: '🏎️ Fast Food' };
+  const GAME_LABEL = { catch: '🧺 Catch', blaster: '🎯 Blaster', flappy: '🐤 Flappy', dunk: '🥣 Dunk', sim: '🧘 Sim', run: '🏃 Run', knight: '⚔️ Knight', brawl: '🥊 Brawl', ranch: '🐔 Ranch', kart: '🏎️ Fast Food', reel: '🎣 Reel' };
 
   menuLeaderboards.addEventListener('click', () => { closeModal(authModal); openLb(); });
   openLeaderboards.addEventListener('click', openLb);
@@ -233,7 +235,7 @@
     if (!currentUser || !score || score <= 0) return;
     try {
       const res = await API.submitScore(game, score);
-      const el = { catch: myCatch, blaster: myBlaster, flappy: myFlappy, dunk: myDunk, sim: mySim, run: myRun, knight: myKnight, brawl: myBrawl, ranch: myRanch, kart: myKart }[game];
+      const el = { catch: myCatch, blaster: myBlaster, flappy: myFlappy, dunk: myDunk, sim: mySim, run: myRun, knight: myKnight, brawl: myBrawl, ranch: myRanch, kart: myKart, reel: myReel }[game];
       if (el && res && typeof res.best === 'number') el.textContent = fmtNum(res.best);
     } catch { /* offline / not deployed — scores just don't persist */ }
   };
