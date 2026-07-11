@@ -29,7 +29,7 @@ const NuggetArcade = (() => {
     ['run', 7.02, -9.5, -Math.PI / 2],
     ['sim', 7.02, -13.5, -Math.PI / 2],
     ['brawl', -7.0, -16.8, Math.PI / 2], // hides under the drape until revealed
-    ['ranch', 7.02, -16.8, -Math.PI / 2],
+    ['ranch', 7.02, -2.2, -Math.PI / 2], // front of the right wall, ahead of Catch
     ['knight', 0, -18.7, 0],
   ];
 
