@@ -879,11 +879,11 @@ const ArcadeArt = (() => {
     alloc('carpet', 448, 448, pCarpet);
     alloc('door', 192, 448, pDoor);
     for (const game of GAMES)
-      alloc('side_' + game.mode, 224, 336, (gg, w, h) => pSideArt(gg, w, h, game));
-    alloc('posterGolden', 224, 336, pPosterGolden);
-    alloc('posterBrawl', 224, 336, pPosterBrawl);
-    alloc('posterKnight', 224, 336, pPosterKnight);
-    alloc('posterPlay', 224, 336, pPosterPlay);
+      alloc('side_' + game.mode, 216, 324, (gg, w, h) => pSideArt(gg, w, h, game));
+    alloc('posterGolden', 200, 300, pPosterGolden);
+    alloc('posterBrawl', 200, 300, pPosterBrawl);
+    alloc('posterKnight', 200, 300, pPosterKnight);
+    alloc('posterPlay', 200, 300, pPosterPlay);
     alloc('drape', 256, 384, pDrape);
     alloc('vending', 256, 384, pVending);
     alloc('sign', 1024, 256, pSign);
