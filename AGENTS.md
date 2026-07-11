@@ -39,8 +39,9 @@ already bitten someone.
   facing into the wall, and a scoreboard was once wound backwards).
 - **Placement collisions.** Check `PLACEMENT`, `H.hotspots`, and prop
   positions before placing anything: the east wall z=-14.2..-17.4 is the
-  live scoreboard, west wall z=-16.8 is Sauce Brawl (spawns under a drape
-  until revealed — localStorage `nugBrawlRevealed`), the entrance zone has
+  live scoreboard, west wall z=-16.8 is Battered Brawlers (né Sauce Brawl;
+  spawns under a drape until revealed — localStorage `nugBrawlRevealed`;
+  the mode key stays `brawl` everywhere), the entrance zone has
   a vending machine / change machine / velvet ropes.
 - **Walk-up interactables** live in `H.hotspots` (label + AABB + `act()`).
   Cabinets get prompts automatically from `H.cabinets`.

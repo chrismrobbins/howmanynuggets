@@ -41,7 +41,7 @@ const MODE_HINTS = {
   sim:     'you are a nugget. sit. watch. accrue wisdom.',
   run:     'space/click to jump (twice = flip!) · hold ↓ to slide',
   knight:  'defend the gate! ← → move · space jump · click/X slash',
-  brawl:   'walk right, clean the kitchen! ←→↑↓ move · X/click punch · space dodge',
+  brawl:   'they took Honey! ←→↑↓ move · X/click punch · space dodge · C cyclone',
   ranch:   'raise the flock! 🌾 feed to keep birds alive · 🏭 ship grown hens for nuggets',
 };
 const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘', run: '🏃', knight: '⚔️', brawl: '🥊', ranch: '🐔' };
@@ -187,7 +187,7 @@ function updateStormHud() {
     stormLabel.textContent = '🗡️ Nugget Knight';
     stormTally.textContent = knightTally();
   } else if (storm.mode === 'brawl') {
-    stormLabel.textContent = '🥊 Sauce Brawl';
+    stormLabel.textContent = '🥊 Battered Brawlers';
     stormTally.textContent = brawlTally();
   } else if (storm.mode === 'ranch') {
     stormLabel.textContent = '🐔 Nugget Ranch';

@@ -38,7 +38,7 @@ const GAME_MAX_SCORE = {
   sim: 2e6,                         // 1 wisdom/sec + events — covers ~10 days
   run: 2e6,                         // ~68k/hour at max speed + pickups
   knight: 30e6,                     // kills + wave bonuses; NUGGMARE oath pays 3x
-  brawl: 10e6,                      // KOs + round bonuses, same shape as knight
+  brawl: 30e6,                      // campaign KOs + act bonuses; HELL heat pays 3x (knight parity)
   ranch: 5e6,                       // ~28 nugs/hen shipped over a long farming session
 };
 const MIN_SUBMIT_INTERVAL_MS = 10000; // one score per 10s per account

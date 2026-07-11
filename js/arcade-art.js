@@ -16,7 +16,7 @@ const ArcadeArt = (() => {
     { mode: 'dunk',    title: 'SAUCE DUNK',    icon: '🥣', c1: '#ff8a3d', c2: '#d32f2f', tag: 'TIMING IS FLAVOR'  },
     { mode: 'run',     title: 'NUGGET RUN',    icon: '🏃', c1: '#39ff7a', c2: '#26e0ff', tag: 'JUMP · FLIP · SLIDE' },
     { mode: 'sim',     title: 'NUGGET SIM',    icon: '🧘', c1: '#7c4dff', c2: '#26e0ff', tag: 'SIT. WATCH. BE.'   },
-    { mode: 'brawl',   title: 'SAUCE BRAWL',   icon: '🥊', c1: '#ff5252', c2: '#8a1c10', tag: 'PIXEL FISTS · REAL FLAVOR' },
+    { mode: 'brawl',   title: 'BATTERED BRAWLERS', icon: '🥊', c1: '#ff5252', c2: '#8a1c10', tag: 'SEE YOU IN HELL MOTHER CLUCKERS' },
     { mode: 'knight',  title: 'NUGGET KNIGHT', icon: '⚔️', c1: '#ffb020', c2: '#ff3d3d', tag: 'HOLD THE GATE'     },
     { mode: 'ranch',   title: 'NUGGET RANCH',  icon: '🐔', c1: '#ffd166', c2: '#e95420', tag: 'EGG TO McNUGGET'  },
   ];
@@ -371,7 +371,7 @@ const ArcadeArt = (() => {
 
   function pPosterBrawl(g, w, h) {
     posterBase(g, w, h, '#160a0c');
-    posterText(g, 'COMING SOON', w / 2, h * 0.12, 22, '#ffe23a', 8);
+    posterText(g, 'THE CAMPAIGN', w / 2, h * 0.12, 22, '#ffe23a', 8);
     // two nuggets squaring up over a sauce splat
     g.fillStyle = '#d32f2f';
     g.beginPath();
@@ -389,8 +389,9 @@ const ArcadeArt = (() => {
     g.fillText('🥊', w * 0.44, h * 0.38);
     g.fillText('🥊', w * 0.56, h * 0.55);
     g.restore();
-    posterText(g, 'SAUCE BRAWL', w / 2, h * 0.74, 34, '#ff5252', 14);
-    posterText(g, 'PIXEL FISTS · REAL FLAVOR', w / 2, h * 0.84, 14, '#e8b9a0', 0);
+    posterText(g, 'BATTERED', w / 2, h * 0.7, 30, '#ff5252', 14);
+    posterText(g, 'BRAWLERS', w / 2, h * 0.79, 30, '#ff5252', 14);
+    posterText(g, '"SEE YOU IN HELL MOTHER CLUCKERS"', w / 2, h * 0.87, 11, '#e8b9a0', 0);
   }
 
   function pPosterKnight(g, w, h) {
@@ -525,7 +526,7 @@ const ArcadeArt = (() => {
     g.fillText(game.icon, w - 52, h / 2 + 4);
     g.restore();
     // crisp backlit-plastic lettering (blurred neon here just reads as a white blob)
-    const size = game.title.length > 11 ? 54 : 64;
+    const size = game.title.length > 15 ? 42 : game.title.length > 11 ? 54 : 64;
     g.save();
     g.font = `900 ${size}px Impact, "Arial Black", sans-serif`;
     g.textAlign = 'center';
@@ -621,7 +622,7 @@ const ArcadeArt = (() => {
     g.fillText(game.title, w / 2, h * 0.16);
     g.fillStyle = 'rgba(255,255,255,0.45)';
     g.font = '700 10px Consolas, monospace';
-    g.fillText('1 PLAYER · NO QUARTERS NEEDED', w / 2, h * 0.9);
+    g.fillText(game.mode === 'brawl' ? '1–2 PLAYERS · NO QUARTERS NEEDED' : '1 PLAYER · NO QUARTERS NEEDED', w / 2, h * 0.9);
     // corner screws
     g.fillStyle = '#565f85';
     for (const [sx, sy] of [[8, 8], [w - 8, 8], [8, h - 8], [w - 8, h - 8]]) {
@@ -1187,6 +1188,17 @@ const ArcadeArt = (() => {
       g.fillStyle = '#d32f2f';
       g.fillRect(px2 + 8 + punch, gy - 13, 6, 6); // lead glove
       g.fillRect(px2 - 12, gy - 8, 6, 6);
+      // player 2, blue headband, backing you up
+      const p2x = w * 0.2;
+      g.fillStyle = '#e8a83e';
+      g.fillRect(p2x - 9, gy - 20, 18, 16);
+      g.fillStyle = '#8a5a1d';
+      g.fillRect(p2x - 9, gy - 20, 18, 2);
+      g.fillStyle = '#2f6ad3';
+      g.fillRect(p2x - 7, gy - 16, 14, 3); // headband
+      g.fillRect(p2x + 7 + (beat === 3 ? 10 : 0), gy - 12, 5, 5); // glove
+      g.fillStyle = '#fff';
+      g.fillRect(p2x + 2, gy - 12, 3, 3);
       // sauce cup opponent
       g.fillStyle = '#f4f0e6';
       g.fillRect(ex - 8, gy - 16, 16, 14);
@@ -1208,11 +1220,18 @@ const ArcadeArt = (() => {
         g.textAlign = 'center';
         g.fillText('K.O.!', ex, gy - 30);
       }
-      if (Math.floor(t * 1.1) % 3 === 0) {
+      const flash = Math.floor(t * 1.1) % 4;
+      if (flash === 0) {
         g.font = '900 18px Consolas, monospace';
         g.fillStyle = '#ffe23a';
         g.textAlign = 'center';
         g.fillText('FIGHT!', w / 2, h * 0.3);
+      } else if (flash === 2) {
+        g.font = '900 11px Consolas, monospace';
+        g.fillStyle = '#ff5252';
+        g.textAlign = 'center';
+        g.fillText('SEE YOU IN HELL', w / 2, h * 0.26);
+        g.fillText('MOTHER CLUCKERS', w / 2, h * 0.34);
       }
     },
     knight(g, w, h, t) {

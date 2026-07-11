@@ -33,7 +33,7 @@ const NuggetArcade = (() => {
     ['knight', 0, -18.7, 0],
   ];
 
-  // Sauce Brawl ships under the sheet: three pokes and it's yours forever.
+  // Battered Brawlers ships under the sheet: three pokes and it's yours forever.
   let brawlRevealed = false;
   try { brawlRevealed = localStorage.getItem('nugBrawlRevealed') === '1'; } catch (e) { /* ok */ }
 
@@ -775,7 +775,7 @@ void main() {
       });
     }
     sfxFanfare();
-    toast('🥊 SAUCE BRAWL — NOW SERVING', 3.2);
+    toast('🥊 BATTERED BRAWLERS — NOW SERVING', 3.2);
   }
 
   function finishBrawlReveal() {
