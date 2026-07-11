@@ -1,0 +1,248 @@
+/* ---- Nugget Ranch: a cozy chicken-farm life-sim ---------------------------------- */
+#ranchWorld {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: none;
+  overflow: hidden;
+  user-select: none;
+  font-family: inherit;
+}
+#ranchWorld.active { display: block; }
+
+.ranch-sky {
+  position: absolute; inset: 0;
+  background: linear-gradient(#7ec8ff 0%, #bfe4ff 42%, #eaf7d6 68%, #eaf7d6 100%);
+}
+.ranch-hills {
+  position: absolute; left: 0; right: 0; bottom: 24%;
+  height: 34%;
+  background:
+    radial-gradient(120% 100% at 20% 100%, #9fd85a 0 60%, transparent 61%),
+    radial-gradient(120% 100% at 78% 100%, #8ccb4c 0 60%, transparent 61%);
+  filter: saturate(0.95);
+}
+.ranch-ground {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: 26%;
+  background:
+    repeating-linear-gradient(90deg, rgba(120,80,40,0.10) 0 3px, transparent 3px 22px),
+    linear-gradient(#c69257, #a9743e);
+  box-shadow: inset 0 6px 14px rgba(0,0,0,0.18);
+}
+.ranch-barn {
+  position: absolute; right: 3%; bottom: 24%;
+  font-size: clamp(3rem, 10vw, 6rem);
+  filter: drop-shadow(0 8px 10px rgba(0,0,0,0.25));
+  pointer-events: none;
+}
+
+/* The coop: a responsive grid of pens */
+.ranch-coop {
+  position: absolute;
+  left: 50%; top: 46%;
+  transform: translate(-50%, -50%);
+  width: min(94vw, 880px);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(0.4rem, 1.4vw, 0.9rem);
+  z-index: 2;
+}
+@media (max-width: 560px) {
+  .ranch-coop { grid-template-columns: repeat(2, 1fr); top: 42%; }
+}
+
+.ranch-pen {
+  position: relative;
+  background: linear-gradient(#fffdf5, #fdeecf);
+  border: 2px solid #b98a4e;
+  border-radius: 0.9rem;
+  padding: 0.55rem 0.5rem 0.6rem;
+  text-align: center;
+  box-shadow: 0 6px 14px -6px rgba(0,0,0,0.4), inset 0 0 0 2px rgba(255,255,255,0.5);
+  min-height: 118px;
+  display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
+  transition: transform 0.12s, box-shadow 0.2s;
+}
+.ranch-pen.empty {
+  background: repeating-linear-gradient(45deg, rgba(180,140,80,0.10) 0 8px, transparent 8px 16px), #fbf4e4;
+  border-style: dashed;
+  cursor: pointer;
+  opacity: 0.85;
+}
+.ranch-pen.empty:hover { opacity: 1; transform: translateY(-2px); }
+.ranch-pen.empty .ranch-critter { opacity: 0.25; }
+.ranch-pen.golden {
+  border-color: #f5b301;
+  box-shadow: 0 6px 16px -6px rgba(0,0,0,0.4), 0 0 16px rgba(255,196,0,0.55), inset 0 0 0 2px rgba(255,236,170,0.7);
+  background: linear-gradient(#fffdf0, #ffeeb8);
+}
+.ranch-pen.grown { animation: ranchGrown 1.4s ease-in-out infinite; }
+@keyframes ranchGrown {
+  0%, 100% { box-shadow: 0 6px 14px -6px rgba(0,0,0,0.4), 0 0 0 rgba(233,84,32,0); }
+  50% { box-shadow: 0 6px 14px -6px rgba(0,0,0,0.4), 0 0 14px rgba(233,84,32,0.5); }
+}
+.ranch-pen.dead { filter: grayscale(0.7); opacity: 0.7; }
+
+.ranch-critter {
+  font-size: clamp(1.7rem, 5.5vw, 2.6rem);
+  line-height: 1;
+  filter: drop-shadow(0 3px 3px rgba(0,0,0,0.22));
+  animation: ranchBob 2.4s ease-in-out infinite;
+}
+.ranch-pen.st-egg .ranch-critter { animation: ranchWobble 1.6s ease-in-out infinite; }
+.ranch-pen.dead .ranch-critter { animation: none; }
+@keyframes ranchBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes ranchWobble { 0%,100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+
+.ranch-golden { display: none; }
+.ranch-pen.golden .ranch-golden {
+  display: block;
+  position: absolute; top: 4px; right: 6px;
+  font-size: 0.8rem;
+  animation: ranchSparkle 1.3s ease-in-out infinite;
+}
+@keyframes ranchSparkle { 0%,100% { opacity: 0.4; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.15); } }
+
+.ranch-name {
+  font-weight: 900;
+  font-size: 0.72rem;
+  color: #5a3a16;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ranch-name:hover { text-decoration: underline; }
+.ranch-stagelbl {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9a6a2e;
+}
+
+.ranch-bars { width: 100%; display: flex; flex-direction: column; gap: 3px; margin-top: 2px; }
+.ranch-bar {
+  height: 6px; border-radius: 4px;
+  background: rgba(90,58,22,0.18);
+  overflow: hidden;
+}
+.ranch-bar i { display: block; height: 100%; border-radius: 4px; transition: width 0.15s linear; }
+.ranch-bar.grow i { background: linear-gradient(90deg, #f6a623, #e95420); width: 0; }
+.ranch-bar.full i { background: linear-gradient(90deg, #57c84d, #9fe25a); width: 100%; }
+.ranch-bar.full i.mid { background: linear-gradient(90deg, #f4c430, #ffe066); }
+.ranch-bar.full i.low { background: linear-gradient(90deg, #e0322f, #ff6b52); }
+
+.ranch-actions { display: flex; gap: 4px; margin-top: 4px; width: 100%; }
+.ranch-act {
+  flex: 1;
+  border: none; border-radius: 0.55rem;
+  padding: 0.3rem 0.15rem;
+  font-size: 0.62rem; font-weight: 800;
+  cursor: pointer; color: #fff;
+  transition: transform 0.1s, filter 0.15s;
+  white-space: nowrap;
+}
+.ranch-act:active { transform: scale(0.92); }
+.ranch-act.feed { background: #3f9d3a; }
+.ranch-act.ship { background: #e95420; }
+.ranch-act:hover { filter: brightness(1.08); }
+
+/* Floating feedback (feed/coins/nuggets) drifting up out of a pen */
+.ranch-float {
+  position: absolute; left: 50%; top: 30%;
+  transform: translateX(-50%);
+  font-size: 0.85rem; font-weight: 900;
+  color: #5a3a16;
+  pointer-events: none; opacity: 0;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+}
+.ranch-float.coin { color: #b8860b; }
+.ranch-float.nug { color: #e95420; font-size: 1rem; }
+.ranch-float.dead { color: #444; }
+.ranch-float.go { animation: ranchFloat 0.9s ease-out forwards; }
+@keyframes ranchFloat {
+  0% { opacity: 0; transform: translate(-50%, 6px) scale(0.8); }
+  25% { opacity: 1; transform: translate(-50%, -6px) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -34px) scale(1); }
+}
+
+/* Bottom toolbar */
+.ranch-toolbar {
+  position: absolute; left: 50%; bottom: 4%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex; align-items: center; gap: 0.6rem;
+  flex-wrap: wrap; justify-content: center;
+  max-width: calc(100vw - 1.5rem);
+  background: rgba(60,36,14,0.92);
+  border: 2px solid #b98a4e;
+  border-radius: 1rem;
+  padding: 0.5rem 0.8rem;
+  box-shadow: 0 16px 40px -12px rgba(0,0,0,0.7);
+}
+.ranch-coins {
+  font-size: 0.95rem; font-weight: 900; color: #ffd75e;
+  font-variant-numeric: tabular-nums;
+  min-width: 4.5rem;
+}
+.ranch-tbtn {
+  border: none; border-radius: 0.7rem;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.72rem; font-weight: 800; cursor: pointer; color: #fff;
+  transition: transform 0.1s, filter 0.15s;
+}
+.ranch-tbtn:active { transform: scale(0.94); }
+.ranch-tbtn.buy { background: #e95420; }
+.ranch-tbtn.feedall { background: #3f9d3a; }
+.ranch-tbtn:hover { filter: brightness(1.08); }
+.ranch-tbtn.cant { opacity: 0.45; }
+.ranch-hint {
+  flex-basis: 100%;
+  text-align: center;
+  font-size: 0.66rem; font-weight: 700;
+  color: #f4e2c4;
+  margin-top: 0.15rem;
+}
+.ranch-hint.alert { color: #ffcf7a; }
+
+/* Naming modal */
+.ranch-namewrap {
+  position: absolute; inset: 0;
+  z-index: 6;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(30,18,6,0.55);
+  backdrop-filter: blur(3px);
+}
+.ranch-namewrap.show { display: flex; }
+.ranch-namecard {
+  background: linear-gradient(#fffdf5, #fdeecf);
+  border: 3px solid #b98a4e;
+  border-radius: 1.2rem;
+  padding: 1.3rem 1.4rem;
+  width: min(90vw, 320px);
+  text-align: center;
+  box-shadow: 0 24px 60px -18px rgba(0,0,0,0.7);
+}
+.ranch-nametitle { font-size: 1.05rem; font-weight: 900; color: #5a3a16; margin-bottom: 0.8rem; }
+.ranch-nameinput {
+  width: 100%; box-sizing: border-box;
+  border: 2px solid #b98a4e; border-radius: 0.7rem;
+  padding: 0.55rem 0.7rem;
+  font-size: 1rem; font-weight: 800; color: #5a3a16;
+  text-align: center; background: #fff;
+  outline: none;
+}
+.ranch-nameinput:focus { border-color: #e95420; }
+.ranch-namebtns { display: flex; gap: 0.5rem; margin-top: 0.9rem; }
+.ranch-namebtn {
+  flex: 1; border: none; border-radius: 0.7rem;
+  padding: 0.55rem 0.4rem;
+  font-size: 0.78rem; font-weight: 800; cursor: pointer;
+  transition: transform 0.1s, filter 0.15s;
+}
+.ranch-namebtn:active { transform: scale(0.94); }
+.ranch-namebtn.ghost { background: #eadbc0; color: #6a481f; }
+.ranch-namebtn.go { background: #e95420; color: #fff; }
+.ranch-namebtn:hover { filter: brightness(1.06); }

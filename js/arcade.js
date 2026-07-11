@@ -29,6 +29,7 @@ const NuggetArcade = (() => {
     ['run', 7.02, -9.5, -Math.PI / 2],
     ['sim', 7.02, -13.5, -Math.PI / 2],
     ['brawl', -7.0, -16.8, Math.PI / 2], // hides under the drape until revealed
+    ['ranch', 7.02, -16.8, -Math.PI / 2],
     ['knight', 0, -18.7, 0],
   ];
 
@@ -1271,7 +1272,7 @@ void main() {
   function readBestScores() {
     const ids = {
       catch: 'myCatch', blaster: 'myBlaster', flappy: 'myFlappy', dunk: 'myDunk',
-      sim: 'mySim', run: 'myRun', knight: 'myKnight', brawl: 'myBrawl',
+      sim: 'mySim', run: 'myRun', knight: 'myKnight', brawl: 'myBrawl', ranch: 'myRanch',
     };
     for (const [mode, id] of Object.entries(ids)) {
       const el = document.getElementById(id);

@@ -18,6 +18,7 @@ const ArcadeArt = (() => {
     { mode: 'sim',     title: 'NUGGET SIM',    icon: '🧘', c1: '#7c4dff', c2: '#26e0ff', tag: 'SIT. WATCH. BE.'   },
     { mode: 'brawl',   title: 'SAUCE BRAWL',   icon: '🥊', c1: '#ff5252', c2: '#8a1c10', tag: 'PIXEL FISTS · REAL FLAVOR' },
     { mode: 'knight',  title: 'NUGGET KNIGHT', icon: '⚔️', c1: '#ffb020', c2: '#ff3d3d', tag: 'HOLD THE GATE'     },
+    { mode: 'ranch',   title: 'NUGGET RANCH',  icon: '🐔', c1: '#ffd166', c2: '#e95420', tag: 'EGG TO McNUGGET'  },
   ];
 
   const NEON = ['#ff2fa0', '#26e0ff', '#ffe23a', '#7c4dff', '#39ff7a'];
@@ -1260,6 +1261,33 @@ const ArcadeArt = (() => {
       g.fillStyle = '#ff3d3d';
       g.textAlign = 'center';
       g.fillText('WAVE ' + (1 + ((t / 6) | 0) % 9), w / 2, h * 0.34);
+    },
+    ranch(g, w, h, t) {
+      // sky + rolling green pasture + a little barn
+      g.fillStyle = '#8fd0ff'; g.fillRect(0, 0, w, h * 0.62);
+      g.fillStyle = '#8ccb4c'; g.fillRect(0, h * 0.62, w, h * 0.38);
+      g.fillStyle = '#a9743e'; g.fillRect(0, h - 14, w, 14);
+      g.fillStyle = '#b23b2e'; // barn
+      g.fillRect(w * 0.72, h * 0.4, w * 0.2, h * 0.22);
+      g.beginPath(); g.moveTo(w * 0.72, h * 0.4); g.lineTo(w * 0.82, h * 0.31); g.lineTo(w * 0.92, h * 0.4); g.fill();
+      g.font = '30px sans-serif'; g.textAlign = 'center';
+      // three pens cycling egg → chick → hen on staggered timers
+      const stages = ['🥚', '🐣', '🐤', '🐥', '🐔'];
+      for (let i = 0; i < 3; i++) {
+        const x = w * (0.22 + i * 0.2);
+        const phase = (t * 0.5 + i * 0.9) % stages.length;
+        const si = Math.floor(phase);
+        const y = h * 0.62 + Math.sin(t * 3 + i) * 3;
+        g.fillText(stages[si], x, y);
+        if (si === 4 && Math.sin(t * 2 + i) > 0.6) {
+          g.font = '900 12px Consolas, monospace'; g.fillStyle = '#e95420';
+          g.fillText('🍗', x + 16, y - 22);
+          g.font = '30px sans-serif';
+        }
+      }
+      g.font = '700 11px Consolas, monospace';
+      g.fillStyle = '#5a3a16'; g.textAlign = 'center';
+      g.fillText('RAISE · FEED · SHIP', w / 2, h * 0.28);
     },
   };
 

@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="css/run.css" />
   <link rel="stylesheet" href="css/knight.css" />
   <link rel="stylesheet" href="css/brawl.css" />
+  <link rel="stylesheet" href="css/ranch.css" />
   <link rel="stylesheet" href="css/arcade.css" />
   <link rel="stylesheet" href="css/multiplayer.css" />
 </head>
@@ -87,6 +88,7 @@
         <div class="score-tile"><div class="game">🏃</div><div class="game-name">Run</div><div class="best" id="myRun">0</div></div>
         <div class="score-tile"><div class="game">⚔️</div><div class="game-name">Knight</div><div class="best" id="myKnight">0</div></div>
         <div class="score-tile"><div class="game">🥊</div><div class="game-name">Brawl</div><div class="best" id="myBrawl">0</div></div>
+        <div class="score-tile"><div class="game">🐔</div><div class="game-name">Ranch</div><div class="best" id="myRanch">0</div></div>
       </div>
     </div>
 
@@ -161,6 +163,9 @@
 
   <!-- Sauce Brawl: the pixel kitchen arena (canvas injected by js/brawl.js) -->
   <div id="brawlWorld"></div>
+
+  <!-- Nugget Ranch: chicken life-sim farm (DOM injected by js/ranch.js) -->
+  <div id="ranchWorld"></div>
 
   <!-- Account modal: log in / create account / signed-in menu -->
   <div class="modal-overlay" id="authModal">
@@ -242,6 +247,7 @@
         <button type="button" data-game="run">🏃 Run</button>
         <button type="button" data-game="knight">⚔️ Knight</button>
         <button type="button" data-game="brawl">🥊 Brawl</button>
+        <button type="button" data-game="ranch">🐔 Ranch</button>
       </div>
       <div id="lbBody"><div class="lb-loading">Loading…</div></div>
     </div>
@@ -293,6 +299,7 @@
   <script src="js/run.js"></script>
   <script src="js/knight.js"></script>
   <script src="js/brawl.js"></script>
+  <script src="js/ranch.js"></script>
   <script src="js/arcade-art.js"></script>
   <script src="js/arcade.js"></script>
   <script src="js/app.js"></script>
