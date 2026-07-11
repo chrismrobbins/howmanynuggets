@@ -205,10 +205,12 @@ const BRAWL_CUTS = {
   act3: { art: 'penthouse', lines: [
     ['DIJON', 'impossible! I am ARTISANAL!'],
     ['DIJON', "she's at the Sauce Works... with HER. with the MOTHER CLUCKER."],
+    ['DIJON', 'you fool. where do you think all that fresh batter comes from? ask your precious arcade what happened to its storm. AHAHA— *thud*'],
     ['NUG', "tell her I'm battered. not broken."],
   ] },
   finaldoor: { art: 'coop', lines: [
     ['MOTHER CLUCKER', 'welcome to the coop, little nugget.'],
+    ['MOTHER CLUCKER', 'that storm everyone in Nuggetown cries about? DELICIOUS. it batters a thousand nuggets an hour downstairs.'],
     ['MOTHER CLUCKER', 'you would make SUCH a fine dipper.'],
     ['NUG', 'SEE YOU IN HELL, MOTHER CLUCKER.'],
   ] },
@@ -216,6 +218,7 @@ const BRAWL_CUTS = {
     [null, 'the vats drain. the syndicate scatters.'],
     ['HONEY', 'my hero... you look crispy.'],
     ['NUG', 'battered. never broken.'],
+    [null, 'the stolen storm was never recovered. somewhere past the docks, the water still swirls…'],
     [null, 'BATTERED BRAWLERS · thanks for playing'],
   ] },
 };

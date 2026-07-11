@@ -39,18 +39,29 @@ already bitten someone.
   facing into the wall, and a scoreboard was once wound backwards).
 - **Placement collisions.** Check `PLACEMENT`, `H.hotspots`, and prop
   positions before placing anything: the east wall z=-14.2..-17.4 is the
-  live scoreboard, west wall z=-16.8 is Battered Brawlers (né Sauce Brawl;
-  spawns under a drape until revealed — localStorage `nugBrawlRevealed`;
-  the mode key stays `brawl` everywhere), the entrance zone has
-  a vending machine / change machine / velvet ropes.
+  live scoreboard, west wall z=-16.8 is Battered Brawlers (the old
+  poke-the-drape reveal gate was removed — mode key stays `brawl`), the
+  entrance zone has a vending machine / change machine / velvet ropes.
+  West wall front (-7.02, -2.2) is RESERVED for the upcoming 10th cabinet.
+- **Nugget Catch is a CRIME SCENE** (the Catch Incident: the storm was
+  stolen — see the lore in street dialogue + the Brawlers campaign).
+  Its cabinet stays but is taped off and unplayable (`startZoom` guard +
+  prompt special-case in arcade.js); don't "fix" it back to playable.
+- **Atlas headroom.** Cabinet side art is now 200×300 (was 216×324) —
+  with the drape texture retired this leaves EXACTLY enough room in the
+  2048² page for a 10th game (side + marquee + panel). An 11th needs
+  real packer work.
 - **Walk-up interactables** live in `H.hotspots` (label + AABB + `act()`).
   Cabinets get prompts automatically from `H.cabinets`.
 - **The street** (outside the doors, z > 0) is a real place: shops, lamps,
-  a bus-stop exit hotspot, and NPCs with branching dialogue (`NPCS` +
+  a bus-stop exit hotspot, and FIVE NPCs with branching dialogue (`NPCS` +
   `openDialog` in arcade.js — nodes() rebuilds per chat so lines can react
-  to progress flags like `brawlRevealed`/`brawlBest()`). Street textures
-  come from a SECOND atlas (`ArcadeArt.makeStreetAtlas`, 1024²) with its
-  own overflow warning — never add street art to the main 2048² page.
+  to progress flags like `H.nugFound`/`brawlBest()`). NPCs are real 3D
+  geometry now (blob3/box3/tube3 helpers in buildStreet, one buffer each,
+  idle bob + they turn to face the player mid-dialog via `n.curYaw`).
+  Street textures come from a SECOND atlas (`ArcadeArt.makeStreetAtlas`,
+  1024²) with its own overflow warning — never add street art to the main
+  2048² page.
   While `H.dialog` is set, movement/prompt/tap input is owned by the
   dialogue panel; ESC closes the dialog before it can exit the hall.
   The walkable street is x ∈ (−21.1, 21.1), z ∈ (0.1, 13.5) in `posValid`.

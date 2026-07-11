@@ -879,14 +879,13 @@ const ArcadeArt = (() => {
     // Shelf-packed tallest-first so everything fits in one 2048² page.
     alloc('carpet', 448, 448, pCarpet);
     alloc('door', 192, 448, pDoor);
-    for (const game of GAMES)
-      alloc('side_' + game.mode, 216, 324, (gg, w, h) => pSideArt(gg, w, h, game));
+    for (const game of GAMES) // 200×300 (was 216×324): the 10th game only fits shrunk
+      alloc('side_' + game.mode, 200, 300, (gg, w, h) => pSideArt(gg, w, h, game));
     alloc('posterGolden', 200, 300, pPosterGolden);
     alloc('posterBrawl', 200, 300, pPosterBrawl);
     alloc('posterKnight', 200, 300, pPosterKnight);
     alloc('posterPlay', 200, 300, pPosterPlay);
-    alloc('drape', 256, 384, pDrape);
-    alloc('vending', 256, 384, pVending);
+    alloc('vending', 256, 384, pVending); // (the mystery drape retired with the poke gate)
     alloc('sign', 1024, 256, pSign);
     alloc('wall', 256, 256, pWall);
     alloc('ceiling', 256, 256, pCeiling);
@@ -998,7 +997,8 @@ const ArcadeArt = (() => {
       g.fillStyle = '#39465c';
       g.fillText('wash · dry · fold · 24H', w / 2, 66);
     } else {
-      // the GREASE GARAGE: shuttered, padlocked, something under a tarp inside
+      // the GREASE GARAGE: shuttered, padlocked, something under a tarp inside.
+      // (some nights there's an engine idling in there. someday, the shutter.)
       g.fillStyle = '#141014'; g.fillRect(16, 74, 224, 130);
       g.fillStyle = '#3a3630';
       for (let y = 80; y < 198; y += 14) g.fillRect(20, y, 216, 10);
@@ -1097,134 +1097,104 @@ const ArcadeArt = (() => {
     g.fillText('fare: 0 nugs', w / 2, 112);
   }
 
-  // The street regulars. Painted on transparency; rendered as crossed quads.
-  function pNpcCrumb(g, w, h) {
-    drawNug(g, w / 2, h * 0.56, 46, false);
-    // sunglasses at night. of course.
-    g.fillStyle = '#0a0a12';
-    g.fillRect(w * 0.24, h * 0.44, w * 0.52, 13);
-    g.fillStyle = 'rgba(160,190,255,0.35)';
-    g.fillRect(w * 0.28, h * 0.46, 12, 4);
-    g.fillRect(w * 0.56, h * 0.46, 12, 4);
-    // earpiece + wire
-    g.fillStyle = '#0a0a12';
-    g.beginPath(); g.arc(w * 0.79, h * 0.5, 5, 0, 7); g.fill();
-    g.strokeStyle = '#0a0a12'; g.lineWidth = 2;
-    g.beginPath(); g.moveTo(w * 0.8, h * 0.53); g.quadraticCurveTo(w * 0.86, h * 0.62, w * 0.78, h * 0.72); g.stroke();
-    // velvet-rope-red bowtie
-    g.fillStyle = '#c9203a';
-    g.beginPath();
-    g.moveTo(w / 2, h * 0.78);
-    g.lineTo(w * 0.36, h * 0.72); g.lineTo(w * 0.36, h * 0.84); g.closePath(); g.fill();
-    g.beginPath();
-    g.moveTo(w / 2, h * 0.78);
-    g.lineTo(w * 0.64, h * 0.72); g.lineTo(w * 0.64, h * 0.84); g.closePath(); g.fill();
-    // unimpressed mouth
-    g.strokeStyle = '#5c3610'; g.lineWidth = 3;
-    g.beginPath(); g.moveTo(w * 0.42, h * 0.66); g.lineTo(w * 0.58, h * 0.66); g.stroke();
+  // Surface textures for the 3D street regulars (bodies are real lit geometry
+  // in arcade.js now — these wrap the meshes).
+  function pNugSkin(g, w, h) {
+    const grad = g.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0, '#f0b954');
+    grad.addColorStop(0.5, '#e8a83e');
+    grad.addColorStop(1, '#c9882a');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, w, h);
+    // crispy speckle
+    for (let i = 0; i < 130; i++) {
+      const r = 1 + (i % 3);
+      g.fillStyle = i % 4 ? 'rgba(140,86,26,0.4)' : 'rgba(247,207,125,0.5)';
+      g.beginPath();
+      g.arc((i * 37) % w, (i * 53) % h, r, 0, 7);
+      g.fill();
+    }
   }
-
-  function pNpcGravy(g, w, h) {
-    // a retired gravy cup, lid slightly ajar, eyes half-closed
-    g.fillStyle = '#e8e2d0';
-    g.fillRect(w * 0.22, h * 0.34, w * 0.56, h * 0.52);
-    g.fillStyle = '#d4ccb4';
-    g.fillRect(w * 0.22, h * 0.34, w * 0.1, h * 0.52);
-    g.fillStyle = '#6d4a1e'; // the band
-    g.fillRect(w * 0.22, h * 0.5, w * 0.56, h * 0.14);
-    g.fillStyle = '#f4ecd4';
-    g.font = '900 13px Consolas, monospace';
-    g.textAlign = 'center';
-    g.fillText('GRAVY', w / 2, h * 0.6);
-    // lid, tilted like a flat cap
-    g.save();
-    g.translate(w / 2, h * 0.31);
-    g.rotate(-0.12);
-    g.fillStyle = '#c9c0a8';
-    g.fillRect(-w * 0.34, -8, w * 0.68, 12);
-    g.fillStyle = '#a89e84';
-    g.fillRect(-w * 0.34, -8, w * 0.68, 4);
-    g.restore();
-    // tired eyes + a small content smile
-    g.fillStyle = '#1a0f08';
-    g.fillRect(w * 0.36, h * 0.42, 9, 4);
-    g.fillRect(w * 0.56, h * 0.42, 9, 4);
-    g.strokeStyle = '#1a0f08'; g.lineWidth = 2;
-    g.beginPath(); g.arc(w / 2, h * 0.45, 7, 0.3, Math.PI - 0.3); g.stroke();
-    // steam wisp — still warm after all these years
-    g.strokeStyle = 'rgba(240,235,220,0.4)'; g.lineWidth = 3;
-    g.beginPath(); g.moveTo(w * 0.62, h * 0.24); g.quadraticCurveTo(w * 0.7, h * 0.14, w * 0.62, h * 0.05); g.stroke();
-  }
-
-  function pNpcHood(g, w, h) {
-    // a nugget in a rain hoodie, face mostly shadow
+  function pHoodCloth(g, w, h) {
     g.fillStyle = '#232336';
-    g.beginPath();
-    g.moveTo(w * 0.14, h * 0.9);
-    g.quadraticCurveTo(w * 0.1, h * 0.3, w / 2, h * 0.12);
-    g.quadraticCurveTo(w * 0.9, h * 0.3, w * 0.86, h * 0.9);
-    g.closePath();
-    g.fill();
-    g.fillStyle = '#191926';
-    g.beginPath();
-    g.ellipse(w / 2, h * 0.46, w * 0.26, h * 0.24, 0, 0, 7);
-    g.fill();
-    // just a hint of crispy chin catching the streetlight
-    g.fillStyle = '#a3641c';
-    g.beginPath();
-    g.ellipse(w / 2, h * 0.6, w * 0.15, h * 0.07, 0, 0, 7);
-    g.fill();
-    // two glints watching the street
-    g.fillStyle = '#ffe23a';
-    g.fillRect(w * 0.4, h * 0.42, 6, 4);
-    g.fillRect(w * 0.56, h * 0.42, 6, 4);
-    // drawstrings
-    g.strokeStyle = '#565f85'; g.lineWidth = 2;
-    g.beginPath(); g.moveTo(w * 0.44, h * 0.66); g.lineTo(w * 0.42, h * 0.8); g.stroke();
-    g.beginPath(); g.moveTo(w * 0.56, h * 0.66); g.lineTo(w * 0.59, h * 0.82); g.stroke();
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = 'rgba(90,90,130,0.25)';
+    for (let y = 0; y < h; y += 4) g.fillRect(0, y, w, 1);
+    for (let x = 0; x < w; x += 4) g.fillRect(x, 0, 1, h);
+    g.fillStyle = 'rgba(10,10,20,0.35)';
+    for (let i = 0; i < 20; i++) g.fillRect((i * 29) % w, (i * 17) % h, 6, 2);
   }
-
-  function pNpcHen(g, w, h) {
-    // Henrietta. no relation. (allegedly.)
+  function pCupGravy(g, w, h) {
+    // wraps a cylinder: u = around, v = top→bottom
+    g.fillStyle = '#e8e2d0';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = 'rgba(160,150,120,0.35)'; // paper seams
+    for (let x = 0; x < w; x += 24) g.fillRect(x, 0, 2, h);
+    g.fillStyle = '#6d4a1e'; // the band
+    g.fillRect(0, h * 0.42, w, h * 0.3);
     g.fillStyle = '#f4ecd4';
-    g.beginPath();
-    g.ellipse(w * 0.46, h * 0.58, w * 0.3, h * 0.24, -0.1, 0, 7);
-    g.fill();
-    // tail
-    g.fillStyle = '#d8d0b8';
-    g.beginPath();
-    g.moveTo(w * 0.18, h * 0.52);
-    g.lineTo(w * 0.02, h * 0.3); g.lineTo(w * 0.14, h * 0.56);
-    g.lineTo(w * 0.04, h * 0.44); g.lineTo(w * 0.2, h * 0.62);
-    g.closePath(); g.fill();
-    // wing
-    g.fillStyle = '#e0d8c0';
-    g.beginPath();
-    g.ellipse(w * 0.44, h * 0.6, w * 0.16, h * 0.12, -0.2, 0, 7);
-    g.fill();
-    // neck + head
+    g.font = '900 15px Consolas, monospace';
+    g.textAlign = 'center';
+    g.fillText('GRAVY', w * 0.25, h * 0.62);
+    g.fillText('GRAVY', w * 0.75, h * 0.62);
+    // coffee-ring stains of age
+    g.strokeStyle = 'rgba(120,90,40,0.3)';
+    g.lineWidth = 2;
+    g.beginPath(); g.arc(w * 0.5, h * 0.2, 8, 0, 7); g.stroke();
+  }
+  function pHenWhite(g, w, h) {
     g.fillStyle = '#f4ecd4';
-    g.fillRect(w * 0.6, h * 0.28, w * 0.18, h * 0.3);
-    g.beginPath(); g.arc(w * 0.69, h * 0.28, w * 0.13, 0, 7); g.fill();
-    // comb + wattle
-    g.fillStyle = '#d32f2f';
-    g.beginPath(); g.arc(w * 0.64, h * 0.17, 5, 0, 7); g.fill();
-    g.beginPath(); g.arc(w * 0.7, h * 0.14, 6, 0, 7); g.fill();
-    g.beginPath(); g.arc(w * 0.76, h * 0.17, 5, 0, 7); g.fill();
-    g.beginPath(); g.arc(w * 0.78, h * 0.4, 5, 0, 7); g.fill();
-    // beak + a skeptical eye
-    g.fillStyle = '#e8a020';
-    g.beginPath();
-    g.moveTo(w * 0.8, h * 0.26); g.lineTo(w * 0.94, h * 0.3); g.lineTo(w * 0.8, h * 0.34);
-    g.closePath(); g.fill();
-    g.fillStyle = '#1a0f08';
-    g.fillRect(w * 0.7, h * 0.24, 5, 5);
-    g.strokeStyle = '#1a0f08'; g.lineWidth = 2;
-    g.beginPath(); g.moveTo(w * 0.67, h * 0.21); g.lineTo(w * 0.76, h * 0.22); g.stroke(); // unamused brow
-    // legs
-    g.strokeStyle = '#e8a020'; g.lineWidth = 3;
-    g.beginPath(); g.moveTo(w * 0.42, h * 0.8); g.lineTo(w * 0.42, h * 0.92); g.moveTo(w * 0.38, h * 0.92); g.lineTo(w * 0.48, h * 0.92); g.stroke();
-    g.beginPath(); g.moveTo(w * 0.54, h * 0.8); g.lineTo(w * 0.54, h * 0.92); g.moveTo(w * 0.5, h * 0.92); g.lineTo(w * 0.6, h * 0.92); g.stroke();
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = 'rgba(200,190,160,0.6)';
+    g.lineWidth = 1.5;
+    for (let i = 0; i < 26; i++) {
+      const x = (i * 23) % w, y = (i * 37) % h;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.quadraticCurveTo(x + 5, y + 4, x + 2, y + 9);
+      g.stroke();
+    }
+  }
+  function pPickle(g, w, h) {
+    const grad = g.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#4f7a2a');
+    grad.addColorStop(1, '#33591a');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = 'rgba(220,240,160,0.35)'; // warty dill bumps
+    for (let i = 0; i < 40; i++) {
+      g.beginPath();
+      g.arc((i * 29) % w, (i * 41) % h, 1.5 + (i % 2), 0, 7);
+      g.fill();
+    }
+  }
+  function pTape(g, w, h) {
+    g.fillStyle = '#ffd21e';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#0a0a10';
+    g.font = '900 17px Consolas, monospace';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('POLICE LINE — DO NOT CROSS —', w / 2, h / 2 + 1);
+    g.fillRect(0, 0, w, 3);
+    g.fillRect(0, h - 3, w, 3);
+  }
+  function pCrimeSign(g, w, h) {
+    g.fillStyle = '#f4f0e6';
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#0a0a10';
+    g.lineWidth = 4;
+    g.strokeRect(2, 2, w - 4, h - 4);
+    g.textAlign = 'center';
+    g.fillStyle = '#c9203a';
+    g.font = '900 17px Consolas, monospace';
+    g.fillText('CRIME SCENE', w / 2, 26);
+    g.fillStyle = '#0a0a10';
+    g.font = '900 11px Consolas, monospace';
+    g.fillText('THE STORM IS GONE', w / 2, 46);
+    g.font = '700 10px Consolas, monospace';
+    g.fillText('active investigation', w / 2, 62);
+    g.fillText('— NPD det. dill', w / 2, 76);
   }
 
   function makeStreetAtlas() {
@@ -1255,11 +1225,20 @@ const ArcadeArt = (() => {
     alloc('across', 512, 192, pAcross);
     alloc('road', 192, 192, pRoad);
     alloc('busSign', 96, 128, pBusSign);
-    alloc('npcCrumb', 128, 160, pNpcCrumb);
-    alloc('npcGravy', 128, 160, pNpcGravy);
-    alloc('npcHood', 128, 160, pNpcHood);
-    alloc('npcHen', 128, 160, pNpcHen);
-    const SW2 = { iron: '#3a4256', wood: '#6d5426', woodDark: '#42320e', red: '#e8412c', amber: '#ffb020', curb: '#3c3c46' };
+    // 3D regulars' surface textures (the flat sprite cutouts retired)
+    alloc('nugSkin', 96, 96, pNugSkin);
+    alloc('hoodCloth', 64, 64, pHoodCloth);
+    alloc('cupGravy', 192, 96, pCupGravy);
+    alloc('henWhite', 64, 64, pHenWhite);
+    alloc('pickle', 64, 64, pPickle);
+    // the Catch Incident
+    alloc('tape', 256, 32, pTape);
+    alloc('crimeSign', 128, 96, pCrimeSign);
+    const SW2 = {
+      iron: '#3a4256', wood: '#6d5426', woodDark: '#42320e', red: '#e8412c',
+      amber: '#ffb020', curb: '#3c3c46', black: '#0a0a12', white: '#f4f0e6',
+      badge: '#ffd166', comb: '#d32f2f', beak: '#e8a020',
+    };
     for (const [name, color] of Object.entries(SW2)) {
       alloc('sw_' + name, 24, 24, (gg, w, h) => { gg.fillStyle = color; gg.fillRect(0, 0, w, h); });
       const r = uv['sw_' + name];
@@ -1327,23 +1306,44 @@ const ArcadeArt = (() => {
 
   const SCENES = {
     catch(g, w, h, t) {
-      // nuggets spiral toward a waiting basket
-      for (let i = 0; i < 9; i++) {
-        const p = ((t * 0.28 + i / 9) % 1);
-        const a = t * 1.4 + i * 2.4;
-        const r = (1 - p) * w * 0.42;
-        const x = w / 2 + Math.cos(a) * r;
-        const y = h * 0.52 + Math.sin(a) * r * 0.55;
-        drawNug(g, x, y, 7 + p * 5, i % 4 === 0);
+      // THE CATCH INCIDENT: the storm is gone. static, an empty basket, and
+      // an evidence card. (the cabinet is taped off in the hall.)
+      for (let i = 0; i < 260; i++) {
+        const v = Math.random();
+        g.fillStyle = 'rgba(180,190,220,' + (0.03 + v * 0.07) + ')';
+        g.fillRect(Math.random() * w, Math.random() * h, 2, 2);
       }
-      g.font = '30px sans-serif';
+      // rolling static band
+      const band = ((t * 40) % (h + 40)) - 20;
+      g.fillStyle = 'rgba(200,210,240,0.06)';
+      g.fillRect(0, band, w, 14);
+      // the empty basket, alone
+      g.globalAlpha = 0.55;
+      g.font = '34px sans-serif';
       g.textAlign = 'center';
-      g.fillText('🧺', w / 2, h * 0.62);
-      if (Math.sin(t * 2) > 0.8) {
-        g.font = '900 13px Consolas, monospace';
-        g.fillStyle = '#39ff7a';
-        g.fillText('+' + (((t | 0) * 37) % 900 + 12), w / 2 + 30, h * 0.42);
+      g.fillText('🧺', w / 2, h * 0.6);
+      g.globalAlpha = 1;
+      // chalk outline where the storm used to spiral
+      g.strokeStyle = 'rgba(230,235,255,0.25)';
+      g.setLineDash([5, 5]);
+      g.lineWidth = 2;
+      g.beginPath();
+      g.ellipse(w / 2, h * 0.45, w * 0.3, h * 0.22, 0, 0, 7);
+      g.stroke();
+      g.setLineDash([]);
+      // evidence card
+      if (Math.sin(t * 1.3) > -0.4) {
+        g.fillStyle = '#ffe23a';
+        g.fillRect(w * 0.2, h * 0.14, w * 0.6, 22);
+        g.fillStyle = '#0a0a10';
+        g.font = '900 12px Consolas, monospace';
+        g.fillText('EVIDENCE — NPD HOLD', w / 2, h * 0.14 + 15);
       }
+      g.font = '700 10px Consolas, monospace';
+      g.fillStyle = 'rgba(255,82,82,0.8)';
+      g.fillText('1,000,000 NUGGETS MISSING', w / 2, h * 0.83);
+      g.fillStyle = 'rgba(160,170,200,0.6)';
+      g.fillText('if you know something, ask around outside', w / 2, h * 0.92);
     },
     blaster(g, w, h, t) {
       // city skyline

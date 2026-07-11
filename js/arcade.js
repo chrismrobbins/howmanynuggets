@@ -28,14 +28,14 @@ const NuggetArcade = (() => {
     ['catch', 7.02, -5.5, -Math.PI / 2],
     ['run', 7.02, -9.5, -Math.PI / 2],
     ['sim', 7.02, -13.5, -Math.PI / 2],
-    ['brawl', -7.0, -16.8, Math.PI / 2], // hides under the drape until revealed
+    ['brawl', -7.0, -16.8, Math.PI / 2],
     ['ranch', 7.02, -2.2, -Math.PI / 2], // front of the right wall, ahead of Catch
     ['knight', 0, -18.7, 0],
   ];
 
-  // Battered Brawlers ships under the sheet: three pokes and it's yours forever.
-  let brawlRevealed = false;
-  try { brawlRevealed = localStorage.getItem('nugBrawlRevealed') === '1'; } catch (e) { /* ok */ }
+  // Battered Brawlers used to hide under a poke-three-times drape; community
+  // verdict was "how would anyone know?" — so the cabinet greets everyone now.
+  const brawlRevealed = true;
 
   const H = {
     built: false,
@@ -67,8 +67,6 @@ const NuggetArcade = (() => {
     toast: null,            // { text, until } — transient prompt override
     lb: { data: {}, at: 0 },// cached leaderboard rows per game
     lbTimer: 0,
-    mystery: { wiggle: 0, pokes: 0, pos: null },
-    reveal: null, // { t } while the drape drops off the brawl cabinet
     // iteration 3: the street out front
     dialog: null,           // { npc, nodes, key, typed, doneTyping } while chatting
     dlg: null, dlgName: null, dlgText: null, dlgOpts: null, dlgHint: null,
@@ -424,7 +422,6 @@ void main() {
     const DEC = new Builder();    // dark contact-shadow decals
     const SCR = new Builder();    // all cabinet screens (one quad each)
     const SB = new Builder();     // live leaderboard scoreboard (own texture)
-    const DM = new Builder();     // draped mystery cabinet (own model matrix — it wiggles)
     const DISCO = new Builder();  // mirror ball (own model matrix — it spins)
     const FLORA = new Builder();  // alpha-blended extras (the golden nug)
 
@@ -536,39 +533,8 @@ void main() {
       });
     }
 
-    // ---- the draped mystery cabinet (west wall, next to the phrase sign)
-    {
-      const mx = -7.0, mz = -16.8, myaw = Math.PI / 2;
-      H.mystery.pos = [mx, mz, myaw];
-      // local geometry (origin at floor center, +z is its front) — the drape
-      // hangs over a lower slab and a smaller head block, like a covered cab
-      const boxes = [
-        [0.55, 0, 1.55, 0.47],   // halfW, y0, y1, halfD — body
-        [0.47, 1.55, 2.02, 0.38] // head
-      ];
-      for (const [hw2, y0, y1b, hd] of boxes) {
-        DM.quad([-hw2, y0, hd], [hw2, y0, hd], [hw2, y1b, hd], [-hw2, y1b, hd], sub(uv.drape, 0.05, 0.08, 0.95, 0.95), {});
-        DM.quad([hw2, y0, -hd], [-hw2, y0, -hd], [-hw2, y1b, -hd], [hw2, y1b, -hd], sub(uv.drape, 0.1, 0.2, 0.9, 0.95), {});
-        DM.quad([-hw2, y0, -hd], [-hw2, y0, hd], [-hw2, y1b, hd], [-hw2, y1b, -hd], sub(uv.drape, 0.15, 0.1, 0.85, 0.95), {});
-        DM.quad([hw2, y0, hd], [hw2, y0, -hd], [hw2, y1b, -hd], [hw2, y1b, hd], sub(uv.drape, 0.12, 0.12, 0.88, 0.95), {});
-        DM.quad([-hw2, y1b, hd], [hw2, y1b, hd], [hw2, y1b, -hd], [-hw2, y1b, -hd], sub(uv.drape, 0.2, 0.02, 0.8, 0.25), {});
-      }
-      DEC.quad(
-        [mx - 0.75, 0.006, mz + 0.75], [mx + 0.75, 0.006, mz + 0.75],
-        [mx + 0.75, 0.006, mz - 0.75], [mx - 0.75, 0.006, mz - 0.75],
-        uv.sw_black, { e: 1 }
-      );
-      if (!brawlRevealed) {
-        H.hotspots.push({
-          kind: 'mystery',
-          x: mx, z: mz, r: 2.4,
-          min: [mx - 0.62, 0, mz - 0.62], max: [mx + 0.62, 2.1, mz + 0.62],
-          stand: [mx + 1.5, EYE, mz],
-          label: "WHAT'S UNDER THE SHEET?",
-          act: pokeMystery,
-        });
-      }
-    }
+    // (the draped mystery cabinet retired with the poke gate — Battered
+    // Brawlers stands proud at its old west-wall spot)
 
     // ---- entrance zone --------------------------------------------------------
 
@@ -686,7 +652,6 @@ void main() {
         B, uv, game, px, pz, yaw,
         deluxe ? 1.55 : 1, deluxe ? 1.18 : 1, deluxe ? 1.15 : 1
       );
-      if (mode === 'brawl') cab.hidden = !brawlRevealed; // under the sheet until poked free
       // screen quad (own texture per game, uploaded live)
       cab.screenIndex = SCR.i.length; // index offset for its 6 indices
       SCR.quadV(
@@ -745,71 +710,31 @@ void main() {
       static: B.upload(gl), floor: F.upload(gl), sign: SGN.upload(gl),
       doorL: DL.upload(gl), doorR: DR.upload(gl),
       decals: DEC.upload(gl), screens: SCR.upload(gl),
-      board: SB.upload(gl), mystery: DM.upload(gl),
+      board: SB.upload(gl),
       disco: DISCO.upload(gl), flora: FLORA.upload(gl),
     };
-  }
-
-  // ---- interactive prop behaviors -------------------------------------------------
-
-  function pokeMystery() {
-    if (brawlRevealed || H.reveal) return;
-    H.mystery.pokes++;
-    H.mystery.wiggle = 1;
-    sfxThump();
-    if (H.mystery.pokes >= 3) { startBrawlReveal(); return; }
-    const lines = [
-      '🥊 …something jabbed back.',
-      '👀 the sheet is coming loose. one more.',
-    ];
-    toast(lines[Math.min(H.mystery.pokes - 1, lines.length - 1)], 2.6);
-  }
-
-  // Third poke: the sheet drops, the cabinet was here the whole time.
-  function startBrawlReveal() {
-    H.reveal = { t: 0 };
-    try { localStorage.setItem('nugBrawlRevealed', '1'); } catch (e) { /* ok */ }
-    const [mx, mz] = H.mystery.pos;
-    for (let i = 0; i < 40; i++) {
-      const a = Math.random() * Math.PI * 2, sp = 0.5 + Math.random() * 1.4;
-      H.sparks.push({
-        x: mx + (Math.random() - 0.5) * 0.9, y: 0.3 + Math.random() * 1.8, z: mz + (Math.random() - 0.5) * 0.9,
-        vx: Math.cos(a) * sp, vy: 0.8 + Math.random() * 1.8, vz: Math.sin(a) * sp,
-        life: 0.9 + Math.random() * 0.7, max: 1.6,
-      });
-    }
-    sfxFanfare();
-    toast('🥊 BATTERED BRAWLERS — NOW SERVING', 3.2);
-  }
-
-  function finishBrawlReveal() {
-    brawlRevealed = true;
-    H.reveal = null;
-    const cab = H.cabinets.find((c2) => c2.game.mode === 'brawl');
-    if (cab) cab.hidden = false;
-    const i = H.hotspots.findIndex((s) => s.kind === 'mystery');
-    if (i >= 0) H.hotspots.splice(i, 1);
   }
 
   // ---- the street out front ---------------------------------------------------------
   // Walk out the doors: Nuggetown after dark. Shops, rain, streetlamps, and a
   // few regulars who'll talk if you will. Textures come from a SECOND atlas
   // (ArcadeArt.makeStreetAtlas) so the nearly-full main page never overflows.
-
-  // The regulars. Each has a spot on the sidewalk and a branching conversation:
-  // nodes() is rebuilt per chat so lines can react to what you've done (drape
-  // revealed, golden nug found, Brawlers campaign cleared…). opts pick the
-  // next node; next:null ends the chat.
+  // The regulars. Real 3D bodies now (built in buildStreet, one buffer each,
+  // idle bob via model matrix — and they turn to face you mid-conversation).
+  // nodes() is rebuilt per chat so lines react to what you've done (golden nug
+  // found, Brawlers campaign cleared, HELL unlocked…). next:null ends the chat.
   const NPCS = [
     {
-      id: 'crumb', name: 'BIG CRUMB', icon: '🕶️', tex: 'npcCrumb',
-      x: 2.5, z: 1.2, y0: 0, w: 0.68, h: 1.0, sdx: 0, sdz: 1.25,
+      id: 'crumb', name: 'BIG CRUMB', icon: '🕶️',
+      x: 2.5, z: 1.2, h: 1.0, sdx: 0, sdz: 1.25,
+      baseYaw: 0.35, curYaw: 0.35, bobSpd: 1.6, bobAmp: 0.008, phase: 0, yBase: 0,
       nodes: () => ({
         root: {
           line: "evening. hall's open all night. no outside sauce — house rule.",
           opts: [
             { t: "what's good in there tonight?", next: 'games' },
             { t: 'any secrets I should know about?', next: 'secrets' },
+            { t: "what's with the police tape?", next: 'incident' },
             { t: 'just getting some air.', next: 'air' },
           ],
         },
@@ -817,18 +742,16 @@ void main() {
           line: 'the KNIGHT cab gets a line on weekends. three oaths — folks say the third one changes you.',
           opts: [
             { t: 'how do I get the third oath?', next: 'oath3' },
-            { t: 'what about the new brawler?', next: 'brawler' },
+            { t: 'what about the brawler?', next: 'brawler' },
             { t: 'thanks, Crumb.', next: null },
           ],
         },
         oath3: { line: "survive to wave 8 on the knight's oath. THEN the skull stops being locked. you didn't hear it from me.", opts: [] },
-        brawler: { line: 'BATTERED BRAWLERS. proper campaign now — three acts. bring a friend, the cab takes two sets of gloves. and when a big mayo boy guards up? uppercut.', opts: [] },
+        brawler: { line: 'BATTERED BRAWLERS. proper campaign — three acts. bring a friend, the cab takes two sets of gloves. and when a big mayo boy guards up? uppercut.', opts: [] },
         secrets: {
-          line: !brawlRevealed
-            ? "you didn't hear this from me: the sheet in the back corner isn't just a sheet. it moves when you poke it. three pokes, maybe."
-            : (!H.nugFound
-              ? 'check the top of the sauce-o-matic sometime. something up there catches the light.'
-              : "you found the nug AND the brawler cab. you're the secret now."),
+          line: !H.nugFound
+            ? 'check the top of the sauce-o-matic sometime. something up there catches the light.'
+            : "you found the nug. you're the secret now.",
           opts: [
             { t: 'my lips are sealed.', next: 'sealed' },
             { t: 'why are you telling me this?', next: 'why' },
@@ -836,12 +759,22 @@ void main() {
         },
         sealed: { line: '*nods slowly and goes back to watching the rain*', opts: [] },
         why: { line: 'you look like someone who reads the walls. most people just walk past.', opts: [] },
+        incident: {
+          line: 'the tape? …nugget catch. the whole storm went missing overnight. a million-plus nugs. I was on the door that night and I heard NOTHING. you know how loud a storm is?',
+          opts: [
+            { t: 'so it was an inside job?', next: 'crumbJob' },
+            { t: "who's investigating?", next: 'crumbDill' },
+          ],
+        },
+        crumbJob: { line: 'watch it. I said I heard nothing, not that I DID nothing. the pressure gauge on that cabinet was redlining for weeks. I filed a report. nobody reads reports.', opts: [] },
+        crumbDill: { line: 'detective dill. green fella out front, smells like brine, writes everything down. tell him what you know. or don\'t. *adjusts sunglasses*', opts: [] },
         air: { line: "yeah. rain does the neon good. take your time — I'll hold your high scores.", opts: [] },
       }),
     },
     {
-      id: 'gravy', name: 'GRAVY JONES', icon: '🥣', tex: 'npcGravy',
-      x: 9.3, z: 0.78, y0: 0.42, w: 0.5, h: 0.62, sdx: 0, sdz: 1.35,
+      id: 'gravy', name: 'GRAVY JONES', icon: '🥣',
+      x: 9.3, z: 0.78, h: 1.0, sdx: 0, sdz: 1.35,
+      baseYaw: 0, curYaw: 0, bobSpd: 0.9, bobAmp: 0.006, phase: 2.1, yBase: 0.45,
       nodes: () => {
         const cleared = typeof brawlBest === 'function' &&
           ((brawlBest().spicy || {}).clears > 0 || (brawlBest().hell || {}).clears > 0);
@@ -851,6 +784,7 @@ void main() {
             opts: [
               { t: 'you worked for DIJON?', next: 'dijon' },
               { t: 'why sit out in the rain?', next: 'rain' },
+              { t: 'any theories about the missing storm?', next: 'incident' },
               cleared
                 ? { t: "I'm the one who cleared the Sauce Works.", next: 'cleared' }
                 : { t: 'take it easy, old timer.', next: 'easy' },
@@ -866,46 +800,66 @@ void main() {
           tips: { line: "watch for the wind-up sparkle — that's your cue to dodge. the Baron's cane comes out when you crowd him. and never stand in a shockwave lane; step UP or DOWN the belt.", opts: [] },
           sorry: { line: 'don\'t be. the tips were good and the mustard was fresh. it was honest villain work.', opts: [] },
           rain: { line: "cups don't rust, kid. and the neon looks better wet. gravy gets it.", opts: [] },
+          incident: {
+            line: 'the storm job? *chuckles into his lid* professional work. no forced entry, no witnesses… and a golden nug turns up on the vending machine the same week? I did security, kid. there are no coincidences.',
+            opts: [
+              { t: 'the golden nug is… a suspect?', next: 'gravyNug' },
+              { t: 'you think it was the syndicate.', next: 'gravySynd' },
+            ],
+          },
+          gravyNug: { line: 'I think the nug KNOWS things. shiny types always do. why else would it hide up there where nobody looks?', opts: [] },
+          gravySynd: { line: 'I think batter does not come from nowhere. and the Sauce Works never runs dry. *stares at the rain* that is all I will say for free.', opts: [] },
           cleared: { line: "…so YOU'RE the red gloves. the coop's still finding feathers. she'll remember you, champ. wear it proud.", opts: [] },
           easy: { line: 'easy is all I do now. bench, rain, repeat.', opts: [] },
         };
       },
     },
     {
-      id: 'hood', name: 'THE HOODED NUG', icon: '👁️', tex: 'npcHood',
-      x: -13.6, z: 1.35, y0: 0, w: 0.66, h: 0.95, sdx: 0, sdz: 1.3,
+      id: 'hood', name: 'THE HOODED NUG', icon: '👁️',
+      x: -13.6, z: 1.35, h: 1.05, sdx: 0, sdz: 1.3,
+      baseYaw: -0.5, curYaw: -0.5, bobSpd: 1.2, bobAmp: 0.006, phase: 4.2, yBase: 0,
       nodes: () => ({
         root: {
           line: '*a hooded nugget leans against the garage shutter* you didn\'t see me.',
           opts: [
             { t: "what's with the garage?", next: 'garage' },
             { t: 'heard any rumors?', next: 'rumors' },
+            { t: 'tell me about the night the storm vanished.', next: 'incident' },
             { t: "you're just a weird nugget in a hood.", next: 'weird' },
           ],
         },
         garage: {
-          line: "locked for years. but some nights there's an ENGINE idling in there. small one. angry. like a go-kart with opinions.",
+          line: "locked for years. but lately that ENGINE in there idles every night. small one. angry. revving like it knows something's coming. soon, friend. soon.",
           opts: [
             { t: 'go-karts?!', next: 'karts' },
             { t: 'sure, buddy.', next: null },
           ],
         },
-        karts: { line: "grease-lightning down Sauce Street, is what I hear. maybe someday the shutter opens. keep your quarters — it'll be free play anyway.", opts: [] },
+        karts: { line: "grease-lightning down Sauce Street, is what I hear. when the shutter opens, you'll want to be first in line. keep your quarters. it'll be free play anyway.", opts: [] },
         rumors: {
-          line: 'the harbor nugs say something BIG circles the pier after midnight. bring a rod, if you ever find the pier.',
+          line: 'the harbor nugs say something BIG circles the pier after midnight. swirling. golden at the edges. almost like… weather.',
           opts: [
+            { t: '…like a storm?', next: 'hoodStorm' },
             { t: 'anything else?', next: 'rumors2' },
-            { t: "the pier isn't real.", next: 'pier' },
           ],
         },
+        hoodStorm: { line: "I don't say the s-word near open water. but if a certain missing storm wanted to hide, a pier at midnight is where I'd look. bring a rod. tell no one.", opts: [] },
         rumors2: { line: "a cup with turntables keeps asking around for a rhythm section. when the beat drops… you'd better drop with it.", opts: [] },
-        pier: { line: "that's what they said about the arcade basement. *pause* forget I said basement.", opts: [] },
+        incident: {
+          line: 'the night it vanished? tanker trucks idled out back at 3am. unmarked. riding LOW — like a million nuggets low. they rolled toward the harbor. or the Sauce Works. same direction, if you think about it.',
+          opts: [
+            { t: 'did you tell the detective?', next: 'hoodDill' },
+            { t: 'I need to sit with this.', next: null },
+          ],
+        },
+        hoodDill: { line: 'pickles and I have history. tell him yourself — and leave my hood out of it.', opts: [] },
         weird: { line: "and yet you're the one out here talking to me. *taps hood* think about it.", opts: [] },
       }),
     },
     {
-      id: 'hen', name: 'HENRIETTA', icon: '🐔', tex: 'npcHen',
-      x: 17.8, z: 2.4, y0: 0, w: 0.58, h: 0.52, sdx: 0, sdz: 1.2,
+      id: 'hen', name: 'HENRIETTA', icon: '🐔',
+      x: 17.8, z: 2.4, h: 0.78, sdx: 0, sdz: 1.2,
+      baseYaw: -1.1, curYaw: -1.1, bobSpd: 5.5, bobAmp: 0.011, phase: 1.3, yBase: 0,
       nodes: () => {
         const saidIt = typeof brawlHellUnlocked === 'function' && brawlHellUnlocked();
         return {
@@ -914,6 +868,7 @@ void main() {
             opts: [
               { t: 'any relation to… the Mother Clucker?', next: 'clucker' },
               { t: 'what do you think of the ranch game?', next: 'ranch' },
+              { t: 'where were YOU the night the storm vanished?', next: 'incident' },
               { t: 'nice night, huh?', next: 'night' },
             ],
           },
@@ -929,9 +884,52 @@ void main() {
           back: { line: 'villains with themes always come back. keep your gloves oiled and bring a friend.', opts: [] },
           family: { line: '*stares into the middle distance* bwok.', opts: [] },
           ranch: { line: 'feed your birds. keep the bin full. ship the GROWN hens, not the chicks. my cousin runs that farm and she is doing FINE, thank you for asking.', opts: [] },
+          incident: {
+            line: 'EXCUSE me?? I was at book club. seven witnesses. we read "the grapes of wrath." it is about SAUCE, probably. *ruffles feathers* …ask the SYNDICATE where all that fresh batter came from.',
+            opts: [
+              { t: 'okay, okay. sorry.', next: 'henSorry' },
+              { t: 'the syndicate? go on.', next: 'henSynd' },
+            ],
+          },
+          henSorry: { line: '*settles feathers* bwok. apology accepted. this once.', opts: [] },
+          henSynd: { line: 'my cousin says the Works TRIPLED batter output that same week. TRIPLED. you punch things for a living — go punch the math.', opts: [] },
           night: { line: "every night's a nice night when you're not in a nugget box. no offense.", opts: [] },
         };
       },
+    },
+    {
+      id: 'dill', name: 'DETECTIVE DILL', icon: '🥒',
+      x: -2.6, z: 1.5, h: 1.12, sdx: 0, sdz: 1.2,
+      baseYaw: Math.PI, curYaw: Math.PI, bobSpd: 1.3, bobAmp: 0.005, phase: 3.3, yBase: 0,
+      nodes: () => ({
+        root: {
+          line: '*flat voice* detective dill, NPD. this street is a crime scene. technically the whole street. don\'t touch the tape.',
+          opts: [
+            { t: 'what happened in there?', next: 'what' },
+            { t: 'got any suspects?', next: 'suspects' },
+            { t: 'can I help?', next: 'help' },
+            { t: 'stay salty, detective.', next: 'bye' },
+          ],
+        },
+        what: {
+          line: 'somebody emptied the nugget catch cabinet overnight. an entire storm. no prints, no witnesses, no crumbs. there are ALWAYS crumbs. that\'s what worries me.',
+          opts: [
+            { t: "a whole storm doesn't just walk out.", next: 'walk' },
+            { t: 'any leads?', next: 'leads' },
+          ],
+        },
+        walk: { line: 'no. it gets CARRIED. in something big, with wheels and a schedule. *scribbles in notepad* say… you ever notice tanker trucks around here at night?', opts: [] },
+        leads: { line: "the bouncer heard nothing, which is loud. the cup's seen too much. the hen bwoks like she knows something. and Dijon's lawyers keep calling ME. active investigation. next question.", opts: [] },
+        suspects: {
+          line: 'everyone. the calm ones especially. you want my gut? follow the batter. batter doesn\'t come from nowhere.',
+          opts: [
+            { t: 'the Sauce Works.', next: 'works' },
+          ],
+        },
+        works: { line: "*long pause* I can't get a warrant for a chicken coop, kid. but if a civilian in boxing gloves happened to see something in there… my tip line is open.", opts: [] },
+        help: { line: "keep your gloves on and your eyes open. and if you're ever near the pier after midnight and the water starts… swirling? you call it in. do NOT go fishing.", opts: [] },
+        bye: { line: '*tips tiny hat* NPD appreciates your cooperation.', opts: [] },
+      }),
     },
   ];
 
@@ -1024,7 +1022,7 @@ void main() {
 
   function buildStreet(gl, suv) {
     const ST = new Builder(); // opaque street set (own texture page)
-    const NP = new Builder(); // NPC cutouts (alpha-blended, gentle bob)
+
 
     // block walls: facade extensions flush with the arcade front, side caps,
     // and the far side of the street. Windings follow the interior wall rules.
@@ -1118,27 +1116,157 @@ void main() {
       });
     }
 
-    // the regulars themselves: crossed alpha quads + a prompt hotspot each
+    // ---- the regulars, in the flesh -------------------------------------------
+    // Real lit geometry now (community: the flat sprites "weren't quite there").
+    // Local origin at the feet, +z is the character's front; each gets its own
+    // buffer so it can bob and turn to face you mid-conversation.
+
+    const blob3 = (B2, cx2, cy2, cz2, rx, ry, rz, seed, u, opts, stacks = 7, slices = 10) => {
+      const P = (ph, th) => {
+        const wob = 1 + 0.09 * Math.sin(ph * 3 + seed) * Math.cos(th * 2 + seed * 1.7) + 0.05 * Math.sin(th * 3 + seed);
+        return [cx2 + Math.sin(ph) * Math.cos(th) * rx * wob, cy2 + Math.cos(ph) * ry * wob, cz2 + Math.sin(ph) * Math.sin(th) * rz * wob];
+      };
+      const uvAt = (fu, fv) => [u[0] + (u[2] - u[0]) * fu, u[1] + (u[3] - u[1]) * fv];
+      for (let i = 0; i < stacks; i++) {
+        const ph0 = (i / stacks) * Math.PI, ph1 = ((i + 1) / stacks) * Math.PI;
+        for (let j = 0; j < slices; j++) {
+          const th0 = (j / slices) * Math.PI * 2, th1 = ((j + 1) / slices) * Math.PI * 2;
+          B2.quadV(
+            [P(ph1, th0), P(ph1, th1), P(ph0, th1), P(ph0, th0)],
+            [uvAt(j / slices, (i + 1) / stacks), uvAt((j + 1) / slices, (i + 1) / stacks),
+              uvAt((j + 1) / slices, i / stacks), uvAt(j / slices, i / stacks)],
+            opts
+          );
+        }
+      }
+    };
+    const box3 = (B2, x0, y0, z0, x1, y1, z1, u, opts) => {
+      B2.quad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], u, opts);
+      B2.quad([x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], u, opts);
+      B2.quad([x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], u, opts);
+      B2.quad([x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], u, opts);
+      B2.quad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], u, opts);
+      B2.quad([x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], u, opts);
+    };
+    const tube3 = (B2, cx2, cz2, y0, y1, r0, r1, u, opts, slices = 12) => {
+      for (let j = 0; j < slices; j++) {
+        const a0 = (j / slices) * Math.PI * 2, a1 = ((j + 1) / slices) * Math.PI * 2;
+        B2.quadV(
+          [[cx2 + Math.cos(a1) * r0, y0, cz2 + Math.sin(a1) * r0], [cx2 + Math.cos(a0) * r0, y0, cz2 + Math.sin(a0) * r0],
+            [cx2 + Math.cos(a0) * r1, y1, cz2 + Math.sin(a0) * r1], [cx2 + Math.cos(a1) * r1, y1, cz2 + Math.sin(a1) * r1]],
+          [[u[0] + (u[2] - u[0]) * ((j + 1) / slices), u[3]], [u[0] + (u[2] - u[0]) * (j / slices), u[3]],
+            [u[0] + (u[2] - u[0]) * (j / slices), u[1]], [u[0] + (u[2] - u[0]) * ((j + 1) / slices), u[1]]],
+          opts
+        );
+      }
+    };
+
+    const npcBufs = {};
+    const makeNpc = (id, fn) => {
+      const B2 = new Builder();
+      fn(B2);
+      npcBufs[id] = B2.upload(gl);
+    };
+
+    // BIG CRUMB: a slab of nugget in night sunglasses and a bow tie
+    makeNpc('crumb', (B2) => {
+      blob3(B2, 0, 0.52, 0, 0.34, 0.44, 0.28, 4, suv.nugSkin, { tint: 1.05 });
+      box3(B2, -0.18, 0, 0.02, -0.05, 0.09, 0.2, suv.nugSkin, { tint: 0.8 });
+      box3(B2, 0.05, 0, 0.02, 0.18, 0.09, 0.2, suv.nugSkin, { tint: 0.8 });
+      box3(B2, -0.21, 0.6, 0.16, 0.21, 0.71, 0.31, suv.sw_black, { e: 0.08 });
+      box3(B2, 0.28, 0.56, 0.02, 0.35, 0.64, 0.1, suv.sw_black, {});
+      box3(B2, -0.13, 0.3, 0.22, -0.02, 0.4, 0.31, suv.sw_red, { tint: 0.9 });
+      box3(B2, 0.02, 0.3, 0.22, 0.13, 0.4, 0.31, suv.sw_red, { tint: 0.9 });
+      box3(B2, -0.025, 0.32, 0.24, 0.025, 0.38, 0.32, suv.sw_woodDark, {});
+      blob3(B2, -0.38, 0.36, 0, 0.09, 0.09, 0.09, 7, suv.nugSkin, { tint: 0.9 }, 4, 6);
+      blob3(B2, 0.38, 0.36, 0, 0.09, 0.09, 0.09, 8, suv.nugSkin, { tint: 0.9 }, 4, 6);
+    });
+
+    // GRAVY JONES: a weathered cup settled on the bench (yBase lifts him onto it)
+    makeNpc('gravy', (B2) => {
+      tube3(B2, 0, 0, 0, 0.5, 0.14, 0.19, suv.cupGravy, { tint: 1.05 });
+      blob3(B2, 0.02, 0.52, -0.02, 0.21, 0.04, 0.21, 3, suv.sw_white, { tint: 0.8 }, 4, 10); // the lid, ajar
+      box3(B2, -0.08, 0.34, 0.15, -0.02, 0.38, 0.19, suv.sw_black, {});
+      box3(B2, 0.02, 0.34, 0.15, 0.08, 0.38, 0.19, suv.sw_black, {});
+      box3(B2, -0.09, 0.375, 0.145, -0.01, 0.4, 0.2, suv.sw_white, { tint: 0.7 }); // heavy lids
+      box3(B2, 0.01, 0.375, 0.145, 0.09, 0.4, 0.2, suv.sw_white, { tint: 0.7 });
+    });
+
+    // THE HOODED NUG: crispy face poking out of a rain hood, robe to the floor
+    makeNpc('hood', (B2) => {
+      tube3(B2, 0, -0.02, 0, 0.42, 0.34, 0.23, suv.hoodCloth, { tint: 0.85 }, 10); // the robe
+      blob3(B2, 0, 0.5, 0.06, 0.26, 0.3, 0.24, 6, suv.nugSkin, { tint: 0.95 });     // the nug inside
+      blob3(B2, 0, 0.66, -0.14, 0.34, 0.34, 0.3, 11, suv.hoodCloth, { tint: 0.9 }); // the hood shell
+      box3(B2, -0.1, 0.5, 0.24, -0.04, 0.56, 0.3, suv.sw_amber, { e: 0.65 });       // eye glints
+      box3(B2, 0.04, 0.5, 0.24, 0.1, 0.56, 0.3, suv.sw_amber, { e: 0.65 });
+    });
+
+    // HENRIETTA: an actual hen. comb, wattle, tail fan, tiny skeptical eyes.
+    makeNpc('hen', (B2) => {
+      blob3(B2, 0, 0.3, -0.02, 0.24, 0.2, 0.18, 5, suv.henWhite, {});
+      box3(B2, -0.045, 0.34, 0.08, 0.045, 0.56, 0.16, suv.henWhite, {});
+      blob3(B2, 0, 0.6, 0.13, 0.1, 0.1, 0.11, 9, suv.henWhite, {}, 5, 8);
+      box3(B2, -0.02, 0.68, 0.06, 0.02, 0.74, 0.1, suv.sw_comb, {});
+      box3(B2, -0.02, 0.7, 0.1, 0.02, 0.77, 0.14, suv.sw_comb, {});
+      box3(B2, -0.02, 0.68, 0.14, 0.02, 0.73, 0.17, suv.sw_comb, {});
+      box3(B2, -0.025, 0.58, 0.2, 0.025, 0.63, 0.32, suv.sw_beak, {});
+      box3(B2, -0.015, 0.51, 0.19, 0.015, 0.57, 0.23, suv.sw_comb, {});
+      box3(B2, -0.11, 0.6, 0.1, -0.06, 0.65, 0.15, suv.sw_black, {});
+      box3(B2, 0.06, 0.6, 0.1, 0.11, 0.65, 0.15, suv.sw_black, {});
+      box3(B2, -0.03, 0.42, -0.34, 0.03, 0.62, -0.16, suv.henWhite, { tint: 0.9 });
+      box3(B2, -0.12, 0.38, -0.3, -0.06, 0.54, -0.14, suv.henWhite, { tint: 0.85 });
+      box3(B2, 0.06, 0.38, -0.3, 0.12, 0.54, -0.14, suv.henWhite, { tint: 0.85 });
+      box3(B2, -0.08, 0, -0.02, -0.04, 0.14, 0.02, suv.sw_beak, {});
+      box3(B2, 0.04, 0, -0.02, 0.08, 0.14, 0.02, suv.sw_beak, {});
+      box3(B2, -0.1, 0, 0.02, -0.02, 0.03, 0.1, suv.sw_beak, {});
+      box3(B2, 0.02, 0, 0.02, 0.1, 0.03, 0.1, suv.sw_beak, {});
+    });
+
+    // DETECTIVE DILL: a dill with a badge, a fedora, and a notepad
+    makeNpc('dill', (B2) => {
+      blob3(B2, 0, 0.52, 0, 0.19, 0.46, 0.19, 13, suv.pickle, { tint: 1.05 }, 8, 10);
+      tube3(B2, 0, 0, 0.72, 0.82, 0.24, 0.27, suv.sw_iron, { tint: 0.8 }, 8); // trench collar
+      box3(B2, -0.26, 0.88, -0.26, 0.26, 0.92, 0.26, suv.sw_iron, { tint: 0.75 }); // brim
+      box3(B2, -0.15, 0.92, -0.15, 0.15, 1.08, 0.15, suv.sw_iron, { tint: 0.85 }); // crown
+      box3(B2, 0.05, 0.6, 0.16, 0.13, 0.69, 0.22, suv.sw_badge, { e: 0.3 });       // the badge
+      box3(B2, -0.09, 0.72, 0.14, -0.03, 0.77, 0.2, suv.sw_black, {});
+      box3(B2, 0.03, 0.72, 0.14, 0.09, 0.77, 0.2, suv.sw_black, {});
+      box3(B2, 0.2, 0.42, 0.08, 0.28, 0.54, 0.12, suv.sw_white, { tint: 0.9 });    // notepad
+    });
+
+    // prompts, collision, and a soft head-glow so they read from across the street
     for (const npc of NPCS) {
-      const hw = npc.w / 2, y0 = npc.y0, y1 = npc.y0 + npc.h;
-      const u = suv[npc.tex];
-      NP.quad([npc.x - hw, y0, npc.z], [npc.x + hw, y0, npc.z], [npc.x + hw, y1, npc.z], [npc.x - hw, y1, npc.z], u, { e: 0.18, tint: 1.05 });
-      NP.quad([npc.x + hw, y0, npc.z], [npc.x - hw, y0, npc.z], [npc.x - hw, y1, npc.z], [npc.x + hw, y1, npc.z], u, { e: 0.18, tint: 1.05 });
-      NP.quad([npc.x, y0, npc.z + hw], [npc.x, y0, npc.z - hw], [npc.x, y1, npc.z - hw], [npc.x, y1, npc.z + hw], u, { e: 0.18, tint: 1.05 });
-      NP.quad([npc.x, y0, npc.z - hw], [npc.x, y0, npc.z + hw], [npc.x, y1, npc.z + hw], [npc.x, y1, npc.z - hw], u, { e: 0.18, tint: 1.05 });
-      H.glows.push({ p: [npc.x, y1 + 0.14, npc.z], c: [1, 0.85, 0.5], s: 0.3, a: 0.09, k: 'neon' });
-      H.propBoxes.push({ min: [npc.x - 0.22, 0, npc.z - 0.22], max: [npc.x + 0.22, y1, npc.z + 0.22] });
+      H.glows.push({ p: [npc.x, npc.yBase + npc.h + 0.14, npc.z], c: [1, 0.85, 0.5], s: 0.3, a: 0.09, k: 'neon' });
+      H.propBoxes.push({ min: [npc.x - 0.28, 0, npc.z - 0.28], max: [npc.x + 0.28, npc.yBase + npc.h, npc.z + 0.28] });
       H.hotspots.push({
         kind: 'npc',
         x: npc.x, z: npc.z, r: 2.3,
-        min: [npc.x - 0.35, y0, npc.z - 0.35], max: [npc.x + 0.35, y1 + 0.1, npc.z + 0.35],
+        min: [npc.x - 0.38, 0, npc.z - 0.38], max: [npc.x + 0.38, npc.yBase + npc.h + 0.1, npc.z + 0.38],
         stand: [npc.x + npc.sdx, EYE, npc.z + npc.sdz],
         label: 'TALK TO ' + npc.name,
         act: () => openDialog(npc),
       });
     }
 
-    return { solid: ST.upload(gl), npc: NP.upload(gl) };
+    // ---- THE CATCH INCIDENT: police tape seals the catch cabinet ----------------
+    {
+      const cab = H.cabinets.find((c2) => c2.game.mode === 'catch');
+      if (cab) {
+        const fx = cab.min[0] - 0.04; // proud of the front (east-wall cab faces -x)
+        const z0 = cab.min[2] - 0.22, z1 = cab.max[2] + 0.22;
+        // faces -x → z ascending, like the east wall
+        const strip = (ya, yb, w2) =>
+          ST.quad([fx, ya - w2, z0], [fx, yb - w2, z1], [fx, yb + w2, z1], [fx, ya + w2, z0], suv.tape, { e: 0.25 });
+        strip(0.45, 1.8, 0.05);
+        strip(1.8, 0.45, 0.05);
+        strip(1.12, 1.12, 0.055);
+        ST.quad([fx - 0.01, 0.55, cab.z - 0.24], [fx - 0.01, 0.55, cab.z + 0.24],
+          [fx - 0.01, 0.91, cab.z + 0.24], [fx - 0.01, 0.91, cab.z - 0.24], suv.crimeSign, { e: 0.2 });
+        H.glows.push({ p: [fx - 0.3, 1.5, cab.z], c: [1, 0.22, 0.2], s: 1.1, a: 0.11, k: 'neon' });
+      }
+    }
+
+    return { solid: ST.upload(gl), npcs: npcBufs };
   }
 
   function foundGoldenNug(x, y, z) {
@@ -1576,6 +1704,12 @@ void main() {
   }
 
   function startZoom(cab) {
+    if (cab.game && cab.game.mode === 'catch') {
+      // evidence. the coin slot is taped over. ask around outside.
+      toast('🚧 NUGGET CATCH is evidence — the storm never came home. ask around outside.', 4.2);
+      sfxThump();
+      return;
+    }
     if (H.state === 'zoom') return;
     H.state = 'zoom';
     H.auto = null;
@@ -1796,7 +1930,9 @@ void main() {
         if (dot > bestDot) {
           bestDot = dot;
           target = cab;
-          label = key + 'PLAY ' + cab.game.title;
+          label = cab.game.mode === 'catch'
+            ? key + '🚧 CRIME SCENE — DO NOT CROSS'
+            : key + 'PLAY ' + cab.game.title;
         }
       }
       for (const spot of H.hotspots) {
@@ -1951,19 +2087,20 @@ void main() {
     const [dl, dr] = doorModels();
     const signBoost = 0.15 + 0.85 * sl;
 
-    // dynamic prop models: the sheet wiggles when poked, the mirror ball spins
-    const wig = H.mystery.wiggle;
-    const drapeUp = !brawlRevealed; // drape exists until the reveal finishes
-    let MM = mMul(
-      mTrans(H.mystery.pos[0], Math.abs(Math.sin(H.t * 22)) * 0.05 * wig, H.mystery.pos[1]),
-      mRotY(H.mystery.pos[2] + Math.sin(H.t * 26) * 0.05 * wig)
-    );
-    if (H.reveal) {
-      // the sheet crumples to the floor: squash down, bulge out
-      const rt = easeInOut(Math.min(H.reveal.t, 1));
-      MM = mMul(MM, mScale(1 + rt * 0.35, Math.max(1 - rt * 0.985, 0.015), 1 + rt * 0.35));
-    }
+    // dynamic prop models: the mirror ball spins, the regulars idle
     const DD = mMul(mTrans(0, 3.55, -2.6), mRotY(H.t * 0.5));
+    const npcModel = (n) => mMul(
+      mTrans(n.x, n.yBase + Math.sin(H.t * n.bobSpd + n.phase) * n.bobAmp, n.z),
+      mRotY(n.curYaw)
+    );
+    function drawNpcs(pre, opts) {
+      gl.bindTexture(gl.TEXTURE_2D, H.texStreet);
+      for (const n of NPCS) {
+        const buf = H.bufsStreet.npcs[n.id];
+        if (buf) drawLit(buf, pre ? mMul(pre, npcModel(n)) : npcModel(n), opts);
+      }
+      gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
+    }
 
     function drawBoard(model, opts) {
       gl.bindTexture(gl.TEXTURE_2D, H.boardTex);
@@ -1977,14 +2114,14 @@ void main() {
     drawLit(H.bufs.sign, MIR, { mirror: 0.33, boost: signBoost });
     drawLit(H.bufs.doorL, mMul(MIR, dl), { mirror: 0.33 });
     drawLit(H.bufs.doorR, mMul(MIR, dr), { mirror: 0.33 });
-    if (drapeUp) drawLit(H.bufs.mystery, mMul(MIR, MM), { mirror: 0.33 });
     drawLit(H.bufs.disco, mMul(MIR, DD), { mirror: 0.33 });
     drawBoard(MIR, { mirror: 0.38 });
     drawScreens(MIR, { mirror: 0.38 });
-    // the street set reflects in the wet sidewalk too (own texture page)
+    // the street set (and its regulars) reflects in the wet sidewalk too
     gl.bindTexture(gl.TEXTURE_2D, H.texStreet);
     drawLit(H.bufsStreet.solid, MIR, { mirror: 0.33 });
     gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
+    drawNpcs(MIR, { mirror: 0.33 });
     gl.frontFace(gl.CCW);
 
     // 2) the floor itself, slightly translucent so the reflection ghosts through
@@ -1998,23 +2135,20 @@ void main() {
     drawLit(H.bufs.sign, I, { boost: signBoost });
     drawLit(H.bufs.doorL, dl, {});
     drawLit(H.bufs.doorR, dr, {});
-    if (drapeUp) drawLit(H.bufs.mystery, MM, {});
     drawLit(H.bufs.disco, DD, {});
     drawBoard(I, {});
     drawScreens(I, {});
     gl.bindTexture(gl.TEXTURE_2D, H.texStreet);
     drawLit(H.bufsStreet.solid, I, {});
     gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
+    drawNpcs(null, {}); // the regulars: real geometry now, lit like the room
 
-    // 4) contact shadows + alpha-cutout extras (the golden nug, the regulars)
+    // 4) contact shadows + alpha-cutout extras (the golden nug)
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     drawLit(H.bufs.decals, I, { alpha: 0.5 });
     gl.depthMask(false);
     drawLit(H.bufs.flora, I, {});
-    gl.bindTexture(gl.TEXTURE_2D, H.texStreet);
-    drawLit(H.bufsStreet.npc, mTrans(0, Math.sin(H.t * 1.7) * 0.012, 0), {});
-    gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
     gl.depthMask(true);
 
     // 5) additive sprites: glow halos, dust, rain
@@ -2106,12 +2240,7 @@ void main() {
     }
     H.prevZ = H.cam.z;
 
-    // prop life: mystery-cabinet wiggle decay + golden-nug sparks
-    if (H.mystery.wiggle > 0) H.mystery.wiggle = Math.max(0, H.mystery.wiggle - dt * 1.5);
-    if (H.reveal) {
-      H.reveal.t += dt / 1.1;
-      if (H.reveal.t >= 1.15) finishBrawlReveal();
-    }
+    // prop life: golden-nug sparks
     for (let i = H.sparks.length - 1; i >= 0; i--) {
       const s = H.sparks[i];
       s.life -= dt;
@@ -2148,6 +2277,16 @@ void main() {
 
     stepAudio(dt);
     stepDialog(dt);
+    // the regulars turn to face whoever's talking to them, then drift back
+    for (const n of NPCS) {
+      const want = H.dialog && H.dialog.npc === n
+        ? Math.atan2(H.cam.x - n.x, H.cam.z - n.z)
+        : n.baseYaw;
+      let dy2 = want - n.curYaw;
+      while (dy2 > Math.PI) dy2 -= Math.PI * 2;
+      while (dy2 < -Math.PI) dy2 += Math.PI * 2;
+      n.curYaw += dy2 * Math.min(1, dt * 5);
+    }
     updateAttracts();
     updatePrompt();
     render();
