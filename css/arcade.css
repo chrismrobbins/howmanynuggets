@@ -24,6 +24,23 @@
 }
 #arcadeHall canvas.dragging { cursor: grabbing; }
 
+/* FPS crosshair dot — only while the pointer is locked (mouse-look mode) */
+.hall-cross {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.9), 0 0 3px rgba(38, 224, 255, 0.8);
+  pointer-events: none;
+  z-index: 4;
+}
+#arcadeHall.mlook .hall-cross { display: block; }
+
 .hall-vignette {
   position: absolute;
   inset: 0;

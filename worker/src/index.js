@@ -23,7 +23,7 @@ const ALLOWED_ORIGINS = new Set([
   'http://localhost:5173',
 ]);
 
-const GAMES = new Set(['catch', 'blaster', 'flappy', 'dunk', 'sim', 'run', 'knight', 'brawl', 'ranch']);
+const GAMES = new Set(['catch', 'blaster', 'flappy', 'dunk', 'sim', 'run', 'knight', 'brawl', 'ranch', 'kart']);
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const PBKDF2_ITERATIONS = 100000;
 const MAX_SCORE = 1e15; // absolute backstop (per-game caps below are the real gate)
@@ -40,6 +40,7 @@ const GAME_MAX_SCORE = {
   knight: 30e6,                     // kills + wave bonuses; NUGGMARE oath pays 3x
   brawl: 30e6,                      // campaign KOs + act bonuses; HELL heat pays 3x (knight parity)
   ranch: 5e6,                       // ~28 nugs/hen shipped over a long farming session
+  kart: 40e6,                       // distance banking like flappy/dunk; X-restart keeps runs going
 };
 const MIN_SUBMIT_INTERVAL_MS = 10000; // one score per 10s per account
 
@@ -133,7 +134,7 @@ async function scoresForUser(env, userId) {
   const { results } = await env.DB.prepare(
     'SELECT game, best_score FROM scores WHERE user_id = ?'
   ).bind(userId).all();
-  const map = { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0, knight: 0, brawl: 0, ranch: 0 };
+  const map = { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0, knight: 0, brawl: 0, ranch: 0, kart: 0 };
   for (const r of results) map[r.game] = r.best_score;
   return map;
 }

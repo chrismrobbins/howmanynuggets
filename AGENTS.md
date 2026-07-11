@@ -27,12 +27,12 @@ already bitten someone.
 
 - **Texture atlas budget.** All hall art packs into ONE 2048×2048 canvas
   with a naive shelf packer. Every game adds a marquee (512×128), side art
-  (216×324), and control panel (224×112). It is nearly full at 9 games —
-  watch the DevTools console for `ArcadeArt atlas overflow at <name>`
-  warnings; overflowed regions render BLACK (this shipped once: a 9th game
-  silently blacked out the light tubes, neon strips, and five control
-  panels). If you overflow, shrink region sizes in `makeAtlas` or rework
-  the packer — don't ignore the warning.
+  (200×300), and control panel (224×112). It is FULL at 10 games (FAST FOOD
+  took the last slot — verified headless, zero overflow warnings) — an 11th
+  game REQUIRES packer work or a second page. Watch the DevTools console for
+  `ArcadeArt atlas overflow at <name>` warnings; overflowed regions render
+  BLACK (this shipped once: a 9th game silently blacked out the light tubes,
+  neon strips, and five control panels). Don't ignore the warning.
 - **Quad winding.** New geometry must follow the per-wall winding rules
   documented in `buildScene` (see `wallX`/`wallZ` comments) or it will be
   back-face culled — "built but invisible" bugs (a cabinet was once placed
@@ -42,15 +42,18 @@ already bitten someone.
   live scoreboard, west wall z=-16.8 is Battered Brawlers (the old
   poke-the-drape reveal gate was removed — mode key stays `brawl`), the
   entrance zone has a vending machine / change machine / velvet ropes.
-  West wall front (-7.02, -2.2) is RESERVED for the upcoming 10th cabinet.
+  West wall front (-7.02, -2.2) is FAST FOOD (mode `kart`, the 10th
+  cabinet) — the hall is now symmetric and effectively full.
 - **Nugget Catch is a CRIME SCENE** (the Catch Incident: the storm was
   stolen — see the lore in street dialogue + the Brawlers campaign).
   Its cabinet stays but is taped off and unplayable (`startZoom` guard +
   prompt special-case in arcade.js); don't "fix" it back to playable.
-- **Atlas headroom.** Cabinet side art is now 200×300 (was 216×324) —
-  with the drape texture retired this leaves EXACTLY enough room in the
-  2048² page for a 10th game (side + marquee + panel). An 11th needs
-  real packer work.
+- **Hall controls are FPS-style now.** Clicking the canvas requests pointer
+  lock (mouse-look; a click plays whatever the crosshair dot is on); WASD
+  walks and the ARROW KEYS look (they no longer alias WASD). The first ESC
+  releases the lock, the second exits the hall — `H.plockT` guards the
+  keydown handler so one ESC can't do both. Pointer lock is released
+  whenever a dialog/modal needs the cursor and on game launch/exit.
 - **Walk-up interactables** live in `H.hotspots` (label + AABB + `act()`).
   Cabinets get prompts automatically from `H.cabinets`.
 - **The street** (outside the doors, z > 0) is a real place: shops, lamps,
@@ -65,6 +68,9 @@ already bitten someone.
   While `H.dialog` is set, movement/prompt/tap input is owned by the
   dialogue panel; ESC closes the dialog before it can exit the hall.
   The walkable street is x ∈ (−21.1, 21.1), z ∈ (0.1, 13.5) in `posValid`.
+  The GREASE GARAGE (x −17.1..−12.1) is OPEN as of FAST FOOD shipping —
+  the Hooded Nug's dialogue is a "told you so"; his remaining unresolved
+  rumors (the pier/fishing, the rhythm cup) still seed future games.
 
 ## Verifying changes (the pattern that works)
 

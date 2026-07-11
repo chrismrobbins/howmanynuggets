@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="css/knight.css" />
   <link rel="stylesheet" href="css/brawl.css" />
   <link rel="stylesheet" href="css/ranch.css" />
+  <link rel="stylesheet" href="css/kart.css" />
   <link rel="stylesheet" href="css/arcade.css" />
   <link rel="stylesheet" href="css/multiplayer.css" />
 </head>
@@ -89,6 +90,7 @@
         <div class="score-tile"><div class="game">⚔️</div><div class="game-name">Knight</div><div class="best" id="myKnight">0</div></div>
         <div class="score-tile"><div class="game">🥊</div><div class="game-name">Brawl</div><div class="best" id="myBrawl">0</div></div>
         <div class="score-tile"><div class="game">🐔</div><div class="game-name">Ranch</div><div class="best" id="myRanch">0</div></div>
+        <div class="score-tile"><div class="game">🏎️</div><div class="game-name">Fast Food</div><div class="best" id="myKart">0</div></div>
       </div>
     </div>
 
@@ -130,6 +132,7 @@
       <button type="button" data-mode="run" title="Nugget Run — endless runner: jump, flip, and slide">🏃</button>
       <button type="button" data-mode="knight" title="Nugget Knight — defend the gate from waddling sporks">🗡️</button>
       <button type="button" data-mode="brawl" title="Battered Brawlers — see you in hell, mother cluckers">🥊</button>
+      <button type="button" data-mode="kart" title="Fast Food — outrun the batter tankers, beat the clock">🏎️</button>
     </span>
     <button id="stormStop" type="button">Stop</button>
   </div>
@@ -166,6 +169,9 @@
 
   <!-- Nugget Ranch: chicken life-sim farm (DOM injected by js/ranch.js) -->
   <div id="ranchWorld"></div>
+
+  <!-- Fast Food: pseudo-3D night racer (canvas injected by js/kart.js) -->
+  <div id="kartWorld"></div>
 
   <!-- Account modal: log in / create account / signed-in menu -->
   <div class="modal-overlay" id="authModal">
@@ -248,6 +254,7 @@
         <button type="button" data-game="knight">⚔️ Knight</button>
         <button type="button" data-game="brawl">🥊 Brawl</button>
         <button type="button" data-game="ranch">🐔 Ranch</button>
+        <button type="button" data-game="kart">🏎️ Fast Food</button>
       </div>
       <div id="lbBody"><div class="lb-loading">Loading…</div></div>
     </div>
@@ -300,6 +307,7 @@
   <script src="js/knight.js"></script>
   <script src="js/brawl.js"></script>
   <script src="js/ranch.js"></script>
+  <script src="js/kart.js"></script>
   <script src="js/arcade-art.js"></script>
   <script src="js/arcade.js"></script>
   <script src="js/app.js"></script>

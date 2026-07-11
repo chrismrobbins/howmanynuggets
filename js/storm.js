@@ -43,9 +43,10 @@ const MODE_HINTS = {
   knight:  'defend the gate! ← → move · space jump · click/X slash',
   brawl:   'they took Honey! ←→↑↓ move · X/click punch · space dodge · C cyclone',
   ranch:   'raise the flock! 🌾 feed to keep birds alive · 🏭 ship grown hens for nuggets',
+  kart:    'deliver the order hot! ← → steer · ↓ brake · SPACE nitro 🌶️ · make the checkpoints',
 };
-const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘', run: '🏃', knight: '⚔️', brawl: '🥊', ranch: '🐔' };
-const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated', run: 'ran', knight: 'vanquished', brawl: 'sauced', ranch: 'harvested' };
+const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘', run: '🏃', knight: '⚔️', brawl: '🥊', ranch: '🐔', kart: '🏎️' };
+const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated', run: 'ran', knight: 'vanquished', brawl: 'sauced', ranch: 'harvested', kart: 'delivered' };
 
 // Self-contained minigames run their own entities and pause the storm's own
 // falling-nugget spawner + auto-complete (like Flappy). Catch and Blaster both
@@ -53,7 +54,7 @@ const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk
 function pausesStorm() {
   return storm.mode === 'flappy' || storm.mode === 'dunk' || storm.mode === 'sim' ||
          storm.mode === 'run' || storm.mode === 'knight' || storm.mode === 'brawl' ||
-         storm.mode === 'ranch';
+         storm.mode === 'ranch' || storm.mode === 'kart';
 }
 
 const storm = {
@@ -96,6 +97,7 @@ function setStormMode(mode) {
   syncKnight();
   syncBrawl();
   syncRanch();
+  syncKart();
   updateStormHud();
 }
 
@@ -192,6 +194,9 @@ function updateStormHud() {
   } else if (storm.mode === 'ranch') {
     stormLabel.textContent = '🐔 Nugget Ranch';
     stormTally.textContent = ranchTally();
+  } else if (storm.mode === 'kart') {
+    stormLabel.textContent = '🏎️ Fast Food';
+    stormTally.textContent = kartTally();
   } else {
     const shown = Math.min(storm.launched, storm.total);
     stormLabel.textContent = storm.cat.emoji + ' ' + storm.cat.name;
@@ -266,6 +271,7 @@ function stepStorm(ts) {
   else if (storm.mode === 'knight') stepKnight(dt, w, h);
   else if (storm.mode === 'brawl') stepBrawl(dt, w, h);
   else if (storm.mode === 'ranch') stepRanch(dt, w, h);
+  else if (storm.mode === 'kart') stepKart(dt, w, h);
 
   updateStormHud();
 
@@ -360,6 +366,7 @@ function stopStorm(completed = false) {
   syncKnight();
   syncBrawl();
   syncRanch();
+  syncKart();
   if (completed) {
     // Leave a short victory-lap summary in the HUD, then tuck it away.
     stormLabel.textContent = '✅ Storm complete';

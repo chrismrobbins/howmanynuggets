@@ -31,6 +31,7 @@ const NuggetArcade = (() => {
     ['brawl', -7.0, -16.8, Math.PI / 2],
     ['ranch', 7.02, -2.2, -Math.PI / 2], // front of the right wall, ahead of Catch
     ['knight', 0, -18.7, 0],
+    ['kart', -7.02, -2.2, Math.PI / 2], // the 10th cabinet — the reserved spot, delivered
   ];
 
   // Battered Brawlers used to hide under a poke-three-times drape; community
@@ -820,22 +821,28 @@ void main() {
       baseYaw: -0.5, curYaw: -0.5, bobSpd: 1.2, bobAmp: 0.006, phase: 4.2, yBase: 0,
       nodes: () => ({
         root: {
-          line: '*a hooded nugget leans against the garage shutter* you didn\'t see me.',
+          line: '*the hooded nugget stands by the OPEN garage bay, radiating smug* you hear that engine? that\'s the sound of me being right.',
           opts: [
-            { t: "what's with the garage?", next: 'garage' },
+            { t: 'the shutter… it\'s open!', next: 'garage' },
             { t: 'heard any rumors?', next: 'rumors' },
             { t: 'tell me about the night the storm vanished.', next: 'incident' },
             { t: "you're just a weird nugget in a hood.", next: 'weird' },
           ],
         },
         garage: {
-          line: "locked for years. but lately that ENGINE in there idles every night. small one. angry. revving like it knows something's coming. soon, friend. soon.",
+          line: "FAST FOOD, they call it. the grease-lightning I told you about — chili nitro, batter tankers, the whole delivery. I said SOON, friend. *taps hood* told. you. so.",
           opts: [
-            { t: 'go-karts?!', next: 'karts' },
-            { t: 'sure, buddy.', next: null },
+            { t: 'you really called it.', next: 'called' },
+            { t: 'any driving tips?', next: 'tips' },
           ],
         },
-        karts: { line: "grease-lightning down Sauce Street, is what I hear. when the shutter opens, you'll want to be first in line. keep your quarters. it'll be free play anyway.", opts: [] },
+        called: {
+          line: (H.best && H.best.kart > 0)
+            ? "and YOU'VE already been behind the wheel — I can smell the nitro on you. my rumors deliver. speaking of which… ever been to the pier at midnight?"
+            : "I call everything. the garage. the beat that's coming. the pier. cabinet's in the hall, west wall, front — go on. and remember where you heard it.",
+          opts: [],
+        },
+        tips: { line: "brake INTO the hairpin, chili OUT of it. the tankers ride low and slow — pass 'em clean, it pays. and when a billboard asks about a storm… keep driving.", opts: [] },
         rumors: {
           line: 'the harbor nugs say something BIG circles the pier after midnight. swirling. golden at the edges. almost like… weather.',
           opts: [
@@ -937,6 +944,7 @@ void main() {
 
   function openDialog(npc) {
     if (H.dialog) return;
+    if (H.plock) document.exitPointerLock(); // hand the cursor to the reply buttons
     H.dialog = { npc, nodes: npc.nodes(), key: 'root', typed: 0, doneTyping: false, lastShown: -1 };
     H.dlgName.textContent = npc.icon + ' ' + npc.name;
     H.dlgText.textContent = '';
@@ -1329,6 +1337,7 @@ void main() {
       '<button class="hall-mute" type="button" title="Sound on/off">🔊</button>' +
       '<button class="hall-skip" type="button">▶ skip intro</button>' +
       '<div class="hall-dialog"><div class="hd-name"></div><div class="hd-text"></div><div class="hd-opts"></div><div class="hd-hint"></div></div>' +
+      '<div class="hall-cross"></div>' +
       '<div class="hall-flash"></div>' +
       '<div class="hall-fade"></div>';
     H.root = root;
@@ -1421,10 +1430,10 @@ void main() {
 
   // ---- input ---------------------------------------------------------------------------
 
-  const KEYMAP = {
-    KeyW: 'f', ArrowUp: 'f', KeyS: 'b', ArrowDown: 'b',
-    KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r',
-  };
+  // WASD walks; the arrows steer the CAMERA (laptop-FPS combo — you can turn
+  // while you walk instead of stopping to drag the view around).
+  const KEYMAP = { KeyW: 'f', KeyS: 'b', KeyA: 'l', KeyD: 'r' };
+  const LOOKMAP = { ArrowLeft: 'yl', ArrowRight: 'yr', ArrowUp: 'pu', ArrowDown: 'pd' };
 
   function bindInput() {
     // capture phase: see the keystroke BEFORE account.js's document listener
@@ -1442,6 +1451,9 @@ void main() {
       }
       if (e.code === 'Escape') {
         e.preventDefault();
+        // if the browser just released pointer lock with this ESC, eat it —
+        // the first ESC frees the mouse, a second one leaves the hall
+        if (performance.now() - (H.plockT || 0) < 400) return;
         if (H.state === 'intro') skipIntro();
         else exit();
         return;
@@ -1452,6 +1464,7 @@ void main() {
         return;
       }
       if (KEYMAP[e.code]) { H.keys[KEYMAP[e.code]] = true; e.preventDefault(); }
+      if (LOOKMAP[e.code]) { H.keys[LOOKMAP[e.code]] = true; e.preventDefault(); }
       if ((e.code === 'Enter' || e.code === 'KeyE' || e.code === 'Space') && H.state === 'walk') {
         // preventDefault so Enter/Space can't re-activate a still-focused page
         // button (the arcade button!) or scroll the page behind the hall
@@ -1461,15 +1474,42 @@ void main() {
     }, true);
     window.addEventListener('keyup', (e) => {
       if (KEYMAP[e.code]) H.keys[KEYMAP[e.code]] = false;
+      if (LOOKMAP[e.code]) H.keys[LOOKMAP[e.code]] = false;
     });
 
     const cv = H.canvas;
+    // pointer lock = real FPS mouse-look: click captures the mouse, moving it
+    // steers the view, clicking plays whatever the crosshair is on, ESC frees it.
+    document.addEventListener('pointerlockchange', () => {
+      const was = H.plock;
+      H.plock = document.pointerLockElement === cv;
+      H.root && H.root.classList.toggle('mlook', H.plock);
+      if (was && !H.plock) H.plockT = performance.now(); // see the ESC guard above
+    });
     cv.addEventListener('mousedown', (e) => {
       if (H.suspended || modalOpen()) return;
+      if (H.plock) {
+        // locked: the crosshair is the cursor
+        if (H.dialog) { dialogAdvance(); return; }
+        if (H.state !== 'walk' && H.state !== 'auto') return;
+        if (H.promptTarget) activatePrompt();
+        else handleTap(innerWidth / 2, innerHeight / 2, false);
+        return;
+      }
+      if (!H.isTouch && !H.dialog && (H.state === 'walk' || H.state === 'auto')) {
+        try {
+          const p = cv.requestPointerLock();
+          if (p && p.catch) p.catch(() => { /* denied — drag-look still works */ });
+        } catch (err) { /* drag-look still works */ }
+      }
       H.drag = { x: e.clientX, y: e.clientY, moved: 0, t: performance.now(), touch: false };
       cv.classList.add('dragging');
     });
     window.addEventListener('mousemove', (e) => {
+      if (H.plock) {
+        if (!H.suspended && !H.dialog) look(e.movementX * 1.5, e.movementY * 1.5);
+        return;
+      }
       if (!H.drag || H.drag.touch || H.suspended) return;
       look(e.clientX - H.drag.x, e.clientY - H.drag.y);
       H.drag.moved += Math.abs(e.clientX - H.drag.x) + Math.abs(e.clientY - H.drag.y);
@@ -1480,6 +1520,8 @@ void main() {
       if (!H.drag || H.drag.touch) { H.drag = null; return; }
       const tap = H.drag.moved < 6 && performance.now() - H.drag.t < 400;
       H.drag = null;
+      // the click that captured the mouse shouldn't also walk somewhere
+      if (H.plock) return;
       if (tap && !H.suspended) handleTap(e.clientX, e.clientY, false);
     });
     cv.addEventListener('wheel', (e) => {
@@ -1697,7 +1739,7 @@ void main() {
     H.skipBtn.classList.remove('on');
     H.hint.innerHTML = H.isTouch
       ? 'DRAG — look around · TAP — walk / play / talk<br>Two-finger drag — walk · the STREET is out the doors'
-      : 'WASD / ARROWS — walk · DRAG — look around<br>ENTER — play / talk · the STREET is out the doors · ESC — leave';
+      : 'WASD — walk · MOUSE (click to grab) / ARROWS — look · CLICK / ENTER — play / talk<br>the STREET is out the doors · ESC — free the mouse, then leave';
     H.hint.classList.add('on');
     clearTimeout(H.hintTimer);
     H.hintTimer = setTimeout(() => H.hint.classList.remove('on'), 9000);
@@ -1733,6 +1775,7 @@ void main() {
   }
 
   function launchGame(mode) {
+    if (H.plock) document.exitPointerLock(); // the minigames own the mouse now
     H.suspended = true;
     if (H.raf) cancelAnimationFrame(H.raf);
     H.raf = null;
@@ -1768,6 +1811,7 @@ void main() {
 
   function exit(immediate) {
     if (!H.active) return;
+    if (H.plock) document.exitPointerLock();
     H.active = false;
     H.suspended = false;
     H.state = 'idle';
@@ -1791,6 +1835,7 @@ void main() {
     const ids = {
       catch: 'myCatch', blaster: 'myBlaster', flappy: 'myFlappy', dunk: 'myDunk',
       sim: 'mySim', run: 'myRun', knight: 'myKnight', brawl: 'myBrawl', ranch: 'myRanch',
+      kart: 'myKart',
     };
     for (const [mode, id] of Object.entries(ids)) {
       const el = document.getElementById(id);
@@ -1835,7 +1880,14 @@ void main() {
   }
 
   function stepWalk(dt) {
+    // pointer lock has no cursor — release it whenever the UI needs one
+    if (H.plock && (H.dialog || modalOpen())) document.exitPointerLock();
     if (H.dialog) { H.cam.y = EYE; return; } // feet stay planted mid-conversation
+    // arrow keys steer the view, so you can turn a corner without stopping
+    if (H.keys.yl) H.cam.yaw += 2.1 * dt;
+    if (H.keys.yr) H.cam.yaw -= 2.1 * dt;
+    if (H.keys.pu) H.cam.pitch = Math.min(0.7, H.cam.pitch + 1.4 * dt);
+    if (H.keys.pd) H.cam.pitch = Math.max(-0.7, H.cam.pitch - 1.4 * dt);
     const sp = 3.1 * dt;
     let mx = 0, mz = 0;
     if (H.keys.f) mz += 1;

@@ -19,6 +19,7 @@ const ArcadeArt = (() => {
     { mode: 'brawl',   title: 'BATTERED BRAWLERS', icon: '🥊', c1: '#ff5252', c2: '#8a1c10', tag: 'SEE YOU IN HELL MOTHER CLUCKERS' },
     { mode: 'knight',  title: 'NUGGET KNIGHT', icon: '⚔️', c1: '#ffb020', c2: '#ff3d3d', tag: 'HOLD THE GATE'     },
     { mode: 'ranch',   title: 'NUGGET RANCH',  icon: '🐔', c1: '#ffd166', c2: '#e95420', tag: 'EGG TO McNUGGET'  },
+    { mode: 'kart',    title: 'FAST FOOD',     icon: '🏎️', c1: '#39ff7a', c2: '#0a7a3a', tag: 'PEDAL TO THE BATTER' },
   ];
 
   const NEON = ['#ff2fa0', '#26e0ff', '#ffe23a', '#7c4dff', '#39ff7a'];
@@ -997,35 +998,56 @@ const ArcadeArt = (() => {
       g.fillStyle = '#39465c';
       g.fillText('wash · dry · fold · 24H', w / 2, 66);
     } else {
-      // the GREASE GARAGE: shuttered, padlocked, something under a tarp inside.
-      // (some nights there's an engine idling in there. someday, the shutter.)
+      // the GREASE GARAGE: the shutter is UP. warm light, a green kart inside,
+      // and the engine that idled all those nights finally has somewhere to be.
+      // (it was chained shut until FAST FOOD shipped — the Hooded Nug called it.)
       g.fillStyle = '#141014'; g.fillRect(16, 74, 224, 130);
-      g.fillStyle = '#3a3630';
-      for (let y = 80; y < 198; y += 14) g.fillRect(20, y, 216, 10);
-      g.fillStyle = 'rgba(0,0,8,0.35)';
-      for (let y = 80; y < 198; y += 14) g.fillRect(20, y + 8, 216, 2);
-      // small dusty window above the shutter — a tarp with WHEELS peeking out
-      g.fillStyle = '#0d0a14'; g.fillRect(76, 26, 104, 40);
-      g.fillStyle = '#2a2436';
-      g.beginPath(); g.moveTo(86, 62); g.quadraticCurveTo(128, 26, 170, 62); g.closePath(); g.fill();
-      g.fillStyle = '#0a0810';
-      g.beginPath(); g.arc(104, 62, 8, Math.PI, 0); g.fill();
-      g.beginPath(); g.arc(152, 62, 8, Math.PI, 0); g.fill();
-      g.strokeStyle = '#39465c'; g.lineWidth = 3;
-      g.strokeRect(76, 26, 104, 40);
-      // chain + padlock
-      g.strokeStyle = '#565f85'; g.lineWidth = 4;
-      g.beginPath(); g.moveTo(60, 130); g.lineTo(196, 150); g.stroke();
-      g.fillStyle = '#8a7a4a'; g.fillRect(120, 138, 18, 20);
-      g.fillStyle = '#42320e'; g.fillRect(126, 146, 6, 6);
-      // stencil
+      // rolled-up shutter tucked under the lintel
+      g.fillStyle = '#3a3630'; g.fillRect(20, 74, 216, 16);
+      g.fillStyle = 'rgba(0,0,8,0.4)';
+      for (let x = 24; x < 232; x += 12) g.fillRect(x, 76, 2, 12);
+      // the warm bay
+      const bay = g.createLinearGradient(0, 90, 0, 204);
+      bay.addColorStop(0, '#4a3418'); bay.addColorStop(1, '#241708');
+      g.fillStyle = bay; g.fillRect(20, 90, 216, 114);
+      // hanging work light
+      g.strokeStyle = '#0a0810'; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(128, 90); g.lineTo(128, 106); g.stroke();
+      g.fillStyle = '#ffe9b8';
+      g.beginPath(); g.arc(128, 110, 6, 0, 7); g.fill();
+      // tool wall + tire stack
+      g.fillStyle = '#1c1208'; g.fillRect(26, 96, 52, 60);
+      g.fillStyle = '#8a93b8';
+      for (let i = 0; i < 6; i++) g.fillRect(32 + (i % 3) * 15, 102 + Math.floor(i / 3) * 24, 4, 16);
+      g.fillStyle = '#0e0c10';
+      for (let i = 0; i < 3; i++) {
+        g.beginPath(); g.ellipse(214, 188 - i * 16, 17, 8, 0, 0, 7); g.fill();
+        g.fillStyle = '#1c1a20'; g.beginPath(); g.ellipse(214, 188 - i * 16, 8, 3.5, 0, 0, 7); g.fill();
+        g.fillStyle = '#0e0c10';
+      }
+      // THE kart: green body, fat tires, nose toward the street
+      g.fillStyle = 'rgba(0,0,10,0.5)';
+      g.beginPath(); g.ellipse(138, 196, 52, 7, 0, 0, 7); g.fill();
+      g.fillStyle = '#0c0c12';
+      g.fillRect(96, 178, 18, 16); g.fillRect(164, 178, 18, 16);
+      g.fillStyle = '#0a7a3a'; g.fillRect(92, 166, 94, 18);
+      g.fillStyle = '#39ff7a'; g.fillRect(92, 166, 94, 5);
+      g.fillStyle = '#063f1e'; g.fillRect(92, 180, 94, 4);
+      g.fillStyle = '#39ff7a'; g.fillRect(100, 156, 30, 4); // spoiler
+      g.fillStyle = '#ffe23a'; g.fillRect(180, 170, 5, 6);  // headlight
+      // engine heat shimmer, still running
+      g.strokeStyle = 'rgba(255,235,200,0.35)'; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(88, 168); g.quadraticCurveTo(83, 158, 89, 148); g.stroke();
+      // neon, lit at last
       g.font = '900 22px Consolas, monospace';
       g.textAlign = 'center';
-      g.fillStyle = 'rgba(255,226,58,0.75)';
+      g.shadowColor = '#39ff7a'; g.shadowBlur = 14;
+      g.fillStyle = '#a8ffc8';
       g.fillText('GREASE GARAGE', w / 2, 18);
+      g.shadowBlur = 0;
       g.font = '700 12px Consolas, monospace';
-      g.fillStyle = '#6a6456';
-      g.fillText('closed — back someday', w / 2, 216);
+      g.fillStyle = '#39ff7a';
+      g.fillText('OPEN — home of FAST FOOD', w / 2, 216);
     }
   }
 
@@ -1653,6 +1675,86 @@ const ArcadeArt = (() => {
       g.font = '700 11px Consolas, monospace';
       g.fillStyle = '#5a3a16'; g.textAlign = 'center';
       g.fillText('RAISE · FEED · SHIP', w / 2, h * 0.28);
+    },
+    kart(g, w, h, t) {
+      // night drive: pseudo-3D road strobing past, a tanker ahead, nitro on a beat
+      const HOR = h * 0.42;
+      g.fillStyle = '#141034';
+      g.fillRect(0, 24, w, HOR - 24);
+      g.fillStyle = '#0d0a20'; // skyline
+      for (let i = 0; i < 8; i++) g.fillRect(i * 34 + (i * 7) % 12, HOR - 10 - (i * 13) % 16, 18, 26);
+      g.fillStyle = '#2b2450';
+      for (let i = 0; i < 14; i++) if ((i + (t | 0)) % 3) g.fillRect(8 + (i * 19) % (w - 12), HOR - 6 - (i * 11) % 18, 2, 2);
+      g.fillStyle = '#0b0b12';
+      g.fillRect(0, HOR, w, h - HOR);
+      // road: perspective bands scroll toward the camera
+      const bend = Math.sin(t * 0.5) * 24; // the course sways
+      for (let j = 14; j >= 1; j--) {
+        const z = j - ((t * 7) % 1);
+        const inv = 1 / z, inv2 = 1 / (z + 1);
+        const y1 = HOR + (h - HOR) * inv, y2 = HOR + (h - HOR) * inv2;
+        const x1 = w / 2 + bend * (1 - inv) * 2, x2 = w / 2 + bend * (1 - inv2) * 2;
+        const w1 = w * 0.62 * inv, w2 = w * 0.62 * inv2;
+        const alt = Math.floor(z + t * 7) % 2;
+        g.fillStyle = alt ? '#c23a3a' : '#d8d8e0';
+        g.beginPath();
+        g.moveTo(x2 - w2 * 1.12, y2); g.lineTo(x2 + w2 * 1.12, y2);
+        g.lineTo(x1 + w1 * 1.12, y1); g.lineTo(x1 - w1 * 1.12, y1);
+        g.fill();
+        g.fillStyle = alt ? '#26262e' : '#2a2a34';
+        g.beginPath();
+        g.moveTo(x2 - w2, y2); g.lineTo(x2 + w2, y2);
+        g.lineTo(x1 + w1, y1); g.lineTo(x1 - w1, y1);
+        g.fill();
+      }
+      // BATTER tanker ahead
+      const tz = 2.2 + Math.sin(t * 0.8) * 0.6, tin = 1 / tz;
+      const tw = 74 * tin, th = 46 * tin;
+      const tx = w / 2 + bend * (1 - tin) * 2 - 20 * tin, ty = HOR + (h - HOR) * tin;
+      g.fillStyle = '#3a3630';
+      g.fillRect(tx - tw / 2, ty - th, tw, th * 0.85);
+      g.fillStyle = '#ff3d3d';
+      g.fillRect(tx - tw * 0.42, ty - th * 0.3, tw * 0.08, th * 0.08);
+      g.fillRect(tx + tw * 0.34, ty - th * 0.3, tw * 0.08, th * 0.08);
+      if (tw > 20) {
+        g.font = '900 ' + tw * 0.16 + 'px Consolas, monospace';
+        g.textAlign = 'center';
+        g.fillStyle = '#d8d0b8';
+        g.fillText('BATTER', tx, ty - th * 0.45);
+      }
+      // the hero kart, weaving
+      const kx = w / 2 + Math.sin(t * 1.6) * 26;
+      const nitro = Math.floor(t / 2.6) % 2 === 1;
+      g.save();
+      g.translate(kx, h * 0.88);
+      g.rotate(Math.cos(t * 1.6) * 0.08);
+      if (nitro) {
+        g.fillStyle = '#ff8a3d';
+        g.fillRect(-3, 2, 6, 7 + Math.sin(t * 40) * 3);
+        g.fillStyle = '#ffe23a';
+        g.fillRect(-1.5, 2, 3, 5);
+      }
+      g.fillStyle = '#0c0c12';
+      g.fillRect(-13, -5, 5, 6); g.fillRect(8, -5, 5, 6);
+      g.fillStyle = '#0a7a3a';
+      g.fillRect(-10, -7, 20, 7);
+      g.fillStyle = '#39ff7a';
+      g.fillRect(-10, -7, 20, 2);
+      drawNug(g, 0, -11, 5, false);
+      g.fillStyle = '#39ff7a';
+      g.fillRect(-5, -16, 10, 4);
+      g.restore();
+      if (nitro) {
+        g.font = '900 13px Consolas, monospace';
+        g.fillStyle = '#ffe23a';
+        g.textAlign = 'center';
+        g.fillText('🌶️ NITRO', w / 2, h * 0.32);
+      } else if (Math.floor(t * 1.1) % 3 === 0) {
+        g.font = '900 11px Consolas, monospace';
+        g.fillStyle = '#39ff7a';
+        g.textAlign = 'center';
+        g.fillText('CHECKPOINT +16s', w / 2, h * 0.32);
+      }
     },
   };
 
