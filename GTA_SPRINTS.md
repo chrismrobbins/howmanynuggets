@@ -1050,3 +1050,50 @@ state); 61fps indoors; zero pageerrors. Screenshots eyeballed.
 **Gotcha:** `gta.ped` is null until the player actually exits the car —
 probes that force `gtaEnterInterior()` must build a ped first (copy the
 gtaExitCar shape).
+
+## Sprint 10.9.1 — TRY HARDER (2026-07-16, Beau's Claude) — interiors, for real
+
+Beau's verdict on 10.9's interior pass: "that is NOT upgraded graphics."
+He was right — at the ~300px pixel canvas (4×+ upscale), 1px props and
+0.05-alpha pools vanish; what remained was a giant flat checkerboard.
+Round two changes the SYSTEMS, not the trim:
+
+- **Darkness pass** (`gtaIntDarkness`): the room floods with per-venue
+  ambient gloom (club 0.62 purple-black, diner 0.52 warm, ammu 0.5 cool)
+  on a cached offscreen canvas, then every light source cuts a
+  destination-out radial hole — stage wash, pole spots, LED-floor washes,
+  candles, lanterns, fluorescents, the neon sign, the exit mat, dim house
+  lights over the seating, and ALWAYS one around the player. This one pass
+  is most of the perceived upgrade: rooms are now lit, not painted.
+  Fixture positions are computed once into arrays (lanterns/tubes) so the
+  holes and the post-darkness sprites can't drift apart.
+- **Real floors, zero checkerboard**: club = staggered dark hardwood
+  (seams/grain/knots/butt joints) + a 12px-cell LED dance floor cycling
+  GTA_NEON (rows 4-5 cols 5-16, hash-hot cells) + gold-edged red carpet
+  from door to floor (cols 11-12); diner = warm planks + greasy white
+  kitchen tile behind the counter (row 1) + red aisle runner (cols 8-9);
+  ammu = concrete slabs w/ expansion joints, oil stains, cracks + painted
+  safety walkway (cols 7-8). Zone coords are hand-tuned to the char maps —
+  if a room layout changes, update them.
+- **Depth**: perimeter walls extrude a 5px cap strip OUTWARD (GTA1-style
+  thickness, lit rim); the stage gets a slatted skirt face + drop shadow
+  with the marquee bulb row moved to its foot; spotlight cones
+  (`gtaIntCone`) pour onto each dancer; PA speaker stacks (pulsing
+  woofers) hang over the stage corners; smoke haze drifts over the club
+  floor; the diner got an exhaust hood over the pot line; ammu got an
+  exposed duct run above its fluorescents.
+- **Life** (`gta.intPeds`, spawned on enter / cleared on exit): full
+  WALKING peds indoors reusing gtaDrawPed — club: 3 dancers holding LED
+  cells (bob speed scales with tipHype), a barkeep pacing the bar, 4
+  wanderers; diner: aisle-running waiter + 2 wanderers; ammu: a browsing
+  customer + wanderer. Tiny brains in gtaStepInterior (wander/pace/dance,
+  gtaIntSolid collision, pauses); decorative only — no player collision,
+  no MP relay.
+
+**Verified headless:** same probe — 61fps indoors, zero pageerrors, rooms
+re-screenshotted and compared against Beau's complaint shot.
+
+**Lesson for future graphics rounds:** at this backing resolution the
+levers that read on screen are LIGHT (darkness + holes), pattern frequency
+(6-12px, not 1-2px), silhouettes, and MOTION (walking peds). Single-pixel
+detailing is invisible — don't bother.

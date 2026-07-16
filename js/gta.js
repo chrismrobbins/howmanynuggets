@@ -202,6 +202,7 @@ const gta = {
   mouse: null,           // {cx, cy, down} — point-mode drives toward the cursor
   interior: null,        // key into GTA_INTERIORS while indoors (the world outside freezes)
   intT: 0,               // interior animation clock
+  intPeds: [],           // decorative indoor extras: walkers/dancers/staff (10.9.1)
   tipCd: 0,              // stage-tip cooldown (the club appreciates restraint)
   tipHype: 0,            // > 0: the strips just got tipped and it SHOWS
   savedPos: null,        // where on the pavement we left the outside world
@@ -635,6 +636,7 @@ function syncGta() {
     gta.backing = false;
     gta.mouse = { cx: 0, cy: 0, down: false };
     gta.interior = null; gta.intT = 0; gta.tipCd = 0; gta.tipHype = 0; gta.savedPos = null;
+  gta.intPeds = [];
     try { gta.steerMode = localStorage.getItem('nugGtaSteer') === 'classic' ? 'classic' : 'point'; } catch (e) { gta.steerMode = 'point'; }
     try { gta.radioSt = Math.min(3, Math.max(0, +(localStorage.getItem('nugGtaRadio') || 0) || 0)); } catch (e) { gta.radioSt = 0; }
     try { gta.prog = Math.max(0, +(localStorage.getItem('nugGtaProg') || 0) || 0); } catch (e) { gta.prog = 0; }
@@ -2083,6 +2085,7 @@ function gtaEnterInterior(key) {
   gta.intT = 0;
   gta.tipCd = 0; gta.tipHype = 0;
   gta.hoodSaid = false;
+  gta.intPeds = gtaSpawnIntPeds(key);
   gta.ped.x = pts.exit.x; gta.ped.y = pts.exit.y - 18;
   gta.ped.vx = 0; gta.ped.vy = 0; gta.ped.a = -Math.PI / 2;
   gta.cam.x = gta.ped.x; gta.cam.y = gta.ped.y;
@@ -2095,6 +2098,7 @@ function gtaEnterInterior(key) {
 function gtaExitInterior() {
   if (!gta.interior || !gta.savedPos) return;
   gta.interior = null;
+  gta.intPeds = [];
   gta.ped.x = gta.savedPos.x; gta.ped.y = gta.savedPos.y; gta.ped.a = Math.PI / 2;
   gta.ped.vx = 0; gta.ped.vy = 0;
   gta.cam.x = gta.ped.x; gta.cam.y = gta.ped.y;
@@ -2131,6 +2135,36 @@ function gtaInteriorInteract() {
     gta.ammuCd = 45;
     gtaBanner('🔫 AMMU-NUGGET — ON THE HOUSE', 'go', 1.5);
   }
+}
+
+// Fabricate a venue's extras — gtaDrawPed-compatible objects with tiny
+// brains: 'wander' strolls between random floor points, 'pace' shuttles two
+// endpoints (staff), 'dance' holds a spot on the LED floor and feels it.
+function gtaSpawnIntPeds(key) {
+  const T = GTA_TILE, O = GTA_INT_ORIGIN, peds = [];
+  const mk = (mode, tx0, ty0, extra) => peds.push(Object.assign({
+    mode, x: O.x + tx0 * T, y: O.y + ty0 * T, hx: O.x + tx0 * T, hy: O.y + ty0 * T,
+    tx: O.x + tx0 * T, ty: O.y + ty0 * T, a: Math.PI / 2, t: Math.random() * 9,
+    spd: 24 + Math.random() * 12, pause: Math.random() * 2, leg: 0, seed: Math.random() * 7,
+    flee: 0, daze: 0,
+    col: GTA_PED_COLS[(Math.random() * GTA_PED_COLS.length) | 0],
+    outfit: GTA_PED_OUTFITS[(Math.random() * GTA_PED_OUTFITS.length) | 0],
+  }, extra || {}));
+  if (key === 'strip') {
+    mk('dance', 6.5, 4.6); mk('dance', 9, 5.4); mk('dance', 14.5, 4.6); // LED floor
+    mk('pace', 20.5, 1.6, { px0: O.x + 20.5 * T, py0: O.y + 1.6 * T,   // barkeep works the bar
+      px1: O.x + 20.5 * T, py1: O.y + 4.4 * T, col: '#e0b870', outfit: '#14161c' });
+    for (let i = 0; i < 4; i++) mk('wander', 3 + i * 4.5, 7 + (i % 2) * 3);
+  } else if (key === 'noodle') {
+    mk('pace', 3.5, 3.5, { px0: O.x + 3 * T, py0: O.y + 3.5 * T,       // waiter runs the aisle
+      px1: O.x + 14.5 * T, py1: O.y + 3.5 * T, col: '#f0cc8a', outfit: '#e8ecf4' });
+    mk('wander', 5.5, 5.5); mk('wander', 11.5, 7.5);
+  } else if (key === 'ammu') {
+    mk('pace', 2.5, 2.5, { px0: O.x + 2 * T, py0: O.y + 2.5 * T,       // a browsing customer
+      px1: O.x + 13 * T, py1: O.y + 2.5 * T });
+    mk('wander', 5.5, 5.5);
+  }
+  return peds;
 }
 
 // The indoor tick: room clock, heat drain, regen zones, ambient particles,
@@ -2197,6 +2231,38 @@ function gtaStepInterior(dt) {
   gta.cam.x += (tx - gta.cam.x) * Math.min(1, 8 * dt);
   gta.cam.y += (ty - gta.cam.y) * Math.min(1, 8 * dt);
 
+  // the extras live their little loops (decorative — no collision with you)
+  for (const q of gta.intPeds) {
+    if (q.mode === 'dance') {
+      q.t += dt * (1.7 + gta.tipHype * 0.5);
+      q.a = -Math.PI / 2 + Math.sin(q.t * 1.3 + q.seed) * 0.5;
+      q.x = q.hx + Math.sin(q.t * 2.6 + q.seed) * 3;
+      q.y = q.hy + Math.cos(q.t * 1.9 + q.seed * 2) * 2;
+      continue;
+    }
+    if (q.pause > 0) { q.pause -= dt; q.t = 0; continue; }
+    q.t += dt;
+    const qdx = q.tx - q.x, qdy = q.ty - q.y;
+    if (Math.hypot(qdx, qdy) < 2.5) {
+      q.pause = 0.5 + Math.random() * 2.5;
+      if (q.mode === 'pace') {
+        q.leg = q.leg ? 0 : 1;
+        q.tx = q.leg ? q.px1 : q.px0; q.ty = q.leg ? q.py1 : q.py0;
+      } else {
+        for (let k = 0; k < 10; k++) { // any spot the room map calls floor
+          const nx = O.x + T * 1.5 + Math.random() * (rw - T * 3);
+          const ny = O.y + T * 1.5 + Math.random() * (rh - T * 3);
+          if (!gtaIntSolid(nx, ny)) { q.tx = nx; q.ty = ny; break; }
+        }
+      }
+      continue;
+    }
+    q.a = Math.atan2(qdy, qdx);
+    const nx = q.x + Math.cos(q.a) * q.spd * dt, ny = q.y + Math.sin(q.a) * q.spd * dt;
+    if (gtaIntSolid(nx, ny)) { q.pause = 0.4; q.tx = q.x; q.ty = q.y; }
+    else { q.x = nx; q.y = ny; }
+  }
+
   if (window.GtaNet) GtaNet.onStep(dt);
 }
 
@@ -2209,6 +2275,45 @@ function gtaIntPool(g, x, y, rad, rgb, a) {
   gr.addColorStop(1, 'rgba(' + rgb + ',0)');
   g.fillStyle = gr;
   g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+}
+
+// Darkness pass: flood the room with its ambient gloom, then cut the light
+// back OUT with destination-out radials — one cached offscreen canvas, cheap
+// at the ~300px backing resolution. This is what makes the venues feel lit
+// instead of painted. lights: [{x, y, r, s}] where s = how fully it cuts.
+function gtaIntDarkness(g, W, Hh, base, lights) {
+  let lm = gta.lmCv;
+  if (!lm || lm.width !== W || lm.height !== Hh) {
+    lm = gta.lmCv = document.createElement('canvas');
+    lm.width = W; lm.height = Hh;
+    gta.lmG = lm.getContext('2d');
+  }
+  const lg = gta.lmG;
+  lg.globalCompositeOperation = 'source-over';
+  lg.clearRect(0, 0, W, Hh);
+  lg.fillStyle = base;
+  lg.fillRect(0, 0, W, Hh);
+  lg.globalCompositeOperation = 'destination-out';
+  for (const L of lights) {
+    const gr = lg.createRadialGradient(L.x, L.y, 1, L.x, L.y, L.r);
+    gr.addColorStop(0, 'rgba(0,0,0,' + (L.s == null ? 1 : L.s) + ')');
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    lg.fillStyle = gr;
+    lg.fillRect(L.x - L.r, L.y - L.r, L.r * 2, L.r * 2);
+  }
+  g.drawImage(lm, 0, 0);
+}
+
+// A soft spotlight cone (apex up top, spilling onto the boards below).
+function gtaIntCone(g, x, yTop, yBase, wBase, rgb, a) {
+  const gr = g.createLinearGradient(0, yTop, 0, yBase);
+  gr.addColorStop(0, 'rgba(' + rgb + ',' + a + ')');
+  gr.addColorStop(1, 'rgba(' + rgb + ',0)');
+  g.fillStyle = gr;
+  g.beginPath();
+  g.moveTo(x - 3, yTop); g.lineTo(x + 3, yTop);
+  g.lineTo(x + wBase / 2, yBase); g.lineTo(x - wBase / 2, yBase);
+  g.closePath(); g.fill();
 }
 
 // The room-facing side of a wall tile (top-down rooms show the south face of
@@ -2369,24 +2474,126 @@ function gtaDrawInterior() {
           g.fillStyle = 'rgba(255,220,150,0.15)';
           g.fillRect(x + 2, y + T - 5, T - 6, 2);
         }
+        // GTA1-style thickness: perimeter walls extrude a cap strip OUTWARD,
+        // so the room reads as carved out of the building instead of painted
+        const lastR = I.rows.length - 1, lastC = I.rows[tr].length - 1;
+        g.fillStyle = gtaShade(I.wall, 0.62);
+        if (tr === 0) g.fillRect(x, y - 5, T, 5);
+        if (tr === lastR) g.fillRect(x, y + T, T, 5);
+        if (tc === 0) g.fillRect(x - 5, y, 5, T);
+        if (tc === lastC) g.fillRect(x + T, y, 5, T);
+        if (tr === 0 && tc === 0) g.fillRect(x - 5, y - 5, 5, 5);
+        if (tr === 0 && tc === lastC) g.fillRect(x + T, y - 5, 5, 5);
+        if (tr === lastR && tc === 0) g.fillRect(x - 5, y + T, 5, 5);
+        if (tr === lastR && tc === lastC) g.fillRect(x + T, y + T, 5, 5);
+        g.fillStyle = gtaShade(I.wall, 1.55); // lit rim along the cap edge
+        if (tr === 0) g.fillRect(x, y - 5, T, 1);
+        if (tr === lastR) g.fillRect(x, y + T + 4, T, 1);
+        if (tc === 0) g.fillRect(x - 5, y, 1, T);
+        if (tc === lastC) g.fillRect(x + T + 4, y, 1, T);
         continue;
       }
-      g.fillStyle = ((tc + tr) & 1) ? I.floorA : I.floorB;
-      g.fillRect(x, y, T, T);
-      // lived-in floors: scuffs and stains where the hash says feet have been
+      // ---- floors: every venue gets real flooring, no more checkerboard ----
+      if (gta.interior === 'strip') {
+        // dark hardwood: staggered planks, grain, the odd knot
+        g.fillStyle = (tr & 1) ? '#20101a' : '#241320';
+        g.fillRect(x, y, T, T);
+        g.fillStyle = 'rgba(0,0,0,0.32)';
+        for (let k = 0; k < T; k += 6) g.fillRect(x, y + k, T, 1);          // plank seams
+        g.fillStyle = 'rgba(255,190,160,0.05)';
+        for (let k = 3; k < T; k += 6) g.fillRect(x, y + k, T, 1);          // grain catch
+        g.fillStyle = 'rgba(0,0,0,0.35)';
+        g.fillRect(x + 2 + ((hsh >>> 2) % 19), y + 1 + 6 * ((hsh >>> 5) % 4), 1, 4); // butt joints
+        if (hsh % 19 === 0) { g.fillStyle = '#150910'; g.fillRect(x + 3 + (hsh % 15), y + 3 + ((hsh >>> 4) % 15), 2, 2); }
+        if (ch === '.' && tr >= 4 && tr <= 5 && tc >= 5 && tc <= 16) {
+          // LED dance floor: 12px cells cycling the neon palette, some hot
+          g.fillStyle = '#0a060e';
+          g.fillRect(x, y, T, T);
+          for (let cy = 0; cy < 2; cy++) for (let cx = 0; cx < 2; cx++) {
+            const ci = tc * 2 + cx + (tr * 2 + cy) * 3;
+            g.fillStyle = GTA_NEON[(ci + ((t * 1.8) | 0)) % GTA_NEON.length];
+            g.globalAlpha = gtaHash(tc * 2 + cx, (tr * 2 + cy) * 31 + ((t * 1.8) | 0)) % 7 === 0 ? 0.8 : 0.26;
+            g.fillRect(x + cx * 12 + 1, y + cy * 12 + 1, 10, 10);
+          }
+          g.globalAlpha = 1;
+        } else if (tc >= 11 && tc <= 12 && tr >= 6 && tr <= 11) {
+          // red carpet from the door to the dance floor, gold-edged
+          g.fillStyle = '#4a0e1c';
+          g.fillRect(x, y, T, T);
+          g.fillStyle = '#5e1424';
+          g.fillRect(x + (tc === 11 ? 4 : 0), y, T - 4, T);
+          g.fillStyle = '#c2a53a';
+          if (tc === 11) g.fillRect(x + 2, y, 1, T);
+          if (tc === 12) g.fillRect(x + T - 3, y, 1, T);
+          if (hsh % 4 === 0) { g.fillStyle = 'rgba(255,220,230,0.06)'; g.fillRect(x + 5 + (hsh % 12), y + 4 + ((hsh >>> 3) % 14), 3, 2); }
+        }
+      } else if (gta.interior === 'noodle') {
+        if (tr === 1) {
+          // kitchen zone behind the counter: greasy white tile
+          g.fillStyle = '#8a8578';
+          g.fillRect(x, y, T, T);
+          g.fillStyle = '#767162';
+          for (let k = 0; k < T; k += 8) { g.fillRect(x + k, y, 1, T); g.fillRect(x, y + k, T, 1); }
+          if (hsh % 5 === 0) {
+            g.fillStyle = 'rgba(90,58,20,0.28)';
+            g.beginPath(); g.ellipse(x + 5 + (hsh % 13), y + 5 + ((hsh >>> 4) % 13), 4, 2.5, 0, 0, Math.PI * 2); g.fill();
+          }
+        } else {
+          // warm worn planks + the red aisle runner to the door
+          g.fillStyle = (tr & 1) ? '#2c1c10' : '#302014';
+          g.fillRect(x, y, T, T);
+          g.fillStyle = 'rgba(0,0,0,0.3)';
+          for (let k = 0; k < T; k += 6) g.fillRect(x, y + k, T, 1);
+          g.fillStyle = 'rgba(255,214,150,0.05)';
+          for (let k = 3; k < T; k += 6) g.fillRect(x, y + k, T, 1);
+          g.fillStyle = 'rgba(0,0,0,0.35)';
+          g.fillRect(x + 2 + ((hsh >>> 2) % 19), y + 1 + 6 * ((hsh >>> 5) % 4), 1, 4);
+          if (tc >= 8 && tc <= 9 && tr >= 3 && tr <= 8) {
+            g.fillStyle = '#6e1420';
+            g.fillRect(x, y, T, T);
+            g.fillStyle = '#7e1a28';
+            g.fillRect(x + (tc === 8 ? 4 : 0), y, T - 4, T);
+            g.fillStyle = '#ffd23a';
+            if (tc === 8) g.fillRect(x + 2, y, 1, T);
+            if (tc === 9) g.fillRect(x + T - 3, y, 1, T);
+          }
+        }
+      } else {
+        // ammu: poured concrete slabs, expansion joints, oil, old cracks
+        g.fillStyle = ((((tc >> 1) + (tr >> 1)) & 1) ? '#22262c' : '#242830');
+        g.fillRect(x, y, T, T);
+        g.fillStyle = 'rgba(0,0,0,0.3)';
+        if (!(tc & 1)) g.fillRect(x, y, 1, T);
+        if (!(tr & 1)) g.fillRect(x, y, T, 1);
+        if (hsh % 9 === 0) {
+          g.fillStyle = 'rgba(0,0,0,0.16)';
+          g.beginPath(); g.ellipse(x + 5 + (hsh % 13), y + 5 + ((hsh >>> 4) % 13), 6, 4, 0, 0, Math.PI * 2); g.fill();
+        }
+        if (hsh % 11 === 3) {
+          g.strokeStyle = 'rgba(0,0,0,0.2)';
+          g.lineWidth = 1;
+          g.beginPath(); g.moveTo(x + 3, y + 4 + (hsh % 15)); g.lineTo(x + T - 4, y + 4 + ((hsh >>> 3) % 15)); g.stroke();
+        }
+        if (tc >= 7 && tc <= 8 && tr >= 4 && tr <= 8) {
+          // painted safety walkway to the counter, scuffed to honesty
+          g.fillStyle = 'rgba(180,150,30,0.13)';
+          g.fillRect(x, y, T, T);
+          g.fillStyle = '#c2a53a';
+          if (tc === 7) for (let k = 0; k < T; k += 8) g.fillRect(x + 1, y + k, 2, 5);
+          if (tc === 8) for (let k = 4; k < T; k += 8) g.fillRect(x + T - 3, y + k, 2, 5);
+        }
+      }
+      // scuffs where the hash says feet have been
       if (hsh % 13 === 0) {
         g.fillStyle = 'rgba(0,0,0,0.10)';
         g.beginPath(); g.ellipse(x + 4 + (hsh % 15), y + 4 + ((hsh >>> 4) % 15), 5, 3, 0, 0, Math.PI * 2); g.fill();
       }
-      if (gta.interior === 'ammu' && hsh % 11 === 3) {  // cracked concrete
-        g.strokeStyle = 'rgba(0,0,0,0.18)';
-        g.lineWidth = 1;
-        g.beginPath(); g.moveTo(x + 3, y + 4 + (hsh % 15)); g.lineTo(x + T - 4, y + 4 + ((hsh >>> 3) % 15)); g.stroke();
-      }
       // contact shadow where the floor meets the wall above it
       if (tr > 0 && I.rows[tr - 1][tc] === '#') {
-        g.fillStyle = 'rgba(0,0,0,0.22)';
-        g.fillRect(x, y, T, 4);
+        g.fillStyle = 'rgba(0,0,0,0.3)';
+        g.fillRect(x, y, T, 3);
+        g.fillStyle = 'rgba(0,0,0,0.16)';
+        g.fillRect(x, y + 3, T, 3);
       }
       if (ch === 'S' || ch === 'P') {         // the stage: raised, lacquered, lit
         g.fillStyle = '#3a2410';
@@ -2552,13 +2759,22 @@ function gtaDrawInterior() {
     g.fillStyle = shG;
     g.fillRect(sx0, sy0, sx1 - sx0, sy1 - sy0);
     g.restore();
+    // the stage stands PROUD of the boards: skirt face, slats, drop shadow
+    g.fillStyle = '#1a0d06';
+    g.fillRect(sx0, sy1, sx1 - sx0, 7);
+    g.fillStyle = '#2e1a0c';
+    g.fillRect(sx0 + 1, sy1, sx1 - sx0 - 2, 6);
+    g.fillStyle = 'rgba(0,0,0,0.35)';
+    for (let vx = sx0 + 6; vx < sx1; vx += 8) g.fillRect(vx, sy1, 1, 6);
+    g.fillStyle = 'rgba(0,0,0,0.3)';
+    g.fillRect(sx0, sy1 + 7, sx1 - sx0, 3); // shadow cast onto the dance floor
     // marquee bulbs chasing around the runway edge
     let bi = 0;
     const bulb = (bx, by) => {
       g.fillStyle = (bi++ + ((t * 7) | 0)) % 3 === 0 ? '#fff3b0' : 'rgba(255,180,120,0.35)';
       g.fillRect(bx - 1, by - 1, 2, 2);
     };
-    for (let bx = sx0; bx <= sx1; bx += 10) bulb(bx, sy1);
+    for (let bx = sx0; bx <= sx1; bx += 10) bulb(bx, sy1 + 7);
     for (let by = sy0 + 10; by <= sy1; by += 10) { bulb(sx0, by); bulb(sx1, by); }
     // floor spots sweeping the room
     const DISCO = ['rgba(255,47,160,0.10)', 'rgba(58,212,255,0.10)', 'rgba(57,255,122,0.08)', 'rgba(255,226,58,0.08)'];
@@ -2591,16 +2807,8 @@ function gtaDrawInterior() {
     // spotlight sweep across the stage
     const spx = scx + Math.sin(t * 0.8) * (sx1 - sx0) * 0.34;
     gtaIntPool(g, spx, scy, 22, '255,240,190', 0.22);
-    // neon sign on the back wall, mostly on
-    const flick = ((t * 11) | 0) % 23 === 0 ? 0.35 : 1;
-    g.font = 'italic 900 9px Georgia, serif';
-    g.textAlign = 'center';
-    g.fillStyle = 'rgba(255,47,160,' + (0.3 * flick).toFixed(2) + ')';
-    g.fillText('C H I C K E N  S T R I P', scx, sy0 - T * 0.4 + 1);
-    g.fillStyle = 'rgba(255,171,214,' + flick.toFixed(2) + ')';
-    g.fillText('C H I C K E N  S T R I P', scx, sy0 - T * 0.4);
-    g.textAlign = 'left';
     // house lighting: warm at the poles, pink over VIP, amber along the bar
+    // (the CHICKEN STRIP neon itself is drawn after the darkness pass)
     for (const pol of pts.poles) gtaIntPool(g, pol.x - ox, pol.y - oy, 26, '255,190,120', 0.10);
     if (pts.vip) gtaIntPool(g, pts.vip.x - ox, pts.vip.y - oy, 30, '255,47,160', 0.07);
     for (let i = 0; i < pts.bars.length; i += 3) gtaIntPool(g, pts.bars[i].x - ox, pts.bars[i].y - oy, 20, '255,200,120', 0.05);
@@ -2737,44 +2945,8 @@ function gtaDrawInterior() {
     if (h % 4 === 1) gtaDrawSeated(g, tb.x - ox, tb.y - oy + 11, GTA_PED_COLS[(h >>> 3) % 5], GTA_PED_OUTFITS[(h >>> 5) % 9], t + h % 5, false);
   }
 
-  // overhead fixtures hang above the cast: lanterns in the diner, tubes at ammu
-  if (gta.interior === 'noodle') {
-    const roomW = I.rows[0].length * T;
-    for (let li = 0; li < 2; li++) {
-      const ly = O.y + (3.4 + li * 2.8) * T - oy;
-      for (let lx = T * 2.5; lx < roomW - T * 1.5; lx += T * 3.5) {
-        const sw = Math.sin(t * 1.4 + lx * 0.05 + li * 2) * 1.6;
-        const px = O.x + lx - ox + sw;
-        gtaIntPool(g, px, ly + 4, 18, '255,140,60', 0.08);
-        g.strokeStyle = 'rgba(0,0,0,0.4)'; // string, still swinging a little
-        g.lineWidth = 1;
-        g.beginPath(); g.moveTo(px - sw, ly - 9); g.lineTo(px, ly - 4); g.stroke();
-        g.fillStyle = '#c23a3a';           // paper lantern
-        g.beginPath(); g.ellipse(px, ly, 3, 3.6, 0, 0, Math.PI * 2); g.fill();
-        g.fillStyle = '#e05252';
-        g.beginPath(); g.ellipse(px - 0.8, ly, 1.2, 3, 0, 0, Math.PI * 2); g.fill();
-        g.fillStyle = 'rgba(0,0,0,0.35)';  // caps
-        g.fillRect(px - 1.5, ly - 4.5, 3, 1.2); g.fillRect(px - 1.5, ly + 3.4, 3, 1.2);
-        g.fillStyle = '#ffd23a';           // tassel
-        g.fillRect(px - 0.5, ly + 4.6, 1, 2);
-      }
-    }
-  }
-  if (gta.interior === 'ammu') {
-    const roomW = I.rows[0].length * T;
-    for (let li = 0; li < 2; li++) {
-      const ly = O.y + (2.6 + li * 3.4) * T - oy;
-      const flick = gtaHash(li, (t * 9) | 0) % 13 === 0 ? 0.25 : 0.75; // one ballast is dying
-      for (let lx = T * 1.5; lx < roomW - T * 2.5; lx += T * 4) {
-        const px = O.x + lx - ox;
-        g.fillStyle = 'rgba(150,190,255,' + (flick * 0.2).toFixed(2) + ')';
-        g.fillRect(px - 3, ly - 2, T * 2 + 6, 6);
-        g.fillStyle = 'rgba(210,230,255,' + flick.toFixed(2) + ')';
-        g.fillRect(px, ly, T * 2, 2);
-        gtaIntPool(g, px + T, ly + 5, 24, '170,205,255', 0.05);
-      }
-    }
-  }
+  // the extras: full walking peds — the same rig as the street outside
+  for (const q of gta.intPeds) gtaDrawPed(g, q.x - ox, q.y - oy, q, false);
 
   // EXIT mat label
   if (pts.exit) {
@@ -2811,6 +2983,150 @@ function gtaDrawInterior() {
   // the street render — it filters to players sharing our interior.
   if (window.GtaNet) GtaNet.drawRemotes(g, ox, oy, W, Hh);
   gtaDrawPed(g, gta.ped.x - ox, gta.ped.y - oy, gta.ped, true);
+
+  // ---- darkness + the lights that beat it back ---------------------------
+  // Fixture positions are computed here, holes are cut for each, and the
+  // fixtures themselves are drawn AFTER the darkness — they hang above it.
+  const LTS = [{ x: gta.ped.x - ox, y: gta.ped.y - oy, r: 30, s: 0.8 }];
+  if (pts.exit) LTS.push({ x: pts.exit.x - ox, y: pts.exit.y - oy, r: 22, s: 0.85 });
+  let dark = 'rgba(10,3,16,0.62)';
+  const lanterns = [], tubes = [];
+  if (gta.interior === 'strip' && pts.stage) {
+    const sx0 = pts.stage.x0 - ox, sy0 = pts.stage.y0 - oy;
+    const sx1 = pts.stage.x1 - ox, sy1 = pts.stage.y1 - oy;
+    const scx = (sx0 + sx1) / 2, scy = (sy0 + sy1) / 2;
+    LTS.push({ x: scx, y: scy, r: (sx1 - sx0) * 0.5, s: 0.95 });
+    for (const pol of pts.poles) LTS.push({ x: pol.x - ox, y: pol.y - oy, r: 24, s: 0.9 });
+    if (pts.dj) LTS.push({ x: pts.dj.x - ox, y: pts.dj.y - oy, r: 22, s: 0.7 });
+    if (pts.vip) LTS.push({ x: pts.vip.x - ox, y: pts.vip.y - oy, r: 28, s: 0.8 });
+    if (pts.bars.length) {
+      const b0 = pts.bars[0], bm = pts.bars[Math.floor(pts.bars.length / 2)], b1 = pts.bars[pts.bars.length - 1];
+      LTS.push({ x: b0.x - ox, y: b0.y - oy, r: 26, s: 0.75 }, { x: bm.x - ox, y: bm.y - oy, r: 26, s: 0.75 },
+                { x: b1.x - ox, y: b1.y - oy, r: 26, s: 0.75 });
+    }
+    LTS.push({ x: O.x + 8.5 * T - ox, y: O.y + 5 * T - oy, r: 34, s: 0.8 });   // LED floor washes
+    LTS.push({ x: O.x + 13.5 * T - ox, y: O.y + 5 * T - oy, r: 34, s: 0.8 });
+    LTS.push({ x: scx, y: sy0 - T * 0.4, r: 26, s: 0.55 });                    // the neon sign
+    LTS.push({ x: O.x + 6 * T - ox, y: O.y + 8.5 * T - oy, r: 44, s: 0.45 }); // dim house lights
+    LTS.push({ x: O.x + 16 * T - ox, y: O.y + 8.5 * T - oy, r: 44, s: 0.45 }); // over the seating
+    for (const tb of pts.tables) LTS.push({ x: tb.x - ox, y: tb.y - oy, r: 15, s: 0.55 }); // candles
+  } else if (gta.interior === 'noodle') {
+    dark = 'rgba(18,9,3,0.52)';
+    const roomW = I.rows[0].length * T;
+    for (let li = 0; li < 2; li++) {
+      const ly = O.y + (3.4 + li * 2.8) * T - oy;
+      for (let lx = T * 2.5; lx < roomW - T * 1.5; lx += T * 3.5) {
+        const sw = Math.sin(t * 1.4 + lx * 0.05 + li * 2) * 1.6;
+        lanterns.push({ x: O.x + lx - ox + sw, y: ly, sw });
+        LTS.push({ x: O.x + lx - ox + sw, y: ly + 6, r: 26, s: 0.85 });
+      }
+    }
+    for (const o of pts.pots) LTS.push({ x: o.x - ox, y: o.y - oy, r: 20, s: 0.7 });
+    LTS.push({ x: O.x + roomW / 2 - ox, y: O.y + T * 0.62 - oy, r: 20, s: 0.55 }); // menu board
+    for (const tb of pts.tables) LTS.push({ x: tb.x - ox, y: tb.y - oy, r: 13, s: 0.45 });
+  } else if (gta.interior === 'ammu') {
+    dark = 'rgba(5,9,16,0.5)';
+    const roomW = I.rows[0].length * T;
+    for (let li = 0; li < 2; li++) {
+      const ly = O.y + (2.6 + li * 3.4) * T - oy;
+      const flick = gtaHash(li, (t * 9) | 0) % 13 === 0 ? 0.25 : 0.75; // one ballast is dying
+      for (let lx = T * 1.5; lx < roomW - T * 2.5; lx += T * 4) {
+        tubes.push({ x: O.x + lx - ox, y: ly, flick });
+        LTS.push({ x: O.x + lx - ox + T, y: ly + 5, r: 40, s: flick + 0.15 });
+      }
+    }
+    for (const d of pts.disp) LTS.push({ x: d.x - ox, y: d.y - oy, r: 16, s: 0.6 });
+    if (pts.target) LTS.push({ x: pts.target.x - ox, y: pts.target.y - oy, r: 18, s: 0.6 });
+    if (pts.bars.length) {
+      const b = pts.bars[Math.floor(pts.bars.length / 2)];
+      LTS.push({ x: b.x - ox, y: b.y - oy, r: 24, s: 0.65 });
+    }
+  }
+  gtaIntDarkness(g, W, Hh, dark, LTS);
+
+  // ---- above the darkness: hanging fixtures, beams, haze -----------------
+  if (gta.interior === 'strip' && pts.stage) {
+    const sx0 = pts.stage.x0 - ox, sy0 = pts.stage.y0 - oy;
+    const sx1 = pts.stage.x1 - ox;
+    const scx = (sx0 + sx1) / 2;
+    for (const pol of pts.poles) { // spotlight cones onto the runway
+      gtaIntCone(g, pol.x - ox, pol.y - oy - 26, pol.y - oy + 9, 30, '255,230,170', 0.2);
+    }
+    // the neon sign burns through the gloom
+    const flick = ((t * 11) | 0) % 23 === 0 ? 0.35 : 1;
+    g.font = 'italic 900 9px Georgia, serif';
+    g.textAlign = 'center';
+    g.fillStyle = 'rgba(255,47,160,' + (0.3 * flick).toFixed(2) + ')';
+    g.fillText('C H I C K E N  S T R I P', scx, sy0 - T * 0.4 + 1);
+    g.fillStyle = 'rgba(255,171,214,' + flick.toFixed(2) + ')';
+    g.fillText('C H I C K E N  S T R I P', scx, sy0 - T * 0.4);
+    g.textAlign = 'left';
+    const spk = (px, py) => { // PA stacks hang over the stage corners
+      g.strokeStyle = 'rgba(0,0,0,0.6)';
+      g.lineWidth = 1;
+      g.beginPath(); g.moveTo(px, py - 8); g.lineTo(px, py); g.stroke();
+      g.fillStyle = '#0e1014';
+      g.fillRect(px - 5, py, 10, 13);
+      g.fillStyle = '#1c2026';
+      g.fillRect(px - 4, py + 1, 8, 11);
+      const pu = Math.abs(Math.sin(t * 6.2));
+      g.fillStyle = '#060409';
+      g.beginPath(); g.arc(px, py + 5, 2.6, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(px, py + 10, 1.6, 0, Math.PI * 2); g.fill();
+      g.fillStyle = 'rgba(120,130,150,' + (0.35 * pu).toFixed(2) + ')'; // the woofer works
+      g.beginPath(); g.arc(px, py + 5, 1 + pu * 1.2, 0, Math.PI * 2); g.fill();
+    };
+    spk(sx0 + 7, sy0 - 5); spk(sx1 - 7, sy0 - 5);
+    for (let i = 0; i < 3; i++) { // slow smoke haze over the floor
+      const hx = scx + Math.sin(t * 0.11 + i * 2.6) * (sx1 - sx0) * 0.45;
+      const hy = sy0 + 60 + Math.cos(t * 0.09 + i * 1.9) * 28;
+      g.fillStyle = 'rgba(200,180,220,0.04)';
+      g.beginPath(); g.ellipse(hx, hy, 46, 16, 0, 0, Math.PI * 2); g.fill();
+    }
+  }
+  if (gta.interior === 'noodle') {
+    for (const ln of lanterns) { // paper lanterns swing over the room
+      g.strokeStyle = 'rgba(0,0,0,0.4)';
+      g.lineWidth = 1;
+      g.beginPath(); g.moveTo(ln.x - ln.sw, ln.y - 9); g.lineTo(ln.x, ln.y - 4); g.stroke();
+      g.fillStyle = '#c23a3a';
+      g.beginPath(); g.ellipse(ln.x, ln.y, 3, 3.6, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#e05252';
+      g.beginPath(); g.ellipse(ln.x - 0.8, ln.y, 1.2, 3, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = 'rgba(255,220,150,0.5)'; // lit from inside
+      g.fillRect(ln.x - 1, ln.y - 1, 2, 2);
+      g.fillStyle = 'rgba(0,0,0,0.35)';
+      g.fillRect(ln.x - 1.5, ln.y - 4.5, 3, 1.2); g.fillRect(ln.x - 1.5, ln.y + 3.4, 3, 1.2);
+      g.fillStyle = '#ffd23a';
+      g.fillRect(ln.x - 0.5, ln.y + 4.6, 1, 2);
+    }
+    if (pts.pots.length) { // the exhaust hood earns its keep
+      const p0 = pts.pots[0], p1 = pts.pots[pts.pots.length - 1];
+      const hx0 = p0.x - ox - 12, hx1 = p1.x - ox + 12, hy = p0.y - oy - 15;
+      g.fillStyle = '#343a44';
+      g.beginPath(); g.moveTo(hx0, hy); g.lineTo(hx1, hy); g.lineTo(hx1 - 6, hy - 7); g.lineTo(hx0 + 6, hy - 7); g.closePath(); g.fill();
+      g.fillStyle = '#465060';
+      g.fillRect(hx0, hy - 1, hx1 - hx0, 2);
+      g.fillStyle = '#20242e'; // grease filters
+      for (let fx = hx0 + 8; fx < hx1 - 8; fx += 10) g.fillRect(fx, hy - 6, 6, 4);
+    }
+  }
+  if (gta.interior === 'ammu') {
+    const roomW = I.rows[0].length * T;
+    const dy = O.y + 0.85 * T - oy; // exposed HVAC: retail's natural habitat
+    g.fillStyle = '#2c323a';
+    g.fillRect(O.x + T - ox, dy, roomW - 2 * T, 6);
+    g.fillStyle = '#3e4650';
+    g.fillRect(O.x + T - ox, dy, roomW - 2 * T, 2);
+    g.fillStyle = '#1c2026';
+    for (let k = T * 2; k < roomW - T * 2; k += 20) g.fillRect(O.x + k - ox, dy - 1, 2, 8);
+    for (const tb of tubes) { // fluorescent tubes under the duct line
+      g.fillStyle = 'rgba(150,190,255,' + (tb.flick * 0.2).toFixed(2) + ')';
+      g.fillRect(tb.x - 3, tb.y - 2, T * 2 + 6, 6);
+      g.fillStyle = 'rgba(210,230,255,' + tb.flick.toFixed(2) + ')';
+      g.fillRect(tb.x, tb.y, T * 2, 2);
+    }
+  }
 
   // vignette (shared with the street)
   if (gta.vign && gta.vignW === W && gta.vignH === Hh) {
