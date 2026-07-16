@@ -30,7 +30,12 @@
 // out both windows, AMMU-NUGGET restocks the belt in Little Batter, and
 // blowing things up finally PAYS — small, risky $$$, plus all the heat
 // you ordered. Getting busted confiscates the lot.
-// The syndicate arrives in later sprints (see GTA_SPRINTS.md).
+// Sprint 7 (THE SYNDICATE, ACT 1): the phones start ringing. Answer a booth
+// on E and S.W. puts you to work — six contracts (deliveries gone wrong, a
+// tanker heist, tailing Detective Dill, arson with a one-fryer policy, an
+// ambush, and an evidence van outside NPD HQ). Objective chains with markers,
+// timers, and fail states; progress persists in localStorage (nugGtaProg).
+// The harbor job arrives in Sprint 8 (see GTA_SPRINTS.md).
 //
 // Rendering is the low-res pixel canvas trick from Battered Brawlers / Fast
 // Food: a ~300px-tall backing store scaled up with image-rendering: pixelated.
@@ -144,6 +149,13 @@ const gta = {
   nades: [],             // dip grenades in flight: {x, y, vx, vy, t}
   wtoastT: 0,            // weapon-switch toast timer
   ammuCd: 0,             // AMMU-NUGGET loyalty-program cooldown
+  prog: 0,               // contracts completed (persisted: nugGtaProg)
+  mission: null,         // the live contract: {def, si, st, time, mk, warn}
+  booths: [],            // phone booths: {c, r} — S.W. calls collect
+  boothRing: false,      // a booth is ringing this frame
+  ringCd: 0,             // quiet period after a dropped contract
+  briefT: 0,             // mission brief card timer
+  pierRows: [],          // the two pier rows from gen (missions + S8 use these)
   cam: { x: 0, y: 0 },
   keys: {},
   handbrake: false,
@@ -280,6 +292,7 @@ function gtaBuildCity() {
   // The glow in the bay, just past the north pier's end. THE CATCH INCIDENT
   // canon: the stolen storm is alive down there. Look. Don't touch.
   gta.stormSpot = { x: (GTA_W - 2.5) * GTA_TILE, y: (piers[0] + 4.5) * GTA_TILE };
+  gta.pierRows = piers; // missions reference the piers by row
 
   // Landmarks: enumerate buildable block interiors, snap each landmark to
   // the nearest block in its district, claim the tiles.
@@ -371,6 +384,29 @@ function gtaBuildCity() {
     am++;
   }
 
+  // Phone booths (Sprint 7): S.W. calls collect. Four planted on landmark
+  // curbs, two seeded wherever the copper reaches. Append-only rnd() as ever
+  // — the city must not move.
+  gta.booths = [];
+  for (const key of ['arcade', 'noodle', 'garage', 'npd']) {
+    const L = gta.landmarks[key];
+    if (!L) continue;
+    for (const [bc, br] of [[L.vLeft + 2, L.r + 3], [L.vLeft + 2, L.r], [L.c + 1, L.hTop + 2]]) {
+      if (map[br * GTA_W + bc] === GT_WALK &&
+          !gta.noodleCarts.some((c2) => c2.c === bc && c2.r === br)) {
+        gta.booths.push({ c: bc, r: br });
+        break;
+      }
+    }
+  }
+  let bs = 0;
+  while (bs < 2 && guard++ < 60000) {
+    const tc = Math.floor(rnd() * GTA_W), tr = Math.floor(rnd() * GTA_H);
+    if (tc >= SHORE || map[tr * GTA_W + tc] !== GT_WALK) continue;
+    gta.booths.push({ c: tc, r: tr });
+    bs++;
+  }
+
   // The minimap is painted once at gen time, 1px per tile; the HUD blits a
   // radar window from it every frame. Never repaint this per frame.
   const mini = document.createElement('canvas');
@@ -392,6 +428,8 @@ function gtaBuildCity() {
   for (const L of gta.lmList) { mg.fillStyle = L.accent; mg.fillRect(L.c, L.r, L.w, L.h); }
   mg.fillStyle = '#ff2fa0';
   for (const c of gta.noodleCarts) mg.fillRect(c.c, c.r, 1, 1);
+  mg.fillStyle = '#3ad4ff';
+  for (const b of gta.booths) mg.fillRect(b.c, b.r, 1, 1);
   mg.fillStyle = '#ffd23a';
   mg.fillRect(Math.floor(gta.stormSpot.x / GTA_TILE) - 1, Math.floor(gta.stormSpot.y / GTA_TILE) - 1, 2, 2);
   gta.mini = mini;
@@ -477,6 +515,8 @@ function syncGta() {
     gta.wsel = 0; gta.fireCd = 0; gta.fireHeld = false; gta.firePress = false;
     gta.shots = []; gta.nades = [];
     gta.wtoastT = 0; gta.ammuCd = 0;
+    gta.mission = null; gta.briefT = 0; gta.ringCd = 0; gta.boothRing = false;
+    try { gta.prog = Math.max(0, +(localStorage.getItem('nugGtaProg') || 0) || 0); } catch (e) { gta.prog = 0; }
     gta.car.cls = 'compact';
     gta.car.col = '#c23a3a';
     gta.car.hp = GTA_CLASSES.compact.hp;
@@ -852,6 +892,7 @@ function gtaDamagePlayerCar(amt) {
     gta.hurtI = 1.2;
     const wreck = {
       x: car.x, y: car.y, a: car.a, dir: 0, v: 0, cls: car.cls, col: car.col,
+      mis: car.mis, misKey: car.misKey,
       hp: 1, parked: true, wreck: false, nd: null, blockT: 0, hitT: 0, emberT: 0,
     };
     gta.cars.push(wreck);
@@ -863,6 +904,7 @@ function gtaWasted() {
   gta.wastedT = 2.4;
   gta.keys = {};
   gta.handbrake = false;
+  gtaMissionFail('🍗 WASTED'); // S.W. does not pay hospital bills
   gtaBanner('🍗 WASTED', 'heat', 2.2);
 }
 
@@ -877,7 +919,7 @@ function gtaRespawn() {
   gta.heat = 0; // the NPD doesn't bill hospital beds
   gta.bustT = 0;
   gta.tiresOut = false;
-  for (const o of gta.cars) if (o.chase) { o.chase = false; o.parked = true; o.v = 0; }
+  for (const o of gta.cars) if (o.chase && o.cop) { o.chase = false; o.parked = true; o.v = 0; }
   gta.cam.x = gta.ped.x; gta.cam.y = gta.ped.y;
   gtaBanner('🏥 NUGGET GENERAL', 'go', 1.6);
 }
@@ -888,6 +930,7 @@ function gtaNearestCar(x, y, range) {
   let best = null, bd = range * range;
   for (const o of gta.cars) {
     if (o.wreck) continue;
+    if (o.mis && o.misKey !== 'cargo') continue; // mission doors are locked
     const d2 = (o.x - x) * (o.x - x) + (o.y - y) * (o.y - y);
     if (d2 < bd) { bd = d2; best = o; }
   }
@@ -910,6 +953,7 @@ function gtaEnterCar(best, fromX, fromY) {
   }
   gta.car = { x: best.x, y: best.y, a: best.a, vx: 0, vy: 0, cls: best.cls, col: best.col, hp: best.hp };
   gta.car.cop = best.cop; // driving a jacked cruiser keeps the livery
+  gta.car.mis = best.mis; gta.car.misKey = best.misKey; // cargo rides with you
   gta.cars.splice(gta.cars.indexOf(best), 1);
   gta.onFoot = false;
   gta.tiresOut = false; // different car, different tires
@@ -920,6 +964,7 @@ function gtaParkPlayerCar() {
   const car = gta.car;
   gta.cars.push({
     x: car.x, y: car.y, a: car.a, dir: 0, v: 0, cls: car.cls, col: car.col, hp: car.hp,
+    cop: car.cop, mis: car.mis, misKey: car.misKey,
     parked: true, wreck: false, nd: null, blockT: 0, hitT: 0, emberT: 0,
   });
 }
@@ -931,7 +976,9 @@ function gtaInteract() {
   if (gta.onFoot) {
     const best = gtaNearestCar(gta.ped.x, gta.ped.y, 26);
     if (best) { gtaEnterCar(best, gta.ped.x, gta.ped.y); return; }
-    // no door in reach — maybe a counter: AMMU-NUGGET's loyalty program
+    // no door in reach — a ringing phone beats a shopping trip
+    if (gtaTryBooth(gta.ped.x, gta.ped.y, 26)) return;
+    // maybe a counter: AMMU-NUGGET's loyalty program
     const A = gta.landmarks.ammu;
     if (A && gta.ammuCd <= 0) {
       const T = GTA_TILE;
@@ -950,6 +997,7 @@ function gtaInteract() {
   }
   const car = gta.car;
   if (Math.hypot(car.vx, car.vy) > 55) return; // this isn't an action movie
+  if (Math.hypot(car.vx, car.vy) < 40 && gtaTryBooth(car.x, car.y, 40)) return; // curbside pickup
   const best = gtaNearestCar(car.x, car.y, 34);
   if (best) {
     gtaParkPlayerCar();
@@ -1024,7 +1072,9 @@ function gtaStepChaser(o, dt) {
   o.a += Math.max(-3.4 * dt, Math.min(3.4 * dt, da));
 
   // Bust posture: pull up next to a slow target instead of flattening it.
-  const targetV = (pSlow && dist < 46) ? 0 : C.maxFwd * (0.7 + 0.055 * gtaStars());
+  // Syndicate hostiles (Sprint 7) don't do posture — they only know the ram.
+  const targetV = (o.cop && pSlow && dist < 46) ? 0
+    : C.maxFwd * (o.cop ? 0.7 + 0.055 * gtaStars() : 0.82);
   o.v += (targetV - o.v) * Math.min(1, 2.4 * dt);
 
   const nx = o.x + Math.cos(o.a) * o.v * dt;
@@ -1086,6 +1136,7 @@ function gtaBusted() {
   gta.bustedT = 2.4;
   gta.keys = {};
   gta.handbrake = false;
+  gtaMissionFail('🚔 BUSTED'); // S.W. does not post bail either
   if (!gta.onFoot) {
     // the ride gets impounded where it stands; you get the walk of shame
     gtaParkPlayerCar();
@@ -1106,7 +1157,7 @@ function gtaBustedRespawn() {
   // evidence locker keeps the lot
   gta.ammo = { pistol: 0, uzi: 0, flamer: 0, nade: 0 };
   gta.wsel = 0;
-  for (const o of gta.cars) if (o.chase) { o.chase = false; o.parked = true; o.v = 0; }
+  for (const o of gta.cars) if (o.chase && o.cop) { o.chase = false; o.parked = true; o.v = 0; }
   gta.cam.x = gta.ped.x; gta.cam.y = gta.ped.y;
   gtaBanner('🏛️ NPD HQ — RELEASED', 'go', 1.6);
 }
@@ -1171,7 +1222,8 @@ function gtaFinishRespray() {
   gta.tiresOut = false;
   gta.car.hp = GTA_CLASSES[gta.car.cls].hp;
   gta.sprayCd = 30;
-  for (const o of gta.cars) if (o.chase) { o.chase = false; o.parked = true; o.v = 0; }
+  // the mist fools the NPD; syndicate hostiles are not paid to be fooled
+  for (const o of gta.cars) if (o.chase && o.cop) { o.chase = false; o.parked = true; o.v = 0; }
   gtaBanner('✨ CLEAN SLATE', 'go', 1.4);
 }
 
@@ -1265,6 +1317,267 @@ function gtaNadeBoom(x, y) {
   if (!gta.onFoot && Math.abs(gta.car.x - x) < 30 && Math.abs(gta.car.y - y) < 30) gtaDamagePlayerCar(55);
   if (gta.onFoot && Math.abs(gta.ped.x - x) < 28 && Math.abs(gta.ped.y - y) < 28) gtaHurtPlayer(55);
   gtaAddHeat(0.3);
+}
+
+// ---- THE SYNDICATE (missions) -----------------------------------------------------------
+// Phone booths ring when S.W. has work. Answer on E — on foot or idling at the
+// curb — and the contract starts cold: a chain of typed steps driven from
+// gtaStepWorld with a gold marker, timers, and ways to blow it. WASTED or
+// BUSTED drops the contract; the phone always rings again. Completed jobs
+// persist in localStorage (nugGtaProg). Act 2 lands in Sprint 8.
+
+function gtaLmCurb(key) { // the road centerline on a landmark's west curb
+  const L = gta.landmarks[key];
+  return { x: (L.vLeft + 1) * GTA_TILE, y: (L.r + 1) * GTA_TILE };
+}
+
+function gtaShorePoint(row) { // the shore road, level with a pier row
+  return { x: (GTA_W - 15) * GTA_TILE, y: (row + 1) * GTA_TILE };
+}
+
+// Step kinds: go (reach the marker; needCar = arrive driving that cargo),
+// jack (get behind the wheel of the spawned cargo), kill (wreck every
+// 'target'), tail (shadow 'dill' — not too close, not too far), escape
+// (get the stars to zero). spawn specs run at step start; done() on advance.
+const GTA_MISSIONS = [
+  {
+    key: 'errand', title: 'THE ERRAND',
+    brief: '"first job. a package is waiting on the curb at SAUCE WORKS. bring it to the NUGGET GENERAL loading dock. don\'t open it, don\'t weigh it, don\'t ask why a hospital." — S.W.',
+    reward: 220,
+    steps: [
+      { kind: 'go', text: 'PICK UP THE PACKAGE 📦', at: () => gtaLmCurb('sauce'), r: 30,
+        done: () => { gtaAddHeat(1.1); gtaBanner('🚨 SOMEBODY SAW THAT', 'heat', 1.4); } },
+      { kind: 'go', text: 'DELIVER IT — NUGGET GENERAL 🏥', at: () => gtaLmCurb('general'), r: 30, time: 95 },
+    ],
+    outro: '"delivered warm. the hospital thing is a tax matter. more work soon." — S.W.',
+  },
+  {
+    key: 'fullfat', title: 'FULL FAT',
+    brief: '"one of OUR tankers is parked at the GREASE GARAGE looking decorative. it should be looking profitable. bring it to SAUCE WORKS — with the gallons still inside." — S.W.',
+    reward: 280,
+    steps: [
+      { kind: 'jack', text: 'STEAL THE BATTER TANKER 🛢️',
+        spawn: { cls: 'tanker', key: 'cargo', at: () => gtaLmCurb('garage'), dy: -72 },
+        done: () => gtaAddHeat(1.6) },
+      { kind: 'go', text: 'DELIVER THE TANKER — SAUCE WORKS', at: () => gtaLmCurb('sauce'), r: 34,
+        needCar: 'cargo', time: 120, failText: '🛢️ THE BATTER IS EVERYWHERE' },
+    ],
+    outro: '"gallons received. the garage will bill us. that\'s the joke — they can\'t." — S.W.',
+  },
+  {
+    key: 'dillwatch', title: 'DILL WATCH',
+    brief: '"detective dill keeps asking the harbor questions. follow his sedan and learn his route. stay off his mirrors — if he makes you, you were never on this call." — S.W.',
+    reward: 300,
+    steps: [
+      { kind: 'go', text: 'GET EYES ON NPD HQ 🕵️', at: () => gtaLmCurb('npd'), r: 60 },
+      { kind: 'tail', text: 'TAIL DILL — NOT TOO CLOSE', dur: 30, track: 'dill',
+        spawn: { cls: 'sedan', key: 'dill', at: () => gtaLmCurb('npd'), dy: 130, col: '#46543a', drive: true } },
+    ],
+    outro: '"…the pier. again. why is it always the pier. noted, and forgotten." — S.W.',
+  },
+  {
+    key: 'crispy', title: 'CRISPY BUSINESS',
+    brief: '"a rival outfit parked a FRYER TRUCK in the grease district. nuggetown has a one-fryer policy, and we are the fryer. cook it. the flamer\'s under the seat." — S.W.',
+    reward: 330,
+    gear: { flamer: 110 },
+    steps: [
+      { kind: 'kill', text: 'TORCH THE RIVAL FRYER TRUCK 🔥',
+        spawn: { cls: 'tanker', key: 'target', at: () => gtaLmCurb('sauce'), dy: -170, col: '#8a4a1c' },
+        done: () => gtaAddHeat(2) },
+      { kind: 'escape', text: 'LOSE THE HEAT 🚔 (THE GARAGE KNOWS A GUY)' },
+    ],
+    outro: '"crispy. the one-fryer policy holds. air out the car." — S.W.',
+  },
+  {
+    key: 'dips', title: 'SPECIAL SAUCE',
+    brief: '"three crates of small-batch \'dip\'. three customers. the last one has been renegotiating, and deliveries don\'t renegotiate." — S.W.',
+    reward: 360,
+    steps: [
+      { kind: 'go', text: 'COLLECT THE CRATES — AMMU-NUGGET 📦', at: () => gtaLmCurb('ammu'), r: 30 },
+      { kind: 'go', text: 'DROP 1 OF 3 — NOODLE NUG', at: () => gtaLmCurb('noodle'), r: 30, time: 85 },
+      { kind: 'go', text: 'DROP 2 OF 3 — THE NUGGET ARCADE', at: () => gtaLmCurb('arcade'), r: 30, time: 85 },
+      { kind: 'go', text: 'DROP 3 OF 3 — THE HARBOR SHORE ⚓', at: () => gtaShorePoint(gta.pierRows[1]), r: 34, time: 95,
+        done: () => gtaBanner('💥 IT\'S A SETUP', 'heat', 1.6) },
+      { kind: 'kill', text: 'HANDLE THE RENEGOTIATION 💥',
+        spawn: [
+          { cls: 'sports', key: 'target', hostile: true, at: () => gtaShorePoint(gta.pierRows[1]), dy: -220, col: '#c23a3a' },
+          { cls: 'sports', key: 'target', hostile: true, at: () => gtaShorePoint(gta.pierRows[1]), dy: 220, col: '#c23a3a' },
+        ] },
+    ],
+    outro: '"renegotiation handled. the customer respects the process now. the customer respects everything now." — S.W.',
+  },
+  {
+    key: 'shredder', title: 'THE SHREDDER',
+    brief: '"NPD impounded a BATTER VAN full of paperwork that spells our name correctly. it\'s sitting outside NPD HQ. make it a bonfire — dip grenades enclosed." — S.W.',
+    reward: 420,
+    gear: { nade: 5 },
+    steps: [
+      { kind: 'kill', text: 'DESTROY THE EVIDENCE VAN 💣',
+        spawn: { cls: 'van', key: 'target', at: () => gtaLmCurb('npd'), dy: -60, cop: true },
+        done: () => gtaAddHeat(3.4) },
+      { kind: 'escape', text: 'LOSE THE HEAT 🚔' },
+    ],
+    outro: '"paperwork resolved. that closes ACT ONE. stay near a phone — the HARBOR JOB is being priced." — S.W.',
+  },
+];
+
+// A car that belongs to the contract: despawn-proof, doors mostly locked.
+function gtaMisCar(spec) {
+  const p = spec.at();
+  const C = GTA_CLASSES[spec.cls];
+  const o = {
+    x: p.x + (spec.dx || 0), y: p.y + (spec.dy || 0), a: -Math.PI / 2, dir: 3, v: 0,
+    cls: spec.cls, col: spec.col || C.cols[0], hp: C.hp,
+    cop: !!spec.cop, chase: !!spec.hostile, hostile: !!spec.hostile,
+    parked: !spec.drive && !spec.hostile, wreck: false,
+    nd: null, blockT: 0, hitT: 0, emberT: 0,
+    mis: true, misKey: spec.key,
+  };
+  if (spec.drive) {
+    // put them in a legal lane so the traffic AI can drive them — Dill is
+    // the only driver in Nuggetown who signals
+    const v = gtaPairStartV(Math.floor(o.x / GTA_TILE));
+    for (const dir of [1, 3]) {
+      const x = gtaLaneX(v, dir);
+      const nd = gtaNextDecision(x, o.y, dir);
+      if (nd) { o.dir = dir; o.x = x; o.a = GTA_DIR_A[dir]; o.nd = nd; o.v = 40; break; }
+    }
+  }
+  gta.cars.push(o);
+  return o;
+}
+
+function gtaMisFind(key) {
+  for (const o of gta.cars) if (o.mis && o.misKey === key && !o.wreck) return o;
+  return null;
+}
+
+function gtaMissionStepInit() {
+  const M = gta.mission;
+  const step = M.def.steps[M.si];
+  M.st = { t: 0, close: 0, far: 0 };
+  M.time = step.time || 0;
+  M.warn = null;
+  if (step.spawn) for (const s of [].concat(step.spawn)) gtaMisCar(s);
+}
+
+function gtaTryBooth(x, y, range) {
+  if (!gta.boothRing) return false;
+  for (const b of gta.booths) {
+    const bx = (b.c + 0.5) * GTA_TILE, by = (b.r + 0.5) * GTA_TILE;
+    if (Math.abs(x - bx) < range && Math.abs(y - by) < range) { gtaAnswerBooth(); return true; }
+  }
+  return false;
+}
+
+function gtaAnswerBooth() {
+  const def = GTA_MISSIONS[gta.prog];
+  if (!def) return;
+  gta.mission = { def, si: 0, st: null, time: 0, mk: null, warn: null };
+  gta.briefT = 6.5;
+  if (def.gear) { // S.W. provides. S.W. deducts it from your end. probably.
+    for (const k in def.gear) gta.ammo[k] = Math.max(gta.ammo[k], def.gear[k]);
+    if (gta.wsel === 0) gtaCycleWeapon();
+  }
+  gtaBanner('📞 ' + def.title, 'go', 1.7);
+  gtaMissionStepInit();
+}
+
+function gtaMissionCleanup(removeLive) {
+  for (let i = gta.cars.length - 1; i >= 0; i--) {
+    const o = gta.cars[i];
+    if (!o.mis) continue;
+    o.mis = false;
+    o.misKey = null;
+    if (o.hostile) { o.hostile = false; o.chase = false; o.parked = true; o.v = 0; }
+    if (removeLive && !o.wreck) gta.cars.splice(i, 1);
+  }
+  gta.car.mis = false; gta.car.misKey = null;
+  gta.mission = null;
+  gta.briefT = 0;
+}
+
+function gtaMissionFail(reason) {
+  if (!gta.mission) return;
+  gtaMissionCleanup(true);
+  gta.ringCd = 5;
+  gta.toastMsg = '❌ ' + (reason || 'MISSION FAILED');
+  gta.toastT = 3.4;
+  if (gta.wastedT <= 0 && gta.bustedT <= 0) gtaBanner('❌ MISSION FAILED', 'heat', 1.8);
+}
+
+function gtaMissionComplete() {
+  const def = gta.mission.def;
+  gtaMissionCleanup(false); // survivors return to civilian life; wrecks stay put
+  gta.prog++;
+  try { localStorage.setItem('nugGtaProg', String(gta.prog)); } catch (e) { /* private mode */ }
+  gtaPay(def.reward, '💰', gta.W / 2, gta.Hh * 0.42);
+  gtaBanner('✔ MISSION PASSED', 'go', 2);
+  gta.toastMsg = def.outro || '"payment sent. stay near a phone." — S.W.';
+  gta.toastT = 4.5;
+}
+
+function gtaMissionAdvance() {
+  const M = gta.mission;
+  const step = M.def.steps[M.si];
+  if (step.done) step.done();
+  M.si++;
+  if (M.si >= M.def.steps.length) gtaMissionComplete();
+  else gtaMissionStepInit();
+}
+
+function gtaStepMission(dt) {
+  const M = gta.mission;
+  if (!M) return;
+  if (gta.briefT > 0) gta.briefT -= dt;
+  const step = M.def.steps[M.si];
+  const P = gtaPlayerPos();
+  M.st.t += dt;
+  M.warn = null;
+
+  // the marker: a fixed address, or wherever the mission car currently is
+  if (step.at) M.mk = step.at();
+  else {
+    const t = gtaMisFind(step.track || 'target');
+    M.mk = t ? { x: t.x, y: t.y } : null;
+  }
+
+  if (M.time > 0) {
+    M.time -= dt;
+    if (M.time <= 0) { gtaMissionFail(step.failText || '⏱ OUT OF TIME'); return; }
+  }
+
+  if (step.kind === 'go') {
+    if (step.needCar) {
+      const inIt = !gta.onFoot && gta.car.mis && gta.car.misKey === step.needCar;
+      if (!inIt && !gtaMisFind(step.needCar)) { gtaMissionFail(step.failText); return; }
+      if (!inIt) { M.warn = 'GET BACK IN THE CARGO'; return; }
+    }
+    if (Math.abs(P.x - M.mk.x) < step.r && Math.abs(P.y - M.mk.y) < step.r) gtaMissionAdvance();
+  } else if (step.kind === 'jack') {
+    if (!gta.onFoot && gta.car.mis && gta.car.misKey === 'cargo') { gtaMissionAdvance(); return; }
+    if (!gtaMisFind('cargo')) gtaMissionFail(step.failText || '🛢️ THE CARGO IS TOAST');
+  } else if (step.kind === 'kill') {
+    let alive = false;
+    for (const o of gta.cars) if (o.mis && o.misKey === 'target' && !o.wreck) { alive = true; break; }
+    if (!alive) gtaMissionAdvance();
+  } else if (step.kind === 'tail') {
+    const dill = gtaMisFind('dill');
+    if (!dill) { gtaMissionFail('🕵️ THE SEDAN IS TOAST. SUBTLE.'); return; }
+    const d = Math.hypot(P.x - dill.x, P.y - dill.y);
+    if (d < 58) {
+      M.st.close += dt; M.st.far = 0;
+      M.warn = 'TOO CLOSE';
+      if (M.st.close > 2.4) { gtaMissionFail('🕵️ HE MADE YOU'); return; }
+    } else if (d > 310) {
+      M.st.far += dt; M.st.close = 0;
+      M.warn = 'FALLING BEHIND';
+      if (M.st.far > 7) { gtaMissionFail('🕵️ YOU LOST HIM'); return; }
+    } else { M.st.close = Math.max(0, M.st.close - dt); M.st.far = 0; }
+    if (M.st.t >= step.dur) gtaMissionAdvance();
+  } else if (step.kind === 'escape') {
+    if (gtaStars() === 0) gtaMissionAdvance();
+  }
 }
 
 // ---- update ---------------------------------------------------------------------------
@@ -1546,6 +1859,7 @@ function gtaStepWorld(dt) {
   const R2 = Math.max(gta.W, gta.Hh) * 0.72 + 330;
   for (let i = gta.cars.length - 1; i >= 0; i--) {
     const o = gta.cars[i];
+    if (o.mis) continue; // mission cars are despawn-proof
     if (Math.abs(o.x - gta.cam.x) > R2 || Math.abs(o.y - gta.cam.y) > R2) gta.cars.splice(i, 1);
   }
   for (let i = gta.peds.length - 1; i >= 0; i--) {
@@ -1617,7 +1931,7 @@ function gtaStepWorld(dt) {
     }
     gta.heat = Math.max(0, gta.heat - (copNear ? 0.012 : 0.07) * dt);
     if (gtaStars() === 0) {
-      for (const o of gta.cars) if (o.chase) { o.chase = false; o.parked = true; o.v = 0; }
+      for (const o of gta.cars) if (o.chase && o.cop) { o.chase = false; o.parked = true; o.v = 0; }
     }
   }
   // the bust: boxed in, slow (or on foot), a cruiser on top of you
@@ -1626,7 +1940,7 @@ function gtaStepWorld(dt) {
     let copOn = false;
     if (pSlow) {
       for (const o of gta.cars) {
-        if (o.chase && !o.wreck && Math.abs(o.x - P.x) < 30 && Math.abs(o.y - P.y) < 30) { copOn = true; break; }
+        if (o.chase && o.cop && !o.wreck && Math.abs(o.x - P.x) < 30 && Math.abs(o.y - P.y) < 30) { copOn = true; break; }
       }
     }
     if (copOn) {
@@ -1646,6 +1960,12 @@ function gtaStepWorld(dt) {
   gta.sprayCd = Math.max(0, gta.sprayCd - dt);
   gtaCheckRespray();
   // -------------------------------------------------------------------------
+
+  // ---- the syndicate line ---------------------------------------------------
+  gta.ringCd = Math.max(0, gta.ringCd - dt);
+  gta.boothRing = !gta.mission && gta.ringCd <= 0 && gta.prog < GTA_MISSIONS.length &&
+    gta.wastedT <= 0 && gta.bustedT <= 0;
+  gtaStepMission(dt);
 
   // Live rounds: fly, expire, spark off walls, crumb nuggets, dent sheet metal.
   for (let i = gta.shots.length - 1; i >= 0; i--) {
@@ -2005,6 +2325,36 @@ function gtaDraw() {
     }
   }
 
+  // Phone booths: the syndicate calls collect. Ringing ones are hard to miss.
+  for (const b of gta.booths) {
+    const px = b.c * T - ox, py = b.r * T - oy;
+    if (px < -T * 2 || px > W + T || py < -T * 2 || py > Hh + T) continue;
+    g.fillStyle = 'rgba(0,0,0,0.35)';
+    g.fillRect(px + 6, py + 3, 13, 19);
+    g.fillStyle = '#123a5e'; // the shell
+    g.fillRect(px + 7, py + 4, 11, 17);
+    g.fillStyle = '#0a2038';
+    g.fillRect(px + 8, py + 9, 9, 11);
+    g.globalAlpha = 0.55; // glass
+    g.fillStyle = '#7ac8ff';
+    g.fillRect(px + 9, py + 10, 7, 8);
+    g.globalAlpha = 1;
+    g.fillStyle = '#ffe23a'; // lit PHONE sign
+    g.fillRect(px + 8, py + 5, 9, 3);
+    if (gta.boothRing) {
+      const rr2 = (gta.t * 26) % 16;
+      g.strokeStyle = 'rgba(255,226,58,' + (0.7 * (1 - rr2 / 16)).toFixed(2) + ')';
+      g.lineWidth = 1;
+      g.beginPath(); g.arc(px + 12, py + 12, 6 + rr2, 0, Math.PI * 2); g.stroke();
+      if (Math.floor(gta.t * 6) % 2 === 0) {
+        g.font = '900 8px Consolas, monospace';
+        g.textAlign = 'center';
+        g.fillStyle = '#ffe23a';
+        g.fillText('📞', px + 12, py + 1);
+      }
+    }
+  }
+
   // Landmark plates: accent border + name painted on the roof, beacon blink.
   for (const L of gta.lmList) {
     const lx = L.c * T - ox, ly = L.r * T - oy, lw = L.w * T, lh = L.h * T;
@@ -2031,6 +2381,20 @@ function gtaDraw() {
       gr.addColorStop(1, 'rgba(255,210,58,0)');
       g.fillStyle = gr;
       g.fillRect(gx - 26, gy - 26, 52, 52);
+    }
+  }
+
+  // Mission marker: a gold ring on the tarmac, GTA-classic.
+  if (gta.mission && gta.mission.mk) {
+    const mx = gta.mission.mk.x - ox, my = gta.mission.mk.y - oy;
+    if (mx > -30 && mx < W + 30 && my > -30 && my < Hh + 30) {
+      const r = 10 + Math.sin(gta.t * 3.4) * 2;
+      g.strokeStyle = 'rgba(255,210,58,0.85)';
+      g.lineWidth = 2;
+      g.beginPath(); g.arc(mx, my, r, 0, Math.PI * 2); g.stroke();
+      g.strokeStyle = 'rgba(255,210,58,0.3)';
+      g.lineWidth = 1;
+      g.beginPath(); g.arc(mx, my, r + 5, 0, Math.PI * 2); g.stroke();
     }
   }
 
@@ -2372,8 +2736,19 @@ function gtaDrawHud(g, W, Hh) {
       if (!o.chase || o.wreck) continue;
       const bc = o.x / GTA_TILE, br = o.y / GTA_TILE;
       if (bc < sx || bc > sx + SRC || br < sy || br > sy + SRC) continue;
-      g.fillStyle = Math.floor(gta.t * 7) % 2 === 0 ? '#ff4040' : '#5090ff';
+      g.fillStyle = o.cop ? (Math.floor(gta.t * 7) % 2 === 0 ? '#ff4040' : '#5090ff') : '#ff5252';
       g.fillRect(dx + ((bc - sx) / SRC) * MM - 1, dy + ((br - sy) / SRC) * MM - 1, 2, 2);
+    }
+    // gold blips: the live marker, or every ringing phone between jobs
+    const blip = (bc, br) => {
+      if (bc < sx || bc > sx + SRC || br < sy || br > sy + SRC) return;
+      g.fillStyle = '#ffd23a';
+      g.fillRect(dx + ((bc - sx) / SRC) * MM - 1, dy + ((br - sy) / SRC) * MM - 1, 2, 2);
+    };
+    if (gta.mission && gta.mission.mk) {
+      if (Math.floor(gta.t * 5) % 2 === 0) blip(gta.mission.mk.x / GTA_TILE, gta.mission.mk.y / GTA_TILE);
+    } else if (gta.boothRing && Math.floor(gta.t * 3) % 2 === 0) {
+      for (const b of gta.booths) blip(b.c + 0.5, b.r + 0.5);
     }
     g.fillStyle = '#ffffff';
     g.fillRect(dx + ((pc - sx) / SRC) * MM - 1, dy + ((pr - sy) / SRC) * MM - 1, 3, 3);
@@ -2400,6 +2775,93 @@ function gtaDrawHud(g, W, Hh) {
     g.fillText(gta.toastMsg, W / 2, 18);
     g.globalAlpha = 1;
   }
+
+  // The contract: objective bottom-center, clock above it, warnings flashing.
+  if (gta.mission && gta.mission.st) {
+    const M = gta.mission, step = M.def.steps[M.si];
+    g.textAlign = 'center';
+    g.font = '900 9px Consolas, monospace';
+    g.fillStyle = '#ffd23a';
+    let line = step.text;
+    if (step.dur) line += ' · ' + Math.max(0, Math.ceil(step.dur - M.st.t)) + 's';
+    g.fillText(line, W / 2, Hh - 8);
+    if (M.warn && Math.floor(gta.t * 5) % 2 === 0) {
+      g.fillStyle = '#ff5252';
+      g.fillText('⚠ ' + M.warn, W / 2, Hh - 20);
+    } else if (M.time > 0) {
+      g.font = '900 11px Consolas, monospace';
+      g.fillStyle = M.time < 12 && Math.floor(gta.t * 4) % 2 === 0 ? '#ff5252' : '#eef2ff';
+      g.fillText('⏱ ' + Math.ceil(M.time), W / 2, Hh - 20);
+    }
+    // edge arrow to the marker when it's off screen
+    if (M.mk) {
+      const rx = M.mk.x - gta.cam.x, ry = M.mk.y - gta.cam.y;
+      if (Math.abs(rx) > W / 2 - 10 || Math.abs(ry) > Hh / 2 - 10) {
+        const k = Math.min((W / 2 - 14) / Math.max(1, Math.abs(rx)), (Hh / 2 - 14) / Math.max(1, Math.abs(ry)));
+        g.save();
+        g.translate(W / 2 + rx * k, Hh / 2 + ry * k);
+        g.rotate(Math.atan2(ry, rx));
+        g.fillStyle = Math.floor(gta.t * 3) % 2 === 0 ? '#ffd23a' : '#ffe9a0';
+        g.beginPath(); g.moveTo(8, 0); g.lineTo(-4, -5); g.lineTo(-4, 5); g.closePath(); g.fill();
+        g.restore();
+      }
+    }
+  } else if (gta.boothRing) {
+    // between jobs: point at the nearest ringing phone
+    let bb = null, bd = Infinity;
+    for (const b of gta.booths) {
+      const bx = (b.c + 0.5) * GTA_TILE, by = (b.r + 0.5) * GTA_TILE;
+      const d2 = (bx - gta.cam.x) * (bx - gta.cam.x) + (by - gta.cam.y) * (by - gta.cam.y);
+      if (d2 < bd) { bd = d2; bb = { x: bx, y: by }; }
+    }
+    if (bb && (Math.abs(bb.x - gta.cam.x) > W / 2 - 10 || Math.abs(bb.y - gta.cam.y) > Hh / 2 - 10)) {
+      const rx = bb.x - gta.cam.x, ry = bb.y - gta.cam.y;
+      const k = Math.min((W / 2 - 16) / Math.max(1, Math.abs(rx)), (Hh / 2 - 16) / Math.max(1, Math.abs(ry)));
+      if (Math.floor(gta.t * 3) % 2 === 0) {
+        g.textAlign = 'center';
+        g.font = '900 9px Consolas, monospace';
+        g.fillStyle = '#ffd23a';
+        g.fillText('📞', W / 2 + rx * k, Hh / 2 + ry * k + 3);
+      }
+    }
+  }
+
+  // The brief: S.W. talks, you read, the city keeps moving underneath.
+  if (gta.briefT > 0 && gta.mission) {
+    g.globalAlpha = Math.min(1, gta.briefT / 0.8);
+    const bw = Math.min(250, W - 16);
+    const lines = gtaWrap(g, gta.mission.def.brief, bw - 16);
+    const bh = 24 + lines.length * 10;
+    const bx = W / 2 - bw / 2, by = 26;
+    g.fillStyle = 'rgba(4,4,12,0.88)';
+    g.fillRect(bx, by, bw, bh);
+    g.strokeStyle = '#ffd23a';
+    g.lineWidth = 1;
+    g.strokeRect(bx + 1.5, by + 1.5, bw - 3, bh - 3);
+    g.textAlign = 'center';
+    g.font = '900 10px Consolas, monospace';
+    g.fillStyle = '#ffd23a';
+    g.fillText('📞 ' + gta.mission.def.title, W / 2, by + 13);
+    g.font = '700 8px Consolas, monospace';
+    g.fillStyle = '#eef2ff';
+    for (let i = 0; i < lines.length; i++) g.fillText(lines[i], W / 2, by + 24 + i * 10);
+    g.globalAlpha = 1;
+  }
+}
+
+// Word-wrap for the brief card (measures in the card's own font).
+function gtaWrap(g, text, maxW) {
+  g.font = '700 8px Consolas, monospace';
+  const words = text.split(' ');
+  const lines = [];
+  let cur = '';
+  for (const wd of words) {
+    const next = cur ? cur + ' ' + wd : wd;
+    if (g.measureText(next).width > maxW && cur) { lines.push(cur); cur = wd; }
+    else cur = next;
+  }
+  if (cur) lines.push(cur);
+  return lines;
 }
 
 function gtaDrawTitle(g, W, Hh) {
@@ -2424,10 +2886,12 @@ function gtaDrawTitle(g, W, Hh) {
   g.fillStyle = '#eef2ff';
   g.fillText('↑↓ drive · ←→ steer · SPACE handbrake/punch', W / 2, Hh * 0.64);
   g.fillText('E in/out of cars · SHIFT sprint · F fire · Q weapons', W / 2, Hh * 0.71);
+  g.fillStyle = '#ffd23a';
+  g.fillText('📞 answer ringing phones — S.W. has work', W / 2, Hh * 0.78);
   if (Math.floor(gta.t * 2.2) % 2 === 0) {
     g.font = '900 12px Consolas, monospace';
     g.fillStyle = '#ffe23a';
-    g.fillText('PRESS SPACE / TAP — BOOST IT', W / 2, Hh * 0.78);
+    g.fillText('PRESS SPACE / TAP — BOOST IT', W / 2, Hh * 0.85);
   }
 }
 

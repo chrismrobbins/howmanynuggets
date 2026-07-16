@@ -451,3 +451,65 @@ arrow/blip. Reward via gtaPay (big mults are fine — perFlyer scales), fail
 VAN + AmmuNugget are all syndicate-adjacent; Dill tail mission can use the
 chaser AI with chase pointed at an NPC car instead of the player. The
 harbor job itself is S8 — leave `gta.stormSpot` untouched until then.
+
+## Sprint 7 — THE SYNDICATE, ACT 1 (2026-07-16, Beau's Claude)
+
+**Shipped:** the phones ring. Six phone booths (four on landmark curbs +
+two seeded, append-only rnd as ever; cyan on the minimap, 📞 gold blips +
+edge pointer while ringing), answer on E — on foot within 26px or idling
+in a car within 40px — and S.W. starts you on a six-contract chain
+(`GTA_MISSIONS`): THE ERRAND (delivery gone loud), FULL FAT (tanker
+heist), DILL WATCH (tail mission), CRISPY BUSINESS (fryer-truck arson +
+escape), SPECIAL SAUCE (3 drops into a 2-hostile ambush), THE SHREDDER
+(evidence BATTER VAN outside NPD HQ + escape). Progress persists in
+`nugGtaProg` (count of missions done). Verified headless: all six
+contracts driven end to end + timer-expiry and WASTED fail paths + an S6
+weapons regression, zero pageerrors/warnings, screenshots eyeballed.
+
+**How the engine works (for S8):**
+- `gta.mission` = `{def, si, st, time, mk, warn}`; `gtaStepMission(dt)` runs
+  from gtaStepWorld. Step kinds: `go` (reach `at()` within `r`; optional
+  `needCar` = arrive driving that cargo), `jack` (drive the spawned
+  `cargo`), `kill` (wreck every `target`), `tail` (`dill`: <58px for 2.4s
+  or >310px for 7s fails; `dur` secs to pass), `escape` (stars → 0).
+  Steps: `spawn` specs (single or array) run at step init, `done()` fires
+  on advance, `time` is a per-step fail timer, `text` is the HUD line.
+- **Adding Act 2 = pushing more defs onto GTA_MISSIONS** — the chain,
+  booths, ringing, and persistence all key off `gta.prog` vs length.
+  New step kinds go in gtaStepMission's else-if ladder.
+- `gtaLmCurb(key)` → road centerline at a landmark; `gtaShorePoint(row)` →
+  shore road; `gta.pierRows` = the two pier rows (S8's harbor job wants
+  `gta.pierRows[0]`, the north pier, + `gta.stormSpot`).
+- Mission cars: `gtaMisCar(spec)` (`mis: true`, `misKey`), despawn-proof,
+  doors locked except `cargo` (gtaNearestCar filter). `spec.drive` snaps
+  to a legal lane for traffic AI (Dill); `spec.hostile` = syndicate
+  chaser — reuses gtaStepChaser with every cop-only branch (bust posture,
+  standdowns, spray/hospital forgiveness) guarded on `o.cop`.
+- mis/misKey ride along through gtaEnterCar/gtaParkPlayerCar/the
+  gtaDamagePlayerCar wreck copy — that's how "deliver the tanker" survives
+  the player stepping out and how cargo-death fails are detected
+  (`gtaMisFind` returns only non-wrecks).
+- Fail path: `gtaMissionFail(reason)` — called by timers, tail busts,
+  cargo loss, AND gtaWasted/gtaBusted (before their banners; it skips its
+  own banner during interludes). Cleanup removes live mission cars,
+  untags wrecks, sets `ringCd` 5s. Complete: `gtaMissionComplete` pays
+  `def.reward` via gtaPay, saves prog, shows `def.outro` as a toast.
+- HUD: objective bottom-center + ⏱/⚠ line above it, gold marker ring in
+  world, edge arrow when offscreen, brief card (`gta.briefT`, gtaWrap)
+  top-center for 6.5s after answering.
+
+**Gotchas hit:** none new — the S6 firePress latch and the append-only
+rnd() discipline both paid off. Remember hostiles are `chase && !cop`:
+any future "pursuit stands down" code needs the `o.cop` guard or it
+pardons the syndicate too.
+
+**S8 (ACT 2 + THE HARBOR JOB) pointers:** push 5-6 defs onto GTA_MISSIONS
+ending at the north pier: drive out over the planks (piers are GT_WALK —
+drivable), a `go` at the pier end near `gta.stormSpot`, a scripted
+surface moment (new step kind, e.g. `watch`: hold position N secs while
+the glow rises — draw via a mission-owned flag in gtaDraw), set
+`nugGtaSawStorm` in localStorage, then an NPD raid (spawn chasers +
+heat) and an `escape`. Case stays open: the storm submerges again,
+nobody frees or kills it. Side gigs (Nug-Ex/Vigilante/Rampage) can be
+lightweight repeatable non-chain missions started from world objects
+(e.g. E in a bus/tanker/cruiser when idle) rather than booths.
