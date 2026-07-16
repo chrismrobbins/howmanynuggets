@@ -2,10 +2,16 @@
 // "WELCOME TO NUGGETOWN. POPULATION: CRISPY."
 //
 // A top-down open-world crime game in the GTA 1/2 mold (mode key: gta).
-// Sprint 1 (IGNITION): one drivable district of Nuggetown after dark — seeded
-// tile city, arcade car physics with a real handbrake, headlights, rain,
-// street lamps, neon, nug-crate pickups, and distance pay. The syndicate,
-// the NPD, and the rest of the city arrive in later sprints (see GTA_SPRINTS.md).
+// Sprint 1 (IGNITION): tile city, arcade car physics with a real handbrake,
+// headlights, rain, lamps, neon, nug-crate pickups, distance pay.
+// Sprint 2 (NUGGETOWN): the full city — five districts with their own roofs,
+// neon density, and parks; the HARBOR on the east edge (water, warehouses,
+// two drivable piers, and a golden something glowing out in the bay — canon
+// says the stolen storm lives here); six landmarks with fixed addresses for
+// the mission sprints; a radar minimap; district-crossing toasts. You spawn
+// on the curb outside THE NUGGET ARCADE, naturally.
+// Traffic, peds, the NPD, and the syndicate arrive in later sprints
+// (see GTA_SPRINTS.md).
 //
 // Rendering is the low-res pixel canvas trick from Battered Brawlers / Fast
 // Food: a ~300px-tall backing store scaled up with image-rendering: pixelated.
@@ -16,7 +22,7 @@
 const gtaWorld = document.getElementById('gtaWorld');
 
 const GTA_TILE = 24;              // world px per tile
-const GTA_W = 96, GTA_H = 96;     // starter district, tiles (sprint 2 grows this)
+const GTA_W = 160, GTA_H = 160;   // all of Nuggetown, tiles
 const GTA_MAX_FWD = 210;          // top speed, world px/sec
 const GTA_MAX_REV = 80;
 const GTA_ACCEL = 150;
@@ -28,7 +34,17 @@ const GTA_STEER = 3.1;            // rad/sec at speed
 const GTA_CAR_R = 7;              // collision radius vs buildings
 
 // Tile kinds
-const GT_BLDG = 0, GT_ROAD = 1, GT_WALK = 2, GT_GRASS = 3;
+const GT_BLDG = 0, GT_ROAD = 1, GT_WALK = 2, GT_GRASS = 3, GT_WATER = 4;
+
+// Districts (ids index every per-district table below)
+const GTA_DISTRICTS = ['DOWNTOWN', 'LITTLE BATTER', 'GREASE DISTRICT', 'THE SUBURBS', 'THE HARBOR'];
+function gtaDistrictAt(tc, tr) {
+  if (tc >= GTA_W - 24) return 4;                 // harbor strip, east
+  if (tr < 46) return 1;                          // syndicate turf, north
+  if (tr >= 106 && tc < 68) return 2;             // industrial southwest
+  if (tc < 54) return 3;                          // sleepy west
+  return 0;                                       // downtown core
+}
 
 const gta = {
   on: false,
@@ -39,6 +55,12 @@ const gta = {
   map: null,             // Uint8Array GTA_W * GTA_H
   vRoad: null, hRoad: null, vDash: null, hDash: null,
   blockCol: null,        // per-block rooftop palette index
+  landmarks: {},         // key → {c, r, w, h, name, accent, roof, vLeft}
+  lmList: [],            // same rects, indexed by lmGrid value - 1
+  lmGrid: null,          // Uint8Array; 0 = plain city, else landmark id + 1
+  mini: null,            // offscreen minimap canvas, 1px per tile
+  stormSpot: null,       // {x, y} — the glow in the bay. don't ask. (do ask Dill)
+  district: 0,
   car: { x: 0, y: 0, a: -Math.PI / 2, vx: 0, vy: 0 },
   cam: { x: 0, y: 0 },
   keys: {},
@@ -58,7 +80,7 @@ function gtaActive() {
 function gtaTally() {
   if (gta.phase === 'title') return '"welcome to nuggetown"';
   const spd = Math.round(Math.hypot(gta.car.vx, gta.car.vy) * 0.6);
-  return '📦 ' + gta.crates + ' · ' + spd + ' NPH · DOWNTOWN';
+  return '📦 ' + gta.crates + ' · ' + spd + ' NPH · ' + GTA_DISTRICTS[gta.district];
 }
 
 // ---- city generation (seeded — everyone drives the same Nuggetown) -------------------
@@ -69,18 +91,41 @@ function gtaHash(c, r) {
   return (h ^ (h >>> 16)) >>> 0;
 }
 
-const GTA_ROOFS = ['#191627', '#1d1a2e', '#221c2c', '#1a2030', '#241f26', '#171e2a'];
+// Per-district rooftop palettes (index = district id), park odds, neon rarity.
+const GTA_ROOFS_D = [
+  ['#191627', '#1d1a2e', '#221c2c', '#1a2030'],  // downtown: cold blues
+  ['#26201a', '#2a241c', '#241e16', '#2c2218'],  // little batter: warm crust
+  ['#241a14', '#2a1c12', '#201812', '#2e2014'],  // grease district: rust
+  ['#1a2020', '#1c2426', '#182022', '#202628'],  // suburbs: tired teal
+  ['#1a1e26', '#1e222a', '#161a22', '#22262e'],  // harbor: warehouse steel
+];
+const GTA_PARK_ODDS = [0.05, 0.08, 0.03, 0.34, 0.02];
+const GTA_NEON_MOD = [7, 9, 14, 26, 22];         // hash modulus: lower = more neon
 const GTA_NEON = ['#ff2fa0', '#39ff7a', '#3ad4ff', '#ffe23a', '#ff8a3d'];
+
+// Landmarks: fixed addresses the mission sprints can rely on. d = district,
+// (tc, tr) = preferred tile; placement snaps to the nearest matching block.
+const GTA_LANDMARKS = [
+  { key: 'arcade',  name: 'THE NUGGET ARCADE', d: 0, tc: 86,  tr: 76,  accent: '#ffe23a', roof: '#252038' },
+  { key: 'npd',     name: 'NPD HQ',            d: 0, tc: 106, tr: 58,  accent: '#3ad4ff', roof: '#1a2438' },
+  { key: 'general', name: 'NUGGET GENERAL',    d: 0, tc: 70,  tr: 96,  accent: '#ff5252', roof: '#2c1e26' },
+  { key: 'noodle',  name: 'NOODLE NUG',        d: 1, tc: 80,  tr: 24,  accent: '#ff2fa0', roof: '#2a1c2e' },
+  { key: 'sauce',   name: 'SAUCE WORKS',       d: 2, tc: 30,  tr: 132, accent: '#ff8a3d', roof: '#2e1e12' },
+  { key: 'garage',  name: 'GREASE GARAGE',     d: 2, tc: 56,  tr: 116, accent: '#39ff7a', roof: '#1c2a1a' },
+];
 
 function gtaBuildCity() {
   let seed = 20260715; // Nuggetown zoning committee, do not touch
   const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const SHORE = GTA_W - 16;  // the shore road column pair starts here
+  const WATER = GTA_W - 11;  // everything east of this is the bay
 
-  // Road lines: pairs of columns/rows, uneven seeded spacing, plus a ring road.
+  // Road lines: pairs of columns/rows, uneven seeded spacing. The last
+  // vertical pair is the shore road; roads never enter the water.
   const vr = [2], hr = [2];
   let c = 10 + Math.floor(rnd() * 4);
-  while (c < GTA_W - 8) { vr.push(c); c += 9 + Math.floor(rnd() * 6); }
-  vr.push(GTA_W - 4);
+  while (c < SHORE - 6) { vr.push(c); c += 9 + Math.floor(rnd() * 6); }
+  vr.push(SHORE);
   let r = 9 + Math.floor(rnd() * 4);
   while (r < GTA_H - 7) { hr.push(r); r += 8 + Math.floor(rnd() * 5); }
   hr.push(GTA_H - 4);
@@ -92,53 +137,146 @@ function gtaBuildCity() {
   for (const v of vr) { gta.vRoad[v] = 1; gta.vRoad[v + 1] = 1; gta.vDash[v + 1] = 1; }
   for (const h of hr) { gta.hRoad[h] = 1; gta.hRoad[h + 1] = 1; gta.hDash[h + 1] = 1; }
 
-  // Park blocks + rooftop colors, keyed by coarse block index.
+  // Park blocks + rooftop colors, keyed by coarse block index; the suburbs
+  // are leafy, the grease district is not.
   const BX = Math.ceil(GTA_W / 10), BY = Math.ceil(GTA_H / 9);
   const park = [];
   gta.blockCol = [];
-  for (let i = 0; i < BX * BY; i++) {
-    park.push(rnd() < 0.11);
-    gta.blockCol.push(Math.floor(rnd() * GTA_ROOFS.length));
+  for (let by = 0; by < BY; by++) {
+    for (let bx = 0; bx < BX; bx++) {
+      const dd = gtaDistrictAt(bx * 10 + 5, by * 9 + 4);
+      park.push(rnd() < GTA_PARK_ODDS[dd]);
+      gta.blockCol.push(Math.floor(rnd() * 4));
+    }
   }
   const blockAt = (tc, tr) => Math.floor(tc / 10) + Math.floor(tr / 9) * BX;
 
   const map = new Uint8Array(GTA_W * GTA_H);
-  const road = (tc, tr) => gta.vRoad[tc] || gta.hRoad[tr];
+  const road = (tc, tr) => (gta.vRoad[tc] || gta.hRoad[tr]) && tc < SHORE + 2;
   for (let tr = 0; tr < GTA_H; tr++) {
     for (let tc = 0; tc < GTA_W; tc++) {
       let k;
-      if (road(tc, tr)) k = GT_ROAD;
+      if (tc >= WATER) k = GT_WATER;
+      else if (road(tc, tr)) k = GT_ROAD;
       else if (road(tc - 1, tr) || road(tc + 1, tr) || road(tc, tr - 1) || road(tc, tr + 1)) k = GT_WALK;
       else k = park[blockAt(tc, tr)] ? GT_GRASS : GT_BLDG;
       map[tr * GTA_W + tc] = k;
     }
   }
+
+  // Two drivable piers punch through the warehouse strip into the bay.
+  const pierRows = hr.filter((h) => h > 52 && h < GTA_H - 20);
+  const piers = [pierRows[Math.floor(pierRows.length * 0.28)], pierRows[Math.floor(pierRows.length * 0.72)]];
+  for (const pr of piers) {
+    for (let tc = SHORE + 2; tc <= GTA_W - 4; tc++) {
+      map[pr * GTA_W + tc] = GT_WALK;
+      map[(pr + 1) * GTA_W + tc] = GT_WALK;
+    }
+  }
   gta.map = map;
+
+  // The glow in the bay, just past the north pier's end. THE CATCH INCIDENT
+  // canon: the stolen storm is alive down there. Look. Don't touch.
+  gta.stormSpot = { x: (GTA_W - 2.5) * GTA_TILE, y: (piers[0] + 4.5) * GTA_TILE };
+
+  // Landmarks: enumerate buildable block interiors, snap each landmark to
+  // the nearest block in its district, claim the tiles.
+  const blocks = [];
+  for (let i = 0; i < vr.length - 1; i++) {
+    const c0 = vr[i] + 3, c1 = vr[i + 1] - 2;
+    if (c1 - c0 < 2) continue;
+    for (let j = 0; j < hr.length - 1; j++) {
+      const r0 = hr[j] + 3, r1 = hr[j + 1] - 2;
+      if (r1 - r0 < 2) continue;
+      blocks.push({ c0, c1, r0, r1, vLeft: vr[i], hTop: hr[j] });
+    }
+  }
+  gta.landmarks = {};
+  gta.lmList = [];
+  gta.lmGrid = new Uint8Array(GTA_W * GTA_H);
+  const used = new Set();
+  for (const L of GTA_LANDMARKS) {
+    let best = -1, bd = Infinity;
+    for (let bi = 0; bi < blocks.length; bi++) {
+      if (used.has(bi)) continue;
+      const b = blocks[bi];
+      const bc = (b.c0 + b.c1) / 2, br = (b.r0 + b.r1) / 2;
+      if (gtaDistrictAt(Math.round(bc), Math.round(br)) !== L.d) continue;
+      const dd = (bc - L.tc) * (bc - L.tc) + (br - L.tr) * (br - L.tr);
+      if (dd < bd) { bd = dd; best = bi; }
+    }
+    if (best < 0) continue; // seeded layout should always find one; degrade quietly
+    used.add(best);
+    const b = blocks[best];
+    const w = Math.min(b.c1 - b.c0 + 1, 7), h = Math.min(b.r1 - b.r0 + 1, 5);
+    const rect = {
+      c: b.c0 + Math.floor((b.c1 - b.c0 + 1 - w) / 2),
+      r: b.r0 + Math.floor((b.r1 - b.r0 + 1 - h) / 2),
+      w, h, vLeft: b.vLeft, hTop: b.hTop,
+      key: L.key, name: L.name, accent: L.accent, roof: L.roof,
+    };
+    gta.lmList.push(rect);
+    gta.landmarks[L.key] = rect;
+    for (let tr = rect.r; tr < rect.r + h; tr++) {
+      for (let tc = rect.c; tc < rect.c + w; tc++) {
+        map[tr * GTA_W + tc] = GT_BLDG; // landmarks trump parks
+        gta.lmGrid[tr * GTA_W + tc] = gta.lmList.length;
+      }
+    }
+  }
 
   // Pickups: nug crates on random road tiles, a few golden nugs way out there.
   gta.pickups = [];
   let placed = 0, guard = 0;
-  while (placed < 42 && guard++ < 4000) {
+  while (placed < 90 && guard++ < 9000) {
     const tc = Math.floor(rnd() * GTA_W), tr = Math.floor(rnd() * GTA_H);
     if (map[tr * GTA_W + tc] !== GT_ROAD) continue;
     gta.pickups.push({ c: tc, r: tr, gold: false, taken: false, respawn: 0 });
     placed++;
   }
-  for (let i = 0; i < 6 && guard < 8000; guard++) {
+  for (let i = 0; i < 10 && guard < 18000; guard++) {
     const tc = Math.floor(rnd() * GTA_W), tr = Math.floor(rnd() * GTA_H);
     if (map[tr * GTA_W + tc] !== GT_ROAD) continue;
     gta.pickups.push({ c: tc, r: tr, gold: true, taken: false, respawn: 0 });
     i++;
   }
 
-  // Spawn on the middle vertical road, pointed north, engine idling.
-  const vm = vr[Math.floor(vr.length / 2)];
-  const hm = hr[Math.floor(hr.length / 2)];
-  gta.car.x = (vm + 1) * GTA_TILE;
-  gta.car.y = (hm + 1) * GTA_TILE;
+  // The minimap is painted once at gen time, 1px per tile; the HUD blits a
+  // radar window from it every frame. Never repaint this per frame.
+  const mini = document.createElement('canvas');
+  mini.width = GTA_W; mini.height = GTA_H;
+  const mg = mini.getContext('2d');
+  const MINI_BLDG = ['#262238', '#2e2820', '#2c2018', '#243028', '#222836'];
+  for (let tr = 0; tr < GTA_H; tr++) {
+    for (let tc = 0; tc < GTA_W; tc++) {
+      const k = map[tr * GTA_W + tc];
+      mg.fillStyle =
+        k === GT_WATER ? '#123048' :
+        k === GT_ROAD ? '#40404c' :
+        k === GT_WALK ? '#2c2c34' :
+        k === GT_GRASS ? '#1b3423' :
+        MINI_BLDG[gtaDistrictAt(tc, tr)];
+      mg.fillRect(tc, tr, 1, 1);
+    }
+  }
+  for (const L of gta.lmList) { mg.fillStyle = L.accent; mg.fillRect(L.c, L.r, L.w, L.h); }
+  mg.fillStyle = '#ffd23a';
+  mg.fillRect(Math.floor(gta.stormSpot.x / GTA_TILE) - 1, Math.floor(gta.stormSpot.y / GTA_TILE) - 1, 2, 2);
+  gta.mini = mini;
+
+  // Spawn on the curb outside THE NUGGET ARCADE, pointed north. Where else?
+  const A = gta.landmarks.arcade;
+  if (A) {
+    gta.car.x = (A.vLeft + 1) * GTA_TILE;
+    gta.car.y = (A.r + 2) * GTA_TILE;
+  } else {
+    gta.car.x = (vr[Math.floor(vr.length / 2)] + 1) * GTA_TILE;
+    gta.car.y = (hr[Math.floor(hr.length / 2)] + 1) * GTA_TILE;
+  }
   gta.car.a = -Math.PI / 2;
   gta.car.vx = 0; gta.car.vy = 0;
   gta.cam.x = gta.car.x; gta.cam.y = gta.car.y;
+  gta.district = gtaDistrictAt(Math.floor(gta.car.x / GTA_TILE), Math.floor(gta.car.y / GTA_TILE));
 }
 
 function gtaTile(tc, tr) {
@@ -147,7 +285,8 @@ function gtaTile(tc, tr) {
 }
 
 function gtaSolidAt(x, y) {
-  return gtaTile(Math.floor(x / GTA_TILE), Math.floor(y / GTA_TILE)) === GT_BLDG;
+  const k = gtaTile(Math.floor(x / GTA_TILE), Math.floor(y / GTA_TILE));
+  return k === GT_BLDG || k === GT_WATER; // you cannot boost the bay (yet)
 }
 
 // ---- setup ---------------------------------------------------------------------------
@@ -204,7 +343,7 @@ function gtaBanner(text, cls, secs) {
 
 function gtaStart() {
   gta.phase = 'play';
-  gta.toastMsg = 'DOWNTOWN · NUGGETOWN';
+  gta.toastMsg = GTA_DISTRICTS[gta.district] + ' · NUGGETOWN';
   gta.toastT = 3.2;
   gtaBanner('🌃 NUGGETOWN', 'go', 1.8);
 }
@@ -306,6 +445,14 @@ function stepGta(dt, w, h) {
     gta.cam.x += (lookX - gta.cam.x) * Math.min(1, 4.2 * dt);
     gta.cam.y += (lookY - gta.cam.y) * Math.min(1, 4.2 * dt);
 
+    // Crossing into a new district gets you the name card.
+    const dNow = gtaDistrictAt(Math.floor(car.x / GTA_TILE), Math.floor(car.y / GTA_TILE));
+    if (dNow !== gta.district) {
+      gta.district = dNow;
+      gta.toastMsg = GTA_DISTRICTS[dNow];
+      gta.toastT = 2.6;
+    }
+
     if (gta.toastT > 0) gta.toastT -= dt;
   }
 
@@ -339,10 +486,31 @@ function gtaDraw() {
           if (gta.hDash[tr] && gta.hRoad[tr] && (tc & 1) === 0) g.fillRect(x + 3, y, T - 10, 2);
         }
       } else if (k === GT_WALK) {
-        g.fillStyle = ((tc + tr) & 1) ? '#33333e' : '#303039';
+        if (tc >= GTA_W - 14) {
+          // harbor boardwalk + piers: planks over the bay
+          g.fillStyle = ((tc + tr) & 1) ? '#3a2c1c' : '#342818';
+          g.fillRect(x, y, T, T);
+          g.fillStyle = 'rgba(0,0,0,0.3)';
+          for (let py = 0; py < T; py += 6) g.fillRect(x, y + py, T, 1);
+        } else {
+          g.fillStyle = ((tc + tr) & 1) ? '#33333e' : '#303039';
+          g.fillRect(x, y, T, T);
+          g.fillStyle = 'rgba(0,0,0,0.25)';
+          g.fillRect(x, y, T, 1); g.fillRect(x, y, 1, T); // pavement seams
+        }
+      } else if (k === GT_WATER) {
+        g.fillStyle = ((tc + tr) & 1) ? '#0d2438' : '#0b2032';
         g.fillRect(x, y, T, T);
-        g.fillStyle = 'rgba(0,0,0,0.25)';
-        g.fillRect(x, y, T, 1); g.fillRect(x, y, 1, T); // pavement seams
+        // drifting glints — the bay is never quite still
+        if ((hsh + Math.floor(gta.t * 2.5)) % 9 === 0) {
+          g.fillStyle = 'rgba(140,190,240,0.10)';
+          g.fillRect(x + (hsh % 12), y + ((hsh >> 4) % 18), 10, 2);
+        }
+        // foam where the water meets anything that isn't water
+        g.fillStyle = 'rgba(200,230,255,0.12)';
+        if (gtaTile(tc - 1, tr) !== GT_WATER) g.fillRect(x, y, 2, T);
+        if (gtaTile(tc, tr - 1) !== GT_WATER) g.fillRect(x, y, T, 2);
+        if (gtaTile(tc, tr + 1) !== GT_WATER) g.fillRect(x, y + T - 2, T, 2);
       } else if (k === GT_GRASS) {
         g.fillStyle = ((tc + tr) & 1) ? '#122016' : '#101c14';
         g.fillRect(x, y, T, T);
@@ -354,10 +522,12 @@ function gtaDraw() {
         }
       } else {
         // rooftops — this is a top-down city, buildings are lids
+        const dd = gtaDistrictAt(tc, tr);
+        const inB = tc >= 0 && tr >= 0 && tc < GTA_W && tr < GTA_H;
+        const lm = inB ? gta.lmGrid[tr * GTA_W + tc] : 0;
         const BX = Math.ceil(GTA_W / 10);
-        const bi = (tc >= 0 && tr >= 0 && tc < GTA_W && tr < GTA_H)
-          ? gta.blockCol[Math.floor(tc / 10) + Math.floor(tr / 9) * BX] : 0;
-        g.fillStyle = GTA_ROOFS[bi];
+        const bi = inB ? gta.blockCol[Math.floor(tc / 10) + Math.floor(tr / 9) * BX] : 0;
+        g.fillStyle = lm ? gta.lmList[lm - 1].roof : GTA_ROOFS_D[dd][bi % 4];
         g.fillRect(x, y, T, T);
         // roof edge light where the roof meets a walkable tile (streetlight spill)
         g.fillStyle = 'rgba(255,255,255,0.05)';
@@ -366,12 +536,13 @@ function gtaDraw() {
         g.fillStyle = 'rgba(0,0,0,0.3)';
         if (gtaTile(tc, tr + 1) !== GT_BLDG) g.fillRect(x, y + T - 2, T, 2);
         if (gtaTile(tc + 1, tr) !== GT_BLDG) g.fillRect(x + T - 2, y, 2, T);
-        if (hsh % 7 === 0) { // AC unit / vent
+        if (!lm && hsh % 7 === 0) { // AC unit / vent
           g.fillStyle = 'rgba(255,255,255,0.06)';
           g.fillRect(x + 5 + (hsh % 8), y + 6 + (hsh % 6), 6, 5);
         }
-        // street-facing neon: a strip of color bleeding onto the sidewalk
-        if (hsh % 11 === 0) {
+        // street-facing neon: a strip of color bleeding onto the sidewalk.
+        // Density is a district thing — downtown hums, the suburbs sleep.
+        if (!lm && hsh % GTA_NEON_MOD[dd] === 0) {
           const neon = GTA_NEON[hsh % GTA_NEON.length];
           g.fillStyle = neon;
           if (gtaTile(tc, tr + 1) === GT_WALK) {
@@ -425,6 +596,35 @@ function gtaDraw() {
       g.fillStyle = '#3f2b15';
       g.fillRect(px - 1, py - 5, 2, 10);
       g.fillRect(px - 5, py - 1, 10, 2);
+    }
+  }
+
+  // Landmark plates: accent border + name painted on the roof, beacon blink.
+  for (const L of gta.lmList) {
+    const lx = L.c * T - ox, ly = L.r * T - oy, lw = L.w * T, lh = L.h * T;
+    if (lx > W || ly > Hh || lx + lw < 0 || ly + lh < 0) continue;
+    g.strokeStyle = L.accent;
+    g.lineWidth = 1;
+    g.strokeRect(lx + 1.5, ly + 1.5, lw - 3, lh - 3);
+    g.globalAlpha = 0.9;
+    g.fillStyle = L.accent;
+    g.font = '900 9px Consolas, monospace';
+    g.textAlign = 'center';
+    g.fillText(L.name, lx + lw / 2, ly + lh / 2 + 3, lw - 8);
+    g.globalAlpha = 1;
+    if (Math.sin(gta.t * 3 + L.c) > 0.2) g.fillRect(lx + lw / 2 - 1, ly + 4, 2, 2);
+  }
+
+  // The glow in the bay. Case open forever.
+  if (gta.stormSpot) {
+    const gx = gta.stormSpot.x - ox, gy = gta.stormSpot.y - oy;
+    if (gx > -40 && gx < W + 40 && gy > -40 && gy < Hh + 40) {
+      const pul = 0.16 + 0.1 * Math.sin(gta.t * 1.7);
+      const gr = g.createRadialGradient(gx, gy, 1, gx, gy, 26);
+      gr.addColorStop(0, 'rgba(255,210,58,' + pul.toFixed(3) + ')');
+      gr.addColorStop(1, 'rgba(255,210,58,0)');
+      g.fillStyle = gr;
+      g.fillRect(gx - 26, gy - 26, 52, 52);
     }
   }
 
@@ -498,13 +698,31 @@ function gtaDrawCar(g, ox, oy) {
 function gtaDrawHud(g, W, Hh) {
   if (gta.phase !== 'play') return;
   const spd = Math.round(Math.hypot(gta.car.vx, gta.car.vy) * 0.6);
-  g.textAlign = 'right';
-  g.font = '900 10px Consolas, monospace';
-  g.fillStyle = gta.handbrake ? '#ffe23a' : '#9aa3c7';
-  g.fillText(spd + ' NPH', W - 6, Hh - 8);
   g.textAlign = 'left';
+  g.font = '900 10px Consolas, monospace';
   g.fillStyle = '#39ff7a';
   g.fillText('📦 ' + gta.crates, 6, Hh - 8);
+  g.fillStyle = gta.handbrake ? '#ffe23a' : '#9aa3c7';
+  g.fillText(spd + ' NPH', 6, Hh - 20);
+
+  // Radar: an 80-tile window from the gen-time minimap, north-up, you = dot.
+  if (gta.mini) {
+    const MM = 52, SRC = 80;
+    const pc = gta.car.x / GTA_TILE, pr = gta.car.y / GTA_TILE;
+    const sx = Math.max(0, Math.min(GTA_W - SRC, pc - SRC / 2));
+    const sy = Math.max(0, Math.min(GTA_H - SRC, pr - SRC / 2));
+    const dx = W - MM - 5, dy = Hh - MM - 5;
+    g.fillStyle = '#05050c';
+    g.fillRect(dx - 2, dy - 2, MM + 4, MM + 4);
+    g.globalAlpha = 0.85;
+    g.drawImage(gta.mini, sx, sy, SRC, SRC, dx, dy, MM, MM);
+    g.globalAlpha = 1;
+    g.strokeStyle = 'rgba(238,242,255,0.45)';
+    g.lineWidth = 1;
+    g.strokeRect(dx - 0.5, dy - 0.5, MM + 1, MM + 1);
+    g.fillStyle = '#ffffff';
+    g.fillRect(dx + ((pc - sx) / SRC) * MM - 1, dy + ((pr - sy) / SRC) * MM - 1, 3, 3);
+  }
   // district toast
   if (gta.toastT > 0) {
     g.globalAlpha = Math.min(1, gta.toastT);

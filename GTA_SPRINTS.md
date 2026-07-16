@@ -167,3 +167,62 @@ zero pageerrors/warnings, screenshots eyeballed).
 `ArcadeArt.STREET_GAMES` (S9 — until then GTN is reachable from the HUD
 mode row and lb/score UI only, NOT from the 3D hall), audio/touch polish
 (S10).
+
+## Sprint 2 — NUGGETOWN (2026-07-15, Beau's Claude)
+
+**Shipped:** the full city. 160×160 tiles, five districts
+(`GTA_DISTRICTS` + `gtaDistrictAt(tc,tr)` — pure function of coords, no
+storage), the HARBOR on the east edge (bay water `GT_WATER` = solid,
+animated glints + shoreline foam, warehouse strip, TWO drivable piers
+that dead-end over the water), six landmarks with fixed addresses, a
+gen-time minimap with a radar-window HUD blit, district-crossing name
+toasts, and you now spawn on the curb outside THE NUGGET ARCADE. Verified
+headless: gen sanity JSON + five screenshots eyeballed (spawn/arcade,
+harbor pier + storm glow, Sauce Works, suburbs, Little Batter), zero
+errors/warnings.
+
+**How the new pieces work (for S3+):**
+- Districts drive gen AND render: `GTA_ROOFS_D[district]` palettes,
+  `GTA_PARK_ODDS`, `GTA_NEON_MOD` (hash modulus; downtown hums at %7,
+  suburbs sleep at %26). District of any tile = `gtaDistrictAt` — cheap,
+  call it anywhere. Player's current district: `gta.district` (updated on
+  crossing in stepGta, drives the toast + tally).
+- **Landmarks:** `gta.landmarks` = `{arcade, npd, general, noodle, sauce,
+  garage}` → `{c, r, w, h, vLeft, hTop, name, accent, roof}`. `vLeft`/`hTop`
+  are the road pair bounding the block — `(vLeft+1)*24` is a road
+  centerline, that's how spawn-at-arcade works; use the same trick for
+  mission markers. `gta.lmGrid` (Uint8Array, value = lmList index + 1)
+  claims tiles; landmark tiles skip neon/vents and use their own roof
+  color. Labels + accent borders + blink beacons draw in an overlay pass
+  in gtaDraw.
+- **Harbor geometry:** shore road pair at cols 144-145, sidewalk 146,
+  warehouses 147-148, water ≥ 149. Piers = 2-tile-tall GT_WALK strips at
+  two seeded hr rows (cols 146..156); WALK at `tc >= 146` renders as
+  planks. `gta.stormSpot` = the golden glow in the bay off the NORTH
+  pier's end (drawn in the overlay pass, marked on the minimap). S8's
+  harbor job should use the north pier + stormSpot.
+- **Minimap:** `gta.mini` painted ONCE in gtaBuildCity (1px/tile,
+  landmarks as accent rects, storm spot gold). HUD blits an 80-tile
+  window → 52px bottom-right with player dot. If you add moving blips
+  (cops, missions), draw them as dots AFTER the blit in gtaDrawHud — do
+  NOT repaint gta.mini per frame.
+- Speed/crates HUD moved to bottom-LEFT (minimap owns bottom-right).
+
+**Gotchas hit:**
+- Roads must stop at the shore (`road()` checks `tc < SHORE + 2`) or
+  hRoad rows pave across the bay.
+- Landmark rects force their tiles to GT_BLDG (parks would otherwise eat
+  a landmark block in the suburbs).
+- fillText with the maxWidth arg is how landmark names fit their roofs at
+  9px — don't hand-wrap.
+
+**S3 (LIVING CITY) pointers:** traffic wants lane centers — for a vertical
+road pair (v, v+1), southbound lane center x = (v+0.5)*24, northbound =
+(v+1.5)*24 (right-hand traffic); intersections are `vRoad[c] && hRoad[r]`.
+Spawn/despawn traffic in a ring around the camera (the map is 3840px
+square now — do NOT simulate all of it). Peds walk GT_WALK tiles; keep
+them off the pier planks or give them fishing rods. Carjack key: E/X
+(check kartPress-style key routing). Vehicle classes can reuse the
+per-class constants pattern (top speed / accel / grip per kind). The
+BATTER tankers belong in Little Batter + Grease District (canon:
+S.W. Logistics).
