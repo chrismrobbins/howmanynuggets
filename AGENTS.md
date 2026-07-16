@@ -5,6 +5,11 @@ the same day. **Pull before starting work**, and read this before touching
 the arcade hall or adding a game — these are the constraints that have
 already bitten someone.
 
+> **In flight:** 🚔 GRAND THEFT NUGGET (mode `gta`, js/gta.js) is mid-build
+> across 10 sprints — plan + per-sprint handoff notes live in
+> `GTA_SPRINTS.md`. It's a STREET game (no cabinet); the street-door entry
+> lands in sprint 9.
+
 ## Adding a new game (the full checklist)
 
 1. `js/<game>.js` + `css/<game>.css`, script/link tags in `index.html`
