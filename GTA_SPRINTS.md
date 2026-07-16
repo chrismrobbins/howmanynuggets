@@ -392,3 +392,62 @@ be a SEVENTH landmark appended to GTA_LANDMARKS (placement iterates in
 order with a used-set — appending doesn't move the existing six; no rnd()
 involved) — restock on E with a cooldown, free (house rule). Ammo pickups:
 append-only rnd() gen like the noodle carts. Busted must zero all ammo.
+
+## Sprint 6 — ARMED & SAUCED (2026-07-15, Beau's Claude)
+
+**Shipped:** the condiment arsenal. `GTA_WEAPONS` = fists / SAUCE PISTOL /
+HONEY-MUSTARD UZI / BBQ FLAMER / DIP GRENADE with per-weapon
+cd/speed/dmg/spread/color/give. F fires in both modes (SPACE stays
+punch-or-fire on foot, handbrake in cars), Q cycles loaded weapons, 1-5
+direct-select. One firing path (`gtaStepFire`): on foot shoots where you
+face; in a car it's a DRIVE-BY out BOTH windows per trigger pull (one
+ammo, two tracers — commitment); grenades on foot lob 150px, from a car
+they drop out the window BEHIND you (chase-breaker). Shots are a capped
+array: sparks off walls, crumbs nuggets (3× pay), dents cars +
+`playerHit`; flamer instead stacks `o.burnT` — burning cars take 15/s and
+cook off to the standard fireball. `gtaNadeBoom` = the portable fireball
+(crumbs at 28px, 80 dmg at 30px, hurts you too — respect the dip).
+Combat PAYS via `playerHit` at explosion time: 20× civilians, 30× cop
+cars (heat 0.8/1.4 respectively) — small, risky, as ordered. AMMU-NUGGET
+is the SEVENTH landmark (Little Batter, canon: syndicate turf sells the
+hardware) — E at the counter refills the whole belt free, 45s loyalty
+cooldown. 18 ammo drops seeded around town (pulsing diamonds in weapon
+colors, 40s respawn; grabbing one from fists auto-equips). BUSTED now
+confiscates everything (evidence locker). HUD: belt line (icon + rounds,
+red at 0) above the bars, weapon-wheel toast on switch, ammo grants pop
+labels. Storm hint + title card updated for the new controls. Verified
+headless: restock/pistol-kill/uzi-wreck-pays/burn/boom/drive-by/
+confiscation probes green, zero errors, screenshots eyeballed (both-window
+tracers visible).
+
+**How it works (for S7+):**
+- All fire routes through `gtaStepFire(dt)` called after the player step
+  in BOTH modes — mission code should never fire weapons directly.
+- `gta.firePress` latches taps: keydown+keyup inside one frame (fast tap,
+  automation) still fires exactly once. Don't remove it — Playwright's
+  keyboard.press() is a zero-length tap and it WILL bite the S10 tests.
+- `o.playerHit` now does double duty (heat attribution + combat pay).
+  Mission targets can reuse it: set it before scripted explosions to pay.
+- `o.burnT` on any non-wreck car = damage over time; set it from scripted
+  arson (the S7 "torch a rival fryer" mission wants exactly this).
+- AmmuNugget restock is inside gtaInteract's foot branch AFTER the car
+  check — E prefers a door if one's within 26px.
+- Touch still fires nothing (second finger = door/punch only) — S10.
+
+**Gotchas hit:**
+- First verify run placed test targets 40px into the AmmuNugget WALL and
+  read `gta.cars[length-1]` while traffic kept spawning — every "failure"
+  was the test, not the game. Tag test entities and shoot on open road.
+- keyboard.press('F') = zero-length tap = no fire before firePress existed
+  (see above).
+
+**S7 (THE SYNDICATE, ACT 1) pointers:** mission engine wants a phone-booth
+entity set (seed booths append-only like carts/ammo), a ring animation +
+answer-on-E, then an objective chain state machine (`gta.mission` =
+{id, step, timer, marker}) driven from gtaStepWorld with a marker
+arrow/blip. Reward via gtaPay (big mults are fine — perFlyer scales), fail
+= banner + retry from the booth, save progress in localStorage
+`nugGtaProg` (mission ids done). Lore hooks ready: S.W. tankers + BATTER
+VAN + AmmuNugget are all syndicate-adjacent; Dill tail mission can use the
+chaser AI with chase pointed at an NPC car instead of the player. The
+harbor job itself is S8 — leave `gta.stormSpot` untouched until then.

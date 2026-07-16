@@ -24,7 +24,13 @@
 // out of NPD HQ, heat gone), and the Grease Garage Pay 'n' Spray (respray
 // takes 3 seconds and costs nothing but your dignity — house rule: the
 // meter never goes down).
-// Weapons and the syndicate arrive in later sprints (see GTA_SPRINTS.md).
+// Sprint 6 (ARMED & SAUCED): the condiment arsenal — sauce pistol,
+// honey-mustard uzi, BBQ flamer (cars catch and burn), dip grenades (or
+// drop them out the window behind you). F fires, Q cycles, drive-bys go
+// out both windows, AMMU-NUGGET restocks the belt in Little Batter, and
+// blowing things up finally PAYS — small, risky $$$, plus all the heat
+// you ordered. Getting busted confiscates the lot.
+// The syndicate arrives in later sprints (see GTA_SPRINTS.md).
 //
 // Rendering is the low-res pixel canvas trick from Battered Brawlers / Fast
 // Food: a ~300px-tall backing store scaled up with image-rendering: pixelated.
@@ -66,6 +72,18 @@ const GTA_TRAFFIC_D = [
   [['compact', 5], ['sedan', 4], ['bus', 1]],                  // suburbs
   [['sedan', 2], ['compact', 2], ['tanker', 4]],               // harbor
 ];
+
+// The condiment arsenal. cd = seconds between shots (holding fire refires),
+// give = what a pickup/restock loads, col doubles as tracer + pickup color.
+const GTA_WEAPONS = [
+  { key: 'fist',   name: 'FISTS',             icon: '👊' },
+  { key: 'pistol', name: 'SAUCE PISTOL',      icon: '🔫', cd: 0.34, spd: 280, dmg: 15, life: 0.55, spread: 0.04, col: '#ff5252', give: 24 },
+  { key: 'uzi',    name: 'HONEY-MUSTARD UZI', icon: '🍯', cd: 0.09, spd: 300, dmg: 6, life: 0.5, spread: 0.16, col: '#ffd23a', give: 80 },
+  { key: 'flamer', name: 'BBQ FLAMER',        icon: '🔥', cd: 0.045, spd: 130, dmg: 2, life: 0.42, spread: 0.3, col: '#ff8a3d', give: 110, flame: true },
+  { key: 'nade',   name: 'DIP GRENADE',       icon: '🥣', cd: 0.55, col: '#4ab06a', give: 4, lob: true },
+];
+const GTA_WEAP_BY_KEY = {};
+for (const w of GTA_WEAPONS) GTA_WEAP_BY_KEY[w.key] = w;
 
 const GTA_TRAFFIC_CAP = 12;       // moving cars around the camera
 const GTA_PED_CAP = 22;
@@ -119,6 +137,13 @@ const gta = {
   blockCd: 0,            // roadblock spawn throttle
   tiresOut: false,       // spiked: mushy grip until you swap cars or respray
   strips: [],            // spike strips: {x, y, w, h, life}
+  ammo: { pistol: 0, uzi: 0, flamer: 0, nade: 0 },
+  wsel: 0,               // index into GTA_WEAPONS
+  fireCd: 0, fireHeld: false,
+  shots: [],             // live rounds: {x, y, vx, vy, life, dmg, col, flame}
+  nades: [],             // dip grenades in flight: {x, y, vx, vy, t}
+  wtoastT: 0,            // weapon-switch toast timer
+  ammuCd: 0,             // AMMU-NUGGET loyalty-program cooldown
   cam: { x: 0, y: 0 },
   keys: {},
   handbrake: false,
@@ -186,6 +211,9 @@ const GTA_LANDMARKS = [
   { key: 'noodle',  name: 'NOODLE NUG',        d: 1, tc: 80,  tr: 24,  accent: '#ff2fa0', roof: '#2a1c2e' },
   { key: 'sauce',   name: 'SAUCE WORKS',       d: 2, tc: 30,  tr: 132, accent: '#ff8a3d', roof: '#2e1e12' },
   { key: 'garage',  name: 'GREASE GARAGE',     d: 2, tc: 56,  tr: 116, accent: '#39ff7a', roof: '#1c2a1a' },
+  // appended in Sprint 6 — placement iterates in order, so the first six
+  // landmarks land exactly where they always did
+  { key: 'ammu',    name: 'AMMU-NUGGET',       d: 1, tc: 96,  tr: 34,  accent: '#c8ccd8', roof: '#2a2622' },
 ];
 
 function gtaBuildCity() {
@@ -331,6 +359,18 @@ function gtaBuildCity() {
     carts++;
   }
 
+  // Ammo drops (Sprint 6): condiments left lying around town. Append-only
+  // rnd() again — the city must not move.
+  const AMMO_KINDS = ['pistol', 'uzi', 'pistol', 'nade', 'uzi', 'flamer'];
+  let am = 0;
+  while (am < 18 && guard++ < 40000) {
+    const tc = Math.floor(rnd() * GTA_W), tr = Math.floor(rnd() * GTA_H);
+    const k = map[tr * GTA_W + tc];
+    if (tc >= SHORE || (k !== GT_ROAD && k !== GT_WALK)) continue;
+    gta.pickups.push({ c: tc, r: tr, gold: false, ammo: AMMO_KINDS[am % 6], taken: false, respawn: 0 });
+    am++;
+  }
+
   // The minimap is painted once at gen time, 1px per tile; the HUD blits a
   // radar window from it every frame. Never repaint this per frame.
   const mini = document.createElement('canvas');
@@ -433,6 +473,10 @@ function syncGta() {
     gta.sprayT = 0; gta.sprayCd = 0; gta.blockCd = 0; gta.copT = 0;
     gta.tiresOut = false;
     gta.strips = [];
+    gta.ammo = { pistol: 0, uzi: 0, flamer: 0, nade: 0 };
+    gta.wsel = 0; gta.fireCd = 0; gta.fireHeld = false; gta.firePress = false;
+    gta.shots = []; gta.nades = [];
+    gta.wtoastT = 0; gta.ammuCd = 0;
     gta.car.cls = 'compact';
     gta.car.col = '#c23a3a';
     gta.car.hp = GTA_CLASSES.compact.hp;
@@ -735,7 +779,12 @@ function gtaExplodeCar(car) {
   // a BATTER tanker going up is a neighborhood event
   const big = car.cls === 'tanker' ? 1.6 : 1;
   const R = 36 * big;
-  if (car.playerHit) gtaAddHeat(car.cop ? 1.4 : 0.8); // that one's on you
+  if (car.playerHit) {
+    // that one's on you — and combat pays. small, risky, exactly as advertised
+    gtaAddHeat(car.cop ? 1.4 : 0.8);
+    gtaPay(car.cop ? 30 : 20, '💥',
+      car.x - (gta.cam.x - gta.W / 2), car.y - (gta.cam.y - gta.Hh / 2));
+  }
   gtaSpawnParts(car.x, car.y, Math.round(22 * big), 'fire');
   gtaSpawnParts(car.x, car.y, Math.round(12 * big), 'smoke');
   gta.decals.push({ x: car.x, y: car.y, type: 'scorch', life: 40, seed: gtaHash(car.x | 0, car.y | 0) });
@@ -881,7 +930,22 @@ function gtaInteract() {
   if (gta.wastedT > 0) return;
   if (gta.onFoot) {
     const best = gtaNearestCar(gta.ped.x, gta.ped.y, 26);
-    if (best) gtaEnterCar(best, gta.ped.x, gta.ped.y);
+    if (best) { gtaEnterCar(best, gta.ped.x, gta.ped.y); return; }
+    // no door in reach — maybe a counter: AMMU-NUGGET's loyalty program
+    const A = gta.landmarks.ammu;
+    if (A && gta.ammuCd <= 0) {
+      const T = GTA_TILE;
+      if (gta.ped.x > A.c * T - 40 && gta.ped.x < (A.c + A.w) * T + 40 &&
+          gta.ped.y > A.r * T - 40 && gta.ped.y < (A.r + A.h) * T + 40) {
+        for (const w of GTA_WEAPONS) {
+          if (w.give) gta.ammo[w.key] = Math.max(gta.ammo[w.key], w.give);
+        }
+        if (gta.wsel === 0) gtaSelectWeapon(1);
+        gta.wtoastT = 1.8;
+        gta.ammuCd = 45;
+        gtaBanner('🔫 AMMU-NUGGET — ON THE HOUSE', 'go', 1.5);
+      }
+    }
     return;
   }
   const car = gta.car;
@@ -1039,6 +1103,9 @@ function gtaBustedRespawn() {
   gta.heat = 0;
   gta.bustT = 0;
   gta.tiresOut = false;
+  // evidence locker keeps the lot
+  gta.ammo = { pistol: 0, uzi: 0, flamer: 0, nade: 0 };
+  gta.wsel = 0;
   for (const o of gta.cars) if (o.chase) { o.chase = false; o.parked = true; o.v = 0; }
   gta.cam.x = gta.ped.x; gta.cam.y = gta.ped.y;
   gtaBanner('🏛️ NPD HQ — RELEASED', 'go', 1.6);
@@ -1108,6 +1175,98 @@ function gtaFinishRespray() {
   gtaBanner('✨ CLEAN SLATE', 'go', 1.4);
 }
 
+// ---- ARMED & SAUCED --------------------------------------------------------------------
+// Hold F (or SPACE on foot) and the selected condiment does the talking.
+// Everything routes through gtaStepFire so foot and drive-by share one path.
+
+function gtaSelectWeapon(i) {
+  gta.wsel = i;
+  gta.wtoastT = 1.6;
+}
+
+function gtaCycleWeapon() {
+  for (let k = 1; k <= GTA_WEAPONS.length; k++) {
+    const i = (gta.wsel + k) % GTA_WEAPONS.length;
+    if (i === 0 || gta.ammo[GTA_WEAPONS[i].key] > 0) { gtaSelectWeapon(i); return; }
+  }
+}
+
+function gtaFireShot(x, y, a, w) {
+  const ang = a + (w.spread || 0.04) * (Math.random() - 0.5) * 2;
+  gta.shots.push({
+    x, y, vx: Math.cos(ang) * w.spd, vy: Math.sin(ang) * w.spd,
+    life: w.life, dmg: w.dmg, col: w.col, flame: !!w.flame,
+  });
+  if (gta.shots.length > 90) gta.shots.shift();
+}
+
+function gtaThrowNade() {
+  if (gta.onFoot) {
+    const p = gta.ped;
+    gta.nades.push({
+      x: p.x + Math.cos(p.a) * 6, y: p.y + Math.sin(p.a) * 6,
+      vx: Math.cos(p.a) * 150, vy: Math.sin(p.a) * 150, t: 1.1,
+    });
+  } else {
+    // out the window, onto the road behind you. chase-breaker classic.
+    const car = gta.car, C = GTA_CLASSES[car.cls];
+    gta.nades.push({
+      x: car.x - Math.cos(car.a) * (C.L * 0.5 + 6),
+      y: car.y - Math.sin(car.a) * (C.L * 0.5 + 6),
+      vx: -Math.cos(car.a) * 30, vy: -Math.sin(car.a) * 30, t: 1.1,
+    });
+  }
+}
+
+function gtaStepFire(dt) {
+  gta.fireCd -= dt;
+  // firePress latches a tap that came and went between frames
+  const want = gta.fireHeld || gta.firePress;
+  gta.firePress = false;
+  if (!want || gta.wastedT > 0 || gta.bustedT > 0 || gta.sprayT > 0) return;
+  const w = GTA_WEAPONS[gta.wsel];
+  if (!w.cd) { if (gta.onFoot) gtaPunch(); return; } // fists never jam
+  if (gta.fireCd > 0 || gta.ammo[w.key] <= 0) return;
+  gta.fireCd = w.cd;
+  gta.ammo[w.key]--;
+  if (w.lob) { gtaThrowNade(); gtaAddHeat(0.02); return; }
+  if (gta.onFoot) {
+    const p = gta.ped;
+    gtaFireShot(p.x + Math.cos(p.a) * 6, p.y + Math.sin(p.a) * 6, p.a, w);
+  } else {
+    // drive-by: both windows at once. commitment.
+    const car = gta.car, half = GTA_CLASSES[car.cls].Wd / 2 + 3;
+    for (const side of [-1, 1]) {
+      const a = car.a + side * Math.PI / 2;
+      gtaFireShot(car.x + Math.cos(a) * half, car.y + Math.sin(a) * half, a, w);
+    }
+  }
+  gtaAddHeat(0.012); // gunfire carries in the rain
+}
+
+// The dip pot goes off: same fireball family as the cars, portable.
+function gtaNadeBoom(x, y) {
+  gtaSpawnParts(x, y, 18, 'fire');
+  gtaSpawnParts(x, y, 8, 'smoke');
+  gta.decals.push({ x, y, type: 'scorch', life: 30, seed: gtaHash(x | 0, y | 0) });
+  if (gta.decals.length > 70) gta.decals.shift();
+  gta.shake = Math.max(gta.shake, 0.5);
+  for (let i = gta.peds.length - 1; i >= 0; i--) {
+    const p = gta.peds[i];
+    if (Math.abs(p.x - x) < 28 && Math.abs(p.y - y) < 28) gtaCrumb(p, 3, '💥');
+  }
+  for (const o of gta.cars) {
+    if (o.wreck) continue;
+    if (Math.abs(o.x - x) < 30 && Math.abs(o.y - y) < 30) {
+      o.playerHit = true;
+      gtaDamageCar(o, 80);
+    }
+  }
+  if (!gta.onFoot && Math.abs(gta.car.x - x) < 30 && Math.abs(gta.car.y - y) < 30) gtaDamagePlayerCar(55);
+  if (gta.onFoot && Math.abs(gta.ped.x - x) < 28 && Math.abs(gta.ped.y - y) < 28) gtaHurtPlayer(55);
+  gtaAddHeat(0.3);
+}
+
 // ---- update ---------------------------------------------------------------------------
 
 function stepGta(dt, w, h) {
@@ -1133,8 +1292,10 @@ function stepGta(dt, w, h) {
       if (gta.sprayT <= 0) gtaFinishRespray();
     } else if (gta.onFoot) {
       gtaStepFoot(dt);
+      gtaStepFire(dt);
     } else {
       gtaStepPlayerCar(dt);
+      gtaStepFire(dt);
     }
     gtaStepWorld(dt);
   }
@@ -1393,6 +1554,14 @@ function gtaStepWorld(dt) {
   }
 
   for (const o of gta.cars) {
+    // BBQ'd: burn down to the fireball unless the timer runs out first
+    if (!o.wreck && o.burnT > 0) {
+      o.burnT -= dt;
+      gtaDamageCar(o, 15 * dt);
+      if (!o.wreck && Math.random() < dt * 8) {
+        gtaSpawnParts(o.x + (Math.random() - 0.5) * 8, o.y + (Math.random() - 0.5) * 8, 1, 'fire');
+      }
+    }
     if (o.wreck) {
       // fresh wrecks burn for a bit
       if (gta.t - o.wreckT < 6) {
@@ -1478,6 +1647,61 @@ function gtaStepWorld(dt) {
   gtaCheckRespray();
   // -------------------------------------------------------------------------
 
+  // Live rounds: fly, expire, spark off walls, crumb nuggets, dent sheet metal.
+  for (let i = gta.shots.length - 1; i >= 0; i--) {
+    const s = gta.shots[i];
+    s.life -= dt;
+    if (s.life <= 0) { gta.shots.splice(i, 1); continue; }
+    s.x += s.vx * dt;
+    s.y += s.vy * dt;
+    if (gtaSolidAt(s.x, s.y)) {
+      if (!s.flame) gtaSpawnParts(s.x, s.y, 1, 'spark');
+      gta.shots.splice(i, 1);
+      continue;
+    }
+    let hit = false;
+    for (let j = gta.peds.length - 1; j >= 0; j--) {
+      const q = gta.peds[j];
+      if (Math.abs(q.x - s.x) < 6 && Math.abs(q.y - s.y) < 6) {
+        gtaCrumb(q, 3, s.flame ? '🔥' : '💥');
+        hit = true;
+        break;
+      }
+    }
+    if (!hit) {
+      for (const o of gta.cars) {
+        if (o.wreck) continue;
+        const rr = GTA_CLASSES[o.cls].r + 2;
+        if (Math.abs(o.x - s.x) < rr && Math.abs(o.y - s.y) < rr) {
+          o.playerHit = true;
+          if (s.flame) { o.burnT = Math.max(o.burnT || 0, 2.4); gtaDamageCar(o, 2); }
+          else { gtaDamageCar(o, s.dmg); gtaSpawnParts(s.x, s.y, 2, 'spark'); }
+          hit = true;
+          break;
+        }
+      }
+    }
+    if (hit) gta.shots.splice(i, 1);
+  }
+
+  // Dip grenades: skid to a stop, blink, redecorate.
+  for (let i = gta.nades.length - 1; i >= 0; i--) {
+    const n = gta.nades[i];
+    n.t -= dt;
+    n.vx *= Math.exp(-2.6 * dt);
+    n.vy *= Math.exp(-2.6 * dt);
+    const nx = n.x + n.vx * dt, ny = n.y + n.vy * dt;
+    if (gtaSolidAt(nx, ny)) { n.vx *= -0.4; n.vy *= -0.4; }
+    else { n.x = nx; n.y = ny; }
+    if (n.t <= 0) {
+      gta.nades.splice(i, 1);
+      gtaNadeBoom(n.x, n.y);
+    }
+  }
+
+  gta.wtoastT = Math.max(0, gta.wtoastT - dt);
+  gta.ammuCd = Math.max(0, gta.ammuCd - dt);
+
   // A hurting ride smokes; a dying one spits fire. Consider the Grease Garage.
   if (gta.wastedT <= 0 && !gta.onFoot) {
     const C = GTA_CLASSES[gta.car.cls];
@@ -1530,8 +1754,15 @@ function gtaStepWorld(dt) {
     const px = (p.c + 0.5) * GTA_TILE, py = (p.r + 0.5) * GTA_TILE;
     if (Math.abs(P.x - px) < 11 && Math.abs(P.y - py) < 11) {
       p.taken = true;
-      p.respawn = gta.t + 26;
-      if (p.gold) gtaPay(120, '✨', gta.W / 2, gta.Hh * 0.42);
+      p.respawn = gta.t + (p.ammo ? 40 : 26);
+      if (p.ammo) {
+        const w = GTA_WEAP_BY_KEY[p.ammo];
+        gta.ammo[p.ammo] += w.give;
+        gta.wtoastT = 1.4;
+        if (gta.wsel === 0) gtaSelectWeapon(GTA_WEAPONS.indexOf(w));
+        spawnPopLabel(gta.W / 2 * gta.scale, gta.Hh * 0.42 * gta.scale, w.icon + ' +' + w.give, '');
+      }
+      else if (p.gold) gtaPay(120, '✨', gta.W / 2, gta.Hh * 0.42);
       else { gta.crates++; gtaPay(12, '📦', gta.W / 2, gta.Hh * 0.42); }
     }
   }
@@ -1717,7 +1948,21 @@ function gtaDraw() {
     if (p.taken) continue;
     const px = (p.c + 0.5) * T - ox, py = (p.r + 0.5) * T - oy;
     if (px < -20 || px > W + 20 || py < -20 || py > Hh + 20) continue;
-    if (p.gold) {
+    if (p.ammo) {
+      // a condiment drop: pulsing diamond in the weapon's color
+      const w = GTA_WEAP_BY_KEY[p.ammo];
+      const r = 4 + Math.sin(gta.t * 4 + p.c) * 0.8;
+      g.save();
+      g.translate(px, py);
+      g.rotate(Math.PI / 4);
+      g.fillStyle = 'rgba(5,5,12,0.6)';
+      g.fillRect(-r - 1, -r - 1, r * 2 + 2, r * 2 + 2);
+      g.fillStyle = w.col;
+      g.fillRect(-r, -r, r * 2, r * 2);
+      g.fillStyle = 'rgba(255,255,255,0.4)';
+      g.fillRect(-r, -r, r * 2, 2);
+      g.restore();
+    } else if (p.gold) {
       const r = 4 + Math.sin(gta.t * 5) * 0.7;
       const grad = g.createRadialGradient(px - 1, py - 1, 1, px, py, r + 3);
       grad.addColorStop(0, '#fff3b0'); grad.addColorStop(0.6, '#ffd23a'); grad.addColorStop(1, 'rgba(198,138,18,0)');
@@ -1814,6 +2059,41 @@ function gtaDraw() {
   if (gta.wastedT <= 0) {
     if (gta.onFoot) gtaDrawPed(g, gta.ped.x - ox, gta.ped.y - oy, gta.ped, true);
     else gtaDrawVehicle(g, ox, oy, gta.car, true);
+  }
+
+  // Live rounds: flame blobs for the BBQ, tracers for everything else.
+  for (const s of gta.shots) {
+    const px = s.x - ox, py = s.y - oy;
+    if (px < -10 || px > W + 10 || py < -10 || py > Hh + 10) continue;
+    if (s.flame) {
+      const k = s.life / 0.42;
+      g.globalAlpha = Math.min(1, k * 1.3);
+      g.fillStyle = k > 0.6 ? '#ffd23a' : k > 0.3 ? '#ff8a3d' : '#c23a1a';
+      const r = 2 + (1 - k) * 3;
+      g.fillRect(px - r / 2, py - r / 2, r, r);
+      g.globalAlpha = 1;
+    } else {
+      g.strokeStyle = s.col;
+      g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(px, py);
+      g.lineTo(px - s.vx * 0.02, py - s.vy * 0.02);
+      g.stroke();
+    }
+  }
+
+  // Dip grenades: little green pots, fuse blinking faster as it shortens.
+  for (const n of gta.nades) {
+    const px = n.x - ox, py = n.y - oy;
+    if (px < -10 || px > W + 10 || py < -10 || py > Hh + 10) continue;
+    g.fillStyle = '#2a4a2a';
+    g.fillRect(px - 2, py - 2, 4, 4);
+    g.fillStyle = '#4ab06a';
+    g.fillRect(px - 2, py - 2, 4, 1);
+    if (Math.floor(gta.t * (n.t < 0.4 ? 18 : 8)) % 2 === 0) {
+      g.fillStyle = '#ff5252';
+      g.fillRect(px, py - 3, 1, 1);
+    }
   }
 
   // Particles over the bodies: smoke, fire, sparks, crumbspray.
@@ -2048,6 +2328,30 @@ function gtaDrawHud(g, W, Hh) {
     g.fillText(C.name, 54, Hh - 38);
   }
 
+  // The belt: current condiment + rounds remaining.
+  const wp = GTA_WEAPONS[gta.wsel];
+  g.font = '900 9px Consolas, monospace';
+  g.fillStyle = gta.wsel > 0 && gta.ammo[wp.key] === 0 ? '#ff5252' : '#eef2ff';
+  g.fillText(wp.icon + ' ' + (gta.wsel === 0 ? wp.name : gta.ammo[wp.key]), 6, Hh - 50);
+
+  // Weapon-switch toast: the whole wheel, selection bracketed.
+  if (gta.wtoastT > 0) {
+    g.globalAlpha = Math.min(1, gta.wtoastT * 2);
+    g.textAlign = 'center';
+    g.font = '900 11px Consolas, monospace';
+    let row = '';
+    for (let i = 0; i < GTA_WEAPONS.length; i++) {
+      row += (i === gta.wsel ? '[' + GTA_WEAPONS[i].icon + ']' : ' ' + GTA_WEAPONS[i].icon + ' ');
+    }
+    g.fillStyle = '#eef2ff';
+    g.fillText(row, W / 2, 34);
+    g.font = '700 9px Consolas, monospace';
+    g.fillStyle = '#ffe23a';
+    g.fillText(wp.name + (gta.wsel > 0 ? ' · ' + gta.ammo[wp.key] : ''), W / 2, 46);
+    g.globalAlpha = 1;
+    g.textAlign = 'left';
+  }
+
   // Radar: an 80-tile window from the gen-time minimap, north-up, you = dot.
   if (gta.mini) {
     const MM = 52, SRC = 80;
@@ -2119,7 +2423,7 @@ function gtaDrawTitle(g, W, Hh) {
   g.fillText('welcome to nuggetown. population: crispy.', W / 2, Hh * 0.56);
   g.fillStyle = '#eef2ff';
   g.fillText('↑↓ drive · ←→ steer · SPACE handbrake/punch', W / 2, Hh * 0.64);
-  g.fillText('E in/out of cars · SHIFT sprint on foot', W / 2, Hh * 0.71);
+  g.fillText('E in/out of cars · SHIFT sprint · F fire · Q weapons', W / 2, Hh * 0.71);
   if (Math.floor(gta.t * 2.2) % 2 === 0) {
     g.font = '900 12px Consolas, monospace';
     g.fillStyle = '#ffe23a';
@@ -2142,9 +2446,19 @@ function gtaPress(code) {
   if (code === 'ArrowLeft' || code === 'KeyA') { gta.keys.left = true; return true; }
   if (code === 'ArrowRight' || code === 'KeyD') { gta.keys.right = true; return true; }
   if (code === 'Space') {
-    if (gta.onFoot) gtaPunch();
+    if (gta.onFoot) { gta.fireHeld = true; gta.firePress = true; } // fists punch, the rest fires
     else gta.handbrake = true;
     return true;
+  }
+  if (code === 'KeyF') { gta.fireHeld = true; gta.firePress = true; return true; }
+  if (code === 'KeyQ') { gtaCycleWeapon(); return true; }
+  if (code.startsWith('Digit')) {
+    const i = +code.slice(5) - 1;
+    if (i >= 0 && i < GTA_WEAPONS.length) {
+      if (i === 0 || gta.ammo[GTA_WEAPONS[i].key] > 0) gtaSelectWeapon(i);
+      return true;
+    }
+    return false;
   }
   if (code === 'KeyE' || code === 'KeyX') { gtaInteract(); return true; }
   if (code === 'ShiftLeft' || code === 'ShiftRight') { gta.keys.shift = true; return true; }
@@ -2162,7 +2476,8 @@ window.addEventListener('keyup', (e) => {
   if (e.code === 'ArrowDown' || e.code === 'KeyS') gta.keys.down = false;
   if (e.code === 'ArrowLeft' || e.code === 'KeyA') gta.keys.left = false;
   if (e.code === 'ArrowRight' || e.code === 'KeyD') gta.keys.right = false;
-  if (e.code === 'Space') gta.handbrake = false;
+  if (e.code === 'Space') { gta.handbrake = false; gta.fireHeld = false; }
+  if (e.code === 'KeyF') gta.fireHeld = false;
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') gta.keys.shift = false;
 });
 
