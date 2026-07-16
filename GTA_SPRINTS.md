@@ -226,3 +226,56 @@ them off the pier planks or give them fishing rods. Carjack key: E/X
 per-class constants pattern (top speed / accel / grip per kind). The
 BATTER tankers belong in Little Batter + Grease District (canon:
 S.W. Logistics).
+
+## Sprint 3 — LIVING CITY (2026-07-15, Beau's Claude)
+
+**Shipped:** Nuggetown is inhabited. Five vehicle classes (`GTA_CLASSES`:
+compact/sedan/sports/bus/BATTER tanker — per-class speed/grip/steer/size/hp,
+district-weighted spawn tables in `GTA_TRAFFIC_D`, tankers haunt Little
+Batter + Grease per canon), lane-locked right-hand traffic with intersection
+decisions, braking, yielding, and HONK! bubbles; sidewalk peds (5px nug
+citizens) that stroll, flee fast cars, and crumb; carjacking on E/X (swap
+into any car within 34px when slow — occupied cars pay 15× and the driver
+bails as a fleeing ped, your old ride parks where you left it); hp/damage
+everywhere (wall crunches > 110 px/s, rams, punches later), smoke → fire →
+explosion with splash (tankers go 1.6× and chain), scorch + crumb decals,
+screenshake, and a WASTED interlude that respawns a fresh compact at
+NUGGET GENERAL (house rule: the meter never resets). Verified headless:
+lane-discipline assert, carjack/wasted/respawn/honk probes, five
+screenshots eyeballed, zero pageerrors/warnings.
+
+**How it works (for S4+):**
+- Player physics now reads `GTA_CLASSES[gta.car.cls]`; `gta.car` carries
+  `cls/col/hp`. `gtaPlayerPos()` is THE player-position accessor (pickups,
+  camera, district, traffic probes all use it) — S4 points it at the
+  on-foot avatar when `gta.onFoot` is set (the flag is already referenced,
+  always-falsy until then).
+- Traffic cars live in `gta.cars` (`{x,y,a,dir,v,cls,col,hp,parked,wreck,
+  nd,...}`), driving waypoint-to-waypoint between intersection centers
+  (`gtaDecide` picks straight/left/right, only onto legs that reach another
+  intersection — that's the dead-end-stub guard; no options = U-turn).
+  TWO probes brake them: speed-scaled far + fixed bumper (the bumper probe
+  is what makes honking stable — a single scaled probe oscillates on/off a
+  standing blocker and resets `blockT`).
+- `gtaExplodeCar` handles splash/chain; **player death path**: only ever
+  call `gtaDamagePlayerCar` — it fires `gtaWasted()` BEFORE pushing/
+  exploding the leftover wreck, because splash re-hits the player and the
+  `wastedT` gate is the recursion guard.
+- Spawn/despawn ring: `gtaSpawnTraffic`/`gtaSpawnPed` every 0.35s to caps
+  (12 moving / 22 peds), despawn beyond ~R+330. Never simulate the map.
+- Decals (crumbs/scorch) + parts (smoke/fire/spark/crumbspray) are capped
+  ring-ish buffers (70 / 220) stepped in `gtaStepWorld`.
+
+**Gotchas hit:**
+- Honk needed the bumper probe (above) — everything else worked first try.
+- `gta.cars` gets pushed to mid-iteration when the player wrecks (the
+  leftover wreck) — for..of handles it, but bail out of collision loops
+  once `gta.wastedT > 0` or you'll shove the ghost around.
+
+**S4 (ON FOOT) pointers:** E with no car in range should become exit-car
+(gtaInteract already early-outs for range). Walk collision can reuse
+`gtaSolidAt` at radius ~3.5. Peds already have the render rig
+(`gtaDrawPed`) — the player avatar can share it with a distinct color.
+Noodle stands: the `noodle` landmark exists; carts can be seeded AFTER
+existing gen rnd() calls (append-only, or the whole city reshuffles).
+`gtaCrumb(p, mult, label)` is the kill path for punches too.
