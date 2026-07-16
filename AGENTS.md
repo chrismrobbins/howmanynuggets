@@ -13,10 +13,13 @@ already bitten someone.
 > Post-season patch 10.5 "FRESH COAT" (2026-07-16): ped/vehicle render
 > rigs rebuilt, carjack bail-out scene, GPS arrow + objective plates,
 > crosswalks. GTA_SPRINTS.md `Sprint 10.5` notes have the details. It also
-> holds the **SEASON 2 — NUGGETOWN NIGHTS plan (10 sprints, NOT STARTED)**:
-> garage + REP, mods, street races, the case board, Dill's chain,
-> procedural contracts, weather, photo mode, and free-roam online on the
-> worker gameRoom pattern (pt 1-2 — coordinate with Chris). It's a STREET
+> holds the **SEASON 2 — NUGGETOWN NIGHTS plan (10 sprints)**: garage + REP,
+> mods, street races, the case board, Dill's chain, procedural contracts,
+> weather, photo mode, and free-roam online on the worker gameRoom pattern.
+> **S2.9 (FREE-ROAM ONLINE PT 1) SHIPPED EARLY, OUT OF ORDER** (js/gtaMP.js +
+> worker/src/games/gta.js — a pure state-relay, NOT server-authoritative; see
+> the S2.9 note at the bottom of GTA_SPRINTS.md before touching MP). S2.1–8 +
+> S2.10 remain. It's a STREET
 > game (no cabinet): entry = the double-parked compact near the bus stop.
 > Campaign flags other code can read: `gtaProgress()` (0-11 contracts done)
 > and `gtaSawStorm()` (localStorage `nugGtaProg` / `nugGtaSawStorm`).

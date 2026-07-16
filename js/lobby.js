@@ -98,13 +98,16 @@
   leaveBtn.addEventListener('click', () => { net.leave(); showState(); });
 
   // ---- net events ----
-  net.on('welcome', () => { open(); showState(); });
-  net.on('roster', () => { if (modal.classList.contains('active')) renderRoom(); });
-  net.on('started', () => close());          // the game takes over the screen
-  net.on('gameover', () => { open(); showState(); }); // back to lobby for a rematch
-  net.on('error', (e) => { open(); showErr(e.message || 'Connection error.'); });
-  net.on('gaveup', () => { open(); showErr('Lost connection to the room.'); });
-  net.on('close', () => { if (modal.classList.contains('active')) showState(); });
+  // Only act on rooms for THIS lobby's game — other games (e.g. GTA's free-roam
+  // in gtaMP.js) run their own session UI and must not pop this modal.
+  const mine = () => !net.game || net.game === game;
+  net.on('welcome', () => { if (!mine()) return; open(); showState(); });
+  net.on('roster', () => { if (mine() && modal.classList.contains('active')) renderRoom(); });
+  net.on('started', () => { if (mine()) close(); });   // the game takes over the screen
+  net.on('gameover', () => { if (mine()) { open(); showState(); } }); // back to lobby for a rematch
+  net.on('error', (e) => { if (mine()) { open(); showErr(e.message || 'Connection error.'); } });
+  net.on('gaveup', () => { if (mine()) { open(); showErr('Lost connection to the room.'); } });
+  net.on('close', () => { if (mine() && modal.classList.contains('active')) showState(); });
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g,
