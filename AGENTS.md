@@ -5,10 +5,15 @@ the same day. **Pull before starting work**, and read this before touching
 the arcade hall or adding a game — these are the constraints that have
 already bitten someone.
 
-> **In flight:** 🚔 GRAND THEFT NUGGET (mode `gta`, js/gta.js) is mid-build
-> across 10 sprints — plan + per-sprint handoff notes live in
-> `GTA_SPRINTS.md`. It's a STREET game (no cabinet); the street-door entry
-> lands in sprint 9.
+> **In flight:** 🚔 GRAND THEFT NUGGET (mode `gta`, js/gta.js) — sprints 1-9
+> of 10 are shipped (city, traffic, on-foot, NPD heat, weapons, the full
+> 11-contract syndicate campaign incl. THE HARBOR JOB, side gigs, and the
+> street door). Plan + per-sprint handoff notes live in `GTA_SPRINTS.md`.
+> Sprint 10 (audio/touch/polish) remains. It's a STREET game (no cabinet):
+> the entry point is the double-parked compact on the street, hazards
+> blinking, near the bus stop. Campaign flags other code can read:
+> `gtaProgress()` (0-11 contracts done) and `gtaSawStorm()` (the harbor
+> job's surfacing — localStorage `nugGtaProg` / `nugGtaSawStorm`).
 
 ## Adding a new game (the full checklist)
 
@@ -51,6 +56,11 @@ already bitten someone.
   putting the water plane in the mirrored-reflection pass makes a second sea
   hover over the street. Pier walkable corridor is in `posValid`
   (x 21.05..33.0, z 9.5..12.3, through the gap in the east cap wall).
+  Game 12 (GRAND THEFT NUGGET) follows the same pattern: a double-parked
+  compact in the road (x −10.6..−8.2, z 8.75..9.95, near the bus stop) is
+  the hotspot; its flank texture is `gtaCarSide` on the STREET atlas, and
+  its hazards blink via glow kind `'hazard'` in the sprite pass (static
+  emissive quads can't blink — the glows do it).
 - **Quad winding.** New geometry must follow the per-wall winding rules
   documented in `buildScene` (see `wallX`/`wallZ` comments) or it will be
   back-face culled — "built but invisible" bugs (a cabinet was once placed

@@ -573,3 +573,46 @@ double-parked car with blinking hazards near the bus stop
 (H.hotspots + `H.lastSpot` so Stop returns you to the car), and NPC
 dialogue branches keyed on the two flags (Dill has a rap sheet with
 your name on it; the Hooded Nug gets a new rumor). Update AGENTS.md.
+
+## Sprint 9 — THE STREET DOOR (2026-07-16, Beau's Claude)
+
+**Shipped:** GTN is reachable from the world. `ArcadeArt.STREET_GAMES`
+gets the `gta` entry (scoreboard cycle + leaderboard fetch come free),
+and a red compact sits DOUBLE-PARKED in the street road (x −10.6..−8.2,
+z 8.75..9.95, by the bus stop) — painted flanks (`gtaCarSide`, STREET
+atlas only; `sw_carRed` added to the solid palette), dark glass cabin,
+dim amber hazard quads whose BLINK comes from three glow sprites with
+the new glow kind `'hazard'` (static geometry can't blink; the sprite
+pass can — see the render() glow branch). Walk-up hotspot
+"🚔 GRAND THEFT NUGGET — BOOST IT" launches via the pier pattern
+(`H.lastCab = null`, `H.lastSpot` stand/look at the kerb, `launchGame('gta')`)
+and Stop returns you to the kerb, not a cabinet. gta.js exports
+`gtaProgress()` / `gtaSawStorm()` (try/catch localStorage reads).
+NPC reactions: Detective Dill grows a rap-sheet branch (three tiers:
+clean-ish / act-1 done / drove-out-saw-it — the last one is his best
+material), the Hooded Nug gets the "that's not parking, that's an
+INVITATION" rumor with boosted/legend tiers. The rhythm-cup seed is
+UNTOUCHED (still the Hood's last unresolved rumor). Street-entry toast
+now mentions the hazards. AGENTS.md updated (in-flight note + street
+game pattern para). Verified headless: registry, hall entry, hotspot
+launch → storm.arcade path → gta.on, stop → kerb return at ±0.3,
+Dill/Hood node trees probed at both flag tiers, no atlas overflow,
+zero pageerrors (the 24 warnings are the documented localhost-CORS
+leaderboard blocks). Screenshot of the car eyeballed — windings correct
+from the curb side.
+
+**Gotchas hit:** none — the wallZ/wallX winding comments and the pier
+checklist made this mechanical. Remember the car's propBox blocks
+walking through it; the hotspot stand is on the sidewalk (z 7.1).
+
+**S10 (SHIP IT) pointers:** what remains from the plan: WebAudio
+(engine pitch from car speed, sirens while `o.chase && o.cop` cars are
+near, radio = procedural chiptune loops + DJ stings — brawl/kart have
+WebAudio patterns to crib), touch controls done right (virtual stick
+replacing the thirds scheme; fire/weapon buttons), pause map (full
+`gta.mini` blown up on a key, M or Esc-adjacent), screenshake/particle
+polish pass, balance pass (mission rewards vs. crate economy),
+offscreen-culling audit (measure first — 160×160 tile loop is fine so
+far), Playwright drive-through screenshots, README/CLAUDE.md docs,
+memory update, push + `gh run watch` the deploys. gta.css is still
+only 45 lines — the pause map may want a couple of classes.

@@ -186,6 +186,16 @@ const gta = {
 // Where the player physically is: behind the wheel or out on the pavement.
 function gtaPlayerPos() { return gta.onFoot ? gta.ped : gta.car; }
 
+// Campaign flags for the outside world (street NPCs, future lore) — same
+// pattern as reel's reelStormLanded(). Contracts done, and whether you were
+// on the pier the night the bay lit up.
+function gtaProgress() {
+  try { return Math.max(0, +(localStorage.getItem('nugGtaProg') || 0) || 0); } catch (e) { return 0; }
+}
+function gtaSawStorm() {
+  try { return localStorage.getItem('nugGtaSawStorm') === '1'; } catch (e) { return false; }
+}
+
 function gtaActive() {
   return storm.mode === 'gta' && storm.running;
 }

@@ -27,6 +27,7 @@ const ArcadeArt = (() => {
   // leaderboards; their world art lives on the street atlas instead.
   const STREET_GAMES = [
     { mode: 'reel', title: 'KEEPING IT REEL', icon: '🎣', c1: '#26e0ff', c2: '#0a5a7a', tag: 'THE PIER AT MIDNIGHT' },
+    { mode: 'gta',  title: 'GRAND THEFT NUGGET', icon: '🚔', c1: '#ffd23a', c2: '#3ad4ff', tag: 'WELCOME TO NUGGETOWN' },
   ];
 
   const NEON = ['#ff2fa0', '#26e0ff', '#ffe23a', '#7c4dff', '#39ff7a'];
@@ -1267,10 +1268,12 @@ const ArcadeArt = (() => {
     alloc('pierWood', 128, 128, pPierWood);
     alloc('water', 128, 128, pWater);
     alloc('pierSign', 192, 96, pPierSign);
+    // GRAND THEFT NUGGET's street door: the double-parked compact
+    alloc('gtaCarSide', 192, 64, pGtaCarSide);
     const SW2 = {
       iron: '#3a4256', wood: '#6d5426', woodDark: '#42320e', red: '#e8412c',
       amber: '#ffb020', curb: '#3c3c46', black: '#0a0a12', white: '#f4f0e6',
-      badge: '#ffd166', comb: '#d32f2f', beak: '#e8a020',
+      badge: '#ffd166', comb: '#d32f2f', beak: '#e8a020', carRed: '#a82c20',
     };
     for (const [name, color] of Object.entries(SW2)) {
       alloc('sw_' + name, 24, 24, (gg, w, h) => { gg.fillStyle = color; gg.fillRect(0, 0, w, h); });
@@ -1279,6 +1282,37 @@ const ArcadeArt = (() => {
       uv['sw_' + name] = [mx - 0.001, my - 0.001, mx + 0.001, my + 0.001];
     }
     return { canvas: c, uv };
+  }
+
+  // The flank of a compact that has seen some things: wet red paint, two dark
+  // windows, a door seam, and a rocker panel full of Nuggetown road salt.
+  function pGtaCarSide(g, w, h) {
+    const grad = g.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#d84a38');
+    grad.addColorStop(0.55, '#b03024');
+    grad.addColorStop(1, '#701a10');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, w, h);
+    // rain sheen along the shoulder line
+    g.fillStyle = 'rgba(170,205,255,0.14)';
+    g.fillRect(0, h * 0.12, w, 3);
+    // windows
+    g.fillStyle = '#0e1420';
+    g.fillRect(w * 0.2, 4, w * 0.25, h * 0.4);
+    g.fillRect(w * 0.53, 4, w * 0.25, h * 0.4);
+    g.fillStyle = 'rgba(200,225,255,0.18)';
+    g.fillRect(w * 0.21, 5, w * 0.07, h * 0.34);
+    g.fillRect(w * 0.54, 5, w * 0.07, h * 0.34);
+    // door seam + handle
+    g.strokeStyle = 'rgba(0,0,0,0.55)';
+    g.lineWidth = 2;
+    g.beginPath(); g.moveTo(w * 0.5, 3); g.lineTo(w * 0.5, h - 8); g.stroke();
+    g.fillStyle = '#2a2a32';
+    g.fillRect(w * 0.455, h * 0.52, w * 0.05, 4);
+    // rocker panel + grime
+    g.fillStyle = '#16161e';
+    g.fillRect(0, h - 9, w, 9);
+    speckle(g, w, h, 40, '#4a1610', 0.35, 2);
   }
 
   // Weathered boardwalk planks, seen a thousand midnights.

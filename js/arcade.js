@@ -822,17 +822,35 @@ void main() {
       nodes: () => {
         const sawStorm = typeof reelStormLanded === 'function' && reelStormLanded();
         const fished = (H.best && H.best.reel > 0) || sawStorm;
+        const boosted = typeof gtaProgress === 'function' && gtaProgress() > 0;
+        const droveOut = typeof gtaSawStorm === 'function' && gtaSawStorm();
         return {
         root: {
           line: sawStorm
             ? '*the hooded nugget is uncharacteristically quiet* …you went to the pier. at midnight. and it LOOKED at you. I can tell. you walk different now.'
             : '*the hooded nugget stands by the OPEN garage bay, radiating smug* you hear that engine? that\'s the sound of me being right. TWICE, now that the pier gate\'s open.',
           opts: [
+            { t: 'somebody left a car out front. hazards on.', next: 'gtaCar' },
             { t: 'the shutter… it\'s open!', next: 'garage' },
             { t: 'heard any rumors?', next: 'rumors' },
             { t: 'tell me about the night the storm vanished.', next: 'incident' },
             { t: "you're just a weird nugget in a hood.", next: 'weird' },
           ],
+        },
+        gtaCar: {
+          line: droveOut
+            ? '*the hood tilts, slowly* you took the invitation. eleven jobs. and then you sat at the end of a pier while the bay stood UP. *long pause* I start rumors, friend. you\'ve started a legend. we are not the same.'
+            : boosted
+              ? 'left it? *taps hood* friend, that car gets "left" there every single night, and every single night somebody with your exact walk drives off in it. nuggetown remembers the skid marks.'
+              : 'hazards blinking. keys in it. double-parked outside an arcade at midnight. that is not parking, friend — that is an INVITATION. I don\'t accept invitations. you look like you might.',
+          opts: [
+            { t: 'what\'s out there, exactly?', next: 'gtaCity' },
+            { t: 'noted. very noted.', next: null },
+          ],
+        },
+        gtaCity: {
+          line: 'ALL of nuggetown. five districts. the harbor. an NPD with a van they don\'t explain, and a syndicate that pays by the job. the phone booths ring for a reason. *leans in* answer one.',
+          opts: [],
         },
         garage: {
           line: "FAST FOOD, they call it. the grease-lightning I told you about — chili nitro, batter tankers, the whole delivery. I said SOON, friend. *taps hood* told. you. so.",
@@ -925,6 +943,8 @@ void main() {
       baseYaw: Math.PI, curYaw: Math.PI, bobSpd: 1.3, bobAmp: 0.005, phase: 3.3, yBase: 0,
       nodes: () => {
         const sawStorm = typeof reelStormLanded === 'function' && reelStormLanded();
+        const rap = typeof gtaProgress === 'function' ? gtaProgress() : 0;
+        const droveOut = typeof gtaSawStorm === 'function' && gtaSawStorm();
         return {
         root: {
           line: '*flat voice* detective dill, NPD. this street is a crime scene. technically the whole street. don\'t touch the tape.',
@@ -932,11 +952,25 @@ void main() {
             sawStorm
               ? { t: 'detective. I hooked the storm. at the pier.', next: 'sawIt' }
               : { t: 'what happened in there?', next: 'what' },
+            rap > 0 ? { t: 'so… how\'s the crime wave treating you?', next: 'gtaRap' } : null,
             { t: 'got any suspects?', next: 'suspects' },
             { t: 'can I help?', next: 'help' },
             { t: 'stay salty, detective.', next: 'bye' },
-          ],
+          ].filter(Boolean),
         },
+        gtaRap: {
+          line: droveOut
+            ? '*flips WAY back in the notepad* eleven syndicate contracts. boosted cruisers. a BATTER VAN bonfire outside my own HQ. and one civilian — at the END of my pier, at midnight, DURING a raid — who watched the evidence surface and drove home. *closes notepad slowly* I know it\'s you, kid. I can\'t prove it\'s you. it\'s the worst thing that\'s ever happened to me.'
+            : rap >= 6
+              ? 'funny you ask. deliveries. a missing tanker. somebody TAILED me for half an hour last tuesday — sloppy, by the way, I made the car twice and let it slide. tell your phone-booth friends the NPD reads the water bill too.'
+              : 'car thefts up four hundred percent. suspect described as "small, golden, crispy" — which is EVERYONE in this town. *clicks pen* if you hear anything. 555-DILL.',
+          opts: [
+            { t: 'must be the weather.', next: 'gtaRap2' },
+            droveOut ? { t: 'the case stays open, then.', next: 'gtaRap3' } : null,
+          ].filter(Boolean),
+        },
+        gtaRap2: { line: '*stares at the rain for a long time* everything in this town is the weather.', opts: [] },
+        gtaRap3: { line: 'the case IS open. the case is a WEATHER PATTERN with a home address. *tips tiny hat* whoever that driver was… they held the pier while the whole bay lit up. NPD couldn\'t. off the record: not bad.', opts: [] },
         sawIt: {
           line: '*flips the notepad so fast a page tears* you HOOKED it. golden at the edges, swirling, VERY at large. so the syndicate dumped a living storm off my pier and it just… moved in. *long exhale* that\'s not larceny anymore, kid. that\'s habitat.',
           opts: [
@@ -1158,6 +1192,58 @@ void main() {
         stand: [sx, EYE, sz - 1.2],
         label: 'CALL IT A NIGHT — BACK TO THE CALCULATOR',
         act: () => exit(),
+      });
+    }
+
+    // ---- GRAND THEFT NUGGET's street door -------------------------------------
+    // A compact double-parked in the road near the bus stop: hazards blinking,
+    // keys in it, nobody coming back for it. That's not parking, that's an
+    // INVITATION. Boosting it launches the 12th game (a STREET game — the main
+    // atlas never hears about any of this).
+    {
+      const cx0 = -10.6, cx1 = -8.2, cz0 = 8.75, cz1 = 9.95;
+      const cmx = (cx0 + cx1) / 2, cmz = (cz0 + cz1) / 2;
+      // wheels: four dark stubs under the corners
+      for (const [wx, wz] of [[cx0 + 0.42, cz0 + 0.13], [cx1 - 0.42, cz0 + 0.13], [cx0 + 0.42, cz1 - 0.13], [cx1 - 0.42, cz1 - 0.13]]) {
+        for (const [a, b] of [[[wx - 0.19, wz + 0.12], [wx + 0.19, wz + 0.12]], [[wx + 0.19, wz - 0.12], [wx - 0.19, wz - 0.12]],
+          [[wx - 0.19, wz - 0.12], [wx - 0.19, wz + 0.12]], [[wx + 0.19, wz + 0.12], [wx + 0.19, wz - 0.12]]])
+          ST.quad([a[0], 0.004, a[1]], [b[0], 0.004, b[1]], [b[0], 0.34, b[1]], [a[0], 0.34, a[1]], suv.sw_black, {});
+      }
+      // body: painted flanks, solid nose/tail, roof panel
+      wallZ(ST, cz1, cx0, cx1, 0.16, 0.58, suv.gtaCarSide, cx1 - cx0, 0.42, {}); // faces +z (the road)
+      wallZ(ST, cz0, cx1, cx0, 0.16, 0.58, suv.gtaCarSide, cx1 - cx0, 0.42, {}); // faces -z (the curb — the one you see)
+      wallX(ST, cx0, cz0, cz1, 0.16, 0.58, suv.sw_carRed, cz1 - cz0, 0.42, {});  // nose → -x
+      wallX(ST, cx1, cz1, cz0, 0.16, 0.58, suv.sw_carRed, cz1 - cz0, 0.42, {});  // tail → +x
+      planeY(ST, 0.58, cx0, cx1, cz0, cz1, suv.sw_carRed, 2.6, false, {});
+      // cabin: dark glass all round, red roof
+      const gx0 = cx0 + 0.55, gx1 = cx1 - 0.55, gz0 = cz0 + 0.12, gz1 = cz1 - 0.12;
+      wallZ(ST, gz1, gx0, gx1, 0.58, 0.88, suv.sw_black, gx1 - gx0, 0.3, {});
+      wallZ(ST, gz0, gx1, gx0, 0.58, 0.88, suv.sw_black, gx1 - gx0, 0.3, {});
+      wallX(ST, gx0, gz0, gz1, 0.58, 0.88, suv.sw_black, gz1 - gz0, 0.3, {});
+      wallX(ST, gx1, gz1, gz0, 0.58, 0.88, suv.sw_black, gz1 - gz0, 0.3, {});
+      planeY(ST, 0.88, gx0, gx1, gz0, gz1, suv.sw_carRed, 1.6, false, {});
+      // hazard corners (dim amber quads; the BLINK is the glow sprites below)
+      for (const [hx2, face] of [[cx0 + 0.14, 1], [cx1 - 0.14, 1], [cx0 + 0.14, -1], [cx1 - 0.14, -1]]) {
+        const hz2 = face === 1 ? cz1 + 0.005 : cz0 - 0.005;
+        const x0h = hx2 - 0.09, x1h = hx2 + 0.09;
+        if (face === 1) ST.quad([x0h, 0.36, hz2], [x1h, 0.36, hz2], [x1h, 0.47, hz2], [x0h, 0.47, hz2], suv.sw_amber, { e: 0.2 });
+        else ST.quad([x1h, 0.36, hz2], [x0h, 0.36, hz2], [x0h, 0.47, hz2], [x1h, 0.47, hz2], suv.sw_amber, { e: 0.2 });
+      }
+      H.glows.push({ p: [cx0 + 0.14, 0.42, cz0 - 0.06], c: [1, 0.7, 0.15], s: 0.75, a: 0.3, k: 'hazard' });
+      H.glows.push({ p: [cx1 - 0.14, 0.42, cz0 - 0.06], c: [1, 0.7, 0.15], s: 0.75, a: 0.3, k: 'hazard' });
+      H.glows.push({ p: [cmx, 0.5, cz1 + 0.06], c: [1, 0.7, 0.15], s: 0.9, a: 0.22, k: 'hazard' });
+      H.propBoxes.push({ min: [cx0 - 0.1, 0, cz0 - 0.1], max: [cx1 + 0.1, 1.0, cz1 + 0.1] });
+      H.hotspots.push({
+        kind: 'gta',
+        x: cmx, z: cmz, r: 2.8,
+        min: [cx0 - 0.15, 0, cz0 - 0.15], max: [cx1 + 0.15, 1.0, cz1 + 0.15],
+        stand: [cmx, EYE, 7.1],
+        label: '🚔 GRAND THEFT NUGGET — BOOST IT',
+        act: () => {
+          H.lastCab = null;
+          H.lastSpot = { stand: [cmx, 7.1], look: [cmx, 0.5, cmz] };
+          launchGame('gta');
+        },
       });
     }
 
@@ -2363,6 +2449,9 @@ void main() {
         gx += Math.cos(ang) * gsp.r;
         gz += Math.sin(ang) * gsp.r * 0.45;
         a = gsp.a * (0.7 + 0.3 * Math.sin(H.t * 3 + gsp.ph));
+      } else if (gsp.k === 'hazard') {
+        // the double-parked compact: hazards blink like they mean it
+        a = gsp.a * (Math.floor(H.t * 1.5) % 2 === 0 ? 1 : 0.05);
       }
       pushSprite(arr, gx, gsp.p[1], gz, gsp.s, gsp.s, gsp.c[0], gsp.c[1], gsp.c[2], a, right, up);
     }
@@ -2430,7 +2519,7 @@ void main() {
       if (H.t - H.lastChime > 3) { H.lastChime = H.t; sfxChime(); }
       if (!H.wentOutside) {
         H.wentOutside = true;
-        toast('🌧️ NUGGETOWN AFTER DARK — the regulars will talk. the bus stop goes home.', 5);
+        toast('🌧️ NUGGETOWN AFTER DARK — the regulars will talk. the bus stop goes home. somebody left their hazards on.', 5);
       }
     }
     if (!H.wentPier && H.cam.x > 21.3 && H.state !== 'intro') {
