@@ -2694,6 +2694,159 @@ function gtaStepWorld(dt) {
 
 // ---- render ---------------------------------------------------------------------------
 
+// ---- the third dimension (Sprint 10.7) --------------------------------------
+// GTA 1's best trick, hand-rolled: buildings are boxes seen from directly
+// overhead, so ROOFTOPS drift away from screen center (GTA_RISE px per world
+// px per story) while their footprints stay put, and the walls in between get
+// windows — some of them lit; Nuggetown keeps odd hours. Heights are a pure
+// hash of the coarse block (no rnd() calls — the city must not move):
+// downtown runs 2-3 stories, little batter/grease 1-2, the suburbs and the
+// harbor warehouses hug the ground, landmarks stand a uniform 2. Draw order:
+// ALL walls first, then roofs from low to high, so a tall section correctly
+// overhangs a shorter neighbor instead of hiding under it.
+const GTA_RISE = 0.055;
+
+function gtaBldgH(tc, tr) {
+  if (tc < 0 || tr < 0 || tc >= GTA_W || tr >= GTA_H) return 0;
+  if (gta.map[tr * GTA_W + tc] !== GT_BLDG) return 0;
+  if (gta.lmGrid[tr * GTA_W + tc]) return 2; // landmarks: one proud, even height
+  const d = gtaDistrictAt(tc, tr);
+  if (d === 3 || d === 4) return 1;
+  const h = gtaHash(Math.floor(tc / 10) * 7 + 1, Math.floor(tr / 9) * 11 + 3);
+  return d === 0 ? 2 + (h % 2) : 1 + (h % 2);
+}
+
+function gtaRoofCol(tc, tr) {
+  const lm = gta.lmGrid[tr * GTA_W + tc];
+  if (lm) return gta.lmList[lm - 1].roof;
+  const BX = Math.ceil(GTA_W / 10);
+  return GTA_ROOFS_D[gtaDistrictAt(tc, tr)][gta.blockCol[Math.floor(tc / 10) + Math.floor(tr / 9) * BX] % 4];
+}
+
+// One wall face: a quad from the ground edge up to the drifted roof edge,
+// a window grid (one row per story, hash decides who's home), and the neon
+// sign this wall used to wear back when the city was flat.
+function gtaWall(g, ox, oy, tc, tr, dd, roof, h, gx0, gy0, gx1, gy1, o0, o1, nTile) {
+  const p0x = gx0 - ox, p0y = gy0 - oy, p1x = gx1 - ox, p1y = gy1 - oy;
+  g.fillStyle = gtaShade(roof, 1.55);
+  g.beginPath();
+  g.moveTo(p0x, p0y); g.lineTo(p1x, p1y);
+  g.lineTo(p1x + o1[0], p1y + o1[1]); g.lineTo(p0x + o0[0], p0y + o0[1]);
+  g.closePath(); g.fill();
+  const wh = (Math.hypot(o0[0], o0[1]) + Math.hypot(o1[0], o1[1])) / 2;
+  if (wh > 3) {
+    for (let s = 0; s < h; s++) {
+      const f = (s + 0.55) / (h + 0.25);
+      for (let wI = 0; wI < 3; wI++) {
+        const t = (wI + 0.5) / 3;
+        const px = p0x + (p1x - p0x) * t + (o0[0] + (o1[0] - o0[0]) * t) * f;
+        const py = p0y + (p1y - p0y) * t + (o0[1] + (o1[1] - o0[1]) * t) * f;
+        g.fillStyle = gtaHash(tc * 13 + wI * 5, tr * 29 + s * 3) % 4 === 0 ? '#ffd98a' : '#10141f';
+        g.fillRect(px - 1, py - 1, 2, 2);
+      }
+    }
+  }
+  const hsh = gtaHash(tc, tr);
+  if (nTile === GT_WALK && !gta.lmGrid[tr * GTA_W + tc] && hsh % GTA_NEON_MOD[dd] === 0 && wh > 2) {
+    const neon = GTA_NEON[hsh % GTA_NEON.length];
+    const sq = (t, f) => [
+      p0x + (p1x - p0x) * t + (o0[0] + (o1[0] - o0[0]) * t) * f,
+      p0y + (p1y - p0y) * t + (o0[1] + (o1[1] - o0[1]) * t) * f,
+    ];
+    const q0 = sq(0.2, 0.5), q1 = sq(0.8, 0.5);
+    g.strokeStyle = neon;
+    g.globalAlpha = 0.22; g.lineWidth = 5;
+    g.beginPath(); g.moveTo(q0[0], q0[1]); g.lineTo(q1[0], q1[1]); g.stroke();
+    g.globalAlpha = 1; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(q0[0], q0[1]); g.lineTo(q1[0], q1[1]); g.stroke();
+    // and a puddle of it spilled on the pavement below
+    g.globalAlpha = 0.1;
+    g.fillStyle = neon;
+    g.beginPath(); g.arc((p0x + p1x) / 2, (p0y + p1y) / 2, 9, 0, Math.PI * 2); g.fill();
+    g.globalAlpha = 1;
+  }
+}
+
+function gtaDrawBuildings(g, ox, oy, c0, c1, r0, r1) {
+  const T = GTA_TILE;
+  const ax = ox + gta.W / 2, ay = oy + gta.Hh / 2; // parallax anchor: screen center
+  // lamp posts on their intersections first — roads, so never under a roof
+  for (let tr = r0; tr <= r1; tr++) {
+    for (let tc = c0; tc <= c1; tc++) {
+      if (!gta.vRoad[tc] || !gta.hRoad[tr] || gtaTile(tc, tr) !== GT_ROAD) continue;
+      if (gtaHash(tc, tr) % 4 !== 0) continue;
+      const wx = tc * T + T / 2, wy = tr * T + T / 2;
+      const bx = wx - ox, by = wy - oy;
+      const lx = (wx - ax) * GTA_RISE * 1.15, ly = (wy - ay) * GTA_RISE * 1.15;
+      g.strokeStyle = '#0e0e14';
+      g.lineWidth = 1;
+      g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + lx, by + ly); g.stroke();
+      g.fillStyle = 'rgba(255,220,140,0.3)';
+      g.fillRect(bx + lx - 3, by + ly - 3, 6, 6);
+      g.fillStyle = '#ffe9b0';
+      g.fillRect(bx + lx - 1, by + ly - 1, 3, 3);
+    }
+  }
+  // pass 1: every exposed, camera-facing wall
+  for (let tr = r0; tr <= r1; tr++) {
+    for (let tc = c0; tc <= c1; tc++) {
+      const h = gtaBldgH(tc, tr);
+      if (!h) continue;
+      const x0 = tc * T, y0 = tr * T, x1 = x0 + T, y1 = y0 + T;
+      const k = GTA_RISE * h;
+      const oTL = [(x0 - ax) * k, (y0 - ay) * k], oTR = [(x1 - ax) * k, (y0 - ay) * k];
+      const oBL = [(x0 - ax) * k, (y1 - ay) * k], oBR = [(x1 - ax) * k, (y1 - ay) * k];
+      const roof = gtaRoofCol(tc, tr);
+      const dd = gtaDistrictAt(tc, tr);
+      // west/east/north/south — only when the face points at the camera and
+      // whatever is across it is shorter (or not a building at all)
+      if (oTL[0] > 0.4 && gtaBldgH(tc - 1, tr) < h)
+        gtaWall(g, ox, oy, tc, tr, dd, roof, h, x0, y0, x0, y1, oTL, oBL, gtaTile(tc - 1, tr));
+      if (oTR[0] < -0.4 && gtaBldgH(tc + 1, tr) < h)
+        gtaWall(g, ox, oy, tc, tr, dd, roof, h, x1, y0, x1, y1, oTR, oBR, gtaTile(tc + 1, tr));
+      if (oTL[1] > 0.4 && gtaBldgH(tc, tr - 1) < h)
+        gtaWall(g, ox, oy, tc, tr, dd, roof, h, x0, y0, x1, y0, oTL, oTR, gtaTile(tc, tr - 1));
+      if (oBL[1] < -0.4 && gtaBldgH(tc, tr + 1) < h)
+        gtaWall(g, ox, oy, tc, tr, dd, roof, h, x0, y1, x1, y1, oBL, oBR, gtaTile(tc, tr + 1));
+    }
+  }
+  // pass 2: roofs, low to high — the tall overhang the short
+  for (let hh = 1; hh <= 3; hh++) {
+    for (let tr = r0; tr <= r1; tr++) {
+      for (let tc = c0; tc <= c1; tc++) {
+        if (gtaBldgH(tc, tr) !== hh) continue;
+        const x0 = tc * T, y0 = tr * T, x1 = x0 + T, y1 = y0 + T;
+        const k = GTA_RISE * hh;
+        const pTL = [x0 - ox + (x0 - ax) * k, y0 - oy + (y0 - ay) * k];
+        const pTR = [x1 - ox + (x1 - ax) * k, y0 - oy + (y0 - ay) * k];
+        const pBL = [x0 - ox + (x0 - ax) * k, y1 - oy + (y1 - ay) * k];
+        const pBR = [x1 - ox + (x1 - ax) * k, y1 - oy + (y1 - ay) * k];
+        g.fillStyle = gtaRoofCol(tc, tr);
+        g.beginPath();
+        g.moveTo(pTL[0], pTL[1]); g.lineTo(pTR[0], pTR[1]);
+        g.lineTo(pBR[0], pBR[1]); g.lineTo(pBL[0], pBL[1]);
+        g.closePath(); g.fill();
+        // parapet: light catch on camera-facing exposed edges, shadow away
+        g.lineWidth = 1;
+        const edge = (e0, e1, light) => {
+          g.strokeStyle = light ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.4)';
+          g.beginPath(); g.moveTo(e0[0], e0[1]); g.lineTo(e1[0], e1[1]); g.stroke();
+        };
+        if (gtaBldgH(tc - 1, tr) < hh) edge(pTL, pBL, (x0 - ax) > 0);
+        if (gtaBldgH(tc + 1, tr) < hh) edge(pTR, pBR, (x1 - ax) < 0);
+        if (gtaBldgH(tc, tr - 1) < hh) edge(pTL, pTR, (y0 - ay) > 0);
+        if (gtaBldgH(tc, tr + 1) < hh) edge(pBL, pBR, (y1 - ay) < 0);
+        // roof furniture where the hash says
+        const hsh = gtaHash(tc, tr);
+        if (!gta.lmGrid[tr * GTA_W + tc] && hsh % 7 === 0) {
+          g.fillStyle = 'rgba(255,255,255,0.06)';
+          g.fillRect(pTL[0] + 5 + (hsh % 8), pTL[1] + 6 + (hsh % 6), 6, 5);
+        }
+      }
+    }
+  }
+}
+
 function gtaDraw() {
   const g = gta.g, W = gta.W, Hh = gta.Hh, T = GTA_TILE;
   let ox = Math.round(gta.cam.x - W / 2), oy = Math.round(gta.cam.y - Hh / 2);
@@ -2760,45 +2913,24 @@ function gtaDraw() {
       } else if (k === GT_GRASS) {
         g.fillStyle = ((tc + tr) & 1) ? '#122016' : '#101c14';
         g.fillRect(x, y, T, T);
-        if (hsh % 5 === 0) { // a tree at night is just a rounder shadow
-          g.fillStyle = '#0a140d';
-          g.beginPath(); g.arc(x + T / 2, y + T / 2, 8, 0, Math.PI * 2); g.fill();
-          g.fillStyle = '#0f1a11';
-          g.beginPath(); g.arc(x + T / 2 - 2, y + T / 2 - 2, 5, 0, Math.PI * 2); g.fill();
+        if (hsh % 5 === 0) { // a tree, standing slightly taller than the night
+          const tx2 = x + T / 2, ty2 = y + T / 2;
+          const tox = (tc * T + T / 2 - (ox + W / 2)) * GTA_RISE * 0.8;
+          const toy = (tr * T + T / 2 - (oy + Hh / 2)) * GTA_RISE * 0.8;
+          g.fillStyle = '#0a140d'; // ground shadow
+          g.beginPath(); g.arc(tx2, ty2, 8, 0, Math.PI * 2); g.fill();
+          g.fillStyle = '#2a1c10'; // trunk
+          g.fillRect(tx2 - 1, ty2 - 1, 2, 3);
+          g.fillStyle = '#122718'; // canopy drifts with the parallax
+          g.beginPath(); g.arc(tx2 + tox, ty2 + toy, 7, 0, Math.PI * 2); g.fill();
+          g.fillStyle = '#1a3524';
+          g.beginPath(); g.arc(tx2 + tox - 2, ty2 + toy - 2, 4, 0, Math.PI * 2); g.fill();
         }
       } else {
-        // rooftops — this is a top-down city, buildings are lids
-        const dd = gtaDistrictAt(tc, tr);
-        const inB = tc >= 0 && tr >= 0 && tc < GTA_W && tr < GTA_H;
-        const lm = inB ? gta.lmGrid[tr * GTA_W + tc] : 0;
-        const BX = Math.ceil(GTA_W / 10);
-        const bi = inB ? gta.blockCol[Math.floor(tc / 10) + Math.floor(tr / 9) * BX] : 0;
-        g.fillStyle = lm ? gta.lmList[lm - 1].roof : GTA_ROOFS_D[dd][bi % 4];
+        // building FOOTPRINT only — the roof floats overhead in the
+        // extrusion pass; this is the dark foundation the walls rise from
+        g.fillStyle = '#0b0b10';
         g.fillRect(x, y, T, T);
-        // roof edge light where the roof meets a walkable tile (streetlight spill)
-        g.fillStyle = 'rgba(255,255,255,0.05)';
-        if (gtaTile(tc, tr - 1) !== GT_BLDG) g.fillRect(x, y, T, 2);
-        if (gtaTile(tc - 1, tr) !== GT_BLDG) g.fillRect(x, y, 2, T);
-        g.fillStyle = 'rgba(0,0,0,0.3)';
-        if (gtaTile(tc, tr + 1) !== GT_BLDG) g.fillRect(x, y + T - 2, T, 2);
-        if (gtaTile(tc + 1, tr) !== GT_BLDG) g.fillRect(x + T - 2, y, 2, T);
-        if (!lm && hsh % 7 === 0) { // AC unit / vent
-          g.fillStyle = 'rgba(255,255,255,0.06)';
-          g.fillRect(x + 5 + (hsh % 8), y + 6 + (hsh % 6), 6, 5);
-        }
-        // street-facing neon: a strip of color bleeding onto the sidewalk.
-        // Density is a district thing — downtown hums, the suburbs sleep.
-        if (!lm && hsh % GTA_NEON_MOD[dd] === 0) {
-          const neon = GTA_NEON[hsh % GTA_NEON.length];
-          g.fillStyle = neon;
-          if (gtaTile(tc, tr + 1) === GT_WALK) {
-            g.fillRect(x + 4, y + T - 2, T - 8, 2);
-            g.globalAlpha = 0.14; g.fillRect(x + 2, y + T, T - 4, 7); g.globalAlpha = 1;
-          } else if (gtaTile(tc, tr - 1) === GT_WALK) {
-            g.fillRect(x + 4, y, T - 8, 2);
-            g.globalAlpha = 0.14; g.fillRect(x + 2, y - 7, T - 4, 7); g.globalAlpha = 1;
-          }
-        }
       }
       // street lamps pool light on intersections
       if (k === GT_ROAD && gta.vRoad[tc] && gta.hRoad[tr] && hsh % 4 === 0) {
@@ -2956,22 +3088,6 @@ function gtaDraw() {
     }
   }
 
-  // Landmark plates: accent border + name painted on the roof, beacon blink.
-  for (const L of gta.lmList) {
-    const lx = L.c * T - ox, ly = L.r * T - oy, lw = L.w * T, lh = L.h * T;
-    if (lx > W || ly > Hh || lx + lw < 0 || ly + lh < 0) continue;
-    g.strokeStyle = L.accent;
-    g.lineWidth = 1;
-    g.strokeRect(lx + 1.5, ly + 1.5, lw - 3, lh - 3);
-    g.globalAlpha = 0.9;
-    g.fillStyle = L.accent;
-    g.font = '900 9px Consolas, monospace';
-    g.textAlign = 'center';
-    g.fillText(L.name, lx + lw / 2, ly + lh / 2 + 3, lw - 8);
-    g.globalAlpha = 1;
-    if (Math.sin(gta.t * 3 + L.c) > 0.2) g.fillRect(lx + lw / 2 - 1, ly + 4, 2, 2);
-  }
-
   // The glow in the bay. Case open forever.
   if (gta.stormSpot) {
     const gx = gta.stormSpot.x - ox, gy = gta.stormSpot.y - oy;
@@ -3122,6 +3238,29 @@ function gtaDraw() {
   }
   g.globalAlpha = 1;
 
+  // The skyline goes up OVER everything street-level — that's what makes
+  // it a skyline. Walls, roofs, lamp posts, all with the 2.5D drift.
+  gtaDrawBuildings(g, ox, oy, c0, c1, r0, r1);
+
+  // Landmark plates ride their (now elevated) rooftops.
+  const axP = ox + W / 2, ayP = oy + Hh / 2;
+  for (const L of gta.lmList) {
+    const kL = GTA_RISE * gtaBldgH(L.c, L.r);
+    const lox = ((L.c + L.w / 2) * T - axP) * kL, loy = ((L.r + L.h / 2) * T - ayP) * kL;
+    const lx = L.c * T - ox + lox, ly = L.r * T - oy + loy, lw = L.w * T, lh = L.h * T;
+    if (lx > W || ly > Hh || lx + lw < 0 || ly + lh < 0) continue;
+    g.strokeStyle = L.accent;
+    g.lineWidth = 1;
+    g.strokeRect(lx + 1.5, ly + 1.5, lw - 3, lh - 3);
+    g.globalAlpha = 0.9;
+    g.fillStyle = L.accent;
+    g.font = '900 9px Consolas, monospace';
+    g.textAlign = 'center';
+    g.fillText(L.name, lx + lw / 2, ly + lh / 2 + 3, lw - 8);
+    g.globalAlpha = 1;
+    if (Math.sin(gta.t * 3 + L.c) > 0.2) g.fillRect(lx + lw / 2 - 1, ly + 4, 2, 2);
+  }
+
   // HONK!
   for (const hk of gta.honks) {
     const px = hk.x - ox, py = hk.y - oy;
@@ -3145,6 +3284,16 @@ function gtaDraw() {
   }
   g.stroke();
 
+  // Night presses in at the edges of the frame (gradient cached per layout).
+  if (!gta.vign || gta.vignW !== W || gta.vignH !== Hh) {
+    const vg = g.createRadialGradient(W / 2, Hh / 2, Math.min(W, Hh) * 0.44, W / 2, Hh / 2, Math.max(W, Hh) * 0.74);
+    vg.addColorStop(0, 'rgba(4,4,12,0)');
+    vg.addColorStop(1, 'rgba(4,4,12,0.32)');
+    gta.vign = vg; gta.vignW = W; gta.vignH = Hh;
+  }
+  g.fillStyle = gta.vign;
+  g.fillRect(0, 0, W, Hh);
+
   gtaDrawHud(g, W, Hh);
   if (gta.phase === 'title') gtaDrawTitle(g, W, Hh);
   if (gta.mapOpen && gta.phase === 'play') gtaDrawMap(g, W, Hh);
@@ -3156,17 +3305,22 @@ function gtaDraw() {
   }
 }
 
-// Headlight cones for any vehicle, drawn nose-first from world heading a.
+// Headlight cones for any vehicle, drawn nose-first from world heading a:
+// a wide soft spread with a hot core inside it, like actual lamps in rain.
 function gtaDrawBeams(g, cx, cy, a, reach, alpha) {
   const c2 = Math.cos(a), s2 = Math.sin(a);
-  g.fillStyle = 'rgba(255,240,190,' + alpha + ')';
   for (const side of [-1, 1]) {
     const hx = cx + c2 * 8 + -s2 * side * 3, hy = cy + s2 * 8 + c2 * side * 3;
-    g.beginPath();
-    g.moveTo(hx, hy);
-    g.lineTo(hx + c2 * reach - s2 * (side * 3 + 9), hy + s2 * reach + c2 * (side * 3 + 9));
-    g.lineTo(hx + c2 * reach - s2 * (side * 3 - 9), hy + s2 * reach + c2 * (side * 3 - 9));
-    g.closePath(); g.fill();
+    const tri = (len, wid, al) => {
+      g.fillStyle = 'rgba(255,240,190,' + al.toFixed(3) + ')';
+      g.beginPath();
+      g.moveTo(hx, hy);
+      g.lineTo(hx + c2 * len - s2 * (side * 3 + wid), hy + s2 * len + c2 * (side * 3 + wid));
+      g.lineTo(hx + c2 * len - s2 * (side * 3 - wid), hy + s2 * len + c2 * (side * 3 - wid));
+      g.closePath(); g.fill();
+    };
+    tri(reach, 9, alpha * 0.65);        // the spread
+    tri(reach * 0.6, 4, alpha * 1.25);  // the hot core
   }
 }
 

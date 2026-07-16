@@ -749,6 +749,59 @@ rotation regression probed (0.45s hold → CCW as ever). Zero pageerrors.
 (kept for classic) — the analog branch reads the stick first so they never
 conflict, but don't "simplify" one away without checking the other scheme.
 
+## Sprint 10.7 — THE THIRD DIMENSION (2026-07-16, Beau's Claude) — graphics 2
+
+Beau asked for another noticeable graphics round. This is the big one:
+Nuggetown goes 2.5D — GTA 1's signature box-building projection, hand-rolled.
+
+**Shipped:**
+- **Building extrusion** (`GTA_RISE = 0.055`, `gtaBldgH`, `gtaRoofCol`,
+  `gtaWall`, `gtaDrawBuildings`): rooftops drift AWAY from screen center
+  (RISE px per world px per story) while footprints stay put; the walls in
+  between are quads with a window grid (one row per story, ~1 in 4 lit
+  warm — `gtaHash`, stable per frame) and the neon signs that used to be
+  painted flat now hang on the wall faces (with a puddle of the color
+  spilled on the pavement). Heights are a pure hash of the coarse
+  10×9 block (NO rnd() — the city must not move): downtown 2-3 stories,
+  batter/grease 1-2, suburbs + harbor warehouses 1, landmarks a uniform 2
+  (checked FIRST in gtaBldgH so a landmark never splits heights).
+- **Draw order rules** (the part that will bite you if reordered): ground
+  pass now paints building tiles as dark FOUNDATION only; the extrusion
+  pass runs AFTER every street-level entity (cars/peds/shots/particles)
+  and inside it: lamp posts → ALL walls → roofs ascending by height
+  (tall overhangs short). Walls draw only when camera-facing (offset sign)
+  AND the neighbor across the edge is shorter — coarse-block height seams
+  inside a road-bounded cluster render as legit split-level steps.
+  Landmark name plates moved AFTER the extrusion pass, translated by their
+  rect-center parallax offset so they ride the elevated roof.
+- **Lamp posts** at the hash%4 intersections that always had light pools:
+  pole line + warm head drifting at 1.15 stories.
+- **Trees** grew trunks; canopies drift at 0.8 story over their ground
+  shadow.
+- **Headlight beams** are two layers now (wide soft spread + hot core) —
+  same gtaDrawBeams signature, callers untouched.
+- **Night vignette**: radial gradient cached per layout (`gta.vign`),
+  drawn after rain, before the HUD.
+
+**Verified headless:** 60-61fps at 1400×920 swiftshader with the full
+skyline (same as the flat city — the extra ~4 tile scans and quad fills
+are noise), THE ERRAND end-to-end + NUG-EX gig regression green, district
+screenshots eyeballed (downtown towers, batter neon walls, suburbs low),
+zero pageerrors/warnings.
+
+**Gotchas:**
+- Parallax anchor is `ox + W/2` (the SHAKEN screen center), not gta.cam —
+  keeps walls glued to their footprints during screenshake.
+- Roof quads of same-height neighbors share per-corner offsets and tile
+  seamlessly — parapet/edge strokes only draw on EXPOSED edges (neighbor
+  shorter), or you get grid lines across every building mass.
+- Anything ground-level near a tall building's far side is now correctly
+  covered by the overhang (booths, carts, even the player) — that's the
+  point; GPS/edge arrows carry the wayfinding.
+- Old flat-city building details (roof-edge streetlight spill, vents,
+  neon) were REMOVED from the ground pass — vents live in the roof pass,
+  neon on walls. Don't re-add them at ground level.
+
 ---
 
 # 🏙️ SEASON 2 — NUGGETOWN NIGHTS (the next 10 sprints, NOT STARTED)
