@@ -35,7 +35,12 @@
 // tanker heist, tailing Detective Dill, arson with a one-fryer policy, an
 // ambush, and an evidence van outside NPD HQ). Objective chains with markers,
 // timers, and fail states; progress persists in localStorage (nugGtaProg).
-// The harbor job arrives in Sprint 8 (see GTA_SPRINTS.md).
+// Sprint 8 (ACT 2 + THE HARBOR JOB): five more contracts building to the
+// north pier at midnight — you hold position at the plank's end and THE
+// STORM SURFACES (canon: alive, never freed, never killed; sets
+// nugGtaSawStorm) before the NPD raid crashes the party. Plus side gigs
+// for freeplay: drive a BUS and NUG-EX clocks you in, drive a CRUISER and
+// dispatch feeds you felons, grab a 💀 and it's a rampage.
 //
 // Rendering is the low-res pixel canvas trick from Battered Brawlers / Fast
 // Food: a ~300px-tall backing store scaled up with image-rendering: pixelated.
@@ -156,6 +161,8 @@ const gta = {
   ringCd: 0,             // quiet period after a dropped contract
   briefT: 0,             // mission brief card timer
   pierRows: [],          // the two pier rows from gen (missions + S8 use these)
+  gig: null,             // side gig: {type, count, time, mk, felon?, need?}
+  stormRise: 0,          // 0..1 — how far out of the bay the storm has come
   cam: { x: 0, y: 0 },
   keys: {},
   handbrake: false,
@@ -407,6 +414,15 @@ function gtaBuildCity() {
     bs++;
   }
 
+  // Rampage skulls (Sprint 8): two bad ideas lying in the road. Append-only.
+  let rp = 0;
+  while (rp < 2 && guard++ < 80000) {
+    const tc = Math.floor(rnd() * GTA_W), tr = Math.floor(rnd() * GTA_H);
+    if (tc >= SHORE || map[tr * GTA_W + tc] !== GT_ROAD) continue;
+    gta.pickups.push({ c: tc, r: tr, gold: false, rampage: true, taken: false, respawn: 0 });
+    rp++;
+  }
+
   // The minimap is painted once at gen time, 1px per tile; the HUD blits a
   // radar window from it every frame. Never repaint this per frame.
   const mini = document.createElement('canvas');
@@ -516,6 +532,7 @@ function syncGta() {
     gta.shots = []; gta.nades = [];
     gta.wtoastT = 0; gta.ammuCd = 0;
     gta.mission = null; gta.briefT = 0; gta.ringCd = 0; gta.boothRing = false;
+    gta.gig = null; gta.stormRise = 0;
     try { gta.prog = Math.max(0, +(localStorage.getItem('nugGtaProg') || 0) || 0); } catch (e) { gta.prog = 0; }
     gta.car.cls = 'compact';
     gta.car.col = '#c23a3a';
@@ -641,7 +658,7 @@ function gtaStepTrafficCar(car, dt) {
   const far = gtaObstacleAt(car.x + dx * look, car.y + dy * look, car);
   const near = gtaObstacleAt(car.x + dx * (C.L * 0.5 + 9), car.y + dy * (C.L * 0.5 + 9), car);
   const hit = near || far;
-  let target = hit ? 0 : C.cruise;
+  let target = hit ? 0 : (car.felon ? C.maxFwd * 0.82 : C.cruise); // felons are late
 
   // Yield before entering an occupied intersection (Nuggetown drivers are
   // criminals, not monsters).
@@ -793,6 +810,7 @@ function gtaCrumb(p, mult, label) {
   if (mult) {
     gtaPay(mult, label, p.x - (gta.cam.x - gta.W / 2), p.y - (gta.cam.y - gta.Hh / 2));
     gtaAddHeat(0.4); // someone always calls 555-DILL
+    if (gta.gig && gta.gig.type === 'rampage') gta.gig.count++;
   }
 }
 
@@ -905,6 +923,7 @@ function gtaWasted() {
   gta.keys = {};
   gta.handbrake = false;
   gtaMissionFail('🍗 WASTED'); // S.W. does not pay hospital bills
+  if (gta.gig) gtaGigEnd('💤 GIG DROPPED');
   gtaBanner('🍗 WASTED', 'heat', 2.2);
 }
 
@@ -957,6 +976,9 @@ function gtaEnterCar(best, fromX, fromY) {
   gta.cars.splice(gta.cars.indexOf(best), 1);
   gta.onFoot = false;
   gta.tiresOut = false; // different car, different tires
+  // Sprint 8 side gigs: the vehicle IS the job application
+  if (gta.car.cls === 'bus') gtaGigStart('nugex');
+  else if (gta.car.cop && gta.car.cls === 'cruiser') gtaGigStart('vigil');
 }
 
 // Your ride stays at the curb, exactly as you left it.
@@ -1137,6 +1159,7 @@ function gtaBusted() {
   gta.keys = {};
   gta.handbrake = false;
   gtaMissionFail('🚔 BUSTED'); // S.W. does not post bail either
+  if (gta.gig) gtaGigEnd('💤 GIG DROPPED');
   if (!gta.onFoot) {
     // the ride gets impounded where it stands; you get the walk of shame
     gtaParkPlayerCar();
@@ -1419,6 +1442,86 @@ const GTA_MISSIONS = [
     ],
     outro: '"paperwork resolved. that closes ACT ONE. stay near a phone — the HARBOR JOB is being priced." — S.W.',
   },
+  // ---- ACT 2 (Sprint 8): everything below is prep for the harbor -------------
+  {
+    key: 'pierpressure', title: 'PIER PRESSURE',
+    brief: '"act two. the harbor job needs an empty pier, and NPD parked a checkpoint on the shore road. un-park it. loudly is fine. loudly is expected." — S.W.',
+    reward: 480,
+    steps: [
+      { kind: 'kill', text: 'CLEAR THE NPD CHECKPOINT 💥',
+        spawn: [
+          { cls: 'cruiser', key: 'target', at: () => gtaShorePoint(gta.pierRows[0]), dy: -60, cop: true, lightsOn: true },
+          { cls: 'cruiser', key: 'target', at: () => gtaShorePoint(gta.pierRows[0]), dy: 60, cop: true, lightsOn: true },
+        ],
+        done: () => gtaAddHeat(2.6) },
+      { kind: 'escape', text: 'LOSE THE HEAT 🚔' },
+    ],
+    outro: '"checkpoint un-parked. the shore road sleeps again. so should you — big week." — S.W.',
+  },
+  {
+    key: 'longlens', title: 'THE LONG LENS',
+    brief: '"a camera car with a very long lens has been photographing OUR warehouses. it\'s parked downtown, outside the arcade. bring it to SAUCE WORKS — intact, film inside." — S.W.',
+    reward: 520,
+    steps: [
+      { kind: 'jack', text: 'STEAL THE CAMERA CAR 📷',
+        spawn: { cls: 'sedan', key: 'cargo', at: () => gtaLmCurb('arcade'), dy: -120, col: '#22262e' },
+        done: () => gtaAddHeat(1.2) },
+      { kind: 'go', text: 'DELIVER IT — SAUCE WORKS (INTACT)', at: () => gtaLmCurb('sauce'), r: 34,
+        needCar: 'cargo', time: 110, failText: '📷 THE FILM IS DEVELOPING IN A FIREBALL' },
+    ],
+    outro: '"film recovered. forty photographs of warehouse roofs and one of a seagull. artists." — S.W.',
+  },
+  {
+    key: 'noise', title: 'NOISE COMPLAINT',
+    brief: '"thursday we move batter through the suburbs, so tonight every cruiser in nuggetown needs to be looking at YOU instead. make noise. keep it loud. then vanish like a rumor." — S.W.',
+    reward: 560,
+    steps: [
+      { kind: 'wanted', text: 'GET NPD ATTENTION — REACH 3★ 🚔', n: 3 },
+      { kind: 'heathold', text: 'KEEP IT LOUD — HOLD 3★', n: 3, dur: 20 },
+      { kind: 'escape', text: 'NOW VANISH 🚔 (THE GARAGE KNOWS A GUY)' },
+    ],
+    outro: '"beautiful racket. NPD filed it as \'weather\'. thursday is a go." — S.W.',
+  },
+  {
+    key: 'ghostshift', title: 'GHOST SHIFT',
+    brief: '"our advance scout drives the harbor route tonight. shadow his tanker — if he\'s followed by anyone but you, the job is off and so are you." — S.W.',
+    reward: 600,
+    steps: [
+      { kind: 'go', text: 'MEET THE ROUTE — NOODLE NUG 🛢️', at: () => gtaLmCurb('noodle'), r: 60 },
+      { kind: 'tail', text: 'SHADOW THE SCOUT — NOT TOO CLOSE', dur: 26, track: 'scout',
+        spawn: { cls: 'tanker', key: 'scout', at: () => gtaLmCurb('noodle'), dy: 130, drive: true } },
+    ],
+    outro: '"route confirmed clean. the scout never saw you. neither did we. perfect." — S.W.',
+  },
+  {
+    key: 'harborjob', title: 'THE HARBOR JOB',
+    brief: '"tonight. the buyers want PROOF the merchandise from the catch incident is still where we left it. drive to the END of the north pier and hold position. whatever you see — that\'s between you, us, and the bay." — S.W.',
+    reward: 900,
+    steps: [
+      { kind: 'go', text: 'GET TO THE NORTH PIER GATE ⚓', at: () => gtaShorePoint(gta.pierRows[0]), r: 36 },
+      { kind: 'go', text: 'DRIVE OUT TO THE PIER\'S END 🌊',
+        at: () => ({ x: (GTA_W - 4.5) * GTA_TILE, y: (gta.pierRows[0] + 1) * GTA_TILE }), r: 40 },
+      { kind: 'watch', text: 'HOLD POSITION — SOMETHING IS SURFACING 🌩️', dur: 8, r: 48,
+        at: () => ({ x: (GTA_W - 4.5) * GTA_TILE, y: (gta.pierRows[0] + 1) * GTA_TILE }),
+        done: () => {
+          // THE CATCH INCIDENT, eyewitness edition. Canon holds: it lives,
+          // it stays, nobody frees it, nobody kills it. Case open forever.
+          try { localStorage.setItem('nugGtaSawStorm', '1'); } catch (e) { /* private mode */ }
+          gtaBanner('🌩️ IT\'S ALIVE', 'go', 2.2);
+          gtaAddHeat(5);
+          const p = gtaShorePoint(gta.pierRows[0]);
+          for (const dy of [-140, -60, 60, 140]) {
+            gta.cars.push({
+              x: p.x, y: p.y + dy, a: 0, dir: 0, v: 0, cls: 'cruiser', col: '#e8ecf4',
+              hp: 120, cop: true, chase: true, parked: false, wreck: false,
+              nd: null, blockT: 0, hitT: 0, emberT: 0,
+            });
+          }
+        } },
+      { kind: 'escape', text: 'NPD RAID — ESCAPE 🚔🚁' },
+    ],
+    outro: '"proof received. payment doubled. it\'s alive down there, and it STAYS down there — the case stays open, the bay keeps the secret. pleasure doing crimes with you." — S.W.',
+  },
 ];
 
 // A car that belongs to the contract: despawn-proof, doors mostly locked.
@@ -1429,7 +1532,7 @@ function gtaMisCar(spec) {
     x: p.x + (spec.dx || 0), y: p.y + (spec.dy || 0), a: -Math.PI / 2, dir: 3, v: 0,
     cls: spec.cls, col: spec.col || C.cols[0], hp: C.hp,
     cop: !!spec.cop, chase: !!spec.hostile, hostile: !!spec.hostile,
-    parked: !spec.drive && !spec.hostile, wreck: false,
+    parked: !spec.drive && !spec.hostile, wreck: false, lightsOn: !!spec.lightsOn,
     nd: null, blockT: 0, hitT: 0, emberT: 0,
     mis: true, misKey: spec.key,
   };
@@ -1455,7 +1558,7 @@ function gtaMisFind(key) {
 function gtaMissionStepInit() {
   const M = gta.mission;
   const step = M.def.steps[M.si];
-  M.st = { t: 0, close: 0, far: 0 };
+  M.st = { t: 0, close: 0, far: 0, hold: 0 };
   M.time = step.time || 0;
   M.warn = null;
   if (step.spawn) for (const s of [].concat(step.spawn)) gtaMisCar(s);
@@ -1562,8 +1665,8 @@ function gtaStepMission(dt) {
     for (const o of gta.cars) if (o.mis && o.misKey === 'target' && !o.wreck) { alive = true; break; }
     if (!alive) gtaMissionAdvance();
   } else if (step.kind === 'tail') {
-    const dill = gtaMisFind('dill');
-    if (!dill) { gtaMissionFail('🕵️ THE SEDAN IS TOAST. SUBTLE.'); return; }
+    const dill = gtaMisFind(step.track || 'dill');
+    if (!dill) { gtaMissionFail('🕵️ YOUR MARK IS TOAST. SUBTLE.'); return; }
     const d = Math.hypot(P.x - dill.x, P.y - dill.y);
     if (d < 58) {
       M.st.close += dt; M.st.far = 0;
@@ -1577,6 +1680,128 @@ function gtaStepMission(dt) {
     if (M.st.t >= step.dur) gtaMissionAdvance();
   } else if (step.kind === 'escape') {
     if (gtaStars() === 0) gtaMissionAdvance();
+  } else if (step.kind === 'wanted') {
+    if (gtaStars() >= step.n) gtaMissionAdvance();
+  } else if (step.kind === 'heathold') {
+    if (gtaStars() >= step.n) M.st.hold += dt;
+    else { M.warn = 'GET BACK TO ' + step.n + '★'; M.st.hold = Math.max(0, M.st.hold - dt); }
+    if (M.st.hold >= step.dur) gtaMissionAdvance();
+  } else if (step.kind === 'watch') {
+    // the harbor job: hold the pier's end while the bay gives up its secret
+    const inR = Math.abs(P.x - M.mk.x) < step.r && Math.abs(P.y - M.mk.y) < step.r;
+    if (inR) M.st.hold += dt;
+    else { M.warn = 'HOLD POSITION AT THE PIER\'S END'; M.st.hold = Math.max(0, M.st.hold - dt * 2); }
+    gta.stormRise = Math.min(1, M.st.hold / step.dur);
+    if (M.st.hold >= step.dur) gtaMissionAdvance();
+  }
+}
+
+// ---- SIDE GIGS (Sprint 8) ----------------------------------------------------------------
+// Repeatable freeplay work, no phone required: boost a BUS and NUG-EX clocks
+// you in, boost a CRUISER and dispatch feeds you felons, grab a 💀 off the
+// road and it's a rampage. One job at a time — a gig won't start while S.W.
+// is on the line, and the phones stay quiet while a gig runs.
+
+function gtaGigStart(type) {
+  if (gta.mission || gta.gig || gta.phase !== 'play') return;
+  if (type === 'nugex') {
+    gta.gig = { type, count: 0, time: 65, mk: gtaGigDrop(null) };
+    gtaBanner('📦 NUG-EX SHIFT — CLOCK IN', 'go', 1.6);
+  } else if (type === 'vigil') {
+    gta.gig = { type, count: 0, time: 55, mk: null, felon: null };
+    gtaBanner('🚨 VIGILANTE — DISPATCH HAS A FELON', 'go', 1.6);
+  } else if (type === 'rampage') {
+    gta.gig = { type, count: 0, time: 50, mk: null, need: 10 };
+    gta.ammo.uzi = Math.max(gta.ammo.uzi, 90); // company uzi
+    gtaSelectWeapon(2);
+    gtaBanner('💀 RAMPAGE — 10 IN 50 SECONDS', 'heat', 1.8);
+  }
+}
+
+function gtaGigDrop(not) { // a landmark curb that isn't the one you're at
+  const keys = ['arcade', 'npd', 'general', 'noodle', 'sauce', 'garage', 'ammu'];
+  let key;
+  do { key = keys[Math.floor(Math.random() * keys.length)]; } while (key === not);
+  const p = gtaLmCurb(key);
+  return { x: p.x, y: p.y, key };
+}
+
+// A very fast someone who really needs to be elsewhere. Lane-locked like all
+// traffic, just wildly over the limit — cut them off or wreck them.
+function gtaGigFelon() {
+  const T = GTA_TILE;
+  const R = Math.max(gta.W, gta.Hh) * 0.72;
+  for (let tries = 0; tries < 20; tries++) {
+    const ang = Math.random() * Math.PI * 2;
+    const rad = R + 60 + Math.random() * 90;
+    const x = gta.cam.x + Math.cos(ang) * rad, y = gta.cam.y + Math.sin(ang) * rad;
+    const tc = Math.floor(x / T), tr = Math.floor(y / T);
+    if (tc < 1 || tr < 1 || tc >= GTA_W - 1 || tr >= GTA_H - 1) continue;
+    if (gtaTile(tc, tr) !== GT_ROAD || (gta.vRoad[tc] && gta.hRoad[tr])) continue;
+    let dir, sx = x, sy = y;
+    if (gta.vRoad[tc]) { const v = gtaPairStartV(tc); dir = tc === v ? 1 : 3; sx = gtaLaneX(v, dir); }
+    else { const h = gtaPairStartH(tr); dir = tr === h ? 2 : 0; sy = gtaLaneY(h, dir); }
+    const nd = gtaNextDecision(sx, sy, dir);
+    if (!nd) continue;
+    const o = {
+      x: sx, y: sy, a: GTA_DIR_A[dir], dir, v: 120, cls: 'sports', col: '#ff2fa0',
+      hp: GTA_CLASSES.sports.hp, cop: false, chase: false, felon: true, gigCar: true,
+      parked: false, wreck: false, nd, blockT: 0, hitT: 0, emberT: 0,
+    };
+    gta.cars.push(o);
+    return o;
+  }
+  return null;
+}
+
+function gtaGigEnd(msg) {
+  for (const o of gta.cars) if (o.gigCar) { o.gigCar = false; o.felon = false; }
+  gta.gig = null;
+  gta.toastMsg = msg;
+  gta.toastT = 3.2;
+}
+
+function gtaStepGig(dt) {
+  const G = gta.gig;
+  if (!G) return;
+  const P = gtaPlayerPos();
+  if (G.type === 'nugex') {
+    if (gta.onFoot || gta.car.cls !== 'bus') { gtaGigEnd('📦 SHIFT OVER — ' + G.count + ' DELIVERED'); return; }
+    G.time -= dt;
+    if (G.time <= 0) { gtaGigEnd('📦 MISSED THE WINDOW — ' + G.count + ' DELIVERED'); return; }
+    if (Math.abs(P.x - G.mk.x) < 32 && Math.abs(P.y - G.mk.y) < 32) {
+      G.count++;
+      gtaPay(40 + G.count * 6, '📦', gta.W / 2, gta.Hh * 0.42);
+      G.mk = gtaGigDrop(G.mk.key);
+      G.time = Math.max(38, 62 - G.count * 2); // the routes get tighter
+    }
+  } else if (G.type === 'vigil') {
+    if (gta.onFoot || !gta.car.cop) { gtaGigEnd('🚨 OFF DUTY — ' + G.count + ' COLLARED'); return; }
+    if (!G.felon) {
+      G.felon = gtaGigFelon(); // may whiff on bad ground; retry next frame
+      G.mk = null;
+      if (G.felon) G.time = 55;
+      return;
+    }
+    G.time -= dt;
+    if (G.time <= 0) { gtaGigEnd('🚨 THE FELON GOT AWAY — ' + G.count + ' COLLARED'); return; }
+    if (G.felon.wreck) {
+      G.count++;
+      gtaPay(35 + G.count * 8, '🚨', gta.W / 2, gta.Hh * 0.42);
+      gtaBanner('🚨 FELON COLLARED', 'go', 1.1);
+      G.felon = null; // dispatch has another
+      return;
+    }
+    G.mk = { x: G.felon.x, y: G.felon.y };
+  } else if (G.type === 'rampage') {
+    G.time -= dt;
+    if (G.count >= G.need) {
+      gtaPay(150, '💀', gta.W / 2, gta.Hh * 0.42);
+      gtaAddHeat(1.5); // that many crumbs, someone counted
+      gtaGigEnd('💀 RAMPAGE COMPLETE');
+      return;
+    }
+    if (G.time <= 0) gtaGigEnd('💀 RAMPAGE OVER — ' + G.count + '/' + G.need);
   }
 }
 
@@ -1859,7 +2084,7 @@ function gtaStepWorld(dt) {
   const R2 = Math.max(gta.W, gta.Hh) * 0.72 + 330;
   for (let i = gta.cars.length - 1; i >= 0; i--) {
     const o = gta.cars[i];
-    if (o.mis) continue; // mission cars are despawn-proof
+    if (o.mis || o.gigCar) continue; // mission + gig cars are despawn-proof
     if (Math.abs(o.x - gta.cam.x) > R2 || Math.abs(o.y - gta.cam.y) > R2) gta.cars.splice(i, 1);
   }
   for (let i = gta.peds.length - 1; i >= 0; i--) {
@@ -1961,11 +2186,13 @@ function gtaStepWorld(dt) {
   gtaCheckRespray();
   // -------------------------------------------------------------------------
 
-  // ---- the syndicate line ---------------------------------------------------
+  // ---- the syndicate line + side gigs ----------------------------------------
   gta.ringCd = Math.max(0, gta.ringCd - dt);
-  gta.boothRing = !gta.mission && gta.ringCd <= 0 && gta.prog < GTA_MISSIONS.length &&
+  gta.boothRing = !gta.mission && !gta.gig && gta.ringCd <= 0 && gta.prog < GTA_MISSIONS.length &&
     gta.wastedT <= 0 && gta.bustedT <= 0;
+  gta.stormRise = Math.max(0, gta.stormRise - dt * 0.3); // the bay reclaims (watch re-ups it)
   gtaStepMission(dt);
+  gtaStepGig(dt);
 
   // Live rounds: fly, expire, spark off walls, crumb nuggets, dent sheet metal.
   for (let i = gta.shots.length - 1; i >= 0; i--) {
@@ -2073,9 +2300,11 @@ function gtaStepWorld(dt) {
     }
     const px = (p.c + 0.5) * GTA_TILE, py = (p.r + 0.5) * GTA_TILE;
     if (Math.abs(P.x - px) < 11 && Math.abs(P.y - py) < 11) {
+      if (p.rampage && (gta.mission || gta.gig)) continue; // one bad idea at a time
       p.taken = true;
-      p.respawn = gta.t + (p.ammo ? 40 : 26);
-      if (p.ammo) {
+      p.respawn = gta.t + (p.rampage ? 150 : p.ammo ? 40 : 26);
+      if (p.rampage) gtaGigStart('rampage');
+      else if (p.ammo) {
         const w = GTA_WEAP_BY_KEY[p.ammo];
         gta.ammo[p.ammo] += w.give;
         gta.wtoastT = 1.4;
@@ -2282,6 +2511,14 @@ function gtaDraw() {
       g.fillStyle = 'rgba(255,255,255,0.4)';
       g.fillRect(-r, -r, r * 2, 2);
       g.restore();
+    } else if (p.rampage) {
+      // a skull in the road. everyone knows what a skull in the road means.
+      g.font = '900 9px Consolas, monospace';
+      g.textAlign = 'center';
+      g.globalAlpha = 0.7 + 0.3 * Math.sin(gta.t * 6);
+      g.fillStyle = '#eef2ff';
+      g.fillText('💀', px, py + 3);
+      g.globalAlpha = 1;
     } else if (p.gold) {
       const r = 4 + Math.sin(gta.t * 5) * 0.7;
       const grad = g.createRadialGradient(px - 1, py - 1, 1, px, py, r + 3);
@@ -2374,19 +2611,47 @@ function gtaDraw() {
   // The glow in the bay. Case open forever.
   if (gta.stormSpot) {
     const gx = gta.stormSpot.x - ox, gy = gta.stormSpot.y - oy;
-    if (gx > -40 && gx < W + 40 && gy > -40 && gy < Hh + 40) {
+    if (gx > -80 && gx < W + 80 && gy > -80 && gy < Hh + 80) {
       const pul = 0.16 + 0.1 * Math.sin(gta.t * 1.7);
       const gr = g.createRadialGradient(gx, gy, 1, gx, gy, 26);
       gr.addColorStop(0, 'rgba(255,210,58,' + pul.toFixed(3) + ')');
       gr.addColorStop(1, 'rgba(255,210,58,0)');
       g.fillStyle = gr;
       g.fillRect(gx - 26, gy - 26, 52, 52);
+      // THE HARBOR JOB: the water bulges gold and something with its own
+      // weather comes up for air. It looks at you. It goes back under.
+      if (gta.stormRise > 0) {
+        const k = gta.stormRise;
+        const gr2 = g.createRadialGradient(gx, gy, 2, gx, gy, 26 + 40 * k);
+        gr2.addColorStop(0, 'rgba(255,220,80,' + (0.4 * k).toFixed(3) + ')');
+        gr2.addColorStop(1, 'rgba(255,210,58,0)');
+        g.fillStyle = gr2;
+        g.fillRect(gx - 70, gy - 70, 140, 140);
+        const ry2 = gy - 8 * k;
+        g.fillStyle = 'rgba(16,20,38,' + (0.9 * k).toFixed(3) + ')';
+        g.beginPath(); g.ellipse(gx, ry2, 15 * k, 9 * k, 0, 0, Math.PI * 2); g.fill();
+        for (let i = 0; i < 7; i++) { // nuggets, orbiting. of course they orbit.
+          const a2 = gta.t * 2.2 + i * (Math.PI * 2 / 7);
+          const rr3 = (13 + 5 * Math.sin(gta.t * 3 + i)) * k;
+          g.fillStyle = '#ffd23a';
+          g.fillRect(gx + Math.cos(a2) * rr3 - 1, ry2 + Math.sin(a2) * rr3 * 0.6 - 1, 3, 3);
+        }
+        if (k > 0.7 && Math.random() < 0.14) { // it crackles. it's ALIVE.
+          g.strokeStyle = 'rgba(255,255,255,0.8)';
+          g.lineWidth = 1;
+          g.beginPath();
+          g.moveTo(gx + (Math.random() - 0.5) * 22, ry2 - 12);
+          g.lineTo(gx + (Math.random() - 0.5) * 22, ry2 + 6);
+          g.stroke();
+        }
+      }
     }
   }
 
-  // Mission marker: a gold ring on the tarmac, GTA-classic.
-  if (gta.mission && gta.mission.mk) {
-    const mx = gta.mission.mk.x - ox, my = gta.mission.mk.y - oy;
+  // Mission (or gig) marker: a gold ring on the tarmac, GTA-classic.
+  const mkNow = (gta.mission && gta.mission.mk) || (gta.gig && gta.gig.mk);
+  if (mkNow) {
+    const mx = mkNow.x - ox, my = mkNow.y - oy;
     if (mx > -30 && mx < W + 30 && my > -30 && my < Hh + 30) {
       const r = 10 + Math.sin(gta.t * 3.4) * 2;
       g.strokeStyle = 'rgba(255,210,58,0.85)';
@@ -2745,8 +3010,9 @@ function gtaDrawHud(g, W, Hh) {
       g.fillStyle = '#ffd23a';
       g.fillRect(dx + ((bc - sx) / SRC) * MM - 1, dy + ((br - sy) / SRC) * MM - 1, 2, 2);
     };
-    if (gta.mission && gta.mission.mk) {
-      if (Math.floor(gta.t * 5) % 2 === 0) blip(gta.mission.mk.x / GTA_TILE, gta.mission.mk.y / GTA_TILE);
+    const mkR = (gta.mission && gta.mission.mk) || (gta.gig && gta.gig.mk);
+    if (mkR) {
+      if (Math.floor(gta.t * 5) % 2 === 0) blip(mkR.x / GTA_TILE, mkR.y / GTA_TILE);
     } else if (gta.boothRing && Math.floor(gta.t * 3) % 2 === 0) {
       for (const b of gta.booths) blip(b.c + 0.5, b.r + 0.5);
     }
@@ -2783,7 +3049,10 @@ function gtaDrawHud(g, W, Hh) {
     g.font = '900 9px Consolas, monospace';
     g.fillStyle = '#ffd23a';
     let line = step.text;
-    if (step.dur) line += ' · ' + Math.max(0, Math.ceil(step.dur - M.st.t)) + 's';
+    if (step.dur) {
+      const held = (step.kind === 'watch' || step.kind === 'heathold') ? M.st.hold : M.st.t;
+      line += ' · ' + Math.max(0, Math.ceil(step.dur - held)) + 's';
+    }
     g.fillText(line, W / 2, Hh - 8);
     if (M.warn && Math.floor(gta.t * 5) % 2 === 0) {
       g.fillStyle = '#ff5252';
@@ -2793,19 +3062,21 @@ function gtaDrawHud(g, W, Hh) {
       g.fillStyle = M.time < 12 && Math.floor(gta.t * 4) % 2 === 0 ? '#ff5252' : '#eef2ff';
       g.fillText('⏱ ' + Math.ceil(M.time), W / 2, Hh - 20);
     }
-    // edge arrow to the marker when it's off screen
-    if (M.mk) {
-      const rx = M.mk.x - gta.cam.x, ry = M.mk.y - gta.cam.y;
-      if (Math.abs(rx) > W / 2 - 10 || Math.abs(ry) > Hh / 2 - 10) {
-        const k = Math.min((W / 2 - 14) / Math.max(1, Math.abs(rx)), (Hh / 2 - 14) / Math.max(1, Math.abs(ry)));
-        g.save();
-        g.translate(W / 2 + rx * k, Hh / 2 + ry * k);
-        g.rotate(Math.atan2(ry, rx));
-        g.fillStyle = Math.floor(gta.t * 3) % 2 === 0 ? '#ffd23a' : '#ffe9a0';
-        g.beginPath(); g.moveTo(8, 0); g.lineTo(-4, -5); g.lineTo(-4, 5); g.closePath(); g.fill();
-        g.restore();
-      }
-    }
+    if (M.mk) gtaEdgeArrow(g, W, Hh, M.mk);
+  } else if (gta.gig) {
+    // gig line: same slot, different boss
+    const G = gta.gig;
+    g.textAlign = 'center';
+    g.font = '900 9px Consolas, monospace';
+    g.fillStyle = '#ffd23a';
+    const label = G.type === 'nugex' ? '📦 NUG-EX DROP · ' + G.count + ' DELIVERED'
+      : G.type === 'vigil' ? '🚨 STOP THE FELON · ' + G.count + ' COLLARED'
+      : '💀 RAMPAGE · ' + G.count + '/' + G.need;
+    g.fillText(label, W / 2, Hh - 8);
+    g.font = '900 11px Consolas, monospace';
+    g.fillStyle = G.time < 10 && Math.floor(gta.t * 4) % 2 === 0 ? '#ff5252' : '#eef2ff';
+    g.fillText('⏱ ' + Math.max(0, Math.ceil(G.time)), W / 2, Hh - 20);
+    if (G.mk) gtaEdgeArrow(g, W, Hh, G.mk);
   } else if (gta.boothRing) {
     // between jobs: point at the nearest ringing phone
     let bb = null, bd = Infinity;
@@ -2847,6 +3118,19 @@ function gtaDrawHud(g, W, Hh) {
     for (let i = 0; i < lines.length; i++) g.fillText(lines[i], W / 2, by + 24 + i * 10);
     g.globalAlpha = 1;
   }
+}
+
+// A gold arrow pinned to the screen edge, pointing at an offscreen marker.
+function gtaEdgeArrow(g, W, Hh, mk) {
+  const rx = mk.x - gta.cam.x, ry = mk.y - gta.cam.y;
+  if (Math.abs(rx) <= W / 2 - 10 && Math.abs(ry) <= Hh / 2 - 10) return;
+  const k = Math.min((W / 2 - 14) / Math.max(1, Math.abs(rx)), (Hh / 2 - 14) / Math.max(1, Math.abs(ry)));
+  g.save();
+  g.translate(W / 2 + rx * k, Hh / 2 + ry * k);
+  g.rotate(Math.atan2(ry, rx));
+  g.fillStyle = Math.floor(gta.t * 3) % 2 === 0 ? '#ffd23a' : '#ffe9a0';
+  g.beginPath(); g.moveTo(8, 0); g.lineTo(-4, -5); g.lineTo(-4, 5); g.closePath(); g.fill();
+  g.restore();
 }
 
 // Word-wrap for the brief card (measures in the card's own font).

@@ -513,3 +513,63 @@ heat) and an `escape`. Case stays open: the storm submerges again,
 nobody frees or kills it. Side gigs (Nug-Ex/Vigilante/Rampage) can be
 lightweight repeatable non-chain missions started from world objects
 (e.g. E in a bus/tanker/cruiser when idle) rather than booths.
+
+## Sprint 8 — ACT 2 + THE HARBOR JOB (2026-07-16, Beau's Claude)
+
+**Shipped:** the campaign is complete — 11 contracts. Act 2 (defs 7-11
+appended to GTA_MISSIONS): PIER PRESSURE (clear a lit NPD checkpoint on
+the shore road), THE LONG LENS (camera-car heist, deliver intact),
+NOISE COMPLAINT (new step kinds: `wanted` reach N★, `heathold` keep N★
+for dur), GHOST SHIFT (tail generalized via `step.track` — shadow a
+syndicate scout tanker), and THE HARBOR JOB: drive to the north pier's
+end, `watch` step holds you there while `gta.stormRise` 0→1 and THE
+STORM SURFACES (dark ellipse + 7 orbiting golden nuggets + lightning
+crackle at the stormSpot, drawn in the stormSpot block of gtaDraw),
+`nugGtaSawStorm='1'` lands in localStorage, then heat 5 + a four-cruiser
+raid spawns on the shore and it's one long `escape` home. Case stays
+open: rise decays 0.3/s in stepWorld the moment the watch ends — it
+goes back under, nobody frees it, nobody kills it. Campaign outro says
+so in as many words. Plus SIDE GIGS for freeplay: boost a BUS →
+📦 NUG-EX timed delivery chain (pay grows, windows shrink), boost a
+CRUISER → 🚨 VIGILANTE (lane-locked felons at 0.82×maxFwd via `o.felon`
+in gtaStepTrafficCar; wreck to collar, chain continues), grab a 💀 off
+the road (2 seeded, append-only, 150s respawn) → RAMPAGE (10 crumbs in
+50s on a company uzi; player-attributed gtaCrumb calls count). Verified
+headless: all five Act-2 contracts end to end (storm rise probed at
+0.93, raid live, submergence checked), all three gigs start/pay/chain,
+zero pageerrors/warnings, screenshots eyeballed (the surfacing shot is
+the whole sprint).
+
+**How it works (for S9/S10):**
+- Gigs: `gta.gig` = `{type, count, time, mk, felon?, need?}`, stepped by
+  `gtaStepGig` right after gtaStepMission. One job at a time: gigs won't
+  start during a mission, booths don't ring during a gig
+  (`gta.boothRing` gate). Ending is always `gtaGigEnd(msg)` — neutral
+  toast, no fail banner; wasted/busted drop the gig quietly. Gig entry
+  points: gtaEnterCar tail (bus/cruiser) + the rampage branch in the
+  pickups loop. `o.gigCar` joins `o.mis` in the despawn guard.
+- HUD marker plumbing is shared: world ring + radar gold blip + edge
+  arrow all read `gta.mission?.mk || gta.gig?.mk` (arrow via the
+  `gtaEdgeArrow` helper). The objective line has a gig branch.
+- `gta.stormRise` is the only storm-surface state; anything (S9 street
+  dialogue, future missions) can read `nugGtaSawStorm` from localStorage
+  — same pattern as reel's `nugReelStorm`.
+- Campaign-complete freeplay = phones quiet (`prog >= GTA_MISSIONS.length`),
+  gigs forever.
+
+**Gotchas hit:** none — the S7 engine took all five defs and three new
+step kinds without a fight. Watch out: `gtaGigFelon` can whiff on bad
+ground (returns null); gtaStepGig retries next frame, so never assume
+`G.felon` is set.
+
+**S9 (THE STREET DOOR) pointers:** everything the arcade street needs is
+ready — mode `gta` is fully wired, and the two campaign flags are
+`nugGtaProg` (0..11, count of contracts done) and `nugGtaSawStorm`
+('1' after the harbor job). Suggested read helpers to add in gta.js:
+`gtaProgress()` / `gtaSawStorm()` (try/catch localStorage like
+reelStormLanded). Street door per AGENTS.md: `ArcadeArt.STREET_GAMES`
+entry {mode:'gta', …}, street-atlas art ONLY (main page is FULL), a
+double-parked car with blinking hazards near the bus stop
+(H.hotspots + `H.lastSpot` so Stop returns you to the car), and NPC
+dialogue branches keyed on the two flags (Dill has a rap sheet with
+your name on it; the Hooded Nug gets a new rumor). Update AGENTS.md.
