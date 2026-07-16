@@ -4217,10 +4217,6 @@ function gtaDraw() {
     gtaDrawPed(g, px, py, p);
   }
 
-  // Other players' ghost cars/peds (online only; no-op in SP). Drawn under the
-  // local player so you always render on top of the crowd.
-  if (window.GtaNet) GtaNet.drawRemotes(g, ox, oy, W, Hh);
-
   if (gta.wastedT <= 0) {
     if (gta.onFoot) gtaDrawPed(g, gta.ped.x - ox, gta.ped.y - oy, gta.ped, true);
     else gtaDrawVehicle(g, ox, oy, gta.car, true);
@@ -4290,6 +4286,13 @@ function gtaDraw() {
   // The skyline goes up OVER everything street-level — that's what makes
   // it a skyline. Walls, roofs, lamp posts, all with the 2.5D drift.
   gtaDrawBuildings(g, ox, oy, c0, c1, r0, r1);
+
+  // Other players' ghost cars/peds (online only; no-op in SP). Drawn AFTER the
+  // skyline: the 2.5D drift shifts building tops over off-centre positions, so
+  // ghosts (which are never at screen centre like you are) would vanish behind
+  // buildings otherwise. Translucent, so they read as locators, not roof cars —
+  // in a co-op cruise, never losing your friend beats strict occlusion.
+  if (window.GtaNet) GtaNet.drawRemotes(g, ox, oy, W, Hh);
 
   // Landmark plates ride their (now elevated) rooftops.
   const axP = ox + W / 2, ayP = oy + Hh / 2;
