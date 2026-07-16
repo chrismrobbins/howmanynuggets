@@ -9,13 +9,16 @@ already bitten someone.
 > COMPLETE: all 10 sprints shipped 2026-07-15/16 (city, traffic, on-foot,
 > NPD heat, weapons, the 11-contract syndicate campaign incl. THE HARBOR
 > JOB, side gigs, the street door, audio/touch/pause-map polish). Build
-> log + per-sprint handoff notes live in `GTA_SPRINTS.md` — which now also
-> Post-season patch 10.5 "FRESH COAT" (2026-07-16): ped/vehicle render
-> rigs rebuilt, carjack bail-out scene, GPS arrow + objective plates,
-> crosswalks. GTA_SPRINTS.md `Sprint 10.5` notes have the details. It also
-> holds the **SEASON 2 — NUGGETOWN NIGHTS plan (10 sprints)**: garage + REP,
-> mods, street races, the case board, Dill's chain, procedural contracts,
-> weather, photo mode, and free-roam online on the worker gameRoom pattern.
+> log + per-sprint handoff notes live in `GTA_SPRINTS.md`. Post-season
+> patches (2026-07-16): **10.5 FRESH COAT** (ped/vehicle render rigs
+> rebuilt, carjack bail-out scene, GPS arrow + objective plates,
+> crosswalks), **10.6 POINT STEERING** (hold-where-you-want-to-GO is the
+> default scheme; T toggles classic), **10.7 THE THIRD DIMENSION** (2.5D
+> building extrusion — read the draw-order gotchas in the 10.7 notes
+> before touching gtaDraw). GTA_SPRINTS.md also holds the **SEASON 2 —
+> NUGGETOWN NIGHTS plan (10 sprints)**: garage + REP, mods, street races,
+> the case board, Dill's chain, procedural contracts, weather, photo mode,
+> and free-roam online on the worker gameRoom pattern.
 > **S2.9 (FREE-ROAM ONLINE PT 1) SHIPPED EARLY, OUT OF ORDER** (js/gtaMP.js +
 > worker/src/games/gta.js — a pure state-relay, NOT server-authoritative; see
 > the S2.9 note at the bottom of GTA_SPRINTS.md before touching MP). S2.1–8 +
