@@ -279,3 +279,57 @@ screenshots eyeballed, zero pageerrors/warnings.
 Noodle stands: the `noodle` landmark exists; carts can be seeded AFTER
 existing gen rnd() calls (append-only, or the whole city reshuffles).
 `gtaCrumb(p, mult, label)` is the kill path for punches too.
+
+## Sprint 4 — ON FOOT (2026-07-15, Beau's Claude)
+
+**Shipped:** you can leave the car. E/X now does all door work (on foot:
+enter within 26px; driving: swap within 34px, else step out kerbside if
+slow); walk mode with its own axis-separated collision (r 3.5), SHIFT
+sprint on a stamina bar (drain 30/s, regen 16/s), SPACE punch (nuggets
+crumb + pay 3×, cars dent 6hp — punch a tanker long enough, learn things);
+health = breading (100), hurt by traffic hits, blasts, and splash, with a
+`hurtI` mercy window; SIX Noodle Nug carts (one seeded on the curb outside
+the NOODLE NUG landmark, five around town, pink dots on the minimap) regen
+16/s standing near them, steam included; pickups work on foot
+(`gtaPlayerPos` did the heavy lifting); car explosion now EJECTS you singed
+(-65 breading) instead of insta-wasting; WASTED (breading 0) respawns ON
+FOOT outside Nugget General, meter untouched. HUD: breading bar always,
+stamina bar on foot, bodywork bar driving, 🍜 RE-BREADING indicator; tally
+shows 🍞% on foot. Verified headless: exit/walk/sprint/punch/noodle/enter/
+eject/wasted probes + S3 regression (lane discipline holds), screenshots
+eyeballed, zero pageerrors/warnings.
+
+**How it works (for S5+):**
+- `gta.onFoot` + `gta.ped` (player avatar, shares the `gtaDrawPed` rig —
+  golden `#ffcf3a`, red hurt-blink, white fist while `punchAnim > 0`).
+  `gtaPlayerPos()` returns car or ped; ~everything downstream (camera,
+  pickups, districts, traffic probes/honks) never noticed the change.
+- Death paths: cars die ONLY via `gtaDamagePlayerCar` (ejects → breading),
+  flesh dies ONLY via `gtaHurtPlayer` (mercy-window gated). NPD busts in S5
+  should be a THIRD path (no explosion, no breading hit — weapons instead).
+- `gtaRespawn` is on-foot-only now. `gta.car` is STALE while onFoot — the
+  smoke emitter and HUD are guarded; keep new code reading it behind
+  `!gta.onFoot` (or via gtaPlayerPos).
+- Noodle carts: `gta.noodleCarts` `{c,r}`, seeded APPEND-ONLY after the
+  pickup rnd() calls (city layout unchanged — checked the arcade spawn).
+- Touch on foot is crude-but-works: hold = walk north, thirds steer,
+  second finger = door-or-punch (`gtaFootAction`). S10 virtual stick fixes.
+
+**Gotchas hit:**
+- The stale-`gta.car` smoke emitter was the only real bite (a fire fountain
+  at your old wreck while walking away) — hence the guards note above.
+- Ejection order matters: place on foot FIRST (onFoot gates re-entry into
+  gtaDamagePlayerCar), hurt with `hurtI = 0`, then `hurtI = 1.2` so the
+  wreck's own splash pass can't double-dip.
+
+**S5 (NPD HEAT) pointers:** wanted level wants a `gta.heat` float + star
+HUD (top-right is free). Patrol cruisers can be a 6th class in GTA_CLASSES
+(cop livery in gtaDrawVehicle) spawned via the normal traffic ring while
+heat 0 (they lane-follow until you misbehave — hooks: gtaCrumb (witnessed),
+ram damage, punches). Pursuit = break lane-lock: give cruisers a `chase`
+flag and steer-at-player physics like the player car's. Busted: cruiser
+adjacent + player slow/on-foot → banner + respawn at NPD HQ (landmark
+exists) — no explosion path. Pay 'n' Spray: `garage` landmark, drive into
+its block with $$$ to clear heat + repair (storm.caught -= is FORBIDDEN by
+the house rule — charge nothing or pay in time, e.g. a 3s respray pause).
+Heat decay when unseen: reuse the spawn-ring distance check.

@@ -14,6 +14,10 @@
 // brakes, yields, and HONKs; sidewalk pedestrians that flee or crumb; five
 // vehicle classes (BATTER tankers run Little Batter, canon: S.W. Logistics);
 // hit points, smoke, explosions with splash, and carjacking on E/X.
+// Sprint 4 (ON FOOT): step out of the car (same E/X) and Nuggetown is yours
+// at walking pace — sprint stamina, a melee punch on SPACE, health measured
+// in breading with re-breading at Noodle Nug carts, pickups on foot, and a
+// proper ejection when your ride goes up with you in it.
 // The NPD and the syndicate arrive in later sprints (see GTA_SPRINTS.md).
 //
 // Rendering is the low-res pixel canvas trick from Battered Brawlers / Fast
@@ -88,6 +92,15 @@ const gta = {
   stormSpot: null,       // {x, y} — the glow in the bay. don't ask. (do ask Dill)
   district: 0,
   car: { x: 0, y: 0, a: -Math.PI / 2, vx: 0, vy: 0, cls: 'compact', col: '#c23a3a', hp: 100 },
+  onFoot: false,
+  ped: null,             // the player on foot: {x, y, a, vx, vy, t, flee, col}
+  breading: 100,         // health. you are what you're coated in
+  stamina: 100,          // sprint fuel (SHIFT)
+  punchT: 0, punchAnim: 0,
+  hurtI: 0,              // post-hit invulnerability (blasts don't double-dip)
+  noodleT: 0,            // > 0: currently re-breading at a cart
+  noodleCarts: [],       // {c, r} — steam, broth, second chances
+  cartT: 0,              // ambient cart-steam throttle
   cam: { x: 0, y: 0 },
   keys: {},
   handbrake: false,
@@ -108,8 +121,8 @@ const gta = {
   rain: [],
 };
 
-// Where the player physically is (Sprint 4 adds on-foot; until then, the car).
-function gtaPlayerPos() { return gta.car; }
+// Where the player physically is: behind the wheel or out on the pavement.
+function gtaPlayerPos() { return gta.onFoot ? gta.ped : gta.car; }
 
 function gtaActive() {
   return storm.mode === 'gta' && storm.running;
@@ -117,8 +130,10 @@ function gtaActive() {
 
 function gtaTally() {
   if (gta.phase === 'title') return '"welcome to nuggetown"';
-  const spd = Math.round(Math.hypot(gta.car.vx, gta.car.vy) * 0.6);
-  return '📦 ' + gta.crates + ' · ' + spd + ' NPH · ' + GTA_DISTRICTS[gta.district];
+  const state = gta.onFoot
+    ? '🍞 ' + Math.round(gta.breading) + '%'
+    : Math.round(Math.hypot(gta.car.vx, gta.car.vy) * 0.6) + ' NPH';
+  return '📦 ' + gta.crates + ' · ' + state + ' · ' + GTA_DISTRICTS[gta.district];
 }
 
 // ---- city generation (seeded — everyone drives the same Nuggetown) -------------------
@@ -279,6 +294,22 @@ function gtaBuildCity() {
     i++;
   }
 
+  // Noodle Nug carts (Sprint 4): one on the curb outside the NOODLE NUG
+  // mothership, five seeded around town. Standing near one re-breads you.
+  // NOTE: appended AFTER all prior rnd() calls — the city layout must not move.
+  gta.noodleCarts = [];
+  const NL = gta.landmarks.noodle;
+  if (NL && map[(NL.r + 1) * GTA_W + NL.vLeft + 2] === GT_WALK) {
+    gta.noodleCarts.push({ c: NL.vLeft + 2, r: NL.r + 1 });
+  }
+  let carts = 0;
+  while (carts < 5 && guard++ < 24000) {
+    const tc = Math.floor(rnd() * GTA_W), tr = Math.floor(rnd() * GTA_H);
+    if (tc >= SHORE || map[tr * GTA_W + tc] !== GT_WALK) continue;
+    gta.noodleCarts.push({ c: tc, r: tr });
+    carts++;
+  }
+
   // The minimap is painted once at gen time, 1px per tile; the HUD blits a
   // radar window from it every frame. Never repaint this per frame.
   const mini = document.createElement('canvas');
@@ -298,6 +329,8 @@ function gtaBuildCity() {
     }
   }
   for (const L of gta.lmList) { mg.fillStyle = L.accent; mg.fillRect(L.c, L.r, L.w, L.h); }
+  mg.fillStyle = '#ff2fa0';
+  for (const c of gta.noodleCarts) mg.fillRect(c.c, c.r, 1, 1);
   mg.fillStyle = '#ffd23a';
   mg.fillRect(Math.floor(gta.stormSpot.x / GTA_TILE) - 1, Math.floor(gta.stormSpot.y / GTA_TILE) - 1, 2, 2);
   gta.mini = mini;
@@ -369,6 +402,12 @@ function syncGta() {
     gta.spawnT = 0;
     gta.shake = 0;
     gta.wastedT = 0;
+    gta.onFoot = false;
+    gta.ped = null;
+    gta.breading = 100;
+    gta.stamina = 100;
+    gta.punchT = 0; gta.punchAnim = 0;
+    gta.hurtI = 0; gta.noodleT = 0; gta.cartT = 0;
     gta.car.cls = 'compact';
     gta.car.col = '#c23a3a';
     gta.car.hp = GTA_CLASSES.compact.hp;
@@ -683,6 +722,32 @@ function gtaExplodeCar(car) {
       Math.abs(gta.car.x - car.x) < R && Math.abs(gta.car.y - car.y) < R) {
     gtaDamagePlayerCar(90);
   }
+  if (gta.onFoot && Math.abs(gta.ped.x - car.x) < R && Math.abs(gta.ped.y - car.y) < R) {
+    gtaHurtPlayer(70);
+  }
+}
+
+// Breading damage to the player on foot. hurtI is the mercy window.
+function gtaHurtPlayer(amt) {
+  if (gta.wastedT > 0 || gta.hurtI > 0) return;
+  gta.hurtI = 0.5;
+  gta.breading -= amt;
+  gta.shake = Math.max(gta.shake, 0.25);
+  if (gta.breading <= 0) {
+    gta.breading = 0;
+    gtaWasted();
+  }
+}
+
+// Put the player on the pavement at (or near) a point, first spot that fits.
+function gtaPlaceOnFoot(x, y) {
+  const spots = [[0, 0], [-14, 0], [14, 0], [0, -14], [0, 14], [-14, -14], [14, 14]];
+  let px = x, py = y;
+  for (const s of spots) {
+    if (!gtaSolidAt(x + s[0], y + s[1])) { px = x + s[0]; py = y + s[1]; break; }
+  }
+  gta.onFoot = true;
+  gta.ped = { x: px, y: py, a: -Math.PI / 2, vx: 0, vy: 0, t: 0, flee: 0, col: '#ffcf3a' };
 }
 
 function gtaDamageCar(car, amt) {
@@ -692,12 +757,18 @@ function gtaDamageCar(car, amt) {
 }
 
 function gtaDamagePlayerCar(amt) {
-  if (gta.wastedT > 0) return;
+  if (gta.wastedT > 0 || gta.onFoot) return;
   const car = gta.car;
   car.hp -= amt;
   if (car.hp <= 0) {
-    // WASTED first (it gates re-entry), then leave a burning wreck behind
-    gtaWasted();
+    // Thrown clear, singed, standing next to what's left of the ride.
+    // Eject BEFORE the fireball (onFoot gates re-entry into this function),
+    // take the blast as breading, then a mercy window so the splash pass
+    // doesn't double-dip. If the breading doesn't hold: WASTED.
+    gtaPlaceOnFoot(car.x + 16, car.y);
+    gta.hurtI = 0;
+    gtaHurtPlayer(65);
+    gta.hurtI = 1.2;
     const wreck = {
       x: car.x, y: car.y, a: car.a, dir: 0, v: 0, cls: car.cls, col: car.col,
       hp: 1, parked: true, wreck: false, nd: null, blockT: 0, hitT: 0, emberT: 0,
@@ -715,46 +786,83 @@ function gtaWasted() {
 }
 
 // The arcade house rule: wasted costs time and wheels, never the meter.
+// You wake up ON FOOT outside Nugget General; the next ride is your problem.
 function gtaRespawn() {
   const L = gta.landmarks.general || gta.landmarks.arcade;
-  gta.car = {
-    x: (L.vLeft + 1) * GTA_TILE, y: (L.r + 2) * GTA_TILE, a: -Math.PI / 2,
-    vx: 0, vy: 0, cls: 'compact', col: '#c23a3a', hp: GTA_CLASSES.compact.hp,
-  };
-  gta.cam.x = gta.car.x; gta.cam.y = gta.car.y;
+  gtaPlaceOnFoot((L.vLeft + 2.5) * GTA_TILE, (L.r + 2) * GTA_TILE);
+  gta.breading = 100;
+  gta.stamina = 100;
+  gta.hurtI = 1;
+  gta.cam.x = gta.ped.x; gta.cam.y = gta.ped.y;
   gtaBanner('🏥 NUGGET GENERAL', 'go', 1.6);
 }
 
-// ---- carjacking (E/X): stop next to it, it's yours ------------------------------------
+// ---- carjacking + car doors (E/X) ------------------------------------------------------
 
-function gtaInteract() {
-  if (gta.wastedT > 0) return;
-  const car = gta.car;
-  if (Math.hypot(car.vx, car.vy) > 55) return; // this isn't an action movie. slow down first
-  let best = null, bd = 34 * 34;
+function gtaNearestCar(x, y, range) {
+  let best = null, bd = range * range;
   for (const o of gta.cars) {
     if (o.wreck) continue;
-    const d2 = (o.x - car.x) * (o.x - car.x) + (o.y - car.y) * (o.y - car.y);
+    const d2 = (o.x - x) * (o.x - x) + (o.y - y) * (o.y - y);
     if (d2 < bd) { bd = d2; best = o; }
   }
-  if (!best) return;
-  const occupied = !best.parked;
-  // your old ride stays at the curb, exactly as you left it
+  return best;
+}
+
+// Take a car from gta.cars. Occupied ones pay — the driver bails and
+// remembers none of your face.
+function gtaEnterCar(best, fromX, fromY) {
+  if (!best.parked) {
+    gta.peds.push({
+      x: best.x + 8, y: best.y + 8, a: Math.atan2(best.y - fromY, best.x - fromX),
+      spd: 20, t: 0, flee: 2.4, col: GTA_PED_COLS[Math.floor(Math.random() * GTA_PED_COLS.length)],
+    });
+    gtaPay(15, '🚗', gta.W / 2, gta.Hh * 0.42);
+    gtaBanner('🚗 ' + GTA_CLASSES[best.cls].name + ' BOOSTED', 'go', 1.3);
+  } else {
+    gtaBanner('🚗 ' + GTA_CLASSES[best.cls].name, 'go', 1.1);
+  }
+  gta.car = { x: best.x, y: best.y, a: best.a, vx: 0, vy: 0, cls: best.cls, col: best.col, hp: best.hp };
+  gta.cars.splice(gta.cars.indexOf(best), 1);
+  gta.onFoot = false;
+}
+
+// Your ride stays at the curb, exactly as you left it.
+function gtaParkPlayerCar() {
+  const car = gta.car;
   gta.cars.push({
     x: car.x, y: car.y, a: car.a, dir: 0, v: 0, cls: car.cls, col: car.col, hp: car.hp,
     parked: true, wreck: false, nd: null, blockT: 0, hitT: 0, emberT: 0,
   });
-  if (occupied) {
-    // the driver bails and remembers none of your face
-    gta.peds.push({
-      x: best.x + 8, y: best.y + 8, a: Math.atan2(best.y - car.y, best.x - car.x),
-      spd: 20, t: 0, flee: 2.4, col: GTA_PED_COLS[Math.floor(Math.random() * GTA_PED_COLS.length)],
-    });
-    gtaPay(15, '🚗', gta.W / 2, gta.Hh * 0.42);
+}
+
+// E/X. On foot: enter what's next to you. Driving: swap into a car in reach,
+// or step out if there isn't one. Either way, slow down first.
+function gtaInteract() {
+  if (gta.wastedT > 0) return;
+  if (gta.onFoot) {
+    const best = gtaNearestCar(gta.ped.x, gta.ped.y, 26);
+    if (best) gtaEnterCar(best, gta.ped.x, gta.ped.y);
+    return;
   }
-  gta.car = { x: best.x, y: best.y, a: best.a, vx: 0, vy: 0, cls: best.cls, col: best.col, hp: best.hp };
-  gta.cars.splice(gta.cars.indexOf(best), 1);
-  gtaBanner('🚗 ' + GTA_CLASSES[best.cls].name + ' BOOSTED', 'go', 1.3);
+  const car = gta.car;
+  if (Math.hypot(car.vx, car.vy) > 55) return; // this isn't an action movie
+  const best = gtaNearestCar(car.x, car.y, 34);
+  if (best) {
+    gtaParkPlayerCar();
+    gtaEnterCar(best, car.x, car.y);
+  } else if (Math.hypot(car.vx, car.vy) < 40) {
+    // step out the driver's side (or wherever fits)
+    gtaParkPlayerCar();
+    gtaPlaceOnFoot(car.x - Math.sin(car.a) * -13, car.y + Math.cos(car.a) * -13);
+  }
+}
+
+// Second touch finger on foot: door if there's a door, knuckles otherwise.
+function gtaFootAction() {
+  if (!gta.onFoot) return;
+  if (gtaNearestCar(gta.ped.x, gta.ped.y, 26)) gtaInteract();
+  else gtaPunch();
 }
 
 // ---- update ---------------------------------------------------------------------------
@@ -768,6 +876,8 @@ function stepGta(dt, w, h) {
     if (gta.wastedT > 0) {
       gta.wastedT -= dt;
       if (gta.wastedT <= 0) gtaRespawn();
+    } else if (gta.onFoot) {
+      gtaStepFoot(dt);
     } else {
       gtaStepPlayerCar(dt);
     }
@@ -888,6 +998,101 @@ function gtaStepPlayerCar(dt) {
   }
 }
 
+// The player at walking pace: screen-relative movement (the camera is
+// north-up, so up is up), sprint on SHIFT while the stamina holds, punch on
+// SPACE, re-breading near noodle carts, and cars hurt now — you're not in one.
+function gtaStepFoot(dt) {
+  const p = gta.ped;
+  const ix = (gta.keys.right ? 1 : 0) - (gta.keys.left ? 1 : 0);
+  const iy = (gta.keys.down ? 1 : 0) - (gta.keys.up ? 1 : 0);
+  const movin = ix || iy;
+
+  const sprint = gta.keys.shift && gta.stamina > 1 && movin;
+  if (sprint) gta.stamina = Math.max(0, gta.stamina - 30 * dt);
+  else gta.stamina = Math.min(100, gta.stamina + 16 * dt);
+  const spd = sprint ? 98 : 56;
+
+  let tx = 0, ty = 0;
+  if (movin) {
+    const n = Math.hypot(ix, iy);
+    tx = (ix / n) * spd; ty = (iy / n) * spd;
+  }
+  p.vx += (tx - p.vx) * Math.min(1, 14 * dt);
+  p.vy += (ty - p.vy) * Math.min(1, 14 * dt);
+  if (movin) {
+    p.a = Math.atan2(p.vy, p.vx);
+    p.t += dt * (sprint ? 1.1 : 0.4); // feet animate with effort
+  }
+
+  // Same axis-separated collision as the car, pedestrian-sized.
+  const R = 3.5;
+  const nx = p.x + p.vx * dt;
+  if (gtaSolidAt(nx + Math.sign(p.vx) * R, p.y - R * 0.6) ||
+      gtaSolidAt(nx + Math.sign(p.vx) * R, p.y + R * 0.6)) p.vx = 0;
+  else p.x = nx;
+  const ny = p.y + p.vy * dt;
+  if (gtaSolidAt(p.x - R * 0.6, ny + Math.sign(p.vy) * R) ||
+      gtaSolidAt(p.x + R * 0.6, ny + Math.sign(p.vy) * R)) p.vy = 0;
+  else p.y = ny;
+
+  if (gta.punchT > 0) gta.punchT -= dt;
+  if (gta.punchAnim > 0) gta.punchAnim -= dt;
+  if (gta.hurtI > 0) gta.hurtI -= dt;
+
+  // Noodle Nug carts: stand in the steam, get your coating back.
+  gta.noodleT = Math.max(0, gta.noodleT - dt);
+  for (const c of gta.noodleCarts) {
+    const cx = (c.c + 0.5) * GTA_TILE, cy = (c.r + 0.5) * GTA_TILE;
+    if (Math.abs(p.x - cx) < 26 && Math.abs(p.y - cy) < 26) {
+      if (gta.breading < 100) {
+        gta.breading = Math.min(100, gta.breading + 16 * dt);
+        gta.noodleT = 0.3;
+        if (Math.random() < dt * 4) gtaSpawnParts(cx, cy - 6, 1, 'smoke');
+      }
+      break;
+    }
+  }
+
+  // Moving traffic vs. your unarmored self.
+  for (const o of gta.cars) {
+    if (o.parked || o.wreck || o.v < 30) continue;
+    const rr = GTA_CLASSES[o.cls].r + 3;
+    if (Math.abs(p.x - o.x) < rr && Math.abs(p.y - o.y) < rr) {
+      const kx = p.x - o.x, ky = p.y - o.y, d = Math.hypot(kx, ky) || 1;
+      p.vx += (kx / d) * o.v * 1.2;
+      p.vy += (ky / d) * o.v * 1.2;
+      gtaHurtPlayer(o.v * 0.28);
+      o.v *= 0.4;
+      break;
+    }
+  }
+}
+
+// SPACE on foot: nuggets first, sheet metal second. Keep punching a parked
+// car and you'll learn why the hazard placard exists.
+function gtaPunch() {
+  if (!gta.onFoot || gta.punchT > 0 || gta.wastedT > 0) return;
+  gta.punchT = 0.38;
+  gta.punchAnim = 0.16;
+  const p = gta.ped;
+  const fx = p.x + Math.cos(p.a) * 9, fy = p.y + Math.sin(p.a) * 9;
+  for (let i = gta.peds.length - 1; i >= 0; i--) {
+    const q = gta.peds[i];
+    if (Math.abs(q.x - fx) < 8 && Math.abs(q.y - fy) < 8) {
+      gtaCrumb(q, 3, '👊');
+      return;
+    }
+  }
+  for (const o of gta.cars) {
+    const rr = GTA_CLASSES[o.cls].r + 4;
+    if (Math.abs(o.x - fx) < rr && Math.abs(o.y - fy) < rr) {
+      gtaDamageCar(o, 6);
+      gtaSpawnParts(fx, fy, 2, 'spark');
+      return;
+    }
+  }
+}
+
 // Everything that lives around the player: spawns, traffic, peds, particles,
 // pickups, the camera. Runs even through the WASTED interlude.
 function gtaStepWorld(dt) {
@@ -941,7 +1146,7 @@ function gtaStepWorld(dt) {
   for (const p of gta.peds) gtaStepPed(p, dt);
 
   // A hurting ride smokes; a dying one spits fire. Consider the Grease Garage.
-  if (gta.wastedT <= 0) {
+  if (gta.wastedT <= 0 && !gta.onFoot) {
     const C = GTA_CLASSES[gta.car.cls];
     if (gta.car.hp < C.hp * 0.4) {
       gta.smokeT -= dt;
@@ -971,6 +1176,18 @@ function gtaStepWorld(dt) {
   }
   gta.shake = Math.max(0, gta.shake - dt * 1.6);
 
+  // Noodle carts steam at all hours.
+  gta.cartT -= dt;
+  if (gta.cartT <= 0) {
+    gta.cartT = 0.55;
+    for (const c of gta.noodleCarts) {
+      const cx = (c.c + 0.5) * GTA_TILE, cy = (c.r + 0.5) * GTA_TILE;
+      if (Math.abs(cx - gta.cam.x) < gta.W * 0.7 && Math.abs(cy - gta.cam.y) < gta.Hh * 0.7) {
+        gtaSpawnParts(cx + (Math.random() - 0.5) * 6, cy - 6, 1, 'smoke');
+      }
+    }
+  }
+
   // Pickups: drive (or walk) over a crate, it's yours. That's the law here.
   for (const p of gta.pickups) {
     if (p.taken) {
@@ -990,8 +1207,9 @@ function gtaStepWorld(dt) {
   while (gta.skids.length && gta.skids[0].life <= 0) gta.skids.shift();
 
   // Camera: chase with velocity look-ahead so you see where you're going.
-  const lvx = (P === gta.car) ? gta.car.vx : 0, lvy = (P === gta.car) ? gta.car.vy : 0;
-  const lookX = P.x + lvx * 0.42, lookY = P.y + lvy * 0.42;
+  // On foot the look-ahead is gentler — walking pace, walking nerves.
+  const la = gta.onFoot ? 0.6 : 0.42;
+  const lookX = P.x + (P.vx || 0) * la, lookY = P.y + (P.vy || 0) * la;
   gta.cam.x += (lookX - gta.cam.x) * Math.min(1, 4.2 * dt);
   gta.cam.y += (lookY - gta.cam.y) * Math.min(1, 4.2 * dt);
 
@@ -1172,6 +1390,32 @@ function gtaDraw() {
     }
   }
 
+  // Noodle Nug carts: awning, counter glow, and steam that never stops.
+  for (const c of gta.noodleCarts) {
+    const px = c.c * T - ox, py = c.r * T - oy;
+    if (px < -T || px > W + T || py < -T || py > Hh + T) continue;
+    g.fillStyle = 'rgba(0,0,0,0.35)';
+    g.fillRect(px + 3, py + 6, 18, 13);
+    g.fillStyle = '#6b4226';
+    g.fillRect(px + 4, py + 8, 16, 10);
+    g.fillStyle = '#ffd23a';
+    g.fillRect(px + 4, py + 8, 16, 2); // counter glow
+    for (let i = 0; i < 4; i++) { // striped awning
+      g.fillStyle = (i & 1) ? '#ff2fa0' : '#eef2ff';
+      g.fillRect(px + 2 + i * 5, py + 3, 5, 4);
+    }
+    g.fillStyle = '#0c0c12'; // awning poles
+    g.fillRect(px + 3, py + 7, 1, 11);
+    g.fillRect(px + 20, py + 7, 1, 11);
+    // bowl sign, wobbling like it's hot
+    if (Math.sin(gta.t * 2.4 + c.c) > -0.4) {
+      g.font = '900 7px Consolas, monospace';
+      g.textAlign = 'center';
+      g.fillStyle = '#ff2fa0';
+      g.fillText('NOODLE', px + 12, py + 1);
+    }
+  }
+
   // Landmark plates: accent border + name painted on the roof, beacon blink.
   for (const L of gta.lmList) {
     const lx = L.c * T - ox, ly = L.r * T - oy, lw = L.w * T, lh = L.h * T;
@@ -1209,7 +1453,7 @@ function gtaDraw() {
     if (!o.parked && !o.wreck) gtaDrawBeams(g, o.x - ox, o.y - oy, o.a, 24, 0.05);
   }
   // Headlights before the car so the beams sit under the body.
-  if (gta.phase === 'play' && gta.wastedT <= 0) {
+  if (gta.phase === 'play' && gta.wastedT <= 0 && !gta.onFoot) {
     gtaDrawBeams(g, gta.car.x - ox, gta.car.y - oy, gta.car.a, 34, 0.10);
   }
   for (const o of gta.cars) {
@@ -1223,7 +1467,10 @@ function gtaDraw() {
     gtaDrawPed(g, px, py, p);
   }
 
-  if (gta.wastedT <= 0) gtaDrawVehicle(g, ox, oy, gta.car, true);
+  if (gta.wastedT <= 0) {
+    if (gta.onFoot) gtaDrawPed(g, gta.ped.x - ox, gta.ped.y - oy, gta.ped, true);
+    else gtaDrawVehicle(g, ox, oy, gta.car, true);
+  }
 
   // Particles over the bodies: smoke, fire, sparks, crumbspray.
   for (const p of gta.parts) {
@@ -1372,8 +1619,9 @@ function gtaDrawVehicle(g, ox, oy, v, isPlayer) {
 }
 
 // A nugget about town: 5px of breading with places to be. Rotated to heading,
-// feet alternating; fleeing nugs put their little arms up.
-function gtaDrawPed(g, px, py, p) {
+// feet alternating; fleeing nugs put their little arms up. The player is the
+// golden one — punches jab forward, taking damage blinks red.
+function gtaDrawPed(g, px, py, p, isPlayer) {
   g.save();
   g.translate(px, py);
   g.rotate(p.a + Math.PI / 2);
@@ -1383,10 +1631,15 @@ function gtaDrawPed(g, px, py, p) {
   g.fillStyle = '#3a2a18'; // little shoes
   g.fillRect(-2, -4 + (step > 0 ? -1 : 0), 2, 2);
   g.fillRect(1, -4 + (step > 0 ? 0 : -1), 2, 2);
-  g.fillStyle = p.col;
+  g.fillStyle = (isPlayer && gta.hurtI > 0.3 && Math.floor(gta.t * 14) % 2 === 0)
+    ? '#ff5252' : p.col;
   g.fillRect(-2, -3, 5, 6); // the nug itself
   g.fillStyle = 'rgba(255,255,255,0.25)';
   g.fillRect(-2, -3, 5, 2); // golden-fried crown
+  if (isPlayer && gta.punchAnim > 0) { // the people's fist
+    g.fillStyle = '#eef2ff';
+    g.fillRect(0, -8, 2, 4);
+  }
   if (p.flee > 0) { // arms up, wobbling
     g.fillStyle = p.col;
     g.fillRect(-4, -2 + (step > 0 ? -1 : 0), 2, 2);
@@ -1397,24 +1650,40 @@ function gtaDrawPed(g, px, py, p) {
 
 function gtaDrawHud(g, W, Hh) {
   if (gta.phase !== 'play') return;
-  const spd = Math.round(Math.hypot(gta.car.vx, gta.car.vy) * 0.6);
   g.textAlign = 'left';
   g.font = '900 10px Consolas, monospace';
   g.fillStyle = '#39ff7a';
   g.fillText('📦 ' + gta.crates, 6, Hh - 8);
-  g.fillStyle = gta.handbrake ? '#ffe23a' : '#9aa3c7';
-  g.fillText(spd + ' NPH', 6, Hh - 20);
+  if (gta.onFoot) {
+    g.fillStyle = gta.keys.shift && gta.stamina > 1 ? '#3ad4ff' : '#9aa3c7';
+    g.fillText(gta.noodleT > 0 ? '🍜 RE-BREADING' : 'ON FOOT', 6, Hh - 20);
+  } else {
+    const spd = Math.round(Math.hypot(gta.car.vx, gta.car.vy) * 0.6);
+    g.fillStyle = gta.handbrake ? '#ffe23a' : '#9aa3c7';
+    g.fillText(spd + ' NPH', 6, Hh - 20);
+  }
 
-  // Bodywork bar: how much crunch is left in the current ride.
-  const C = GTA_CLASSES[gta.car.cls];
-  const pct = Math.max(0, gta.car.hp / C.hp);
-  g.fillStyle = 'rgba(5,5,12,0.7)';
-  g.fillRect(6, Hh - 36, 44, 5);
-  g.fillStyle = pct > 0.5 ? '#39ff7a' : pct > 0.25 ? '#ffe23a' : '#ff5252';
-  g.fillRect(7, Hh - 35, Math.round(42 * pct), 3);
+  // Bars, bottom up: breading always; then bodywork (driving) or stamina (foot).
+  const bar = (y, pctV, col) => {
+    g.fillStyle = 'rgba(5,5,12,0.7)';
+    g.fillRect(6, y, 44, 5);
+    g.fillStyle = col;
+    g.fillRect(7, y + 1, Math.round(42 * Math.max(0, Math.min(1, pctV))), 3);
+  };
+  bar(Hh - 36, gta.breading / 100,
+    gta.breading > 50 ? '#ffcf6a' : gta.breading > 25 ? '#ffe23a' : '#ff5252');
   g.font = '700 8px Consolas, monospace';
   g.fillStyle = '#9aa3c7';
-  g.fillText(C.name, 54, Hh - 31);
+  g.fillText('🍞', 54, Hh - 30);
+  if (gta.onFoot) {
+    bar(Hh - 44, gta.stamina / 100, '#3ad4ff');
+  } else {
+    const C = GTA_CLASSES[gta.car.cls];
+    const pct = Math.max(0, gta.car.hp / C.hp);
+    bar(Hh - 44, pct, pct > 0.5 ? '#39ff7a' : pct > 0.25 ? '#ffe23a' : '#ff5252');
+    g.fillStyle = '#9aa3c7';
+    g.fillText(C.name, 54, Hh - 38);
+  }
 
   // Radar: an 80-tile window from the gen-time minimap, north-up, you = dot.
   if (gta.mini) {
@@ -1465,7 +1734,8 @@ function gtaDrawTitle(g, W, Hh) {
   g.fillStyle = '#9aa3c7';
   g.fillText('welcome to nuggetown. population: crispy.', W / 2, Hh * 0.56);
   g.fillStyle = '#eef2ff';
-  g.fillText('↑↓ drive · ←→ steer · SPACE handbrake · E jack a car', W / 2, Hh * 0.64);
+  g.fillText('↑↓ drive · ←→ steer · SPACE handbrake/punch', W / 2, Hh * 0.64);
+  g.fillText('E in/out of cars · SHIFT sprint on foot', W / 2, Hh * 0.71);
   if (Math.floor(gta.t * 2.2) % 2 === 0) {
     g.font = '900 12px Consolas, monospace';
     g.fillStyle = '#ffe23a';
@@ -1487,8 +1757,13 @@ function gtaPress(code) {
   if (code === 'ArrowDown' || code === 'KeyS') { gta.keys.down = true; return true; }
   if (code === 'ArrowLeft' || code === 'KeyA') { gta.keys.left = true; return true; }
   if (code === 'ArrowRight' || code === 'KeyD') { gta.keys.right = true; return true; }
-  if (code === 'Space') { gta.handbrake = true; return true; }
+  if (code === 'Space') {
+    if (gta.onFoot) gtaPunch();
+    else gta.handbrake = true;
+    return true;
+  }
   if (code === 'KeyE' || code === 'KeyX') { gtaInteract(); return true; }
+  if (code === 'ShiftLeft' || code === 'ShiftRight') { gta.keys.shift = true; return true; }
   return false;
 }
 
@@ -1504,6 +1779,7 @@ window.addEventListener('keyup', (e) => {
   if (e.code === 'ArrowLeft' || e.code === 'KeyA') gta.keys.left = false;
   if (e.code === 'ArrowRight' || e.code === 'KeyD') gta.keys.right = false;
   if (e.code === 'Space') gta.handbrake = false;
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') gta.keys.shift = false;
 });
 
 // touch / mouse: hold to drive, left/right thirds steer, second finger = handbrake
@@ -1519,13 +1795,18 @@ function gtaPointer(x, down) {
 gtaWorld.addEventListener('mousedown', (e) => gtaPointer(e.clientX, true));
 window.addEventListener('mouseup', () => gta.on && gtaPointer(0, false));
 gtaWorld.addEventListener('touchstart', (e) => {
-  gta.handbrake = e.touches.length > 1;
+  if (gta.onFoot) {
+    // second finger on foot: car door if one's in reach, knuckles otherwise
+    if (e.touches.length > 1) gtaFootAction();
+  } else {
+    gta.handbrake = e.touches.length > 1;
+  }
   gtaPointer(e.touches[0].clientX, true);
   e.preventDefault();
 }, { passive: false });
 gtaWorld.addEventListener('touchmove', (e) => { gtaPointer(e.touches[0].clientX, true); e.preventDefault(); }, { passive: false });
 window.addEventListener('touchend', (e) => {
   if (!gta.on) return;
-  gta.handbrake = e.touches.length > 1;
+  if (!gta.onFoot) gta.handbrake = e.touches.length > 1;
   if (e.touches.length === 0) gtaPointer(0, false);
 });
