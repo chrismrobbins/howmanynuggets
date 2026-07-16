@@ -334,7 +334,7 @@ async function joinRoom(request, env, url) {
 }
 
 // Which games currently have a multiplayer module (mirrors games/registry.js).
-const MULTIPLAYER_GAMES = new Set(['blaster']);
+const MULTIPLAYER_GAMES = new Set(['blaster', 'gta']);
 
 // ---- Router -----------------------------------------------------------------
 export default {

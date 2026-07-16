@@ -78,7 +78,8 @@
 
     <button class="ghost-btn" id="openLeaderboards" type="button" style="width:100%;margin:0 0 0.5rem">🏆 View Leaderboards</button>
 
-    <button class="ghost-btn" id="openMultiplayer" type="button" style="width:100%;margin:0 0 1.25rem">👥 Play Blaster with friends</button>
+    <button class="ghost-btn" id="openMultiplayer" type="button" style="width:100%;margin:0 0 .5rem">👥 Play Blaster with friends</button>
+    <button class="ghost-btn" id="openGtaOnline" type="button" style="width:100%;margin:0 0 1.25rem">🚗 Play GTA online (free-roam)</button>
 
     <div class="my-scores" id="myScores">
       <p class="kicker">Your High Scores</p>
@@ -310,6 +311,34 @@
     </div>
   </div>
 
+  <!-- GRAND THEFT NUGGET — free-roam online (instant join; no ready-up lobby) -->
+  <div class="modal-overlay" id="gtaMpModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="gtaMpTitle">
+      <div class="modal-head">
+        <h2 id="gtaMpTitle">🚗 GTA Online — Free Roam</h2>
+        <button class="modal-close" id="gtaMpClose" type="button" aria-label="Close">✕</button>
+      </div>
+
+      <div id="gtaMpSignedOut" style="display:none">
+        <p class="sub" style="margin-bottom:1rem">Sign in to cruise Nuggetown with friends.</p>
+        <button type="button" class="primary-btn" id="gtaMpSignIn">Sign in</button>
+      </div>
+
+      <div id="gtaMpHome" style="display:none">
+        <p class="sub" style="margin-bottom:1rem">Host a city and share the code, or join one. You drop straight into free-roam — no waiting room. Press <b>H</b> to honk.</p>
+        <button type="button" class="primary-btn" id="gtaMpCreate" style="margin-bottom:.5rem">Host a city</button>
+        <div class="mp-or">— or join —</div>
+        <div class="form-field">
+          <label for="gtaMpCodeInput">City code</label>
+          <input id="gtaMpCodeInput" type="text" inputmode="latin" autocomplete="off" placeholder="ABCD" style="text-transform:uppercase;letter-spacing:.2em;text-align:center" />
+        </div>
+        <button type="button" class="ghost-btn" id="gtaMpJoin" style="width:100%">Join city</button>
+      </div>
+
+      <div class="form-error" id="gtaMpError"></div>
+    </div>
+  </div>
+
   <script src="js/util.js"></script>
   <script src="js/pricing.js"></script>
   <script src="js/storm.js"></script>
@@ -332,5 +361,6 @@
   <script src="js/net.js"></script>
   <script src="js/blasterMP.js"></script>
   <script src="js/lobby.js"></script>
+  <script src="js/gtaMP.js"></script>
 </body>
 </html>

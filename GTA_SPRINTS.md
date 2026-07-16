@@ -886,3 +886,54 @@ feeding a city-wide finale event, gamepad support.
 - Does the garage save COP cars? (Lean yes — jacked cruiser in slot 3 is
   funny — but livery keeps its heat rules.)
 - Mods on mission-cargo cars: locked (cargo is cargo).
+
+---
+
+# SEASON 2 SPRINT NOTES (append-only, newest last)
+
+## S2.9 — FREE-ROAM ONLINE, PT 1 (shipped OUT OF ORDER, ahead of S2.1–8)
+
+Chris pulled this one forward: multiplayer before the garage/REP/races
+sprints. It stands alone fine — no dependency on S2.1–8 flags.
+
+**What shipped:** shared free-roam Nuggetown on the existing worker gameRoom
+pattern (Chris's net.js/lobby.js/gameRoom.js stack). Other players show as
+ghost cars/peds with a floating name tag; the horn (H) relays.
+
+**Architecture (important for whoever does S2.10):** GTN is NOT
+server-authoritative like Blaster — the city is far too big/stateful, and every
+client already runs its own. So `worker/src/games/gta.js` is a pure STATE
+RELAY: it stores each player's last transform (x,y,heading,onFoot,carClass,color)
+and rebroadcasts them at 20Hz. Clients keep simulating their own traffic/peds/
+missions locally and only draw OTHER players from the relay snapshot, reusing
+gta.js's own `gtaDrawVehicle`/`gtaDrawPed`. Positions interpolate ~100ms behind.
+Consequences: no shared traffic, no PvP damage, no server scoring, and the match
+never ends (`isOver()` false, `results()` empty → nothing hits D1). This is the
+right seam for S2.10 activities (races/TAG): add message types to the relay +
+client, don't try to make the server authoritative over the world.
+
+**Client seam:** single-player is untouched. All MP logic lives in `js/gtaMP.js`
+(loads after net.js, like blasterMP.js) behind `window.GtaNet`. gta.js only gains
+THREE guarded hook calls (no-ops in SP): `GtaNet.onStep` (broadcast, end of
+stepGta), `GtaNet.drawRemotes` (in gtaDraw, under the local player), and
+`GtaNet.onGameExit` (leave the room when syncGta deactivates). Entry is the
+"🚗 Play GTA online" button on the main page → a tiny host/join modal
+(`#gtaMpModal`). INSTANT free-roam: the client auto-readies on connect so a solo
+host auto-starts immediately and later joiners fold in via the framework's
+existing `onPlayerJoin` mid-match path. In-game overlay shows the shareable code
++ player count. `lobby.js` now guards its handlers by `net.game` so Blaster's
+ready-up lobby doesn't hijack a GTA session (they share the NuggetNet singleton).
+
+**Worker:** `gta` added to `MULTIPLAYER_GAMES` (index.js) and `GAME_MODULES`
+(registry.js). No wrangler.toml/schema change — reuses the GameRoom DO + the
+matches tables it never writes to. maxPlayers 8.
+
+**Verified:** relay unit test; two raw-WS clients through `wrangler dev`
+(transform + honk relay); two headless-Chrome pages joining the same city
+(each sees the other, overlay → 👥 2, zero exceptions); SP regression (GTA
+launches with `GtaNet.active()` false, no errors).
+
+**Still open for S2.10:** plates are the player's display NAME for now (the
+garage's custom-plate string is S2.1 — wire it into the `xf`/snapshot `n` field
+once it exists). No spectator/quick-match. No online leaderboard yet (that's the
+"minutes survived at 5★" board in S2.10).

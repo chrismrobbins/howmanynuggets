@@ -43,3 +43,22 @@ body.gta-mode #gtaWorld { display: block; }
   60% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); }
   100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
+
+/* ---- Free-roam online overlay (Season 2, Sprint 9) ---- */
+.gta-mp-hud {
+  position: fixed;
+  top: 8px; left: 8px;   /* top-left — the storm HUD card owns top-center */
+  z-index: 60;
+  display: flex; align-items: center; gap: 0.7rem;
+  padding: 0.3rem 0.7rem;
+  background: rgba(10, 12, 20, 0.82);
+  border: 1px solid rgba(255, 210, 58, 0.5);
+  border-radius: 999px;
+  font: 800 0.72rem/1 "Segoe UI", system-ui, sans-serif;
+  color: #ffe23a;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  box-shadow: 0 6px 20px -8px rgba(0, 0, 0, 0.8);
+}
+.gta-mp-hud .gta-mp-count { color: #eef2ff; }
+.gta-mp-hud .gta-mp-hint { color: #8b93a7; font-weight: 700; }

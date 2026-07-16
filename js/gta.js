@@ -596,6 +596,7 @@ function syncGta() {
   } else {
     gta.banner && gta.banner.classList.remove('show');
     gtaAudioStop(); // the engine doesn't idle in the parking lot of another game
+    if (window.GtaNet) GtaNet.onGameExit(); // leave the online room if we were in one
   }
 }
 
@@ -2690,6 +2691,9 @@ function gtaStepWorld(dt) {
   }
 
   if (gta.toastT > 0) gta.toastT -= dt;
+
+  // Free-roam online (Season 2, Sprint 9): broadcast our transform. No-op in SP.
+  if (window.GtaNet) GtaNet.onStep(dt);
 }
 
 // ---- render ---------------------------------------------------------------------------
@@ -3171,6 +3175,10 @@ function gtaDraw() {
     if (px < -12 || px > W + 12 || py < -12 || py > Hh + 12) continue;
     gtaDrawPed(g, px, py, p);
   }
+
+  // Other players' ghost cars/peds (online only; no-op in SP). Drawn under the
+  // local player so you always render on top of the crowd.
+  if (window.GtaNet) GtaNet.drawRemotes(g, ox, oy, W, Hh);
 
   if (gta.wastedT <= 0) {
     if (gta.onFoot) gtaDrawPed(g, gta.ped.x - ox, gta.ped.y - oy, gta.ped, true);
