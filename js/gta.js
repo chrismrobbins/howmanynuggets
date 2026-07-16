@@ -2807,6 +2807,9 @@ function gtaDrawInterior() {
   g.globalAlpha = 1;
 
   // you, crisp and golden as ever
+  // Other patrons in THIS same venue (online only; no-op in SP). Same call as
+  // the street render — it filters to players sharing our interior.
+  if (window.GtaNet) GtaNet.drawRemotes(g, ox, oy, W, Hh);
   gtaDrawPed(g, gta.ped.x - ox, gta.ped.y - oy, gta.ped, true);
 
   // vignette (shared with the street)

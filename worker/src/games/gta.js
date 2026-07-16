@@ -42,7 +42,7 @@ export class GtaGame {
   ensure(p) {
     if (!this.states.has(p.id)) {
       this.states.set(p.id, {
-        x: 0, y: 0, a: 0, onFoot: false, cls: 'compact', col: '#c23a3a', name: p.name,
+        x: 0, y: 0, a: 0, onFoot: false, cls: 'compact', col: '#c23a3a', name: p.name, int: '',
       });
     }
   }
@@ -60,6 +60,9 @@ export class GtaGame {
       s.onFoot = !!msg.f;
       if (typeof msg.c === 'string' && GTA_CLASSES.has(msg.c)) s.cls = msg.c;
       if (typeof msg.col === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(msg.col)) s.col = msg.col;
+      // which interior the player is in ('' = street). Only compared as a string
+      // on the client, never indexed — just cap the length.
+      if (typeof msg.int === 'string') s.int = msg.int.slice(0, 24);
     } else if (msg.t === 'honk') {
       // Relay the horn to everyone (the sender ignores its own echo), but
       // throttle per player so a spammer can't amplify one keypress into a
@@ -82,7 +85,7 @@ export class GtaGame {
     for (const [pid, s] of this.states) {
       players[pid] = {
         x: Math.round(s.x), y: Math.round(s.y), a: +s.a.toFixed(3),
-        f: s.onFoot ? 1 : 0, c: s.cls, col: s.col, n: s.name,
+        f: s.onFoot ? 1 : 0, c: s.cls, col: s.col, n: s.name, int: s.int || '',
       };
     }
     return { players };

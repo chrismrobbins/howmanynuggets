@@ -80,6 +80,10 @@
       f: onFoot ? 1 : 0,
       c: gta.car ? gta.car.cls : 'compact',
       col: onFoot ? (gta.ped && gta.ped.col) || '#ffd23a' : (gta.car ? gta.car.col : '#c23a3a'),
+      // which space we're in: '' = out on the street, else the interior key.
+      // Interiors all share GTA_INT_ORIGIN (-9000), so this is how a client
+      // tells same-venue neighbours apart from everyone else at those coords.
+      int: gta.interior || '',
     });
   }
 
@@ -94,10 +98,14 @@
       seen.add(pid);
       const p = players[pid];
       let r = remotes.get(pid);
-      if (!r) { r = { samples: [], cls: 'compact', col: '#c23a3a', name: p.n || 'Nugget' }; remotes.set(pid, r); }
+      if (!r) { r = { samples: [], cls: 'compact', col: '#c23a3a', name: p.n || 'Nugget', interior: '' }; remotes.set(pid, r); }
       r.cls = KNOWN_CLASSES.indexOf(p.c) >= 0 ? p.c : 'compact';
       r.col = p.col || r.col;
       r.name = p.n || r.name;
+      // Moving between the street and an interior teleports them across a huge
+      // coordinate gap — drop the interp buffer so they don't streak across it.
+      const nint = p.int || '';
+      if (r.interior !== nint) { r.interior = nint; r.samples.length = 0; }
       r.samples.push({ t, x: p.x, y: p.y, a: p.a, f: p.f });
       if (r.samples.length > 6) r.samples.shift();
     }
@@ -144,7 +152,12 @@
   function drawRemotes(g, ox, oy, W, Hh) {
     if (!active() || !remotes.size) return;
     const renderT = now() - INTERP_MS;
+    // Only draw players sharing our space: on the street ('') you see the
+    // outdoor crowd; inside a venue you see only that venue's patrons. This one
+    // call is used by BOTH the street render and the interior render.
+    const here = (typeof gta !== 'undefined' && gta.interior) || '';
     for (const r of remotes.values()) {
+      if ((r.interior || '') !== here) continue;
       const st = sample(r, renderT);
       if (!st) continue;
       const sx = st.x - ox, sy = st.y - oy;
