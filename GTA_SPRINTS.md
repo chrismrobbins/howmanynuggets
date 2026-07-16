@@ -942,3 +942,62 @@ once it exists). No spectator/quick-match. No online leaderboard yet (that's the
 — `.gta-mp-hud` sat at z-index 60 while `#gtaWorld` is 9990, so the canvas
 covered it. Now 9995 (above the game, below the storm HUD chrome at 9998+).
 Anything overlaid during GTN needs z-index > 9990 — same trap as the pill.
+
+## Sprint 10.8 — OPEN DOORS (2026-07-16, Beau's Claude) — interiors
+
+Beau's session finale ask: enterable buildings, headlined by the fan-favorite
+"chicken strip club". Delivered: an interior system + three venues. The club
+is exactly what it sounds like — chicken strips dancing on poles. Breading only.
+
+**Shipped:**
+- **Interior engine**: `GTA_INTERIORS` are hand-authored char-map rooms
+  (legend at the top of the section) parked at `GTA_INT_ORIGIN` (-9000,-9000)
+  — far outside the city grid so NO outdoor system can coincide with indoor
+  coords. While `gta.interior` is set: `gtaSolidAt` answers from the room map
+  (player collision routes automatically), `gtaStepWorld` is SKIPPED entirely
+  (traffic/cops/missions/timers freeze — hiding indoors pauses the chase),
+  `gtaStepInterior` runs the room (heat drains 0.15/s — every door is a
+  hideout), `gtaDrawInterior` replaces gtaDraw, weapons don't fire indoors,
+  M is disabled. MP: `GtaNet.onStep` still broadcasts, so your ghost jumps
+  to -9000 and simply vanishes for other players ("went inside").
+- **Doors**: `gta.doors` built at the END of gtaBuildCity by deterministic
+  perimeter scan (ZERO rnd() calls). Door-bearing landmarks (strip/noodle/
+  ammu) are snapped flush with their block's SOUTH sidewalk at placement
+  (`rect.r = b.r1 - h + 1` — deterministic shift, city otherwise unchanged)
+  because centered landmark rects are surrounded by filler GT_BLDG and never
+  touch pavement (the bug that ate the first door gen). Rendering: a lit
+  doorway + accent sign drawn on the wall face in `gtaWall` (new `face`
+  param, door replaces that wall's neon) + an always-visible pavement mat
+  glow with blinking OPEN in the world pass. White door dots on the minimap.
+  E-priority on foot: car > ringing booth > door > ammu counter.
+- **🍗 CHICKEN STRIP CLUB** (NEW 8th landmark, Little Batter, appended to
+  GTA_LANDMARKS — placement is append-only-safe, first seven unmoved):
+  three dancing strips on poles (sway/orbit/bob, sparkle, spotlight sweep,
+  disco ball + floor spots), seated patrons, bar (re-breads 25/s), DJ, VIP
+  corner with a hooded regular (ONE toast per visit: "even rumors take a
+  night off" — a wink, NOT a rhythm-cup resolution), bouncer at the door.
+  E at the stage = MAKE IT RAIN 🍞 (6s cd): crumb spray, dancers speed up
+  (`gta.tipHype`), the house comps you via gtaPay (meter only goes up).
+- **🍜 NOODLE NUG diner**: counter + broth pots (steam), cook, booth
+  patrons; counter re-breads 25/s.
+- **🔫 AMMU-NUGGET shop floor**: weapon wall, clerk, shot-up range target;
+  E at the counter = the SAME restock/45s `ammuCd` as the outdoor zone.
+- **Interior music**: `GTA_INT_MUSIC` — the sequencer in gtaStepAudio plays
+  the venue's station regardless of radio dial/on-foot (club funk 112bpm,
+  diner muzak 84; the ammu clerk prefers quiet).
+
+**Verified headless:** door gen (3 south-face doors), club enter → tip pays
+w/ cd+hype → hood cameo toast → heat 3→drains → bar re-breads 40→80 → exit
+returns to the pavement; diner regen 30→68; ammu restock (24/80 rounds, 45s
+cd); world resumes cleanly outside (spawns, pause map); 61fps; zero
+pageerrors/warnings. Screenshots eyeballed (the stage shot is the sprint).
+
+**Gotchas:**
+- `gtaHash` returns uint32 but `h >> 5` is a SIGNED shift — negative modulo
+  indexed `GTA_PED_OUTFITS[-k]` = undefined → gtaShade crashed the rAF loop
+  (frozen sim, stale probes). Use `>>>` everywhere you shift a hash.
+- Interior toasts/centered rooms must respect the storm-HUD-card zone
+  (canvas top-center y < ~0.35·Hh): toast draws at 0.3·Hh, small rooms bias
+  14px low.
+- Landmark rects DON'T touch sidewalks by default — anything else that
+  wants a street-facing feature needs the same flush-snap treatment.

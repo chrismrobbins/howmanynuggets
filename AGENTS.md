@@ -15,7 +15,10 @@ already bitten someone.
 > crosswalks), **10.6 POINT STEERING** (hold-where-you-want-to-GO is the
 > default scheme; T toggles classic), **10.7 THE THIRD DIMENSION** (2.5D
 > building extrusion — read the draw-order gotchas in the 10.7 notes
-> before touching gtaDraw). GTA_SPRINTS.md also holds the **SEASON 2 —
+> before touching gtaDraw), **10.8 OPEN DOORS** (enterable interiors: the
+> 🍗 CHICKEN STRIP CLUB, the NOODLE NUG diner, the AMMU-NUGGET shop —
+> char-map rooms at GTA_INT_ORIGIN; see the 10.8 notes for the door/
+> landmark-snap rules). GTA_SPRINTS.md also holds the **SEASON 2 —
 > NUGGETOWN NIGHTS plan (10 sprints)**: garage + REP, mods, street races,
 > the case board, Dill's chain, procedural contracts, weather, photo mode,
 > and free-roam online on the worker gameRoom pattern.

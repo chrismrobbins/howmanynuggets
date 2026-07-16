@@ -200,6 +200,12 @@ const gta = {
   steerMode: 'point',    // 'point' = hold where you want to GO (default) · 'classic' = GTA1 rotate (T toggles; persisted)
   backing: false,        // point-mode: mid back-out from a behind-you target
   mouse: null,           // {cx, cy, down} — point-mode drives toward the cursor
+  interior: null,        // key into GTA_INTERIORS while indoors (the world outside freezes)
+  intT: 0,               // interior animation clock
+  tipCd: 0,              // stage-tip cooldown (the club appreciates restraint)
+  tipHype: 0,            // > 0: the strips just got tipped and it SHOWS
+  savedPos: null,        // where on the pavement we left the outside world
+  doors: [],             // walk-in doors: {key, name, accent, btc, btr, face, mx, my}
   pickups: [],           // {c, r, gold, taken, respawn}
   skids: [],             // ring buffer of {x, y, a, life}
   cars: [],              // traffic + parked + wrecks: {x,y,a,dir,v,cls,col,hp,parked,wreck,nd,...}
@@ -236,6 +242,7 @@ function gtaActive() {
 
 function gtaTally() {
   if (gta.phase === 'title') return '"welcome to nuggetown"';
+  if (gta.interior) return '🚪 ' + GTA_INTERIORS[gta.interior].name + ' · 🍞 ' + Math.round(gta.breading) + '%';
   const state = gta.onFoot
     ? '🍞 ' + Math.round(gta.breading) + '%'
     : Math.round(Math.hypot(gta.car.vx, gta.car.vy) * 0.6) + ' NPH';
@@ -277,6 +284,9 @@ const GTA_LANDMARKS = [
   // appended in Sprint 6 — placement iterates in order, so the first six
   // landmarks land exactly where they always did
   { key: 'ammu',    name: 'AMMU-NUGGET',       d: 1, tc: 96,  tr: 34,  accent: '#c8ccd8', roof: '#2a2622' },
+  // appended in patch 10.8, same discipline: the syndicate's most profitable
+  // legitimate business. It is exactly what it sounds like. Breading only.
+  { key: 'strip',   name: 'CHICKEN STRIP CLUB', d: 1, tc: 88, tr: 18,  accent: '#ff2fa0', roof: '#2e1424' },
 ];
 
 function gtaBuildCity() {
@@ -381,6 +391,12 @@ function gtaBuildCity() {
       w, h, vLeft: b.vLeft, hTop: b.hTop,
       key: L.key, name: L.name, accent: L.accent, roof: L.roof,
     };
+    // Door-bearing venues (patch 10.8) sit flush with the block's south
+    // sidewalk, so their front wall actually faces the street. Deterministic
+    // shift, no rnd() — the rest of the city does not move.
+    if (L.key === 'strip' || L.key === 'noodle' || L.key === 'ammu') {
+      rect.r = b.r1 - h + 1;
+    }
     gta.lmList.push(rect);
     gta.landmarks[L.key] = rect;
     for (let tr = rect.r; tr < rect.r + h; tr++) {
@@ -467,6 +483,39 @@ function gtaBuildCity() {
     rp++;
   }
 
+  // Walk-in doors (patch 10.8): three buildings you can actually enter.
+  // Deterministic perimeter scan — NO rnd() calls, the city cannot move.
+  // Prefer a south-wall tile with sidewalk below (doors face the street);
+  // fall back to west-wall-with-sidewalk if a landmark backs onto a park.
+  gta.doors = [];
+  for (const key of ['strip', 'noodle', 'ammu']) {
+    const L = gta.landmarks[key];
+    if (!L) continue;
+    let door = null;
+    const midC = L.c + Math.floor(L.w / 2);
+    for (let off = 0; off < L.w && !door; off++) { // spiral out from center
+      for (const tc of [midC + off, midC - off]) {
+        if (tc < L.c || tc >= L.c + L.w) continue;
+        if (map[(L.r + L.h) * GTA_W + tc] === GT_WALK) {
+          door = { btc: tc, btr: L.r + L.h - 1, face: 'S',
+                   mx: (tc + 0.5) * GTA_TILE, my: (L.r + L.h + 0.5) * GTA_TILE };
+          break;
+        }
+      }
+    }
+    if (!door) {
+      const midR = L.r + Math.floor(L.h / 2);
+      if (map[midR * GTA_W + (L.c - 1)] === GT_WALK) {
+        door = { btc: L.c, btr: midR, face: 'W',
+                 mx: (L.c - 0.5) * GTA_TILE, my: (midR + 0.5) * GTA_TILE };
+      }
+    }
+    if (door) {
+      door.key = key; door.name = L.name; door.accent = L.accent;
+      gta.doors.push(door);
+    }
+  }
+
   // The minimap is painted once at gen time, 1px per tile; the HUD blits a
   // radar window from it every frame. Never repaint this per frame.
   const mini = document.createElement('canvas');
@@ -490,6 +539,8 @@ function gtaBuildCity() {
   for (const c of gta.noodleCarts) mg.fillRect(c.c, c.r, 1, 1);
   mg.fillStyle = '#3ad4ff';
   for (const b of gta.booths) mg.fillRect(b.c, b.r, 1, 1);
+  mg.fillStyle = '#ffffff';
+  for (const d of gta.doors) mg.fillRect(Math.floor(d.mx / GTA_TILE), Math.floor(d.my / GTA_TILE), 1, 1);
   mg.fillStyle = '#ffd23a';
   mg.fillRect(Math.floor(gta.stormSpot.x / GTA_TILE) - 1, Math.floor(gta.stormSpot.y / GTA_TILE) - 1, 2, 2);
   gta.mini = mini;
@@ -515,6 +566,7 @@ function gtaTile(tc, tr) {
 }
 
 function gtaSolidAt(x, y) {
+  if (gta.interior) return gtaIntSolid(x, y); // indoors: the room owns collision
   const k = gtaTile(Math.floor(x / GTA_TILE), Math.floor(y / GTA_TILE));
   return k === GT_BLDG || k === GT_WATER; // you cannot boost the bay (yet)
 }
@@ -582,6 +634,7 @@ function syncGta() {
     gta.ringSndT = 0;
     gta.backing = false;
     gta.mouse = { cx: 0, cy: 0, down: false };
+    gta.interior = null; gta.intT = 0; gta.tipCd = 0; gta.tipHype = 0; gta.savedPos = null;
     try { gta.steerMode = localStorage.getItem('nugGtaSteer') === 'classic' ? 'classic' : 'point'; } catch (e) { gta.steerMode = 'point'; }
     try { gta.radioSt = Math.min(3, Math.max(0, +(localStorage.getItem('nugGtaRadio') || 0) || 0)); } catch (e) { gta.radioSt = 0; }
     try { gta.prog = Math.max(0, +(localStorage.getItem('nugGtaProg') || 0) || 0); } catch (e) { gta.prog = 0; }
@@ -1076,11 +1129,19 @@ function gtaParkPlayerCar() {
 // or step out if there isn't one. Either way, slow down first.
 function gtaInteract() {
   if (gta.wastedT > 0) return;
+  if (gta.interior) { gtaInteriorInteract(); return; } // indoors: the room decides
   if (gta.onFoot) {
     const best = gtaNearestCar(gta.ped.x, gta.ped.y, 26);
     if (best) { gtaEnterCar(best, gta.ped.x, gta.ped.y); return; }
     // no door in reach — a ringing phone beats a shopping trip
     if (gtaTryBooth(gta.ped.x, gta.ped.y, 26)) return;
+    // a lit doorway: step inside (patch 10.8)
+    for (const d of gta.doors) {
+      if (Math.abs(gta.ped.x - d.mx) < 22 && Math.abs(gta.ped.y - d.my) < 22) {
+        gtaEnterInterior(d.key);
+        return;
+      }
+    }
     // maybe a counter: AMMU-NUGGET's loyalty program
     const A = gta.landmarks.ammu;
     if (A && gta.ammuCd <= 0) {
@@ -1889,6 +1950,574 @@ function gtaStepGig(dt) {
   }
 }
 
+// ---- INTERIORS (patch 10.8: OPEN DOORS) ---------------------------------------------------
+// Three buildings you can actually walk into: the CHICKEN STRIP CLUB (it is
+// exactly what it sounds like — breading only), the NOODLE NUG diner, and the
+// AMMU-NUGGET shop floor. Interiors are hand-authored tile rooms parked WAY
+// off the city grid (GTA_INT_ORIGIN) so no outdoor system can ever touch
+// them; while gta.interior is set the outside world freezes entirely and
+// gtaSolidAt answers from the room's char map instead. Nobody follows you
+// inside — heat drains fast in here, which makes every door a hideout.
+// Enter: E at a lit door (on foot). Leave: E on the EXIT mat.
+//
+// Char map legend: '#' wall · '.' floor · 'S' stage · 'P' pole (dancer) ·
+// 'B' bar/counter · 'b' stool · 't' table · 'V' VIP couch · 'J' DJ booth ·
+// 'O' broth pot · 'W' weapon display · 'R' range target · 'E' exit mat.
+
+const GTA_INT_ORIGIN = { x: -9000, y: -9000 }; // far outside the 0..3840 city
+const GTA_INT_SOLID = new Set(['#', 'S', 'P', 'B', 't', 'V', 'J', 'O', 'W', 'R']);
+
+const GTA_INTERIORS = {
+  strip: {
+    name: 'CHICKEN STRIP CLUB', icon: '🍗',
+    floorA: '#241018', floorB: '#1d0d13', wall: '#38152a', trim: '#ff2fa0',
+    enterLine: '"it\'s exactly what it sounds like. breading only." — the bouncer',
+    rows: [
+      '########################',
+      '#JJ..SSSSSSSSSSSSSS..BB#',
+      '#JJ..SSPSSSSPSSSSPS..BB#',
+      '#....SSSSSSSSSSSSSS..BB#',
+      '#....................BB#',
+      '#..t......t......t...bB#',
+      '#......................#',
+      '#.t....t......t......bB#',
+      '#......................#',
+      '#VV...t......t......t..#',
+      '#VV....................#',
+      '#......................#',
+      '#..........EE..........#',
+      '########################',
+    ],
+  },
+  noodle: {
+    name: 'NOODLE NUG', icon: '🍜',
+    floorA: '#2a2016', floorB: '#231a11', wall: '#3a2c1e', trim: '#ffd23a',
+    enterLine: 'the broth never stops. neither does the steam.',
+    rows: [
+      '##################',
+      '#..O...O...O..O..#',
+      '#.BBBBBBBBBBBBBB.#',
+      '#................#',
+      '#t..t........t..t#',
+      '#................#',
+      '#t..t........t..t#',
+      '#................#',
+      '#t..t........t..t#',
+      '#.......EE.......#',
+      '##################',
+    ],
+  },
+  ammu: {
+    name: 'AMMU-NUGGET', icon: '🔫',
+    floorA: '#1c2024', floorB: '#171b1f', wall: '#2a3038', trim: '#c8ccd8',
+    enterLine: '"browse all you like. the loyalty program applies." — the clerk',
+    rows: [
+      '################',
+      '#W.W.W.W.W.W.W.#',
+      '#..............#',
+      '#.BBBBBBBBBB...#',
+      '#..............#',
+      '#..............#',
+      '#..............#',
+      '#.............R#',
+      '#......EE......#',
+      '################',
+    ],
+  },
+};
+
+// Lazily scan a room's char map into world-space points of interest.
+function gtaIntPts(I) {
+  if (I.pts) return I.pts;
+  const T = GTA_TILE, O = GTA_INT_ORIGIN;
+  const p = { poles: [], tables: [], bars: [], pots: [], disp: [], vip: null, dj: null, target: null, exit: null };
+  let ex = 0, ey = 0, en = 0;
+  for (let tr = 0; tr < I.rows.length; tr++) {
+    for (let tc = 0; tc < I.rows[tr].length; tc++) {
+      const ch = I.rows[tr][tc];
+      const x = O.x + (tc + 0.5) * T, y = O.y + (tr + 0.5) * T;
+      if (ch === 'P') p.poles.push({ x, y });
+      else if (ch === 't') p.tables.push({ x, y, tc, tr });
+      else if (ch === 'B') p.bars.push({ x, y });
+      else if (ch === 'O') p.pots.push({ x, y });
+      else if (ch === 'W') p.disp.push({ x, y });
+      else if (ch === 'V' && !p.vip) p.vip = { x: x + T / 2, y: y + T / 2 };
+      else if (ch === 'J' && !p.dj) p.dj = { x: x + T / 2, y: y + T / 2 };
+      else if (ch === 'R') p.target = { x, y };
+      else if (ch === 'E') { ex += x; ey += y; en++; }
+    }
+  }
+  if (en) p.exit = { x: ex / en, y: ey / en };
+  // stage bounds (strip club): min/max of the S region
+  let sx0 = Infinity, sy0 = Infinity, sx1 = -Infinity, sy1 = -Infinity;
+  for (let tr = 0; tr < I.rows.length; tr++) {
+    for (let tc = 0; tc < I.rows[tr].length; tc++) {
+      if (I.rows[tr][tc] === 'S' || I.rows[tr][tc] === 'P') {
+        sx0 = Math.min(sx0, O.x + tc * T); sy0 = Math.min(sy0, O.y + tr * T);
+        sx1 = Math.max(sx1, O.x + (tc + 1) * T); sy1 = Math.max(sy1, O.y + (tr + 1) * T);
+      }
+    }
+  }
+  if (sx1 > sx0) p.stage = { x0: sx0, y0: sy0, x1: sx1, y1: sy1 };
+  I.pts = p;
+  return p;
+}
+
+function gtaIntSolid(x, y) {
+  const I = GTA_INTERIORS[gta.interior];
+  if (!I) return true;
+  const tc = Math.floor((x - GTA_INT_ORIGIN.x) / GTA_TILE);
+  const tr = Math.floor((y - GTA_INT_ORIGIN.y) / GTA_TILE);
+  if (tr < 0 || tc < 0 || tr >= I.rows.length || tc >= I.rows[tr].length) return true;
+  return GTA_INT_SOLID.has(I.rows[tr][tc]);
+}
+
+function gtaEnterInterior(key) {
+  const I = GTA_INTERIORS[key];
+  if (!I || !gta.onFoot) return;
+  const pts = gtaIntPts(I);
+  if (!pts.exit) return; // a room with no exit is a design bug, not a trap
+  gta.savedPos = { x: gta.ped.x, y: gta.ped.y, a: gta.ped.a };
+  gta.interior = key;
+  gta.intT = 0;
+  gta.tipCd = 0; gta.tipHype = 0;
+  gta.hoodSaid = false;
+  gta.ped.x = pts.exit.x; gta.ped.y = pts.exit.y - 18;
+  gta.ped.vx = 0; gta.ped.vy = 0; gta.ped.a = -Math.PI / 2;
+  gta.cam.x = gta.ped.x; gta.cam.y = gta.ped.y;
+  sfxGtaDoor();
+  gtaBanner(I.icon + ' ' + I.name, 'go', 1.8);
+  gta.toastMsg = I.enterLine;
+  gta.toastT = 3.6;
+}
+
+function gtaExitInterior() {
+  if (!gta.interior || !gta.savedPos) return;
+  gta.interior = null;
+  gta.ped.x = gta.savedPos.x; gta.ped.y = gta.savedPos.y; gta.ped.a = Math.PI / 2;
+  gta.ped.vx = 0; gta.ped.vy = 0;
+  gta.cam.x = gta.ped.x; gta.cam.y = gta.ped.y;
+  gta.savedPos = null;
+  sfxGtaDoor();
+}
+
+// E indoors: the exit mat first, then whatever the room offers.
+function gtaInteriorInteract() {
+  const I = GTA_INTERIORS[gta.interior];
+  const pts = gtaIntPts(I);
+  const p = gta.ped;
+  if (Math.abs(p.x - pts.exit.x) < 24 && Math.abs(p.y - pts.exit.y) < 24) { gtaExitInterior(); return; }
+  if (gta.interior === 'strip' && pts.stage &&
+      p.x > pts.stage.x0 - 20 && p.x < pts.stage.x1 + 20 && p.y < pts.stage.y1 + 30) {
+    // MAKE IT RAIN: crumbs for the performers, and the house comps your vibe
+    if (gta.tipCd > 0) return;
+    gta.tipCd = 6;
+    gta.tipHype = Math.min(4, gta.tipHype + 2.5);
+    for (const pol of pts.poles) gtaSpawnParts(pol.x, pol.y + 8, 8, 'crumbspray');
+    gtaPay(6, '💃', gta.W / 2, gta.Hh * 0.42);
+    sfxGtaPickup(false);
+    gtaTone(392, 0.1, 0.12, 0.05, 'square');
+    gtaTone(523, 0.2, 0.16, 0.05, 'square');
+  } else if (gta.interior === 'ammu' && pts.bars.length) {
+    // same loyalty program as the outdoor counter, same cooldown
+    const b = pts.bars[Math.floor(pts.bars.length / 2)];
+    if (Math.abs(p.x - b.x) > 60 || Math.abs(p.y - b.y) > 40 || gta.ammuCd > 0) return;
+    for (const w of GTA_WEAPONS) {
+      if (w.give) gta.ammo[w.key] = Math.max(gta.ammo[w.key], w.give);
+    }
+    if (gta.wsel === 0) gtaSelectWeapon(1);
+    gta.wtoastT = 1.8;
+    gta.ammuCd = 45;
+    gtaBanner('🔫 AMMU-NUGGET — ON THE HOUSE', 'go', 1.5);
+  }
+}
+
+// The indoor tick: room clock, heat drain, regen zones, ambient particles,
+// a clamped camera, and the MP transform (your ghost vanishes to -9000 —
+// to the rest of the city, you just went inside).
+function gtaStepInterior(dt) {
+  const I = GTA_INTERIORS[gta.interior];
+  const pts = gtaIntPts(I);
+  const p = gta.ped;
+  gta.intT += dt;
+  gta.tipCd = Math.max(0, gta.tipCd - dt);
+  gta.tipHype = Math.max(0, gta.tipHype - dt * 0.5);
+  gta.heat = Math.max(0, gta.heat - 0.15 * dt); // nobody follows you in here
+  if (gta.toastT > 0) gta.toastT -= dt;
+  gta.wtoastT = Math.max(0, gta.wtoastT - dt);
+  gta.ammuCd = Math.max(0, gta.ammuCd - dt);
+
+  // re-breading: the club's bar and the diner's counter both fix a coating
+  gta.noodleT = Math.max(0, gta.noodleT - dt);
+  const zone = gta.interior === 'strip' || gta.interior === 'noodle' ? pts.bars : null;
+  if (zone && gta.breading < 100) {
+    for (const b of zone) {
+      if (Math.abs(p.x - b.x) < 34 && Math.abs(p.y - b.y) < 34) {
+        gta.breading = Math.min(100, gta.breading + 25 * dt);
+        gta.noodleT = 0.3;
+        if (Math.random() < dt * 3) gtaSpawnParts(b.x, b.y - 6, 1, 'smoke');
+        break;
+      }
+    }
+  }
+
+  // ambient: pot steam in the diner, glitter at the poles when hyped
+  if (gta.interior === 'noodle' && Math.random() < dt * 3 && pts.pots.length) {
+    const o = pts.pots[Math.floor(Math.random() * pts.pots.length)];
+    gtaSpawnParts(o.x, o.y - 4, 1, 'smoke');
+  }
+  if (gta.interior === 'strip' && gta.tipHype > 0 && Math.random() < dt * 8 && pts.poles.length) {
+    const o = pts.poles[Math.floor(Math.random() * pts.poles.length)];
+    gtaSpawnParts(o.x + (Math.random() - 0.5) * 10, o.y + (Math.random() - 0.5) * 10, 1, 'spark');
+  }
+  // the hooded regular has one line, once per visit
+  if (gta.interior === 'strip' && !gta.hoodSaid && pts.vip &&
+      Math.abs(p.x - pts.vip.x) < 40 && Math.abs(p.y - pts.vip.y) < 40) {
+    gta.hoodSaid = true;
+    gta.toastMsg = '"even rumors take a night off." — a hooded regular';
+    gta.toastT = 3.6;
+  }
+
+  // particles keep falling indoors (the world loop is frozen outside)
+  for (let i = gta.parts.length - 1; i >= 0; i--) {
+    const q = gta.parts[i];
+    q.life -= dt;
+    if (q.life <= 0) { gta.parts.splice(i, 1); continue; }
+    q.vx *= Math.exp(-1.4 * dt); q.vy *= Math.exp(-1.4 * dt);
+    q.x += q.vx * dt; q.y += q.vy * dt;
+  }
+
+  // camera: center small rooms, clamp-follow in big ones
+  const T = GTA_TILE, O = GTA_INT_ORIGIN;
+  const rw = I.rows[0].length * T, rh = I.rows.length * T;
+  const tx = rw <= gta.W ? O.x + rw / 2 : Math.max(O.x + gta.W / 2, Math.min(O.x + rw - gta.W / 2, p.x));
+  // small rooms sit a touch low on screen — the storm HUD card owns the top
+  const ty = rh <= gta.Hh ? O.y + rh / 2 - 14 : Math.max(O.y + gta.Hh / 2, Math.min(O.y + rh - gta.Hh / 2, p.y));
+  gta.cam.x += (tx - gta.cam.x) * Math.min(1, 8 * dt);
+  gta.cam.y += (ty - gta.cam.y) * Math.min(1, 8 * dt);
+
+  if (window.GtaNet) GtaNet.onStep(dt);
+}
+
+// A chicken strip, dancing. The whole pitch, honestly.
+function gtaDrawDancer(g, x, y, t, hype) {
+  const speed = 3 + hype * 2.2;
+  const sway = Math.sin(t * speed) * (0.32 + hype * 0.1);
+  const orbit = Math.sin(t * speed * 0.5) * 4;
+  const bob = Math.abs(Math.sin(t * speed)) * (1.5 + hype);
+  g.save();
+  g.translate(x + orbit, y);
+  // pole
+  g.strokeStyle = '#8a92a8';
+  g.lineWidth = 1;
+  g.beginPath(); g.moveTo(-orbit, -12); g.lineTo(-orbit, 10); g.stroke();
+  g.fillStyle = 'rgba(255,255,255,0.5)';
+  g.fillRect(-orbit - 0.5, -12, 1, 3);
+  // shadow
+  g.fillStyle = 'rgba(0,0,0,0.4)';
+  g.beginPath(); g.ellipse(0, 9, 5, 2.2, 0, 0, Math.PI * 2); g.fill();
+  // the strip itself: golden, crispy, working the room
+  g.rotate(sway);
+  const h = 15 + bob;
+  g.fillStyle = '#a86a20'; // crust edge
+  g.beginPath(); g.ellipse(0, 8 - h / 2, 3.6, h / 2, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#e8a83a';
+  g.beginPath(); g.ellipse(0, 8 - h / 2, 2.8, h / 2 - 1, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#ffd98a'; // fried highlight
+  g.beginPath(); g.ellipse(-0.8, 7 - h / 2, 1.1, h / 2 - 3, 0, 0, Math.PI * 2); g.fill();
+  g.restore();
+  // sparkle
+  if (Math.random() < 0.06 + hype * 0.05) {
+    g.fillStyle = '#fff3b0';
+    g.fillRect(x + (Math.random() - 0.5) * 12, y - 8 + (Math.random() - 0.5) * 14, 1, 1);
+  }
+}
+
+// A nug parked on a seat: shadow, jacket, head. No feet — they're off duty.
+function gtaDrawSeated(g, x, y, col, outfit, t, hood) {
+  g.fillStyle = 'rgba(0,0,0,0.35)';
+  g.beginPath(); g.ellipse(x, y + 1, 4, 3, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = gtaShade(outfit, 0.55);
+  g.beginPath(); g.ellipse(x, y, 3.8, 3, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = outfit;
+  g.beginPath(); g.ellipse(x, y, 3.2, 2.4, 0, 0, Math.PI * 2); g.fill();
+  const bobY = Math.sin(t * 2.2 + x) * 0.5;
+  g.fillStyle = gtaShade(col, 0.62);
+  g.beginPath(); g.arc(x, y - 1.4 + bobY, 2.5, 0, Math.PI * 2); g.fill();
+  g.fillStyle = col;
+  g.beginPath(); g.arc(x, y - 1.4 + bobY, 2, 0, Math.PI * 2); g.fill();
+  if (hood) { // the regular in the corner keeps the hood up indoors too
+    g.fillStyle = '#14161c';
+    g.beginPath(); g.arc(x, y - 1.6 + bobY, 2.2, Math.PI * 0.85, Math.PI * 2.15); g.fill();
+  }
+}
+
+function gtaDrawInterior() {
+  const g = gta.g, W = gta.W, Hh = gta.Hh, T = GTA_TILE;
+  const I = GTA_INTERIORS[gta.interior];
+  const pts = gtaIntPts(I);
+  const O = GTA_INT_ORIGIN;
+  const ox = Math.round(gta.cam.x - W / 2), oy = Math.round(gta.cam.y - Hh / 2);
+  const t = gta.intT;
+
+  g.fillStyle = '#060409';
+  g.fillRect(0, 0, W, Hh);
+
+  // room tiles
+  for (let tr = 0; tr < I.rows.length; tr++) {
+    for (let tc = 0; tc < I.rows[tr].length; tc++) {
+      const ch = I.rows[tr][tc];
+      const x = O.x + tc * T - ox, y = O.y + tr * T - oy;
+      if (x < -T || x > W || y < -T || y > Hh) continue;
+      if (ch === '#') {
+        g.fillStyle = I.wall;
+        g.fillRect(x, y, T, T);
+        g.fillStyle = 'rgba(0,0,0,0.35)';
+        g.fillRect(x, y + T - 3, T, 3);
+        continue;
+      }
+      g.fillStyle = ((tc + tr) & 1) ? I.floorA : I.floorB;
+      g.fillRect(x, y, T, T);
+      if (ch === 'S' || ch === 'P') {         // the stage: raised, golden, lit
+        g.fillStyle = '#3a2410';
+        g.fillRect(x, y, T, T);
+        g.fillStyle = '#4a2f14';
+        g.fillRect(x + 1, y + 1, T - 2, T - 2);
+        if ((gtaHash(tc, tr) + Math.floor(t * 3)) % 7 === 0) {
+          g.fillStyle = 'rgba(255,220,120,0.12)';
+          g.fillRect(x + 3, y + 3, T - 6, T - 6);
+        }
+      } else if (ch === 'B') {                 // bar / counter
+        g.fillStyle = '#4a2c16';
+        g.fillRect(x, y + 2, T, T - 4);
+        g.fillStyle = '#6b4226';
+        g.fillRect(x + 1, y + 3, T - 2, T - 8);
+        g.fillStyle = I.trim;
+        g.fillRect(x, y + 2, T, 2);
+      } else if (ch === 'b') {                 // stool
+        g.fillStyle = '#20242e';
+        g.beginPath(); g.arc(x + T / 2, y + T / 2, 4, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#3a2c1e';
+        g.beginPath(); g.arc(x + T / 2, y + T / 2, 3, 0, Math.PI * 2); g.fill();
+      } else if (ch === 't') {                 // table + whoever's at it
+        g.fillStyle = 'rgba(0,0,0,0.4)';
+        g.beginPath(); g.arc(x + T / 2 + 1, y + T / 2 + 1, 8, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#54341c';
+        g.beginPath(); g.arc(x + T / 2, y + T / 2, 8, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#6b4226';
+        g.beginPath(); g.arc(x + T / 2, y + T / 2, 6.5, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#e8ecf4';               // a basket of, well, strips
+        g.fillRect(x + T / 2 - 2, y + T / 2 - 1, 4, 2);
+      } else if (ch === 'V') {                 // VIP couch
+        g.fillStyle = '#5e1030';
+        g.fillRect(x + 1, y + 3, T - 2, T - 6);
+        g.fillStyle = '#7a1640';
+        g.fillRect(x + 2, y + 5, T - 4, T - 10);
+      } else if (ch === 'J') {                 // DJ booth
+        g.fillStyle = '#14161c';
+        g.fillRect(x + 1, y + 2, T - 2, T - 4);
+        g.fillStyle = '#20242e';
+        g.fillRect(x + 3, y + 4, T - 6, T - 8);
+        g.fillStyle = I.trim;
+        g.fillRect(x + 5, y + T / 2 - 1, 4, 2); g.fillRect(x + T - 9, y + T / 2 - 1, 4, 2);
+      } else if (ch === 'O') {                 // broth pot
+        g.fillStyle = '#20242e';
+        g.beginPath(); g.arc(x + T / 2, y + T / 2, 7, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#c8a05a';
+        g.beginPath(); g.arc(x + T / 2, y + T / 2, 5, 0, Math.PI * 2); g.fill();
+        g.fillStyle = 'rgba(255,255,255,0.25)';
+        g.beginPath(); g.arc(x + T / 2 - 1.5, y + T / 2 - 1.5, 2, 0, Math.PI * 2); g.fill();
+      } else if (ch === 'W') {                 // weapon display case
+        g.fillStyle = '#14161c';
+        g.fillRect(x + 2, y + 2, T - 4, T - 4);
+        const wI = GTA_WEAPONS[1 + (tc % (GTA_WEAPONS.length - 1))];
+        g.fillStyle = wI.col || '#c8ccd8';
+        g.fillRect(x + T / 2 - 4, y + T / 2 - 2, 8, 3);
+        g.fillStyle = 'rgba(160,200,255,0.2)'; // glass
+        g.fillRect(x + 2, y + 2, T - 4, 3);
+      } else if (ch === 'R') {                 // range target, pre-ventilated
+        g.fillStyle = '#e8ecf4';
+        g.beginPath(); g.arc(x + T / 2, y + T / 2, 8, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#ff5252';
+        g.beginPath(); g.arc(x + T / 2, y + T / 2, 5, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#e8ecf4';
+        g.beginPath(); g.arc(x + T / 2, y + T / 2, 2.5, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#14161c';
+        g.fillRect(x + 6, y + 8, 2, 2); g.fillRect(x + 14, y + 13, 2, 2);
+      } else if (ch === 'E') {                 // exit mat
+        g.fillStyle = 'rgba(255,226,58,0.16)';
+        g.fillRect(x + 2, y + 2, T - 4, T - 4);
+      }
+    }
+  }
+
+  // club atmosphere: disco spots sweeping the floor, a ball over the stage
+  if (gta.interior === 'strip' && pts.stage) {
+    const scx = (pts.stage.x0 + pts.stage.x1) / 2 - ox;
+    const scy = (pts.stage.y0 + pts.stage.y1) / 2 - oy;
+    const DISCO = ['rgba(255,47,160,0.10)', 'rgba(58,212,255,0.10)', 'rgba(57,255,122,0.08)', 'rgba(255,226,58,0.08)'];
+    for (let i = 0; i < 4; i++) {
+      const a = t * (0.5 + i * 0.13) + i * Math.PI / 2;
+      const dx = scx + Math.cos(a) * (40 + i * 16), dy = scy + 40 + Math.sin(a * 1.3) * 26;
+      g.fillStyle = DISCO[i];
+      g.beginPath(); g.arc(dx, dy, 14 + (i % 2) * 5, 0, Math.PI * 2); g.fill();
+    }
+    g.fillStyle = '#c8ccd8'; // the ball
+    g.beginPath(); g.arc(scx, scy - 2, 3, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#fff3b0';
+    g.fillRect(scx - 3 + ((t * 9) | 0) % 6, scy - 3, 1, 1);
+    // spotlight sweep across the stage
+    const spx = scx + Math.sin(t * 0.8) * (pts.stage.x1 - pts.stage.x0) * 0.34;
+    const grad = g.createRadialGradient(spx, scy, 2, spx, scy, 22);
+    grad.addColorStop(0, 'rgba(255,240,190,0.22)');
+    grad.addColorStop(1, 'rgba(255,240,190,0)');
+    g.fillStyle = grad;
+    g.fillRect(spx - 22, scy - 22, 44, 44);
+  }
+
+  // the cast
+  if (gta.interior === 'strip') {
+    for (let i = 0; i < pts.poles.length; i++) {
+      gtaDrawDancer(g, pts.poles[i].x - ox, pts.poles[i].y - oy, t + i * 2.1, gta.tipHype);
+    }
+    if (pts.dj) { // headphones on, head down
+      gtaDrawSeated(g, pts.dj.x - ox, pts.dj.y - oy, '#e0b870', '#20242e', t * 2.4, false);
+      g.fillStyle = '#3ad4ff';
+      g.fillRect(pts.dj.x - ox - 3, pts.dj.y - oy - 4, 6, 1.5);
+      if (Math.floor(t * 2) % 2 === 0) {
+        g.fillStyle = '#ff2fa0';
+        g.font = '900 7px Consolas, monospace';
+        g.fillText('♪', pts.dj.x - ox + 7, pts.dj.y - oy - 6);
+      }
+    }
+    if (pts.vip) gtaDrawSeated(g, pts.vip.x - ox, pts.vip.y - oy, '#c8a05a', '#14161c', t, true);
+    // bouncer holds the door
+    gtaDrawSeated(g, pts.exit.x - ox + 26, pts.exit.y - oy - 6, '#c8a05a', '#1c2230', t * 0.5, false);
+  }
+  if (gta.interior === 'noodle') {
+    // the cook works the pots behind the counter
+    const cook = pts.bars[Math.floor(pts.bars.length / 2)];
+    if (cook) gtaDrawSeated(g, cook.x - ox, cook.y - oy - 10, '#f0cc8a', '#e8ecf4', t * 1.6, false);
+  }
+  if (gta.interior === 'ammu') {
+    const clerk = pts.bars[Math.floor(pts.bars.length / 2)];
+    if (clerk) gtaDrawSeated(g, clerk.x - ox, clerk.y - oy - 10, '#d8b06a', '#3a505f', t * 0.7, false);
+  }
+  // patrons at the tables (hash decides who showed up tonight)
+  for (const tb of pts.tables) {
+    const h = gtaHash(tb.tc, tb.tr);
+    if (h % 3 === 0) gtaDrawSeated(g, tb.x - ox, tb.y - oy - 11, GTA_PED_COLS[h % 5], GTA_PED_OUTFITS[h % 9], t + h % 7, false);
+    if (h % 4 === 1) gtaDrawSeated(g, tb.x - ox, tb.y - oy + 11, GTA_PED_COLS[(h >>> 3) % 5], GTA_PED_OUTFITS[(h >>> 5) % 9], t + h % 5, false);
+  }
+
+  // EXIT mat label
+  if (pts.exit) {
+    g.font = '900 7px Consolas, monospace';
+    g.textAlign = 'center';
+    g.fillStyle = Math.floor(t * 2) % 2 === 0 ? '#ffe23a' : '#c2a53a';
+    g.fillText('EXIT', pts.exit.x - ox, pts.exit.y - oy + 2);
+  }
+
+  // particles (crumb rain, steam, glitter)
+  for (const q of gta.parts) {
+    const px = q.x - ox, py = q.y - oy;
+    if (px < -10 || px > W + 10 || py < -10 || py > Hh + 10) continue;
+    const k = q.life / q.max;
+    if (q.type === 'smoke') {
+      g.globalAlpha = 0.28 * k;
+      g.fillStyle = '#9aa0ad';
+      const s = q.size + (1 - k) * 3;
+      g.fillRect(px - s / 2, py - s / 2, s, s);
+    } else if (q.type === 'spark') {
+      g.globalAlpha = k;
+      g.fillStyle = '#ffe9a0';
+      g.fillRect(px, py, 1, 1);
+    } else {
+      g.globalAlpha = k;
+      g.fillStyle = '#c89a5a';
+      g.fillRect(px, py, 1, 1);
+    }
+  }
+  g.globalAlpha = 1;
+
+  // you, crisp and golden as ever
+  gtaDrawPed(g, gta.ped.x - ox, gta.ped.y - oy, gta.ped, true);
+
+  // vignette (shared with the street)
+  if (gta.vign && gta.vignW === W && gta.vignH === Hh) {
+    g.fillStyle = gta.vign;
+    g.fillRect(0, 0, W, Hh);
+  }
+
+  // ---- indoor HUD -------------------------------------------------------
+  const bar = (y, pctV, col) => {
+    g.fillStyle = 'rgba(5,5,12,0.7)';
+    g.fillRect(6, y, 44, 5);
+    g.fillStyle = col;
+    g.fillRect(7, y + 1, Math.round(42 * Math.max(0, Math.min(1, pctV))), 3);
+  };
+  bar(Hh - 36, gta.breading / 100,
+    gta.breading > 50 ? '#ffcf6a' : gta.breading > 25 ? '#ffe23a' : '#ff5252');
+  bar(Hh - 44, gta.stamina / 100, '#3ad4ff');
+  g.font = '700 8px Consolas, monospace';
+  g.textAlign = 'left';
+  g.fillStyle = '#9aa3c7';
+  g.fillText(gta.noodleT > 0 ? '🍜 RE-BREADING' : I.icon + ' INSIDE', 6, Hh - 50);
+
+  // contextual hint line, plated like the street objectives
+  const p = gta.ped;
+  let hint = null;
+  if (Math.abs(p.x - pts.exit.x) < 24 && Math.abs(p.y - pts.exit.y) < 24) hint = 'E — BACK TO THE STREET';
+  else if (gta.interior === 'strip' && pts.stage && p.y < pts.stage.y1 + 30 &&
+           p.x > pts.stage.x0 - 20 && p.x < pts.stage.x1 + 20) {
+    hint = gta.tipCd > 0 ? '🍞 THE STRIPS APPRECIATE YOU (' + Math.ceil(gta.tipCd) + 's)' : 'E — MAKE IT RAIN 🍞';
+  } else if (gta.interior === 'ammu') {
+    const b = pts.bars[Math.floor(pts.bars.length / 2)];
+    if (b && Math.abs(p.x - b.x) < 60 && Math.abs(p.y - b.y) < 40) {
+      hint = gta.ammuCd > 0 ? '🔫 LOYALTY PROGRAM RESETS IN ' + Math.ceil(gta.ammuCd) + 's' : 'E — RESTOCK, ON THE HOUSE';
+    }
+  }
+  if (hint) {
+    g.textAlign = 'center';
+    g.font = '900 9px Consolas, monospace';
+    const tw = Math.min(W - 20, g.measureText(hint).width);
+    g.fillStyle = 'rgba(4,4,12,0.74)';
+    g.fillRect(W / 2 - tw / 2 - 7, Hh - 19, tw + 14, 14);
+    g.strokeStyle = 'rgba(255,210,58,0.45)';
+    g.lineWidth = 1;
+    g.strokeRect(W / 2 - tw / 2 - 6.5, Hh - 18.5, tw + 13, 13);
+    g.fillStyle = '#ffd23a';
+    g.fillText(hint, W / 2, Hh - 9, W - 24);
+  }
+  // toast (venue lines, the hooded regular) — below the storm HUD card,
+  // which owns canvas-y < ~0.35·Hh top-center (see the 10.5 gotcha)
+  if (gta.toastT > 0) {
+    g.globalAlpha = Math.min(1, gta.toastT);
+    g.textAlign = 'center';
+    g.font = '900 10px Consolas, monospace';
+    g.fillStyle = '#eef2ff';
+    g.fillText(gta.toastMsg, W / 2, Hh * 0.3, W - 20);
+    g.globalAlpha = 1;
+  }
+  // wanted stars still show — the street remembers, even if it can't see you
+  if (gta.heat > 0) {
+    g.textAlign = 'right';
+    g.font = '900 11px Consolas, monospace';
+    let sTxt = '';
+    for (let i = 0; i < 5; i++) sTxt += i < gtaStars() ? '★' : '·';
+    g.fillStyle = 'rgba(158,163,199,0.65)';
+    g.fillText(sTxt, W - 6, 15);
+  }
+}
+
+// Interior soundtracks: the sequencer plays these regardless of the radio
+// dial or being on foot — the venue owns the speakers.
+const GTA_INT_MUSIC = {
+  strip:  { name: 'STRIP FUNK', bpm: 112, scale: [0, 3, 5, 7, 10, 12, 15, 19], base: 155.6, type: 'sawtooth' },
+  noodle: { name: 'NOODLE MUZAK', bpm: 84, scale: [0, 4, 7, 11, 12, 16], base: 220, type: 'triangle' },
+  ammu:   null, // the clerk prefers quiet
+};
+
 // ---- AUDIO (Sprint 10) -------------------------------------------------------------------
 // One lazy AudioContext (created on the title-screen keypress — a user
 // gesture, so autoplay policy is happy), a master gain, and three layers:
@@ -2080,8 +2709,9 @@ function gtaStepAudio() {
   } catch (e) { /* audio died mid-frame — fine */ }
 
   // the radio: car-only, deterministic per station (gtaHash seeds the tune)
-  const st = GTA_RADIO[gta.radioSt];
-  if (!st || gta.onFoot || busy) { gtaAud.radioNext = 0; return; }
+  // the venue owns the speakers indoors; the dial only matters in a car
+  const st = gta.interior ? GTA_INT_MUSIC[gta.interior] : GTA_RADIO[gta.radioSt];
+  if (!st || (!gta.interior && gta.onFoot) || busy) { gtaAud.radioNext = 0; return; }
   const stepDur = 60 / st.bpm / 2; // eighth notes
   if (gtaAud.radioNext < ctx.currentTime) gtaAud.radioNext = ctx.currentTime + 0.06;
   while (gtaAud.radioNext < ctx.currentTime + 0.28) {
@@ -2121,6 +2751,10 @@ function stepGta(dt, w, h) {
         gtaSpawnParts(gta.car.x + (Math.random() - 0.5) * 16, gta.car.y + (Math.random() - 0.5) * 16, 1, 'smoke');
       }
       if (gta.sprayT <= 0) gtaFinishRespray();
+    } else if (gta.interior) {
+      // indoors: your feet, the room, nothing else. The city can wait.
+      gtaStepFoot(dt);
+      gtaStepInterior(dt);
     } else if (gta.onFoot) {
       gtaStepFoot(dt);
       gtaStepFire(dt);
@@ -2128,7 +2762,7 @@ function stepGta(dt, w, h) {
       gtaStepPlayerCar(dt);
       gtaStepFire(dt);
     }
-    gtaStepWorld(dt);
+    if (!gta.interior) gtaStepWorld(dt);
   }
 
   gtaStepAudio();
@@ -2728,10 +3362,15 @@ function gtaRoofCol(tc, tr) {
 }
 
 // One wall face: a quad from the ground edge up to the drifted roof edge,
-// a window grid (one row per story, hash decides who's home), and the neon
-// sign this wall used to wear back when the city was flat.
-function gtaWall(g, ox, oy, tc, tr, dd, roof, h, gx0, gy0, gx1, gy1, o0, o1, nTile) {
+// a window grid (one row per story, hash decides who's home), the neon sign
+// this wall used to wear back when the city was flat — and, on three special
+// walls in town, an actual lit DOORWAY you can walk through (patch 10.8).
+function gtaWall(g, ox, oy, tc, tr, dd, roof, h, gx0, gy0, gx1, gy1, o0, o1, nTile, face) {
   const p0x = gx0 - ox, p0y = gy0 - oy, p1x = gx1 - ox, p1y = gy1 - oy;
+  const sq = (t, f) => [
+    p0x + (p1x - p0x) * t + (o0[0] + (o1[0] - o0[0]) * t) * f,
+    p0y + (p1y - p0y) * t + (o0[1] + (o1[1] - o0[1]) * t) * f,
+  ];
   g.fillStyle = gtaShade(roof, 1.55);
   g.beginPath();
   g.moveTo(p0x, p0y); g.lineTo(p1x, p1y);
@@ -2750,13 +3389,30 @@ function gtaWall(g, ox, oy, tc, tr, dd, roof, h, gx0, gy0, gx1, gy1, o0, o1, nTi
       }
     }
   }
+  // a walk-in door lives on this exact face?
+  let door = null;
+  for (const d of gta.doors) {
+    if (d.btc === tc && d.btr === tr && d.face === face) { door = d; break; }
+  }
+  if (door) {
+    // doorway: dark frame, warm light spilling out of it, accent sign above
+    const f0 = sq(0.3, 0), f1 = sq(0.7, 0), f2 = sq(0.7, 0.55), f3 = sq(0.3, 0.55);
+    g.fillStyle = '#0a0a10';
+    g.beginPath(); g.moveTo(f0[0], f0[1]); g.lineTo(f1[0], f1[1]); g.lineTo(f2[0], f2[1]); g.lineTo(f3[0], f3[1]); g.closePath(); g.fill();
+    const w0 = sq(0.36, 0.03), w1 = sq(0.64, 0.03), w2 = sq(0.64, 0.48), w3 = sq(0.36, 0.48);
+    g.fillStyle = Math.sin(gta.t * 2.2) > -0.6 ? '#ffd98a' : '#e8b86a';
+    g.beginPath(); g.moveTo(w0[0], w0[1]); g.lineTo(w1[0], w1[1]); g.lineTo(w2[0], w2[1]); g.lineTo(w3[0], w3[1]); g.closePath(); g.fill();
+    const s0 = sq(0.22, 0.66), s1 = sq(0.78, 0.66);
+    g.strokeStyle = door.accent;
+    g.globalAlpha = 0.25; g.lineWidth = 5;
+    g.beginPath(); g.moveTo(s0[0], s0[1]); g.lineTo(s1[0], s1[1]); g.stroke();
+    g.globalAlpha = 1; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(s0[0], s0[1]); g.lineTo(s1[0], s1[1]); g.stroke();
+    return; // the door replaces this wall's neon
+  }
   const hsh = gtaHash(tc, tr);
   if (nTile === GT_WALK && !gta.lmGrid[tr * GTA_W + tc] && hsh % GTA_NEON_MOD[dd] === 0 && wh > 2) {
     const neon = GTA_NEON[hsh % GTA_NEON.length];
-    const sq = (t, f) => [
-      p0x + (p1x - p0x) * t + (o0[0] + (o1[0] - o0[0]) * t) * f,
-      p0y + (p1y - p0y) * t + (o0[1] + (o1[1] - o0[1]) * t) * f,
-    ];
     const q0 = sq(0.2, 0.5), q1 = sq(0.8, 0.5);
     g.strokeStyle = neon;
     g.globalAlpha = 0.22; g.lineWidth = 5;
@@ -2805,13 +3461,13 @@ function gtaDrawBuildings(g, ox, oy, c0, c1, r0, r1) {
       // west/east/north/south — only when the face points at the camera and
       // whatever is across it is shorter (or not a building at all)
       if (oTL[0] > 0.4 && gtaBldgH(tc - 1, tr) < h)
-        gtaWall(g, ox, oy, tc, tr, dd, roof, h, x0, y0, x0, y1, oTL, oBL, gtaTile(tc - 1, tr));
+        gtaWall(g, ox, oy, tc, tr, dd, roof, h, x0, y0, x0, y1, oTL, oBL, gtaTile(tc - 1, tr), 'W');
       if (oTR[0] < -0.4 && gtaBldgH(tc + 1, tr) < h)
-        gtaWall(g, ox, oy, tc, tr, dd, roof, h, x1, y0, x1, y1, oTR, oBR, gtaTile(tc + 1, tr));
+        gtaWall(g, ox, oy, tc, tr, dd, roof, h, x1, y0, x1, y1, oTR, oBR, gtaTile(tc + 1, tr), 'E');
       if (oTL[1] > 0.4 && gtaBldgH(tc, tr - 1) < h)
-        gtaWall(g, ox, oy, tc, tr, dd, roof, h, x0, y0, x1, y0, oTL, oTR, gtaTile(tc, tr - 1));
+        gtaWall(g, ox, oy, tc, tr, dd, roof, h, x0, y0, x1, y0, oTL, oTR, gtaTile(tc, tr - 1), 'N');
       if (oBL[1] < -0.4 && gtaBldgH(tc, tr + 1) < h)
-        gtaWall(g, ox, oy, tc, tr, dd, roof, h, x0, y1, x1, y1, oBL, oBR, gtaTile(tc, tr + 1));
+        gtaWall(g, ox, oy, tc, tr, dd, roof, h, x0, y1, x1, y1, oBL, oBR, gtaTile(tc, tr + 1), 'S');
     }
   }
   // pass 2: roofs, low to high — the tall overhang the short
@@ -2852,6 +3508,7 @@ function gtaDrawBuildings(g, ox, oy, c0, c1, r0, r1) {
 }
 
 function gtaDraw() {
+  if (gta.interior && gta.phase === 'play') { gtaDrawInterior(); return; }
   const g = gta.g, W = gta.W, Hh = gta.Hh, T = GTA_TILE;
   let ox = Math.round(gta.cam.x - W / 2), oy = Math.round(gta.cam.y - Hh / 2);
   if (gta.shake > 0) {
@@ -3089,6 +3746,24 @@ function gtaDraw() {
         g.fillStyle = '#ffe23a';
         g.fillText('📞', px + 12, py + 1);
       }
+    }
+  }
+
+  // Walk-in doors (patch 10.8): a welcome-mat glow on the pavement and a
+  // blinking OPEN — visible from every angle, even when the wall face isn't.
+  for (const d of gta.doors) {
+    const px = d.mx - ox, py = d.my - oy;
+    if (px < -30 || px > W + 30 || py < -30 || py > Hh + 30) continue;
+    const mg2 = g.createRadialGradient(px, py, 1, px, py, 13);
+    mg2.addColorStop(0, 'rgba(255,217,138,0.22)');
+    mg2.addColorStop(1, 'rgba(255,217,138,0)');
+    g.fillStyle = mg2;
+    g.fillRect(px - 13, py - 13, 26, 26);
+    if (Math.floor(gta.t * 1.6) % 2 === 0) {
+      g.font = '900 7px Consolas, monospace';
+      g.textAlign = 'center';
+      g.fillStyle = d.accent;
+      g.fillText('OPEN', px, py + 2);
     }
   }
 
@@ -3916,7 +4591,7 @@ function gtaDrawTitle(g, W, Hh) {
   g.fillText(gta.steerMode === 'point'
     ? 'ARROWS/WASD — hold where you want to GO · SPACE handbrake/punch'
     : '↑↓ drive · ←→ steer · SPACE handbrake/punch', W / 2, Hh * 0.64);
-  g.fillText('E in/out of cars · SHIFT sprint · F fire · Q weapons', W / 2, Hh * 0.71);
+  g.fillText('E — cars, phones & lit doors 🚪 · SHIFT sprint · F fire · Q weapons', W / 2, Hh * 0.71);
   g.fillStyle = '#ffd23a';
   g.fillText('📞 phones = work · 📻 R radio · 🗺 M map · 🕹 T steering', W / 2, Hh * 0.78);
   if (Math.floor(gta.t * 2.2) % 2 === 0) {
@@ -3957,7 +4632,7 @@ function gtaPress(code) {
     return false;
   }
   if (code === 'KeyE' || code === 'KeyX') { gtaInteract(); return true; }
-  if (code === 'KeyM') { gta.mapOpen = !gta.mapOpen; return true; }
+  if (code === 'KeyM') { if (!gta.interior) gta.mapOpen = !gta.mapOpen; return true; }
   if (code === 'KeyR') { gtaRadioCycle(); return true; }
   if (code === 'KeyT') {
     gta.steerMode = gta.steerMode === 'point' ? 'classic' : 'point';
