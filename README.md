@@ -20,7 +20,8 @@ few surprises for the big spenders.
   represents a batch so even a $10M storm wraps up in about a minute. Too
   broke for a storm (under 100 nuggets)? The house comps you a
   1,000,000-nug session.
-- **Three games** — switch from the HUD:
+- **Twelve arcade games** — switch from the HUD, or walk into the 3D hall
+  (see below) and play them on the cabinets:
   - 🧺 **Catch** — click nuggets out of the air; rare golden nugs are worth 10×.
   - 🔫 **Blaster** — Missile Command, fry-station edition: nuggets rain onto a
     skyline and every landing damages a building (three hits = rubble; lose the
@@ -60,6 +61,21 @@ few surprises for the big spenders.
     reading glasses at 10 days, a cane at 20 — and wisdom accrues at 1/sec
     (birds +25, shooting stars +100). Two sub-modes: 🌄 the scenic diorama, or
     🕶️ **Ultra Realistic**, which is a pitch-black screen. Nuggets cannot see.
+  - 🥊 **Battered Brawlers** — a Double Dragon-style beat-'em-up campaign in
+    three acts with cutscenes: punch, dodge, and cyclone-kick your way through
+    the Batter Syndicate to the **Mother Clucker** finale. Local 2-player
+    co-op on one keyboard, HEAT difficulty, and an earned 🔥 HELL mode for
+    the nuggets who clear it and come back angry.
+  - 🐔 **Nugget Ranch** — the chicken life-sim: feed your birds to keep them
+    alive, raise chicks into hens, and ship the grown ones off to become…
+    well. You know what this website is about.
+  - 🏎️ **Fast Food** — an OutRun-style pseudo-3D night racer: chili-pepper
+    nitro, BATTER tankers riding low in your lane, checkpoint clocks, and
+    highway billboards asking pointed questions about a missing storm.
+  - 🎣 **Keeping It Reel** — one-button pier fishing at midnight: hold to
+    charge the cast, strike on the ❗ bite, then fight the tension bar —
+    reel easy, rest the runs. Something big circles out there. Golden at
+    the edges. Almost like… weather.
   - 🚔 **GRAND THEFT NUGGET** — welcome to Nuggetown, population: crispy. A
     top-down open-world crime game in the GTA 1/2 mold: boost any car (or the
     bus), outrun the NPD across five districts, answer ringing phone booths
@@ -72,6 +88,17 @@ few surprises for the big spenders.
     R, and a pause map on M. Enter from the HUD — or boost the double-parked
     compact outside the 3D arcade. Its hazards are blinking. The keys are in
     it.
+- **🕹️ The Nugget Arcade** — a walkable first-person 3D arcade hall
+  (hand-rolled WebGL, every texture painted procedurally): ten playable
+  cabinets with live attract screens, a real high-scores board, FPS controls
+  (click for mouse-look, WASD walks). Outside the doors is **Nuggetown after
+  dark**: rain, neon shops, five regulars with branching dialogue that reacts
+  to what you've done, a fishing pier through the east gate, that
+  double-parked car, and a bus stop home. Detective Dill is investigating
+  **THE CATCH INCIDENT** — the night an entire storm went missing from the
+  Nugget Catch cabinet. The case is still open. Ask around.
+- **👥 Multiplayer** — sign in, open the lobby, and play co-op Blaster with a
+  friend over WebSockets (game rooms run on the Worker backend).
 - **Over $10M → a friendly reality check** telling you this maybe isn't the right
   payment method.
 
@@ -80,7 +107,8 @@ few surprises for the big spenders.
 No build step, no dependencies — plain static HTML/CSS/JS.
 
 **Live site** (auto-deploys from `main` via GitHub Pages):
-<https://chrismrobbins.github.io/howmanynuggets/>
+<https://howmanynuggets.com> (the old
+<https://chrismrobbins.github.io/howmanynuggets/> URL redirects there)
 
 Locally, just open `index.html` in a browser, or serve the folder:
 
@@ -115,8 +143,21 @@ promotions, and tax. This project is **not affiliated with or endorsed by McDona
 | `css/run.css` | Runner layer, blink, golden pickups |
 | `js/knight.js` | ⚔️ Nugget Knight (combat rig, wave survival) |
 | `css/knight.css` | Courtyard layer, torch flicker, hit flashes |
+| `js/brawl.js` | 🥊 Battered Brawlers (3-act campaign, co-op, HELL mode) |
+| `css/brawl.css` | Pixelated canvas layer, round banners |
+| `js/ranch.js` | 🐔 Nugget Ranch (chicken life-sim) |
+| `css/ranch.css` | Ranch layer styles |
+| `js/kart.js` | 🏎️ Fast Food (pseudo-3D night racer) |
+| `css/kart.css` | Racer layer, banner styles |
+| `js/reel.js` | 🎣 Keeping It Reel (one-button pier fishing) |
+| `css/reel.css` | Fishing layer, catch banners |
 | `js/gta.js` | 🚔 Grand Theft Nugget (open-world Nuggetown: missions, heat, radio) |
 | `css/gta.css` | GTN layer + banner styles |
+| `js/arcade-art.js` | Procedural texture atlases + per-game attract screens |
+| `js/arcade.js` | 🕹️ The Nugget Arcade (walkable 3D hall + the street) |
+| `css/arcade.css` | Hall overlay chrome (prompts, hints, fades) |
+| `js/net.js`, `js/lobby.js`, `js/blasterMP.js` | Multiplayer: WS client, lobby UI, co-op Blaster |
+| `css/multiplayer.css` | Lobby and co-op styles |
 | `js/app.js` | Converter wiring and input formatting |
 | `js/api.js` | Client for the accounts + high-scores backend |
 | `js/account.js` | Sign in/up UI, high-scores panel, leaderboard modal |
@@ -131,9 +172,11 @@ the site works exactly as before, just with no sign-in or saved scores.
 
 - **Accounts:** username + display name + password (hashed with PBKDF2 —
   never stored in plaintext). Sessions keep you logged in across visits.
-- **High scores:** best score per game (`catch`, `blaster`, `flappy`), shown in
-  the "Your High Scores" panel.
+- **High scores:** best score for every arcade game, shown in the
+  "Your High Scores" panel (and on the hall's live scoreboard).
 - **Leaderboards:** rankings per game, including where you place.
+- **Multiplayer rooms:** the same Worker hosts the WebSocket game rooms
+  behind the lobby (co-op Blaster).
 
 > ⚠️ The sign-up form warns users **not to reuse a real password** — this is a
 > hobby project with best-effort security.

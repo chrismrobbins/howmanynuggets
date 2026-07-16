@@ -658,3 +658,88 @@ free-roam, photo mode, the Dill case-board collectible, DJ voice lines
 
 **GTN is done: 10 sprints, 12 games in the building, one storm still at
 large. Case open forever. 🚔🍗**
+
+---
+
+# 🏙️ SEASON 2 — NUGGETOWN NIGHTS (the next 10 sprints, NOT STARTED)
+
+Season 1 shipped the game. Season 2 makes Nuggetown a place you LIVE.
+Same working agreement as season 1 (pull first, verify per AGENTS.md,
+one lore-forward commit per sprint, append SPRINT NOTES). Read the
+season 1 notes above before touching anything — especially the append-only
+rnd() rule in gtaBuildCity and the S7 mission-engine handoff.
+
+**House rules that constrain every design below:**
+- `storm.caught` ONLY GOES UP. Anything purchasable is paid for with the
+  new REP currency (S2.1), never the meter.
+- The storm is ALIVE in the harbor and STAYS there. Any Dill/syndicate
+  arc ends with the case still open. Never free it, never kill it.
+- The 🎧 rhythm cup is the Hooded Nug's seed for a FUTURE GAME — do not
+  resolve it inside GTN.
+- GTN stays a street game; no main-atlas art, no build step, globals
+  prefixed gta*/GTA_*.
+
+## The sprints
+
+1. **WHEELS OF YOUR OWN** — the Grease Garage becomes YOUR garage: three
+   persistent car slots (localStorage `nugGtaGarage`: cls/col/plate/mods),
+   store/retrieve on E at the garage, custom plate text, and your active
+   garage car survives page reloads. Introduce **REP** (`nugGtaRep`,
+   HUD chip next to the belt): missions, gigs, and stunts now pay REP
+   alongside $$$ — REP is spendable, the meter is not.
+2. **THE MOD SHOP** — spend REP at the garage: engine tune (maxFwd/accel
+   tiers), grip compound, armor plating (hp), the paint booth (full
+   palette + pearl flip-flop), and a chili-nitro button (SHIFT while
+   driving — kart-lore crossover, the garage sponsors both). Mods persist
+   per slot; modded cop cars keep drawing heat.
+3. **STREET RACES** — six seeded events (three circuits, three
+   point-to-point sprints) with start markers around the districts:
+   3 rival AI racers on free-drive AI with rubber-banding, countdown,
+   checkpoint arrows, results card, $$$ + REP payouts, and a ladder
+   (win all six → the GOLDEN NUG GP + a unique paint).
+4. **THE CASE BOARD** — twelve evidence collectibles hidden city-wide
+   (batter samples, S.W. manifests, a waterlogged cassette…), each with
+   a flavor line; a CASE BOARD tab on the pause map tracking finds with
+   red string. Dill's street dialogue reacts to your count. All twelve →
+   S2.5 unlocks. Flag: `nugGtaEvidence` (bitmask).
+5. **DILL'S CHAIN** — four missions working FOR the detective (both
+   sides against the middle): a stakeout (watch step reuse), an evidence
+   run under a timer, a tail on a syndicate accountant, and a sting that
+   goes loud. Ends with the syndicate's books burned, Dill's best line,
+   and the case — say it with me — STILL OPEN. Flag: `nugGtaDill`.
+6. **NUGGETOWN STORIES** — the phones never go quiet again: a procedural
+   contract generator (templates: deliver / steal / wreck / tail /
+   escort × seeded pickup/dropoff/target parts, three REP-gated tiers
+   with scaling rewards). Post-campaign booths ring with STORIES jobs;
+   a daily seed varies the slate.
+7. **NIGHT WEATHER** — it is always night, but not always the SAME
+   night: drifting weather states (drizzle → downpour → fog bank → the
+   rare CLEAR night). Downpour = slick grip; fog = cop sight halved,
+   heat decays faster, headlight cones matter; clear nights make neon
+   pop and golden pickups pay double. Radio DJ stings call the weather.
+8. **PHOTO MODE + PAPARAZZI** — P freezes the world into a free camera
+   (pan/zoom, three filters, PNG export via toDataURL). Then sell it:
+   paparazzi gigs — photograph a moving target from inside 90px without
+   spooking them (tail rules inverted), REP pay, three marks a night.
+9. **FREE-ROAM ONLINE, PT 1** — the big one: a `gta` room on the worker
+   gameRoom pattern (coordinate with Chris — net.js/lobby.js/gameRoom.js
+   are his stack): shared Nuggetown instance, other players' cars
+   rendered with plates + honks relayed, join from the lobby. Sync MVP
+   only: positions, headings, car class/color. No PvP damage yet.
+10. **FREE-ROAM ONLINE, PT 2 + SHIP IT AGAIN** — multiplayer activities:
+    impromptu races (honk at a player near a race marker to challenge),
+    NPD TAG (one player wanted, others are the heat), leaderboard for
+    online minutes survived at 5★. Then the season wrap: balance pass,
+    verify suite over everything, docs (README/AGENTS/CLAUDE), memory,
+    deploy, and a README announcement with attitude.
+
+Stretch / season 3 parking lot: interiors (the arcade IN the game — GTN
+inside GTN), a train, seasons of STORIES contracts, the Dill case-board
+feeding a city-wide finale event, gamepad support.
+
+**Open design questions for sprint 1 (decide, note it, move on):**
+- REP display name: REP vs STREET CRED vs CRUST. (Beau gets final say —
+  ask if he's around, default REP.)
+- Does the garage save COP cars? (Lean yes — jacked cruiser in slot 3 is
+  funny — but livery keeps its heat rules.)
+- Mods on mission-cargo cars: locked (cargo is cargo).

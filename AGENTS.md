@@ -5,15 +5,18 @@ the same day. **Pull before starting work**, and read this before touching
 the arcade hall or adding a game — these are the constraints that have
 already bitten someone.
 
-> **In flight:** 🚔 GRAND THEFT NUGGET (mode `gta`, js/gta.js) — sprints 1-9
-> of 10 are shipped (city, traffic, on-foot, NPD heat, weapons, the full
-> 11-contract syndicate campaign incl. THE HARBOR JOB, side gigs, and the
-> street door). Plan + per-sprint handoff notes live in `GTA_SPRINTS.md`.
-> Sprint 10 (audio/touch/polish) remains. It's a STREET game (no cabinet):
-> the entry point is the double-parked compact on the street, hazards
-> blinking, near the bus stop. Campaign flags other code can read:
-> `gtaProgress()` (0-11 contracts done) and `gtaSawStorm()` (the harbor
-> job's surfacing — localStorage `nugGtaProg` / `nugGtaSawStorm`).
+> **Status:** 🚔 GRAND THEFT NUGGET (mode `gta`, js/gta.js) — SEASON 1
+> COMPLETE: all 10 sprints shipped 2026-07-15/16 (city, traffic, on-foot,
+> NPD heat, weapons, the 11-contract syndicate campaign incl. THE HARBOR
+> JOB, side gigs, the street door, audio/touch/pause-map polish). Build
+> log + per-sprint handoff notes live in `GTA_SPRINTS.md` — which now also
+> holds the **SEASON 2 — NUGGETOWN NIGHTS plan (10 sprints, NOT STARTED)**:
+> garage + REP, mods, street races, the case board, Dill's chain,
+> procedural contracts, weather, photo mode, and free-roam online on the
+> worker gameRoom pattern (pt 1-2 — coordinate with Chris). It's a STREET
+> game (no cabinet): entry = the double-parked compact near the bus stop.
+> Campaign flags other code can read: `gtaProgress()` (0-11 contracts done)
+> and `gtaSawStorm()` (localStorage `nugGtaProg` / `nugGtaSawStorm`).
 
 ## Adding a new game (the full checklist)
 
