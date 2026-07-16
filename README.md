@@ -60,6 +60,18 @@ few surprises for the big spenders.
     reading glasses at 10 days, a cane at 20 — and wisdom accrues at 1/sec
     (birds +25, shooting stars +100). Two sub-modes: 🌄 the scenic diorama, or
     🕶️ **Ultra Realistic**, which is a pitch-black screen. Nuggets cannot see.
+  - 🚔 **GRAND THEFT NUGGET** — welcome to Nuggetown, population: crispy. A
+    top-down open-world crime game in the GTA 1/2 mold: boost any car (or the
+    bus), outrun the NPD across five districts, answer ringing phone booths
+    for an 11-contract Batter Syndicate campaign that ends with THE HARBOR
+    JOB — hold the end of the north pier at midnight and watch the bay give
+    up what the Catch Incident sank there. Wanted stars, spike strips, the
+    armored BATTER VAN, a condiment arsenal (sauce pistol → dip grenades),
+    drive-bys out both windows, Pay 'n' Spray, side gigs (📦 NUG-EX runs,
+    🚨 Vigilante, 💀 Rampages), three procedural chiptune radio stations on
+    R, and a pause map on M. Enter from the HUD — or boost the double-parked
+    compact outside the 3D arcade. Its hazards are blinking. The keys are in
+    it.
 - **Over $10M → a friendly reality check** telling you this maybe isn't the right
   payment method.
 
@@ -103,6 +115,8 @@ promotions, and tax. This project is **not affiliated with or endorsed by McDona
 | `css/run.css` | Runner layer, blink, golden pickups |
 | `js/knight.js` | ⚔️ Nugget Knight (combat rig, wave survival) |
 | `css/knight.css` | Courtyard layer, torch flicker, hit flashes |
+| `js/gta.js` | 🚔 Grand Theft Nugget (open-world Nuggetown: missions, heat, radio) |
+| `css/gta.css` | GTN layer + banner styles |
 | `js/app.js` | Converter wiring and input formatting |
 | `js/api.js` | Client for the accounts + high-scores backend |
 | `js/account.js` | Sign in/up UI, high-scores panel, leaderboard modal |

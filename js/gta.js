@@ -41,6 +41,12 @@
 // nugGtaSawStorm) before the NPD raid crashes the party. Plus side gigs
 // for freeplay: drive a BUS and NUG-EX clocks you in, drive a CRUISER and
 // dispatch feeds you felons, grab a 💀 and it's a rampage.
+// Sprint 10 (SHIP IT): Nuggetown gets a soundtrack — engine growl that
+// follows the tach, NPD sirens that wail with proximity, three procedural
+// chiptune RADIO STATIONS on R (with DJ stings), and one-shot synth SFX for
+// everything that pops, honks, crunches, or gets busted. Touch grows up
+// (floating virtual stick + real buttons), M opens the pause map, and the
+// whole 10-sprint build ships.
 //
 // Rendering is the low-res pixel canvas trick from Battered Brawlers / Fast
 // Food: a ~300px-tall backing store scaled up with image-rendering: pixelated.
@@ -163,6 +169,11 @@ const gta = {
   pierRows: [],          // the two pier rows from gen (missions + S8 use these)
   gig: null,             // side gig: {type, count, time, mk, felon?, need?}
   stormRise: 0,          // 0..1 — how far out of the bay the storm has come
+  radioSt: 0,            // radio station index into GTA_RADIO (0 = off; persisted)
+  mapOpen: false,        // M — the pause map (sim freezes, city doesn't)
+  isTouch: false,        // first touch flips the on-canvas controls on
+  touch: null,           // {stick: {id,x0,y0,dx,dy}, roles: {touchId: btnKey}}
+  ringSndT: 0,           // phone-ring sfx throttle
   cam: { x: 0, y: 0 },
   keys: {},
   handbrake: false,
@@ -543,6 +554,10 @@ function syncGta() {
     gta.wtoastT = 0; gta.ammuCd = 0;
     gta.mission = null; gta.briefT = 0; gta.ringCd = 0; gta.boothRing = false;
     gta.gig = null; gta.stormRise = 0;
+    gta.mapOpen = false;
+    gta.touch = { stick: null, roles: {} };
+    gta.ringSndT = 0;
+    try { gta.radioSt = Math.min(3, Math.max(0, +(localStorage.getItem('nugGtaRadio') || 0) || 0)); } catch (e) { gta.radioSt = 0; }
     try { gta.prog = Math.max(0, +(localStorage.getItem('nugGtaProg') || 0) || 0); } catch (e) { gta.prog = 0; }
     gta.car.cls = 'compact';
     gta.car.col = '#c23a3a';
@@ -554,6 +569,7 @@ function syncGta() {
     gtaLayout();
   } else {
     gta.banner && gta.banner.classList.remove('show');
+    gtaAudioStop(); // the engine doesn't idle in the parking lot of another game
   }
 }
 
@@ -570,6 +586,8 @@ function gtaStart() {
   gta.toastMsg = GTA_DISTRICTS[gta.district] + ' · NUGGETOWN';
   gta.toastT = 3.2;
   gtaBanner('🌃 NUGGETOWN', 'go', 1.8);
+  gtaEngineOn(); // key/tap = user gesture: the block warms up
+  sfxGtaSting();
 }
 
 // ---- scoring (perFlyer-scaled, like every other game) ---------------------------------
@@ -688,7 +706,7 @@ function gtaStepTrafficCar(car, dt) {
   // Blocked at the bumper by the player long enough → HONK.
   if (near === 'player' && car.v < 10) {
     car.blockT = (car.blockT || 0) + dt;
-    if (car.blockT > 1.1) { gta.honks.push({ x: car.x, y: car.y, t: 1.1 }); car.blockT = -1.6; }
+    if (car.blockT > 1.1) { gta.honks.push({ x: car.x, y: car.y, t: 1.1 }); sfxGtaHonk(car.x, car.y); car.blockT = -1.6; }
   } else if (car.blockT > 0) car.blockT = 0;
 
   // Advance along the lane; landing on the decision point picks the next leg.
@@ -853,6 +871,7 @@ function gtaExplodeCar(car) {
     gtaPay(car.cop ? 30 : 20, '💥',
       car.x - (gta.cam.x - gta.W / 2), car.y - (gta.cam.y - gta.Hh / 2));
   }
+  sfxGtaBoom(car.x, car.y, big);
   gtaSpawnParts(car.x, car.y, Math.round(22 * big), 'fire');
   gtaSpawnParts(car.x, car.y, Math.round(12 * big), 'smoke');
   gta.decals.push({ x: car.x, y: car.y, type: 'scorch', life: 40, seed: gtaHash(car.x | 0, car.y | 0) });
@@ -934,6 +953,7 @@ function gtaWasted() {
   gta.handbrake = false;
   gtaMissionFail('🍗 WASTED'); // S.W. does not pay hospital bills
   if (gta.gig) gtaGigEnd('💤 GIG DROPPED');
+  sfxGtaBusted();
   gtaBanner('🍗 WASTED', 'heat', 2.2);
 }
 
@@ -1041,12 +1061,6 @@ function gtaInteract() {
   }
 }
 
-// Second touch finger on foot: door if there's a door, knuckles otherwise.
-function gtaFootAction() {
-  if (!gta.onFoot) return;
-  if (gtaNearestCar(gta.ped.x, gta.ped.y, 26)) gtaInteract();
-  else gtaPunch();
-}
 
 // ---- NPD HEAT --------------------------------------------------------------------------
 // Someone always calls 555-DILL. Heat is a 0..5 float; whole stars are what
@@ -1170,6 +1184,7 @@ function gtaBusted() {
   gta.handbrake = false;
   gtaMissionFail('🚔 BUSTED'); // S.W. does not post bail either
   if (gta.gig) gtaGigEnd('💤 GIG DROPPED');
+  sfxGtaBusted();
   if (!gta.onFoot) {
     // the ride gets impounded where it stands; you get the walk of shame
     gtaParkPlayerCar();
@@ -1246,6 +1261,7 @@ function gtaCheckRespray() {
   if (gta.car.x < x0 || gta.car.x > x1 || gta.car.y < y0 || gta.car.y > y1) return;
   if (Math.hypot(gta.car.vx, gta.car.vy) > 50) return;
   gta.sprayT = 3;
+  sfxGtaSpray();
   gtaBanner('🔧 PAY ’N’ SPRAY', 'go', 1.6);
 }
 
@@ -1314,6 +1330,7 @@ function gtaStepFire(dt) {
   if (gta.fireCd > 0 || gta.ammo[w.key] <= 0) return;
   gta.fireCd = w.cd;
   gta.ammo[w.key]--;
+  sfxGtaShot(w.key);
   if (w.lob) { gtaThrowNade(); gtaAddHeat(0.02); return; }
   if (gta.onFoot) {
     const p = gta.ped;
@@ -1331,6 +1348,7 @@ function gtaStepFire(dt) {
 
 // The dip pot goes off: same fireball family as the cars, portable.
 function gtaNadeBoom(x, y) {
+  sfxGtaBoom(x, y, 1);
   gtaSpawnParts(x, y, 18, 'fire');
   gtaSpawnParts(x, y, 8, 'smoke');
   gta.decals.push({ x, y, type: 'scorch', life: 30, seed: gtaHash(x | 0, y | 0) });
@@ -1592,6 +1610,7 @@ function gtaAnswerBooth() {
     for (const k in def.gear) gta.ammo[k] = Math.max(gta.ammo[k], def.gear[k]);
     if (gta.wsel === 0) gtaCycleWeapon();
   }
+  sfxGtaSting();
   gtaBanner('📞 ' + def.title, 'go', 1.7);
   gtaMissionStepInit();
 }
@@ -1616,6 +1635,7 @@ function gtaMissionFail(reason) {
   gta.ringCd = 5;
   gta.toastMsg = '❌ ' + (reason || 'MISSION FAILED');
   gta.toastT = 3.4;
+  sfxGtaFailed();
   if (gta.wastedT <= 0 && gta.bustedT <= 0) gtaBanner('❌ MISSION FAILED', 'heat', 1.8);
 }
 
@@ -1625,6 +1645,7 @@ function gtaMissionComplete() {
   gta.prog++;
   try { localStorage.setItem('nugGtaProg', String(gta.prog)); } catch (e) { /* private mode */ }
   gtaPay(def.reward, '💰', gta.W / 2, gta.Hh * 0.42);
+  sfxGtaPassed();
   gtaBanner('✔ MISSION PASSED', 'go', 2);
   gta.toastMsg = def.outro || '"payment sent. stay near a phone." — S.W.';
   gta.toastT = 4.5;
@@ -1815,6 +1836,202 @@ function gtaStepGig(dt) {
   }
 }
 
+// ---- AUDIO (Sprint 10) -------------------------------------------------------------------
+// One lazy AudioContext (created on the title-screen keypress — a user
+// gesture, so autoplay policy is happy), a master gain, and three layers:
+// the ENGINE (two detuned oscillators through a lowpass, pitch follows
+// speed), the SIREN (one shared wail, gain follows the nearest lit cruiser),
+// and the RADIO (a deterministic chiptune step-sequencer — three stations,
+// car-only, like god and GTA intended). Everything else is one-shot tones.
+// Every entry point is try/catch'd: no audio is a shrug, never a crash.
+
+const gtaAud = {
+  ctx: null, master: null,
+  engine: null, engineSub: null, engineGain: null, engineFlt: null,
+  siren: null, sirenGain: null,
+  radioNext: 0, radioStep: 0,
+};
+
+const GTA_RADIO = [
+  null, // OFF
+  { name: 'NUG FM 101.5',  bpm: 132, scale: [0, 2, 4, 7, 9, 12, 14],    base: 220,   type: 'square' },
+  { name: 'BATTER WAVE',   bpm: 96,  scale: [0, 3, 5, 7, 10, 12, 15],   base: 174.6, type: 'sawtooth' },
+  { name: 'HEIST RADIO',   bpm: 148, scale: [0, 1, 4, 5, 7, 8, 11, 12], base: 196,   type: 'square' },
+];
+
+function gtaACtx() {
+  if (!gtaAud.ctx) {
+    try {
+      gtaAud.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      gtaAud.master = gtaAud.ctx.createGain();
+      gtaAud.master.gain.value = 0.5;
+      gtaAud.master.connect(gtaAud.ctx.destination);
+    } catch (e) { return null; }
+  }
+  if (gtaAud.ctx.state === 'suspended') { try { gtaAud.ctx.resume(); } catch (e) { /* later */ } }
+  return gtaAud.ctx;
+}
+
+// The one-shot: a tone at t0 (secs from now) that decays over dur. slideTo
+// bends the pitch across its life — that's the whole special-effects budget.
+function gtaTone(freq, t0, dur, gain, type, slideTo) {
+  try {
+    const ctx = gtaAud.ctx;
+    if (!ctx || !gta.on) return;
+    const o = ctx.createOscillator();
+    o.type = type || 'square';
+    o.frequency.setValueAtTime(freq, ctx.currentTime + t0);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, ctx.currentTime + t0 + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(gain, ctx.currentTime + t0);
+    g.gain.exponentialRampToValueAtTime(0.0004, ctx.currentTime + t0 + dur);
+    o.connect(g).connect(gtaAud.master);
+    o.start(ctx.currentTime + t0);
+    o.stop(ctx.currentTime + t0 + dur + 0.02);
+  } catch (e) { /* no audio — fine */ }
+}
+
+// Distance-attenuated world sound: quiet far away, silent offscreen-ish.
+function gtaWorldGain(x, y, base) {
+  const d = Math.hypot(x - gta.cam.x, y - gta.cam.y);
+  return d > 560 ? 0 : base * (1 - d / 560);
+}
+
+function sfxGtaShot(key) {
+  if (key === 'uzi') gtaTone(460 + Math.random() * 120, 0, 0.035, 0.03, 'square', 180);
+  else if (key === 'flamer') gtaTone(70 + Math.random() * 50, 0, 0.11, 0.018, 'sawtooth');
+  else { gtaTone(320, 0, 0.06, 0.055, 'square', 90); gtaTone(130, 0, 0.09, 0.045, 'sawtooth'); }
+}
+function sfxGtaBoom(x, y, big) {
+  const k = gtaWorldGain(x, y, 1);
+  if (k <= 0) return;
+  gtaTone(58, 0, 0.5 * (big || 1), 0.16 * k, 'sine', 30);
+  gtaTone(42, 0.07, 0.62 * (big || 1), 0.11 * k, 'sine', 24);
+  gtaTone(170, 0, 0.14, 0.06 * k, 'sawtooth', 60);
+}
+function sfxGtaCrash(hard) {
+  gtaTone(95, 0, 0.1, hard ? 0.09 : 0.05, 'sawtooth', 40);
+  gtaTone(56, 0.02, 0.16, hard ? 0.07 : 0.04, 'sine');
+}
+function sfxGtaHonk(x, y) {
+  const k = gtaWorldGain(x, y, 1);
+  if (k <= 0) return;
+  gtaTone(392, 0, 0.2, 0.045 * k, 'square');
+  gtaTone(494, 0, 0.2, 0.035 * k, 'square');
+}
+function sfxGtaPickup(gold) {
+  gtaTone(gold ? 880 : 660, 0, 0.07, 0.045, 'square');
+  gtaTone(gold ? 1318 : 990, 0.08, 0.1, 0.045, 'square');
+  if (gold) gtaTone(1760, 0.16, 0.14, 0.04, 'square');
+}
+function sfxGtaRing() {
+  gtaTone(1245, 0, 0.05, 0.035, 'square');
+  gtaTone(1046, 0.07, 0.05, 0.035, 'square');
+  gtaTone(1245, 0.22, 0.05, 0.035, 'square');
+  gtaTone(1046, 0.29, 0.05, 0.035, 'square');
+}
+function sfxGtaPassed() {
+  [523, 659, 784, 1047].forEach((f, i) => gtaTone(f, i * 0.09, 0.2, 0.05, 'square'));
+}
+function sfxGtaFailed() {
+  gtaTone(311, 0, 0.2, 0.05, 'sawtooth');
+  gtaTone(233, 0.18, 0.34, 0.05, 'sawtooth');
+}
+function sfxGtaBusted() {
+  [392, 311, 233].forEach((f, i) => gtaTone(f, i * 0.16, 0.22, 0.055, 'square'));
+}
+function sfxGtaSpray() {
+  gtaTone(1400, 0, 0.55, 0.02, 'sawtooth', 300);
+  gtaTone(900, 0.1, 0.5, 0.016, 'sawtooth', 200);
+}
+function sfxGtaSting() { // DJ drop / booth answer
+  [660, 880, 1320].forEach((f, i) => gtaTone(f, i * 0.05, 0.09, 0.04, 'square'));
+}
+
+function gtaEngineOn() {
+  const ctx = gtaACtx();
+  if (!ctx || gtaAud.engine) return;
+  try {
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 46;
+    const o2 = ctx.createOscillator(); o2.type = 'square'; o2.frequency.value = 23;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 460;
+    const g = ctx.createGain(); g.gain.value = 0;
+    o.connect(f); o2.connect(f); f.connect(g); g.connect(gtaAud.master);
+    o.start(); o2.start();
+    gtaAud.engine = o; gtaAud.engineSub = o2; gtaAud.engineGain = g; gtaAud.engineFlt = f;
+    const s = ctx.createOscillator(); s.type = 'triangle'; s.frequency.value = 640;
+    const sg = ctx.createGain(); sg.gain.value = 0;
+    s.connect(sg).connect(gtaAud.master);
+    s.start();
+    gtaAud.siren = s; gtaAud.sirenGain = sg;
+  } catch (e) { /* no audio — fine */ }
+}
+
+function gtaAudioStop() {
+  try {
+    for (const k of ['engine', 'engineSub', 'siren']) {
+      if (gtaAud[k]) { gtaAud[k].stop(); gtaAud[k].disconnect(); gtaAud[k] = null; }
+    }
+    if (gtaAud.engineGain) { gtaAud.engineGain.disconnect(); gtaAud.engineGain = null; }
+    if (gtaAud.sirenGain) { gtaAud.sirenGain.disconnect(); gtaAud.sirenGain = null; }
+    gtaAud.radioNext = 0;
+  } catch (e) { /* already gone */ }
+}
+
+function gtaRadioCycle() {
+  gta.radioSt = (gta.radioSt + 1) % GTA_RADIO.length;
+  try { localStorage.setItem('nugGtaRadio', String(gta.radioSt)); } catch (e) { /* private mode */ }
+  gtaAud.radioNext = 0; // re-sync the sequencer
+  const st = GTA_RADIO[gta.radioSt];
+  sfxGtaSting();
+  gta.toastMsg = st ? '📻 ' + st.name : '📻 RADIO OFF';
+  gta.toastT = 2.2;
+}
+
+// The continuous layers, once per frame: engine pitch, siren wail, radio.
+function gtaStepAudio() {
+  const ctx = gtaAud.ctx;
+  if (!ctx || !gtaAud.engineGain) return;
+  const busy = gta.wastedT > 0 || gta.bustedT > 0 || gta.mapOpen || gta.phase !== 'play';
+  try {
+    // engine: pitch rides the speedo, ducks on foot and through interludes
+    const spd = (!gta.onFoot && !busy) ? Math.hypot(gta.car.vx, gta.car.vy) : 0;
+    const driving = !gta.onFoot && !busy;
+    gtaAud.engine.frequency.setTargetAtTime(46 + spd * 0.55, ctx.currentTime, 0.06);
+    gtaAud.engineSub.frequency.setTargetAtTime(23 + spd * 0.27, ctx.currentTime, 0.06);
+    gtaAud.engineFlt.frequency.setTargetAtTime(420 + spd * 3.4, ctx.currentTime, 0.1);
+    gtaAud.engineGain.gain.setTargetAtTime(driving ? 0.055 + Math.min(0.075, spd * 0.00035) : 0, ctx.currentTime, 0.09);
+    // siren: the nearest lit chaser sets the volume; the wail is all math
+    let nd = Infinity;
+    for (const o of gta.cars) {
+      if (!o.chase || o.wreck || !o.cop) continue;
+      const d = Math.hypot(o.x - gta.cam.x, o.y - gta.cam.y);
+      if (d < nd) nd = d;
+    }
+    const sk = (busy || nd > 520) ? 0 : (1 - nd / 520);
+    gtaAud.siren.frequency.setTargetAtTime(620 + 240 * Math.sin(gta.t * 5.2), ctx.currentTime, 0.03);
+    gtaAud.sirenGain.gain.setTargetAtTime(0.05 * sk, ctx.currentTime, 0.08);
+  } catch (e) { /* audio died mid-frame — fine */ }
+
+  // the radio: car-only, deterministic per station (gtaHash seeds the tune)
+  const st = GTA_RADIO[gta.radioSt];
+  if (!st || gta.onFoot || busy) { gtaAud.radioNext = 0; return; }
+  const stepDur = 60 / st.bpm / 2; // eighth notes
+  if (gtaAud.radioNext < ctx.currentTime) gtaAud.radioNext = ctx.currentTime + 0.06;
+  while (gtaAud.radioNext < ctx.currentTime + 0.28) {
+    const s = gtaAud.radioStep++;
+    const t0 = gtaAud.radioNext - ctx.currentTime;
+    const h = gtaHash(s, gta.radioSt * 31);
+    if (s % 2 === 0) gtaTone(st.base / 2 * (s % 8 === 4 ? 1.5 : 1), t0, stepDur * 0.9, 0.04, 'triangle');
+    if (h % 5 !== 0) {
+      const note = st.scale[h % st.scale.length];
+      gtaTone(st.base * Math.pow(2, note / 12), t0, stepDur * (h % 3 === 0 ? 1.6 : 0.7), 0.028, st.type);
+    }
+    if (s % 2 === 1) gtaTone(3600 + (h % 900), t0, 0.03, 0.011, 'square');
+    gtaAud.radioNext += stepDur;
+  }
+}
+
 // ---- update ---------------------------------------------------------------------------
 
 function stepGta(dt, w, h) {
@@ -1822,7 +2039,7 @@ function stepGta(dt, w, h) {
   if (gta.cv.width !== Math.ceil(w / gta.scale) || gta.cv.height !== Math.ceil(h / gta.scale)) gtaLayout();
   gta.t += dt;
 
-  if (gta.phase === 'play') {
+  if (gta.phase === 'play' && !gta.mapOpen) {
     if (gta.wastedT > 0) {
       gta.wastedT -= dt;
       if (gta.wastedT <= 0) gtaRespawn();
@@ -1848,6 +2065,7 @@ function stepGta(dt, w, h) {
     gtaStepWorld(dt);
   }
 
+  gtaStepAudio();
   gtaDraw();
 }
 
@@ -1901,7 +2119,8 @@ function gtaStepPlayerCar(dt) {
       gtaDamagePlayerCar((impact - 110) * 0.14);
       gtaSpawnParts(car.x + Math.sign(nx - car.x) * C.r, car.y, 4, 'spark');
       gta.shake = Math.max(gta.shake, 0.2);
-    }
+      sfxGtaCrash(true);
+    } else if (impact > 45) sfxGtaCrash(false);
   } else car.x = nx;
   const ny = car.y + car.vy * dt;
   if (gtaSolidAt(car.x - C.r * 0.6, ny + Math.sign(car.vy) * C.r) ||
@@ -1912,7 +2131,8 @@ function gtaStepPlayerCar(dt) {
       gtaDamagePlayerCar((impact - 110) * 0.14);
       gtaSpawnParts(car.x, car.y + Math.sign(ny - car.y) * C.r, 4, 'spark');
       gta.shake = Math.max(gta.shake, 0.2);
-    }
+      sfxGtaCrash(true);
+    } else if (impact > 45) sfxGtaCrash(false);
   } else car.y = ny;
   if (gta.wastedT > 0) return; // the wall won
 
@@ -1935,6 +2155,7 @@ function gtaStepPlayerCar(dt) {
       gtaDamageCar(o, dmg);
       gtaDamagePlayerCar(dmg * 0.5);
       gtaAddHeat(o.cop ? 0.35 : 0.08);
+      sfxGtaCrash(impact > 120);
       gtaSpawnParts((car.x + o.x) / 2, (car.y + o.y) / 2, 5, 'spark');
       if (!o.wreck) o.v = Math.max(0, o.v - impact * 0.6);
       gta.shake = Math.max(gta.shake, 0.25);
@@ -2203,6 +2424,18 @@ function gtaStepWorld(dt) {
   gta.stormRise = Math.max(0, gta.stormRise - dt * 0.3); // the bay reclaims (watch re-ups it)
   gtaStepMission(dt);
   gtaStepGig(dt);
+  // a ringing phone you can actually hear ringing
+  gta.ringSndT -= dt;
+  if (gta.boothRing && gta.ringSndT <= 0) {
+    for (const b of gta.booths) {
+      const bx = (b.c + 0.5) * GTA_TILE, by = (b.r + 0.5) * GTA_TILE;
+      if (Math.abs(bx - gta.cam.x) < 240 && Math.abs(by - gta.cam.y) < 240) {
+        sfxGtaRing();
+        gta.ringSndT = 2.6;
+        break;
+      }
+    }
+  }
 
   // Live rounds: fly, expire, spark off walls, crumb nuggets, dent sheet metal.
   for (let i = gta.shots.length - 1; i >= 0; i--) {
@@ -2321,8 +2554,8 @@ function gtaStepWorld(dt) {
         if (gta.wsel === 0) gtaSelectWeapon(GTA_WEAPONS.indexOf(w));
         spawnPopLabel(gta.W / 2 * gta.scale, gta.Hh * 0.42 * gta.scale, w.icon + ' +' + w.give, '');
       }
-      else if (p.gold) gtaPay(120, '✨', gta.W / 2, gta.Hh * 0.42);
-      else { gta.crates++; gtaPay(12, '📦', gta.W / 2, gta.Hh * 0.42); }
+      else if (p.gold) { gtaPay(120, '✨', gta.W / 2, gta.Hh * 0.42); sfxGtaPickup(true); }
+      else { gta.crates++; gtaPay(12, '📦', gta.W / 2, gta.Hh * 0.42); sfxGtaPickup(false); }
     }
   }
 
@@ -2786,6 +3019,7 @@ function gtaDraw() {
 
   gtaDrawHud(g, W, Hh);
   if (gta.phase === 'title') gtaDrawTitle(g, W, Hh);
+  if (gta.mapOpen && gta.phase === 'play') gtaDrawMap(g, W, Hh);
   if (gta.wastedT > 0) {
     g.globalAlpha = Math.min(0.6, (2.4 - gta.wastedT) * 1.1);
     g.fillStyle = '#040408';
@@ -3029,6 +3263,29 @@ function gtaDrawHud(g, W, Hh) {
     g.fillStyle = '#ffffff';
     g.fillRect(dx + ((pc - sx) / SRC) * MM - 1, dy + ((pr - sy) / SRC) * MM - 1, 3, 3);
   }
+  // Touch controls: the floating stick (while held) + the button cluster.
+  if (gta.isTouch && !gta.mapOpen) {
+    const s = gta.touch.stick;
+    if (s) {
+      g.strokeStyle = 'rgba(238,242,255,0.4)';
+      g.lineWidth = 1;
+      g.beginPath(); g.arc(s.x0, s.y0, 16, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = 'rgba(238,242,255,0.5)';
+      g.beginPath(); g.arc(s.x0 + s.dx * 12, s.y0 + s.dy * 12, 6, 0, Math.PI * 2); g.fill();
+    }
+    g.textAlign = 'center';
+    for (const b of gtaTouchBtns()) {
+      g.fillStyle = 'rgba(5,5,12,0.55)';
+      g.beginPath(); g.arc(b.x, b.y, b.r, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = 'rgba(238,242,255,0.35)';
+      g.lineWidth = 1;
+      g.beginPath(); g.arc(b.x, b.y, b.r, 0, Math.PI * 2); g.stroke();
+      g.font = '900 ' + Math.round(b.r * 0.95) + 'px Consolas, monospace';
+      g.fillStyle = '#eef2ff';
+      g.fillText(b.icon, b.x, b.y + b.r * 0.35);
+    }
+  }
+
   // Wanted stars, top-right. They flash while the pursuit is live.
   if (gta.heat > 0) {
     const stars = gtaStars();
@@ -3130,6 +3387,40 @@ function gtaDrawHud(g, W, Hh) {
   }
 }
 
+// M: the pause map. The whole city on one screen while the sim holds its
+// breath — landmarks by name, the marker, the phones, and you.
+function gtaDrawMap(g, W, Hh) {
+  g.fillStyle = 'rgba(4,4,12,0.84)';
+  g.fillRect(0, 0, W, Hh);
+  const s = Math.min((W - 24) / GTA_W, (Hh - 36) / GTA_H);
+  const mx = W / 2 - GTA_W * s / 2, my = (Hh - GTA_H * s) / 2 + 4;
+  g.imageSmoothingEnabled = false;
+  g.drawImage(gta.mini, mx, my, GTA_W * s, GTA_H * s);
+  g.strokeStyle = 'rgba(238,242,255,0.5)';
+  g.lineWidth = 1;
+  g.strokeRect(mx - 0.5, my - 0.5, GTA_W * s + 1, GTA_H * s + 1);
+  g.font = '900 7px Consolas, monospace';
+  g.textAlign = 'center';
+  for (const L of gta.lmList) {
+    g.fillStyle = L.accent;
+    g.fillText(L.name, mx + (L.c + L.w / 2) * s, my + (L.r + L.h / 2) * s - 3, 64);
+  }
+  const mk = (gta.mission && gta.mission.mk) || (gta.gig && gta.gig.mk);
+  if (mk && Math.floor(gta.t * 4) % 2 === 0) {
+    g.fillStyle = '#ffd23a';
+    g.fillRect(mx + (mk.x / GTA_TILE) * s - 2, my + (mk.y / GTA_TILE) * s - 2, 4, 4);
+  }
+  const P = gtaPlayerPos();
+  g.fillStyle = Math.floor(gta.t * 3) % 2 === 0 ? '#ffffff' : '#3ad4ff';
+  g.fillRect(mx + (P.x / GTA_TILE) * s - 2, my + (P.y / GTA_TILE) * s - 2, 4, 4);
+  g.font = '900 11px Consolas, monospace';
+  g.fillStyle = '#eef2ff';
+  g.fillText('NUGGETOWN', W / 2, Math.max(10, my - 3));
+  g.font = '700 8px Consolas, monospace';
+  g.fillStyle = '#9aa3c7';
+  g.fillText('M — BACK TO THE STREET', W / 2, Hh - 3);
+}
+
 // A gold arrow pinned to the screen edge, pointing at an offscreen marker.
 function gtaEdgeArrow(g, W, Hh, mk) {
   const rx = mk.x - gta.cam.x, ry = mk.y - gta.cam.y;
@@ -3181,7 +3472,7 @@ function gtaDrawTitle(g, W, Hh) {
   g.fillText('↑↓ drive · ←→ steer · SPACE handbrake/punch', W / 2, Hh * 0.64);
   g.fillText('E in/out of cars · SHIFT sprint · F fire · Q weapons', W / 2, Hh * 0.71);
   g.fillStyle = '#ffd23a';
-  g.fillText('📞 answer ringing phones — S.W. has work', W / 2, Hh * 0.78);
+  g.fillText('📞 phones = work · 📻 R radio · 🗺 M map', W / 2, Hh * 0.78);
   if (Math.floor(gta.t * 2.2) % 2 === 0) {
     g.font = '900 12px Consolas, monospace';
     g.fillStyle = '#ffe23a';
@@ -3199,6 +3490,7 @@ function gtaPress(code) {
     return true;
   }
   if (gta.phase !== 'play') return false;
+  if (gta.mapOpen && code !== 'KeyM' && code !== 'KeyR') return true; // the map has the floor
   if (code === 'ArrowUp' || code === 'KeyW') { gta.keys.up = true; return true; }
   if (code === 'ArrowDown' || code === 'KeyS') { gta.keys.down = true; return true; }
   if (code === 'ArrowLeft' || code === 'KeyA') { gta.keys.left = true; return true; }
@@ -3219,6 +3511,8 @@ function gtaPress(code) {
     return false;
   }
   if (code === 'KeyE' || code === 'KeyX') { gtaInteract(); return true; }
+  if (code === 'KeyM') { gta.mapOpen = !gta.mapOpen; return true; }
+  if (code === 'KeyR') { gtaRadioCycle(); return true; }
   if (code === 'ShiftLeft' || code === 'ShiftRight') { gta.keys.shift = true; return true; }
   return false;
 }
@@ -3239,7 +3533,7 @@ window.addEventListener('keyup', (e) => {
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') gta.keys.shift = false;
 });
 
-// touch / mouse: hold to drive, left/right thirds steer, second finger = handbrake
+// Mouse (desktop convenience): hold to drive, left/right thirds steer.
 function gtaPointer(x, down) {
   if (!gtaActive()) return;
   if (!down) { gta.keys.up = false; gta.keys.left = false; gta.keys.right = false; return; }
@@ -3251,19 +3545,78 @@ function gtaPointer(x, down) {
 }
 gtaWorld.addEventListener('mousedown', (e) => gtaPointer(e.clientX, true));
 window.addEventListener('mouseup', () => gta.on && gtaPointer(0, false));
+
+// ---- touch: floating stick + buttons (Sprint 10) -----------------------------
+// First touch flips the on-canvas controls on. The left 60% anchors a
+// floating stick (slam it to the rim to sprint); the button cluster rides
+// the right edge above the radar, radio/map live top-left. Every touch is
+// tracked by identifier so multitouch does what thumbs expect.
+
+function gtaTouchBtns() {
+  const W = gta.W, Hh = gta.Hh;
+  return [
+    { k: 'fire',  icon: '🔥', x: W - 17, y: Hh - 84,  r: 13 },
+    { k: 'space', icon: gta.onFoot ? '👊' : '🛑', x: W - 46, y: Hh - 98, r: 11 },
+    { k: 'door',  icon: 'E',  x: W - 17, y: Hh - 116, r: 10 },
+    { k: 'weap',  icon: 'Q',  x: W - 46, y: Hh - 130, r: 9 },
+    { k: 'radio', icon: '📻', x: 14, y: 30, r: 9 },
+    { k: 'map',   icon: '🗺', x: 14, y: 52, r: 9 },
+  ];
+}
+
 gtaWorld.addEventListener('touchstart', (e) => {
-  if (gta.onFoot) {
-    // second finger on foot: car door if one's in reach, knuckles otherwise
-    if (e.touches.length > 1) gtaFootAction();
-  } else {
-    gta.handbrake = e.touches.length > 1;
+  if (!gtaActive()) return;
+  gta.isTouch = true;
+  if (gta.phase !== 'play') { gtaPress('Space'); e.preventDefault(); return; }
+  for (const t of e.changedTouches) {
+    const cx = t.clientX / gta.scale, cy = t.clientY / gta.scale;
+    let hit = null;
+    for (const b of gtaTouchBtns()) {
+      if (Math.hypot(cx - b.x, cy - b.y) <= b.r + 5) { hit = b; break; }
+    }
+    if (hit) {
+      gta.touch.roles[t.identifier] = hit.k;
+      if (hit.k === 'fire') { gta.fireHeld = true; gta.firePress = true; }
+      else if (hit.k === 'space') { if (gta.onFoot) { gta.fireHeld = true; gta.firePress = true; } else gta.handbrake = true; }
+      else if (hit.k === 'door') gtaInteract();
+      else if (hit.k === 'weap') gtaCycleWeapon();
+      else if (hit.k === 'radio') gtaRadioCycle();
+      else if (hit.k === 'map') gta.mapOpen = !gta.mapOpen;
+    } else if (!gta.touch.stick && cx < gta.W * 0.6) {
+      gta.touch.stick = { id: t.identifier, x0: cx, y0: cy, dx: 0, dy: 0 };
+      gta.touch.roles[t.identifier] = 'stick';
+    }
   }
-  gtaPointer(e.touches[0].clientX, true);
   e.preventDefault();
 }, { passive: false });
-gtaWorld.addEventListener('touchmove', (e) => { gtaPointer(e.touches[0].clientX, true); e.preventDefault(); }, { passive: false });
+
+gtaWorld.addEventListener('touchmove', (e) => {
+  if (!gtaActive()) return;
+  const s = gta.touch.stick;
+  if (s) {
+    for (const t of e.changedTouches) {
+      if (gta.touch.roles[t.identifier] !== 'stick') continue;
+      s.dx = Math.max(-1, Math.min(1, (t.clientX / gta.scale - s.x0) / 22));
+      s.dy = Math.max(-1, Math.min(1, (t.clientY / gta.scale - s.y0) / 22));
+      gta.keys.up = s.dy < -0.28;
+      gta.keys.down = s.dy > 0.32;
+      gta.keys.left = s.dx < -0.28;
+      gta.keys.right = s.dx > 0.28;
+      gta.keys.shift = Math.hypot(s.dx, s.dy) > 0.92; // rim of the stick = sprint
+    }
+  }
+  e.preventDefault();
+}, { passive: false });
+
 window.addEventListener('touchend', (e) => {
-  if (!gta.on) return;
-  if (!gta.onFoot) gta.handbrake = e.touches.length > 1;
-  if (e.touches.length === 0) gtaPointer(0, false);
+  if (!gta.on || !gta.touch) return;
+  for (const t of e.changedTouches) {
+    const role = gta.touch.roles[t.identifier];
+    delete gta.touch.roles[t.identifier];
+    if (role === 'stick') {
+      gta.touch.stick = null;
+      gta.keys.up = gta.keys.down = gta.keys.left = gta.keys.right = gta.keys.shift = false;
+    } else if (role === 'fire') gta.fireHeld = false;
+    else if (role === 'space') { gta.handbrake = false; if (gta.onFoot) gta.fireHeld = false; }
+  }
 });

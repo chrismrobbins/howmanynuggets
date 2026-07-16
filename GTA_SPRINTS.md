@@ -616,3 +616,45 @@ offscreen-culling audit (measure first — 160×160 tile loop is fine so
 far), Playwright drive-through screenshots, README/CLAUDE.md docs,
 memory update, push + `gh run watch` the deploys. gta.css is still
 only 45 lines — the pause map may want a couple of classes.
+
+## Sprint 10 — SHIP IT (2026-07-16, Beau's Claude) — 🏁 THE BUILD IS COMPLETE
+
+**Shipped:** Nuggetown has a soundtrack and the build is done. WebAudio
+(`gtaAud` + `gtaACtx`, context created on the title keypress so autoplay
+policy is satisfied; every entry point try/catch'd): ENGINE = two detuned
+oscillators through a lowpass, pitch/gain ride the speedo, ducked on foot
+and in interludes; SIREN = one shared triangle wail, gain follows the
+nearest lit cruiser (520px falloff); RADIO = a deterministic chiptune
+step-sequencer (gtaHash seeds the tune — same station, same song) with
+three stations on R (NUG FM 101.5 / BATTER WAVE / HEIST RADIO), car-only,
+DJ sting + toast on tune, persisted in `nugGtaRadio`. One-shot SFX wired
+everywhere: per-weapon shots, distance-attenuated explosions + honks,
+wall/ram crunches, pickups (golden gets the extra note), phone rings you
+can hear (2.6s throttle within 240px), mission passed/failed jingles,
+busted/wasted stings, the Pay 'n' Spray hiss. TOUCH grew up: floating
+virtual stick on the left 60% (rim = sprint), button cluster right
+(🔥 fire hold / 🛑-👊 handbrake-punch / E / Q) + radio/map buttons
+top-left, all tracked per-touch-identifier; the old thirds scheme is
+gone (mouse drive kept for desktop). M opens the PAUSE MAP: whole city,
+landmark names in accent colors, blinking you + gold marker, sim frozen
+(gta.t still ticks so the map blinks; input swallowed except M/R).
+`gtaAudioStop()` runs from syncGta on exit so nothing hums over the
+calculator. Verified headless: engine pitch probed at speed (46→124Hz),
+radio scheduling + persistence, siren swell with a chaser planted 80px
+away, map freeze probed (position unchanged under held W), synthetic
+TouchEvents drove the stick + fired the fire button, THE ERRAND passed
+as a full regression, 61fps under swiftshader, zero pageerrors. Docs:
+README announcement bullet + file rows, CLAUDE.md layout row + street
+paragraph, AGENTS.md was updated in S9.
+
+**Perf/balance notes:** measured 61fps headless with all layers on — the
+naive tile loop and capped ring buffers are fine; the chunk-cache idea
+from S1 stays unneeded. Economy left as tuned (crates 12× / golden 120× /
+missions 220-900× — the campaign is the payday, as intended).
+
+**What DIDN'T ship (parking lot):** garages that save cars, multiplayer
+free-roam, photo mode, the Dill case-board collectible, DJ voice lines
+(stings only). The rhythm cup remains the Hood's last unresolved rumor.
+
+**GTN is done: 10 sprints, 12 games in the building, one storm still at
+large. Case open forever. 🚔🍗**
