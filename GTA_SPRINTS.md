@@ -1001,3 +1001,52 @@ pageerrors/warnings. Screenshots eyeballed (the stage shot is the sprint).
   14px low.
 - Landmark rects DON'T touch sidewalks by default — anything else that
   wants a street-facing feature needs the same flush-snap treatment.
+
+## Sprint 10.9 — HOUSE LIGHTS (2026-07-16, Beau's Claude) — HUD + interior graphics
+
+Beau's two-line ask: the storm banner is overbearing on GTN, and the 10.8
+interiors deserve a graphics round. Both landed.
+
+**Compact storm HUD (storm.js/storm.css, engine-level):** new
+`MODE_COMPACT_HUD` set — games in it (just `gta` for now) collapse the storm
+card to a slim translucent pill (55% opacity, tighter padding, hint + mode
+switch hidden). Hover restores everything; touch taps the game badge
+(`stormLabel` click toggles `.expanded` — same CSS state as `:hover`). The
+`done` victory card overrides back to full opacity. The GTN `MODE_HINTS`
+string lost its "welcome to Nuggetown —" preamble (the title screen owns the
+tutorial). `#simSubSwitch` stays hidden by its own id rule — specificity
+beats the compact hover-reveal, don't "fix" that.
+
+**Interior graphics round (gta.js, draw-only — zero sim changes):**
+- **Structure, all rooms:** room-facing wall tiles (any wall whose south
+  neighbor isn't `#`) get a per-venue face via `gtaDrawIntWallFace` — club:
+  padded velvet + tuft studs + pulsing neon skirting; diner: wood slats +
+  calligraphy banners; ammu: riveted steel + hazard stripes. Walls catch a
+  ceiling-light top edge, floors get hash-scuffs, contact shadows under
+  north walls, and `gtaIntPool()` is the shared radial light-pool helper
+  (fade to SAME rgb at alpha 0 — transparent black leaves gray fringes).
+- **Club:** marquee bulbs chase the runway edge, lacquer sheen sweeps the
+  stage, faceted mirror ball on a hang wire throws 4 rotating beams, flickery
+  CHICKEN STRIP neon on the back wall, back-bar bottle shelf (wall tiles east
+  of `B`), drinks/candles on tables, tufted VIP couches + stanchion rope,
+  patrons on stools (`pts.stools`, new in gtaIntPts), DJ EQ bars, dancer rig
+  v2 (two-tone pole w/ travelling glint, base plate, crumb texture,
+  hype-scaled motion-blur ghost).
+- **Diner:** menu board (one item 86'd), drawn steam wisps + simmer-bubble
+  pots w/ ladles, bowls + chopsticks on the counter, two swaying rows of
+  paper lanterns with warm pools (drawn ABOVE the cast — they hang), cook
+  stirs forever (headband).
+- **Ammu:** display cases v2 (velvet pedestal, per-case colored merch,
+  price tag, animated glass glare), painted range lane (dashed borders,
+  firing line, RANGE stencil, spent brass), register, ammo boxes on the
+  glass, cracked concrete, two rows of fluorescent tubes with cool pools —
+  one ballast flickers, cold wash over the whole room.
+
+**Verified headless (puppeteer-core + system Chrome, file://):** HUD at
+rest = 442×38 pill @ 0.55 opacity w/ hint+switch hidden; hover and
+tap-badge both restore; all three rooms screenshotted (incl. stage-tip hype
+state); 61fps indoors; zero pageerrors. Screenshots eyeballed.
+
+**Gotcha:** `gta.ped` is null until the player actually exits the car —
+probes that force `gtaEnterInterior()` must build a ped first (copy the
+gtaExitCar shape).

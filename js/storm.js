@@ -45,9 +45,14 @@ const MODE_HINTS = {
   ranch:   'raise the flock! 🌾 feed to keep birds alive · 🏭 ship grown hens for nuggets',
   kart:    'deliver the order hot! ← → steer · ↓ brake · SPACE nitro 🌶️ · make the checkpoints',
   reel:    'the pier at midnight — HOLD space/click to cast · press on the ❗ bite · reel easy, rest the runs',
-  gta:     'welcome to Nuggetown — hold where you want to GO (T = classic steering) · E in/out + answer 📞 · SPACE brake/punch · F fire · Q weapons · R radio · M map',
+  gta:     'hold where you want to GO (T = classic steering) · E in/out + answer 📞 · SPACE brake/punch · F fire · Q weapons · R radio · M map',
 };
 const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘', run: '🏃', knight: '⚔️', brawl: '🥊', ranch: '🐔', kart: '🏎️', reel: '🎣', gta: '🚗' };
+
+// Free-roam games draw their own rich in-game HUD, so the storm card backs
+// off to a slim translucent pill — hover it (or tap the game badge on touch)
+// to bring back the hint + mode switch. See .storm-hud.compact in storm.css.
+const MODE_COMPACT_HUD = new Set(['gta']);
 const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated', run: 'ran', knight: 'vanquished', brawl: 'sauced', ranch: 'harvested', kart: 'delivered', reel: 'reeled in', gta: 'boosted' };
 
 // Self-contained minigames run their own entities and pause the storm's own
@@ -89,6 +94,8 @@ function computePerFlyer(total, cat) {
 
 function setStormMode(mode) {
   storm.mode = mode;
+  stormHud.classList.toggle('compact', MODE_COMPACT_HUD.has(mode));
+  stormHud.classList.remove('expanded');
   stormHint.textContent = MODE_HINTS[mode];
   modeSwitch.querySelectorAll('button').forEach((b) =>
     b.classList.toggle('on', b.dataset.mode === mode));
@@ -109,6 +116,11 @@ function setStormMode(mode) {
 modeSwitch.addEventListener('click', (e) => {
   const btn = e.target.closest('button');
   if (btn) setStormMode(btn.dataset.mode);
+});
+
+// Touch has no hover: tapping the game badge toggles the compact pill open.
+stormLabel.addEventListener('click', () => {
+  if (stormHud.classList.contains('compact')) stormHud.classList.toggle('expanded');
 });
 
 function spawnNugget() {

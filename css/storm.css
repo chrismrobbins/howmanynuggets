@@ -111,6 +111,24 @@ body.storm-active input {
 .storm-hud button:active { transform: scale(0.95); }
 .storm-hud.done { border-color: rgba(34, 197, 94, 0.5); }
 .storm-hud.done .hint, .storm-hud.done button { display: none; }
+
+/* Compact HUD — free-roam games (GTN) draw their own in-game HUD, so the
+   storm card backs off to a translucent pill. Hovering it (or tapping the
+   game badge on touch → .expanded) brings back the hint + mode switch. */
+.storm-hud.compact {
+  padding: 0.35rem 0.7rem;
+  gap: 0.55rem;
+  opacity: 0.55;
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.6);
+  transition: opacity 0.25s;
+}
+.storm-hud.compact:hover, .storm-hud.compact.expanded, .storm-hud.compact.done { opacity: 1; }
+.storm-hud.compact .label { cursor: pointer; }
+.storm-hud.compact .hint, .storm-hud.compact .mode-switch { display: none; }
+.storm-hud.compact:hover .hint, .storm-hud.compact.expanded .hint { display: inline; }
+.storm-hud.compact:hover .mode-switch, .storm-hud.compact.expanded .mode-switch { display: inline-flex; }
+.storm-hud.compact button { padding: 0.3rem 0.6rem; font-size: 0.66rem; }
+
 @media (max-width: 560px) {
   .storm-hud .hint { display: none; }
 }

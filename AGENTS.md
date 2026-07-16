@@ -37,7 +37,9 @@ already bitten someone.
 2. `js/storm.js`: `MODE_HINTS` / `MODE_BADGE` / `MODE_VERB`, a `sync<Game>()`
    call in `setStormMode` **and** `stopStorm`, a `step<Game>` branch in
    `stepStorm`, a tally branch in `updateStormHud`, and add the mode to
-   `pausesStorm()` if the game owns the whole screen.
+   `pausesStorm()` if the game owns the whole screen. If the game draws its
+   own rich in-game HUD (like GTN), also add it to `MODE_COMPACT_HUD` — the
+   storm card collapses to a translucent pill (hover / tap the badge expands).
 3. `index.html`: HUD mode button, score tile, leaderboard tab.
 4. `js/account.js`: `setScores`, `GAME_LABEL`, and the score-element map.
 5. `worker/src/index.js`: the `GAMES` set, a `GAME_MAX_SCORE` plausibility

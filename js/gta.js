@@ -2030,13 +2030,14 @@ const GTA_INTERIORS = {
 function gtaIntPts(I) {
   if (I.pts) return I.pts;
   const T = GTA_TILE, O = GTA_INT_ORIGIN;
-  const p = { poles: [], tables: [], bars: [], pots: [], disp: [], vip: null, dj: null, target: null, exit: null };
+  const p = { poles: [], tables: [], bars: [], pots: [], disp: [], stools: [], vip: null, dj: null, target: null, exit: null };
   let ex = 0, ey = 0, en = 0;
   for (let tr = 0; tr < I.rows.length; tr++) {
     for (let tc = 0; tc < I.rows[tr].length; tc++) {
       const ch = I.rows[tr][tc];
       const x = O.x + (tc + 0.5) * T, y = O.y + (tr + 0.5) * T;
       if (ch === 'P') p.poles.push({ x, y });
+      else if (ch === 'b') p.stools.push({ x, y, tc, tr });
       else if (ch === 't') p.tables.push({ x, y, tc, tr });
       else if (ch === 'B') p.bars.push({ x, y });
       else if (ch === 'O') p.pots.push({ x, y });
@@ -2199,6 +2200,65 @@ function gtaStepInterior(dt) {
   if (window.GtaNet) GtaNet.onStep(dt);
 }
 
+// Soft radial light pool — the interiors' whole lighting rig. rgb is an
+// 'r,g,b' string so the gradient can fade to the SAME color at alpha 0
+// (fading to transparent black leaves a gray fringe).
+function gtaIntPool(g, x, y, rad, rgb, a) {
+  const gr = g.createRadialGradient(x, y, 2, x, y, rad);
+  gr.addColorStop(0, 'rgba(' + rgb + ',' + a + ')');
+  gr.addColorStop(1, 'rgba(' + rgb + ',0)');
+  g.fillStyle = gr;
+  g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+}
+
+// The room-facing side of a wall tile (top-down rooms show the south face of
+// their north walls). Each venue dresses its walls its own way: the club pads
+// them in velvet with neon skirting, the diner runs wood slats + calligraphy,
+// Ammu-Nugget rivets steel panels and paints hazard stripes.
+function gtaDrawIntWallFace(g, x, y, T, tc, t) {
+  const I = GTA_INTERIORS[gta.interior];
+  g.fillStyle = gtaShade(I.wall, 1.18); // the lit face
+  g.fillRect(x, y + 3, T, T - 5);
+  if (gta.interior === 'strip') {
+    g.fillStyle = '#4a1a38';            // padded velvet panel
+    g.fillRect(x + 2, y + 5, T - 4, T - 10);
+    g.fillStyle = '#5e2246';
+    g.fillRect(x + 3, y + 6, T - 6, T - 12);
+    g.fillStyle = '#2e0e22';            // tuft studs
+    g.fillRect(x + 6, y + T / 2 - 1, 2, 2); g.fillRect(x + T - 8, y + T / 2 - 1, 2, 2);
+    const pulse = 0.35 + 0.2 * Math.sin(t * 2.4 + tc);   // neon skirting
+    g.fillStyle = 'rgba(255,47,160,' + pulse.toFixed(2) + ')';
+    g.fillRect(x, y + T - 3, T, 2);
+  } else if (gta.interior === 'noodle') {
+    g.fillStyle = '#4a3018';            // wood slats
+    g.fillRect(x + 1, y + 5, T - 2, T - 9);
+    g.fillStyle = 'rgba(0,0,0,0.25)';
+    g.fillRect(x + 1, y + 9, T - 2, 1); g.fillRect(x + 1, y + 14, T - 2, 1);
+    if (tc % 5 === 2) {                 // house calligraphy banner
+      g.fillStyle = '#c23a3a';
+      g.fillRect(x + T / 2 - 3, y + 6, 6, 10);
+      g.fillStyle = '#ffd23a';
+      g.fillRect(x + T / 2 - 1, y + 8, 2, 6);
+    }
+    g.fillStyle = 'rgba(0,0,0,0.3)';
+    g.fillRect(x, y + T - 3, T, 3);
+  } else {                              // ammu: riveted steel
+    g.fillStyle = '#333a44';
+    g.fillRect(x + 1, y + 5, T - 2, T - 9);
+    g.fillStyle = '#454e5a';
+    g.fillRect(x + 1, y + 5, T - 2, 2);
+    g.fillStyle = '#1c2026';            // rivets
+    g.fillRect(x + 3, y + 8, 1.5, 1.5); g.fillRect(x + T - 5, y + 8, 1.5, 1.5);
+    g.fillRect(x + 3, y + T - 8, 1.5, 1.5); g.fillRect(x + T - 5, y + T - 8, 1.5, 1.5);
+    if (tc % 7 === 3) {                 // OSHA-adjacent stripes
+      g.fillStyle = '#ffe23a';
+      for (let s = 0; s < 3; s++) g.fillRect(x + 3 + s * 7, y + T - 7, 4, 3);
+    }
+    g.fillStyle = 'rgba(0,0,0,0.3)';
+    g.fillRect(x, y + T - 3, T, 3);
+  }
+}
+
 // A chicken strip, dancing. The whole pitch, honestly.
 function gtaDrawDancer(g, x, y, t, hype) {
   const speed = 3 + hype * 2.2;
@@ -2207,24 +2267,39 @@ function gtaDrawDancer(g, x, y, t, hype) {
   const bob = Math.abs(Math.sin(t * speed)) * (1.5 + hype);
   g.save();
   g.translate(x + orbit, y);
-  // pole
-  g.strokeStyle = '#8a92a8';
-  g.lineWidth = 1;
-  g.beginPath(); g.moveTo(-orbit, -12); g.lineTo(-orbit, 10); g.stroke();
-  g.fillStyle = 'rgba(255,255,255,0.5)';
-  g.fillRect(-orbit - 0.5, -12, 1, 3);
+  // pole: brushed steel, two-tone, with a travelling glint
+  g.strokeStyle = '#6a7288';
+  g.lineWidth = 1.6;
+  g.beginPath(); g.moveTo(-orbit, -14); g.lineTo(-orbit, 10); g.stroke();
+  g.strokeStyle = '#b8c0d4';
+  g.lineWidth = 0.7;
+  g.beginPath(); g.moveTo(-orbit - 0.4, -14); g.lineTo(-orbit - 0.4, 10); g.stroke();
+  g.fillStyle = '#fff';
+  g.fillRect(-orbit - 1, -14 + ((t * 16) % 24), 2, 2.5);
+  g.fillStyle = '#3a4048'; // base plate
+  g.beginPath(); g.ellipse(-orbit, 10, 3.5, 1.4, 0, 0, Math.PI * 2); g.fill();
   // shadow
   g.fillStyle = 'rgba(0,0,0,0.4)';
   g.beginPath(); g.ellipse(0, 9, 5, 2.2, 0, 0, Math.PI * 2); g.fill();
+  const h = 15 + bob;
+  // motion-blur ghost when the room is feeling it
+  if (hype > 0.5) {
+    g.save();
+    g.rotate(sway * 0.55);
+    g.fillStyle = 'rgba(255,190,90,' + Math.min(0.22, hype * 0.08).toFixed(2) + ')';
+    g.beginPath(); g.ellipse(0, 8 - h / 2, 3.6, h / 2, 0, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
   // the strip itself: golden, crispy, working the room
   g.rotate(sway);
-  const h = 15 + bob;
   g.fillStyle = '#a86a20'; // crust edge
   g.beginPath(); g.ellipse(0, 8 - h / 2, 3.6, h / 2, 0, 0, Math.PI * 2); g.fill();
   g.fillStyle = '#e8a83a';
   g.beginPath(); g.ellipse(0, 8 - h / 2, 2.8, h / 2 - 1, 0, 0, Math.PI * 2); g.fill();
   g.fillStyle = '#ffd98a'; // fried highlight
   g.beginPath(); g.ellipse(-0.8, 7 - h / 2, 1.1, h / 2 - 3, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#c28438'; // crumb texture
+  g.fillRect(-1.5, 8 - h + 4, 1, 1); g.fillRect(1, 8 - h / 2, 1, 1); g.fillRect(-0.5, 8 - h / 4, 1, 1);
   g.restore();
   // sparkle
   if (Math.random() < 0.06 + hype * 0.05) {
@@ -2269,50 +2344,131 @@ function gtaDrawInterior() {
       const ch = I.rows[tr][tc];
       const x = O.x + tc * T - ox, y = O.y + tr * T - oy;
       if (x < -T || x > W || y < -T || y > Hh) continue;
+      const hsh = gtaHash(tc, tr);
       if (ch === '#') {
         g.fillStyle = I.wall;
         g.fillRect(x, y, T, T);
-        g.fillStyle = 'rgba(0,0,0,0.35)';
-        g.fillRect(x, y + T - 3, T, 3);
+        g.fillStyle = gtaShade(I.wall, 1.4); // top edge catches the ceiling light
+        g.fillRect(x, y, T, 2);
+        const below = tr + 1 < I.rows.length ? I.rows[tr + 1][tc] : '#';
+        if (below !== '#') gtaDrawIntWallFace(g, x, y, T, tc, t);
+        else {
+          g.fillStyle = 'rgba(0,0,0,0.35)';
+          g.fillRect(x, y + T - 3, T, 3);
+        }
+        if (gta.interior === 'strip' && tc > 0 && I.rows[tr][tc - 1] === 'B') {
+          // back-bar shelf: the good stuff, lit from below
+          g.fillStyle = '#241018';
+          g.fillRect(x + 2, y + 4, T - 6, T - 8);
+          for (let s = 0; s < 3; s++) {
+            g.fillStyle = GTA_NEON[(tr * 3 + s) % GTA_NEON.length];
+            g.fillRect(x + 4 + s * 5, y + 8, 3, 8);
+            g.fillStyle = 'rgba(255,255,255,0.35)';
+            g.fillRect(x + 4 + s * 5, y + 8, 1, 8);
+          }
+          g.fillStyle = 'rgba(255,220,150,0.15)';
+          g.fillRect(x + 2, y + T - 5, T - 6, 2);
+        }
         continue;
       }
       g.fillStyle = ((tc + tr) & 1) ? I.floorA : I.floorB;
       g.fillRect(x, y, T, T);
-      if (ch === 'S' || ch === 'P') {         // the stage: raised, golden, lit
+      // lived-in floors: scuffs and stains where the hash says feet have been
+      if (hsh % 13 === 0) {
+        g.fillStyle = 'rgba(0,0,0,0.10)';
+        g.beginPath(); g.ellipse(x + 4 + (hsh % 15), y + 4 + ((hsh >>> 4) % 15), 5, 3, 0, 0, Math.PI * 2); g.fill();
+      }
+      if (gta.interior === 'ammu' && hsh % 11 === 3) {  // cracked concrete
+        g.strokeStyle = 'rgba(0,0,0,0.18)';
+        g.lineWidth = 1;
+        g.beginPath(); g.moveTo(x + 3, y + 4 + (hsh % 15)); g.lineTo(x + T - 4, y + 4 + ((hsh >>> 3) % 15)); g.stroke();
+      }
+      // contact shadow where the floor meets the wall above it
+      if (tr > 0 && I.rows[tr - 1][tc] === '#') {
+        g.fillStyle = 'rgba(0,0,0,0.22)';
+        g.fillRect(x, y, T, 4);
+      }
+      if (ch === 'S' || ch === 'P') {         // the stage: raised, lacquered, lit
         g.fillStyle = '#3a2410';
         g.fillRect(x, y, T, T);
         g.fillStyle = '#4a2f14';
         g.fillRect(x + 1, y + 1, T - 2, T - 2);
-        if ((gtaHash(tc, tr) + Math.floor(t * 3)) % 7 === 0) {
+        g.fillStyle = 'rgba(255,214,130,0.06)'; // lacquer sheen strip
+        g.fillRect(x + 2, y + 2, T - 4, 3);
+        if ((hsh + Math.floor(t * 3)) % 7 === 0) {
           g.fillStyle = 'rgba(255,220,120,0.12)';
           g.fillRect(x + 3, y + 3, T - 6, T - 6);
         }
       } else if (ch === 'B') {                 // bar / counter
+        g.fillStyle = 'rgba(0,0,0,0.35)';      // drop shadow onto the floor
+        g.fillRect(x, y + T - 3, T, 3);
         g.fillStyle = '#4a2c16';
         g.fillRect(x, y + 2, T, T - 4);
         g.fillStyle = '#6b4226';
         g.fillRect(x + 1, y + 3, T - 2, T - 8);
+        g.fillStyle = 'rgba(255,236,180,0.10)'; // wiped-down gloss
+        g.fillRect(x + 1, y + 3, T - 2, 2);
         g.fillStyle = I.trim;
         g.fillRect(x, y + 2, T, 2);
+        if (gta.interior === 'noodle' && hsh % 2 === 0) { // bowls up for service
+          g.fillStyle = '#e8ecf4';
+          g.beginPath(); g.arc(x + T / 2, y + T / 2, 3.4, 0, Math.PI * 2); g.fill();
+          g.fillStyle = '#c8a05a';
+          g.beginPath(); g.arc(x + T / 2, y + T / 2, 2.4, 0, Math.PI * 2); g.fill();
+          g.strokeStyle = '#8a6a3a'; g.lineWidth = 1;     // chopsticks
+          g.beginPath(); g.moveTo(x + T / 2 - 4, y + T / 2 - 3); g.lineTo(x + T / 2 + 5, y + T / 2 - 1); g.stroke();
+        } else if (gta.interior === 'strip' && hsh % 3 === 0) { // somebody's drink
+          g.fillStyle = 'rgba(160,220,255,0.7)';
+          g.fillRect(x + 4 + hsh % 9, y + 7, 3, 4);
+        } else if (gta.interior === 'ammu' && hsh % 4 === 1) {  // ammo on the glass
+          g.fillStyle = '#3a4a2a';
+          g.fillRect(x + 5, y + 7, 7, 5);
+          g.fillStyle = '#ffe23a';
+          g.fillRect(x + 6, y + 8, 2, 1);
+        }
       } else if (ch === 'b') {                 // stool
+        g.fillStyle = 'rgba(0,0,0,0.3)';
+        g.beginPath(); g.arc(x + T / 2 + 1, y + T / 2 + 1, 4, 0, Math.PI * 2); g.fill();
         g.fillStyle = '#20242e';
         g.beginPath(); g.arc(x + T / 2, y + T / 2, 4, 0, Math.PI * 2); g.fill();
-        g.fillStyle = '#3a2c1e';
+        g.fillStyle = gta.interior === 'strip' ? '#5e1030' : '#3a2c1e'; // house upholstery
         g.beginPath(); g.arc(x + T / 2, y + T / 2, 3, 0, Math.PI * 2); g.fill();
-      } else if (ch === 't') {                 // table + whoever's at it
+      } else if (ch === 't') {                 // table + whatever's on it tonight
         g.fillStyle = 'rgba(0,0,0,0.4)';
         g.beginPath(); g.arc(x + T / 2 + 1, y + T / 2 + 1, 8, 0, Math.PI * 2); g.fill();
         g.fillStyle = '#54341c';
         g.beginPath(); g.arc(x + T / 2, y + T / 2, 8, 0, Math.PI * 2); g.fill();
         g.fillStyle = '#6b4226';
         g.beginPath(); g.arc(x + T / 2, y + T / 2, 6.5, 0, Math.PI * 2); g.fill();
-        g.fillStyle = '#e8ecf4';               // a basket of, well, strips
-        g.fillRect(x + T / 2 - 2, y + T / 2 - 1, 4, 2);
-      } else if (ch === 'V') {                 // VIP couch
+        g.strokeStyle = 'rgba(255,244,214,0.10)'; // varnish catching the light
+        g.lineWidth = 2;
+        g.beginPath(); g.arc(x + T / 2, y + T / 2, 5, Math.PI * 0.9, Math.PI * 1.6); g.stroke();
+        if (gta.interior === 'noodle') {       // steaming bowl for the table
+          g.fillStyle = '#e8ecf4';
+          g.beginPath(); g.arc(x + T / 2, y + T / 2, 3.2, 0, Math.PI * 2); g.fill();
+          g.fillStyle = '#c8a05a';
+          g.beginPath(); g.arc(x + T / 2, y + T / 2, 2.2, 0, Math.PI * 2); g.fill();
+        } else {
+          g.fillStyle = '#e8ecf4';             // a basket of, well, strips
+          g.fillRect(x + T / 2 - 2, y + T / 2 - 1, 4, 2);
+          g.fillStyle = '#e8a83a';
+          g.fillRect(x + T / 2 - 1, y + T / 2 - 2, 1, 1); g.fillRect(x + T / 2 + 1, y + T / 2 - 2, 1, 1);
+        }
+        if (gta.interior === 'strip') {        // table candle, working hard
+          g.fillStyle = Math.sin(t * 7 + hsh) > -0.2 ? '#ffd98a' : '#c28a3a';
+          g.fillRect(x + T / 2 + 4, y + T / 2 - 4, 1.5, 1.5);
+        }
+      } else if (ch === 'V') {                 // VIP couch, tufted
+        g.fillStyle = 'rgba(0,0,0,0.35)';
+        g.fillRect(x + 2, y + T - 4, T - 2, 3);
         g.fillStyle = '#5e1030';
         g.fillRect(x + 1, y + 3, T - 2, T - 6);
         g.fillStyle = '#7a1640';
         g.fillRect(x + 2, y + 5, T - 4, T - 10);
+        g.fillStyle = '#93204e';               // seat cushions
+        g.fillRect(x + 3, y + 6, (T - 8) / 2, T - 12); g.fillRect(x + T / 2 + 1, y + 6, (T - 8) / 2, T - 12);
+        g.fillStyle = 'rgba(255,255,255,0.12)';
+        g.fillRect(x + 2, y + 5, T - 4, 1);
       } else if (ch === 'J') {                 // DJ booth
         g.fillStyle = '#14161c';
         g.fillRect(x + 1, y + 2, T - 2, T - 4);
@@ -2320,21 +2476,43 @@ function gtaDrawInterior() {
         g.fillRect(x + 3, y + 4, T - 6, T - 8);
         g.fillStyle = I.trim;
         g.fillRect(x + 5, y + T / 2 - 1, 4, 2); g.fillRect(x + T - 9, y + T / 2 - 1, 4, 2);
-      } else if (ch === 'O') {                 // broth pot
+      } else if (ch === 'O') {                 // broth pot, at a rolling simmer
+        g.fillStyle = 'rgba(0,0,0,0.35)';
+        g.beginPath(); g.ellipse(x + T / 2 + 1, y + T / 2 + 2, 8, 6, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#3a4048';               // steel rim
+        g.beginPath(); g.arc(x + T / 2, y + T / 2, 8, 0, Math.PI * 2); g.fill();
         g.fillStyle = '#20242e';
         g.beginPath(); g.arc(x + T / 2, y + T / 2, 7, 0, Math.PI * 2); g.fill();
         g.fillStyle = '#c8a05a';
-        g.beginPath(); g.arc(x + T / 2, y + T / 2, 5, 0, Math.PI * 2); g.fill();
-        g.fillStyle = 'rgba(255,255,255,0.25)';
-        g.beginPath(); g.arc(x + T / 2 - 1.5, y + T / 2 - 1.5, 2, 0, Math.PI * 2); g.fill();
+        g.beginPath(); g.arc(x + T / 2, y + T / 2, 5.5, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#e0bd76';               // simmer bubbles, on rotation
+        for (let bi = 0; bi < 3; bi++) {
+          const ba = t * 1.8 + hsh + bi * 2.1;
+          g.beginPath(); g.arc(x + T / 2 + Math.cos(ba) * 2.6, y + T / 2 + Math.sin(ba) * 2.2, 0.9, 0, Math.PI * 2); g.fill();
+        }
+        g.strokeStyle = '#8a92a8';             // the ladle never rests
+        g.lineWidth = 1.2;
+        g.beginPath(); g.moveTo(x + T / 2 + 3, y + T / 2 - 2); g.lineTo(x + T / 2 + 8, y + T / 2 - 8); g.stroke();
       } else if (ch === 'W') {                 // weapon display case
+        g.fillStyle = 'rgba(0,0,0,0.35)';
+        g.fillRect(x + 2, y + T - 3, T - 3, 2);
         g.fillStyle = '#14161c';
         g.fillRect(x + 2, y + 2, T - 4, T - 4);
+        g.fillStyle = '#242a34';               // velvet pedestal
+        g.fillRect(x + 4, y + T / 2 + 2, T - 8, 4);
         const wI = GTA_WEAPONS[1 + (tc % (GTA_WEAPONS.length - 1))];
-        g.fillStyle = wI.col || '#c8ccd8';
-        g.fillRect(x + T / 2 - 4, y + T / 2 - 2, 8, 3);
-        g.fillStyle = 'rgba(160,200,255,0.2)'; // glass
-        g.fillRect(x + 2, y + 2, T - 4, 3);
+        const wc = wI.col || '#c8ccd8';
+        g.fillStyle = wc;                      // the merch: bottle + nozzle
+        g.fillRect(x + T / 2 - 3, y + T / 2 - 4, 6, 7);
+        g.fillRect(x + T / 2 - 1, y + T / 2 - 7, 2, 3);
+        g.fillStyle = gtaShade(wc, 1.5);
+        g.fillRect(x + T / 2 - 3, y + T / 2 - 4, 2, 7);
+        g.fillStyle = '#ffe23a';               // price tag (it just says "ask")
+        g.fillRect(x + T - 8, y + T - 9, 3, 3);
+        g.fillStyle = 'rgba(160,200,255,0.16)'; // glass
+        g.fillRect(x + 2, y + 2, T - 4, T - 4);
+        g.fillStyle = 'rgba(220,240,255,0.20)'; // live glare sweeping the case
+        g.fillRect(x + 3 + (t * 14 + tc * 9) % (T - 8), y + 3, 2, T - 6);
       } else if (ch === 'R') {                 // range target, pre-ventilated
         g.fillStyle = '#e8ecf4';
         g.beginPath(); g.arc(x + T / 2, y + T / 2, 8, 0, Math.PI * 2); g.fill();
@@ -2345,16 +2523,44 @@ function gtaDrawInterior() {
         g.fillStyle = '#14161c';
         g.fillRect(x + 6, y + 8, 2, 2); g.fillRect(x + 14, y + 13, 2, 2);
       } else if (ch === 'E') {                 // exit mat
+        g.fillStyle = '#1a1408';
+        g.fillRect(x + 1, y + 1, T - 2, T - 2);
         g.fillStyle = 'rgba(255,226,58,0.16)';
         g.fillRect(x + 2, y + 2, T - 4, T - 4);
+        g.strokeStyle = 'rgba(255,226,58,0.4)';
+        g.lineWidth = 1;
+        g.strokeRect(x + 2.5, y + 2.5, T - 5, T - 5);
+        g.fillStyle = 'rgba(255,226,58,0.5)';  // chevron: the street is that way
+        g.beginPath(); g.moveTo(x + T / 2 - 4, y + T - 8); g.lineTo(x + T / 2, y + T - 4); g.lineTo(x + T / 2 + 4, y + T - 8); g.closePath(); g.fill();
       }
     }
   }
 
-  // club atmosphere: disco spots sweeping the floor, a ball over the stage
+  // club atmosphere: marquee runway, mirror-ball beams, spots, neon, pools
   if (gta.interior === 'strip' && pts.stage) {
-    const scx = (pts.stage.x0 + pts.stage.x1) / 2 - ox;
-    const scy = (pts.stage.y0 + pts.stage.y1) / 2 - oy;
+    const sx0 = pts.stage.x0 - ox, sy0 = pts.stage.y0 - oy;
+    const sx1 = pts.stage.x1 - ox, sy1 = pts.stage.y1 - oy;
+    const scx = (sx0 + sx1) / 2, scy = (sy0 + sy1) / 2;
+    // sheen sweeping the lacquered runway
+    g.save();
+    g.beginPath(); g.rect(sx0, sy0, sx1 - sx0, sy1 - sy0); g.clip();
+    const shx = scx + Math.sin(t * 0.6) * (sx1 - sx0) * 0.4;
+    const shG = g.createLinearGradient(shx - 18, 0, shx + 18, 0);
+    shG.addColorStop(0, 'rgba(255,240,200,0)');
+    shG.addColorStop(0.5, 'rgba(255,240,200,0.07)');
+    shG.addColorStop(1, 'rgba(255,240,200,0)');
+    g.fillStyle = shG;
+    g.fillRect(sx0, sy0, sx1 - sx0, sy1 - sy0);
+    g.restore();
+    // marquee bulbs chasing around the runway edge
+    let bi = 0;
+    const bulb = (bx, by) => {
+      g.fillStyle = (bi++ + ((t * 7) | 0)) % 3 === 0 ? '#fff3b0' : 'rgba(255,180,120,0.35)';
+      g.fillRect(bx - 1, by - 1, 2, 2);
+    };
+    for (let bx = sx0; bx <= sx1; bx += 10) bulb(bx, sy1);
+    for (let by = sy0 + 10; by <= sy1; by += 10) { bulb(sx0, by); bulb(sx1, by); }
+    // floor spots sweeping the room
     const DISCO = ['rgba(255,47,160,0.10)', 'rgba(58,212,255,0.10)', 'rgba(57,255,122,0.08)', 'rgba(255,226,58,0.08)'];
     for (let i = 0; i < 4; i++) {
       const a = t * (0.5 + i * 0.13) + i * Math.PI / 2;
@@ -2362,17 +2568,108 @@ function gtaDrawInterior() {
       g.fillStyle = DISCO[i];
       g.beginPath(); g.arc(dx, dy, 14 + (i % 2) * 5, 0, Math.PI * 2); g.fill();
     }
-    g.fillStyle = '#c8ccd8'; // the ball
-    g.beginPath(); g.arc(scx, scy - 2, 3, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#fff3b0';
-    g.fillRect(scx - 3 + ((t * 9) | 0) % 6, scy - 3, 1, 1);
+    // the mirror ball: hung, faceted, throwing beams across the floor
+    g.strokeStyle = 'rgba(200,204,216,0.5)';
+    g.lineWidth = 1;
+    g.beginPath(); g.moveTo(scx, sy0 - 12); g.lineTo(scx, scy - 8); g.stroke();
+    const BEAM = ['255,47,160', '58,212,255', '57,255,122', '255,226,58'];
+    for (let i = 0; i < 4; i++) {
+      const a = t * 0.7 + i * Math.PI / 2;
+      g.fillStyle = 'rgba(' + BEAM[i] + ',0.05)';
+      g.beginPath();
+      g.moveTo(scx, scy - 5);
+      g.lineTo(scx + Math.cos(a) * 80 - Math.sin(a) * 12, scy - 5 + Math.sin(a) * 80 + Math.cos(a) * 12);
+      g.lineTo(scx + Math.cos(a) * 80 + Math.sin(a) * 12, scy - 5 + Math.sin(a) * 80 - Math.cos(a) * 12);
+      g.closePath(); g.fill();
+    }
+    for (let fy = 0; fy < 3; fy++) for (let fx = 0; fx < 3; fx++) {
+      g.fillStyle = ((fx + fy + ((t * 6) | 0)) % 2) ? '#e8ecf4' : '#8a92a8';
+      g.fillRect(scx - 3 + fx * 2, scy - 8 + fy * 2, 1.6, 1.6);
+    }
+    g.fillStyle = '#fff3b0'; // the hero sparkle
+    g.fillRect(scx - 3 + ((t * 9) | 0) % 6, scy - 8 + ((t * 5) | 0) % 6, 1, 1);
     // spotlight sweep across the stage
-    const spx = scx + Math.sin(t * 0.8) * (pts.stage.x1 - pts.stage.x0) * 0.34;
-    const grad = g.createRadialGradient(spx, scy, 2, spx, scy, 22);
-    grad.addColorStop(0, 'rgba(255,240,190,0.22)');
-    grad.addColorStop(1, 'rgba(255,240,190,0)');
-    g.fillStyle = grad;
-    g.fillRect(spx - 22, scy - 22, 44, 44);
+    const spx = scx + Math.sin(t * 0.8) * (sx1 - sx0) * 0.34;
+    gtaIntPool(g, spx, scy, 22, '255,240,190', 0.22);
+    // neon sign on the back wall, mostly on
+    const flick = ((t * 11) | 0) % 23 === 0 ? 0.35 : 1;
+    g.font = 'italic 900 9px Georgia, serif';
+    g.textAlign = 'center';
+    g.fillStyle = 'rgba(255,47,160,' + (0.3 * flick).toFixed(2) + ')';
+    g.fillText('C H I C K E N  S T R I P', scx, sy0 - T * 0.4 + 1);
+    g.fillStyle = 'rgba(255,171,214,' + flick.toFixed(2) + ')';
+    g.fillText('C H I C K E N  S T R I P', scx, sy0 - T * 0.4);
+    g.textAlign = 'left';
+    // house lighting: warm at the poles, pink over VIP, amber along the bar
+    for (const pol of pts.poles) gtaIntPool(g, pol.x - ox, pol.y - oy, 26, '255,190,120', 0.10);
+    if (pts.vip) gtaIntPool(g, pts.vip.x - ox, pts.vip.y - oy, 30, '255,47,160', 0.07);
+    for (let i = 0; i < pts.bars.length; i += 3) gtaIntPool(g, pts.bars[i].x - ox, pts.bars[i].y - oy, 20, '255,200,120', 0.05);
+  }
+
+  // diner atmosphere: the menu board, drawn steam, warm pools over the tables
+  if (gta.interior === 'noodle') {
+    const bx = O.x + I.rows[0].length * T / 2 - ox, by = O.y + T * 0.62 - oy;
+    g.fillStyle = '#14100a';                            // tonight's specials
+    g.fillRect(bx - 26, by - 6, 52, 13);
+    g.strokeStyle = '#4a3018';
+    g.lineWidth = 1;
+    g.strokeRect(bx - 25.5, by - 5.5, 51, 12);
+    g.fillStyle = '#ffd23a';                            // all noodles, allegedly
+    g.fillRect(bx - 21, by - 2, 12, 1); g.fillRect(bx - 21, by + 2, 9, 1);
+    g.fillRect(bx + 2, by - 2, 14, 1); g.fillRect(bx + 6, by + 2, 10, 1);
+    g.fillStyle = '#ff5252';                            // one item is 86'd
+    g.fillRect(bx - 21, by + 2, 9, 0.5);
+    for (let i = 0; i < pts.pots.length; i++) {         // visible steam wisps
+      const wx = pts.pots[i].x - ox, wy = pts.pots[i].y - oy;
+      g.strokeStyle = 'rgba(230,235,245,0.16)';
+      g.lineWidth = 1.2;
+      for (let s = 0; s < 2; s++) {
+        const ph = t * 1.6 + i * 1.7 + s * 2.4;
+        g.beginPath();
+        g.moveTo(wx + s * 4 - 2, wy - 8);
+        g.quadraticCurveTo(wx + s * 4 - 2 + Math.sin(ph) * 3, wy - 14, wx + s * 4 - 2 + Math.sin(ph + 1.2) * 4, wy - 20);
+        g.stroke();
+      }
+    }
+    for (const tb of pts.tables) gtaIntPool(g, tb.x - ox, tb.y - oy, 22, '255,170,80', 0.06);
+    for (let i = 0; i < pts.bars.length; i += 4) gtaIntPool(g, pts.bars[i].x - ox, pts.bars[i].y - oy - 8, 24, '255,190,90', 0.06);
+  }
+
+  // shop atmosphere: painted range lane, brass on the floor, a cold cast
+  if (gta.interior === 'ammu') {
+    g.fillStyle = 'rgba(150,190,255,0.045)';            // fluorescent wash
+    g.fillRect(O.x - ox, O.y - oy, I.rows[0].length * T, I.rows.length * T);
+    if (pts.target) {
+      const tx = pts.target.x - ox, ty = pts.target.y - oy;
+      const laneW = T * 3.6, lx0 = tx - laneW - 10;
+      g.fillStyle = 'rgba(0,0,0,0.18)';
+      g.fillRect(lx0, ty - T / 2, laneW, T);
+      g.strokeStyle = 'rgba(255,226,58,0.4)';
+      g.lineWidth = 1;
+      g.setLineDash([4, 4]);
+      g.beginPath(); g.moveTo(lx0, ty - T / 2); g.lineTo(tx - 10, ty - T / 2); g.stroke();
+      g.beginPath(); g.moveTo(lx0, ty + T / 2); g.lineTo(tx - 10, ty + T / 2); g.stroke();
+      g.setLineDash([]);
+      g.fillStyle = '#ffe23a';                          // the firing line
+      g.fillRect(lx0, ty - T / 2, 2, T);
+      g.font = '900 6px Consolas, monospace';
+      g.textAlign = 'center';
+      g.fillStyle = 'rgba(255,226,58,0.6)';
+      g.fillText('RANGE', lx0 + laneW / 2, ty - T / 2 - 3);
+      g.textAlign = 'left';
+      g.fillStyle = '#c8a05a';                          // spent brass
+      for (let s = 0; s < 6; s++) {
+        const sh = gtaHash(s, 77);
+        g.fillRect(lx0 + 4 + (sh % (laneW - 8)), ty - T / 2 + 3 + ((sh >>> 6) % (T - 6)), 1.5, 1);
+      }
+    }
+    const reg = pts.bars[Math.floor(pts.bars.length / 2)];
+    if (reg) {                                          // the register
+      g.fillStyle = '#14161c';
+      g.fillRect(reg.x - ox + 6, reg.y - oy - 6, 8, 7);
+      g.fillStyle = '#39ff7a';
+      g.fillRect(reg.x - ox + 7, reg.y - oy - 5, 6, 2);
+    }
   }
 
   // the cast
@@ -2380,24 +2677,54 @@ function gtaDrawInterior() {
     for (let i = 0; i < pts.poles.length; i++) {
       gtaDrawDancer(g, pts.poles[i].x - ox, pts.poles[i].y - oy, t + i * 2.1, gta.tipHype);
     }
-    if (pts.dj) { // headphones on, head down
+    for (const st of pts.stools) { // regulars hold down the bar
+      const h = gtaHash(st.tc, st.tr);
+      if (h % 2 === 0) gtaDrawSeated(g, st.x - ox, st.y - oy - 2, GTA_PED_COLS[h % 5], GTA_PED_OUTFITS[(h >>> 4) % 9], t + h % 5, false);
+    }
+    if (pts.dj) { // headphones on, head down, EQ live
       gtaDrawSeated(g, pts.dj.x - ox, pts.dj.y - oy, '#e0b870', '#20242e', t * 2.4, false);
       g.fillStyle = '#3ad4ff';
       g.fillRect(pts.dj.x - ox - 3, pts.dj.y - oy - 4, 6, 1.5);
+      g.fillStyle = I.trim;
+      for (let eb = 0; eb < 4; eb++) {
+        const hgt = 1.5 + Math.abs(Math.sin(t * 5 + eb * 1.1)) * 4;
+        g.fillRect(pts.dj.x - ox - 6 + eb * 3, pts.dj.y - oy + 10 - hgt, 2, hgt);
+      }
       if (Math.floor(t * 2) % 2 === 0) {
         g.fillStyle = '#ff2fa0';
         g.font = '900 7px Consolas, monospace';
         g.fillText('♪', pts.dj.x - ox + 7, pts.dj.y - oy - 6);
       }
     }
-    if (pts.vip) gtaDrawSeated(g, pts.vip.x - ox, pts.vip.y - oy, '#c8a05a', '#14161c', t, true);
+    if (pts.vip) {
+      gtaDrawSeated(g, pts.vip.x - ox, pts.vip.y - oy, '#c8a05a', '#14161c', t, true);
+      // stanchions + velvet rope: the VIP corner is a corner you earn
+      const rx = pts.vip.x - ox + 17, ry = pts.vip.y - oy;
+      const post = (px, py) => {
+        g.strokeStyle = '#8a92a8'; g.lineWidth = 1.2;
+        g.beginPath(); g.moveTo(px, py - 5); g.lineTo(px, py + 2); g.stroke();
+        g.fillStyle = '#ffd23a';
+        g.fillRect(px - 1.5, py - 7, 3, 3);
+      };
+      post(rx, ry - 12); post(rx, ry + 12);
+      g.strokeStyle = '#ff2fa0';
+      g.lineWidth = 1.4;
+      g.beginPath(); g.moveTo(rx, ry - 10); g.quadraticCurveTo(rx + 4, ry, rx, ry + 10); g.stroke();
+    }
     // bouncer holds the door
     gtaDrawSeated(g, pts.exit.x - ox + 26, pts.exit.y - oy - 6, '#c8a05a', '#1c2230', t * 0.5, false);
   }
   if (gta.interior === 'noodle') {
-    // the cook works the pots behind the counter
+    // the cook works the pots behind the counter, stirring forever
     const cook = pts.bars[Math.floor(pts.bars.length / 2)];
-    if (cook) gtaDrawSeated(g, cook.x - ox, cook.y - oy - 10, '#f0cc8a', '#e8ecf4', t * 1.6, false);
+    if (cook) {
+      gtaDrawSeated(g, cook.x - ox, cook.y - oy - 10, '#f0cc8a', '#e8ecf4', t * 1.6, false);
+      g.strokeStyle = '#e8ecf4';
+      g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(cook.x - ox, cook.y - oy - 11); g.lineTo(cook.x - ox + Math.sin(t * 3.2) * 4, cook.y - oy - 17); g.stroke();
+      g.fillStyle = '#c23a3a'; // headband
+      g.fillRect(cook.x - ox - 2.5, cook.y - oy - 14.5, 5, 1.5);
+    }
   }
   if (gta.interior === 'ammu') {
     const clerk = pts.bars[Math.floor(pts.bars.length / 2)];
@@ -2408,6 +2735,45 @@ function gtaDrawInterior() {
     const h = gtaHash(tb.tc, tb.tr);
     if (h % 3 === 0) gtaDrawSeated(g, tb.x - ox, tb.y - oy - 11, GTA_PED_COLS[h % 5], GTA_PED_OUTFITS[h % 9], t + h % 7, false);
     if (h % 4 === 1) gtaDrawSeated(g, tb.x - ox, tb.y - oy + 11, GTA_PED_COLS[(h >>> 3) % 5], GTA_PED_OUTFITS[(h >>> 5) % 9], t + h % 5, false);
+  }
+
+  // overhead fixtures hang above the cast: lanterns in the diner, tubes at ammu
+  if (gta.interior === 'noodle') {
+    const roomW = I.rows[0].length * T;
+    for (let li = 0; li < 2; li++) {
+      const ly = O.y + (3.4 + li * 2.8) * T - oy;
+      for (let lx = T * 2.5; lx < roomW - T * 1.5; lx += T * 3.5) {
+        const sw = Math.sin(t * 1.4 + lx * 0.05 + li * 2) * 1.6;
+        const px = O.x + lx - ox + sw;
+        gtaIntPool(g, px, ly + 4, 18, '255,140,60', 0.08);
+        g.strokeStyle = 'rgba(0,0,0,0.4)'; // string, still swinging a little
+        g.lineWidth = 1;
+        g.beginPath(); g.moveTo(px - sw, ly - 9); g.lineTo(px, ly - 4); g.stroke();
+        g.fillStyle = '#c23a3a';           // paper lantern
+        g.beginPath(); g.ellipse(px, ly, 3, 3.6, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#e05252';
+        g.beginPath(); g.ellipse(px - 0.8, ly, 1.2, 3, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = 'rgba(0,0,0,0.35)';  // caps
+        g.fillRect(px - 1.5, ly - 4.5, 3, 1.2); g.fillRect(px - 1.5, ly + 3.4, 3, 1.2);
+        g.fillStyle = '#ffd23a';           // tassel
+        g.fillRect(px - 0.5, ly + 4.6, 1, 2);
+      }
+    }
+  }
+  if (gta.interior === 'ammu') {
+    const roomW = I.rows[0].length * T;
+    for (let li = 0; li < 2; li++) {
+      const ly = O.y + (2.6 + li * 3.4) * T - oy;
+      const flick = gtaHash(li, (t * 9) | 0) % 13 === 0 ? 0.25 : 0.75; // one ballast is dying
+      for (let lx = T * 1.5; lx < roomW - T * 2.5; lx += T * 4) {
+        const px = O.x + lx - ox;
+        g.fillStyle = 'rgba(150,190,255,' + (flick * 0.2).toFixed(2) + ')';
+        g.fillRect(px - 3, ly - 2, T * 2 + 6, 6);
+        g.fillStyle = 'rgba(210,230,255,' + flick.toFixed(2) + ')';
+        g.fillRect(px, ly, T * 2, 2);
+        gtaIntPool(g, px + T, ly + 5, 24, '170,205,255', 0.05);
+      }
+    }
   }
 
   // EXIT mat label
