@@ -197,6 +197,9 @@ const gta = {
   cam: { x: 0, y: 0 },
   keys: {},
   handbrake: false,
+  steerMode: 'point',    // 'point' = hold where you want to GO (default) · 'classic' = GTA1 rotate (T toggles; persisted)
+  backing: false,        // point-mode: mid back-out from a behind-you target
+  mouse: null,           // {cx, cy, down} — point-mode drives toward the cursor
   pickups: [],           // {c, r, gold, taken, respawn}
   skids: [],             // ring buffer of {x, y, a, life}
   cars: [],              // traffic + parked + wrecks: {x,y,a,dir,v,cls,col,hp,parked,wreck,nd,...}
@@ -577,6 +580,9 @@ function syncGta() {
     gta.mapOpen = false;
     gta.touch = { stick: null, roles: {} };
     gta.ringSndT = 0;
+    gta.backing = false;
+    gta.mouse = { cx: 0, cy: 0, down: false };
+    try { gta.steerMode = localStorage.getItem('nugGtaSteer') === 'classic' ? 'classic' : 'point'; } catch (e) { gta.steerMode = 'point'; }
     try { gta.radioSt = Math.min(3, Math.max(0, +(localStorage.getItem('nugGtaRadio') || 0) || 0)); } catch (e) { gta.radioSt = 0; }
     try { gta.prog = Math.max(0, +(localStorage.getItem('nugGtaProg') || 0) || 0); } catch (e) { gta.prog = 0; }
     gta.car.cls = 'compact';
@@ -2139,8 +2145,55 @@ function gtaStepPlayerCar(dt) {
   let vf = car.vx * cos + car.vy * sin;
   let vl = -car.vx * sin + car.vy * cos;
 
-  // Throttle / brake / reverse
-  const gas = (gta.keys.up ? 1 : 0), rev = (gta.keys.down ? 1 : 0);
+  // ---- input interpretation: two steering schemes, one set of physics -----
+  // POINT (default): hold the direction you want to GO — screen-relative,
+  // like on foot — and the car steers itself there. The opposite direction
+  // brakes, then backs the car out until the nose can come around.
+  // CLASSIC (T toggles): ↑ throttle, ↓ brake/reverse, ←→ rotate. GTA 1 rules.
+  let gas = 0, rev = 0, steer = 0;
+  if (gta.steerMode === 'classic') {
+    gas = gta.keys.up ? 1 : 0;
+    rev = gta.keys.down ? 1 : 0;
+    steer = (gta.keys.left ? -1 : 0) + (gta.keys.right ? 1 : 0);
+    gta.backing = false;
+  } else {
+    // desired heading: analog stick first, then arrows (8-way), then cursor
+    let want = null;
+    const st = gta.isTouch && gta.touch && gta.touch.stick;
+    if (st && Math.hypot(st.dx, st.dy) > 0.3) want = Math.atan2(st.dy, st.dx);
+    else {
+      const ix = (gta.keys.right ? 1 : 0) - (gta.keys.left ? 1 : 0);
+      const iy = (gta.keys.down ? 1 : 0) - (gta.keys.up ? 1 : 0);
+      if (ix || iy) want = Math.atan2(iy, ix);
+      else if (gta.mouse && gta.mouse.down) {
+        const wx = gta.cam.x + (gta.mouse.cx / gta.scale - gta.W / 2);
+        const wy = gta.cam.y + (gta.mouse.cy / gta.scale - gta.Hh / 2);
+        if (Math.hypot(wx - car.x, wy - car.y) > 14) want = Math.atan2(wy - car.y, wx - car.x);
+      }
+    }
+    if (want === null) gta.backing = false;
+    else {
+      let da = want - car.a;
+      while (da > Math.PI) da -= 2 * Math.PI;
+      while (da < -Math.PI) da += 2 * Math.PI;
+      const off = Math.abs(da);
+      // hysteresis so the back-out doesn't flicker at the boundary
+      if (!gta.backing && off > 2.6 && vf < 25) gta.backing = true;
+      if (gta.backing && off < 1.9) gta.backing = false;
+      if (gta.backing) {
+        // target's behind: reverse toward it. sf < 0 flips steering, so aim
+        // the TAIL at the target and let the sign flip bring the nose around.
+        rev = 1;
+        const db = da > 0 ? da - Math.PI : da + Math.PI;
+        steer = -Math.max(-1, Math.min(1, db * 2.5));
+      } else if (off > 2.6) {
+        rev = 1; // coming in hot the wrong way: brake first
+      } else {
+        steer = Math.max(-1, Math.min(1, da * 2.5));
+        gas = 1;
+      }
+    }
+  }
   if (gas) vf = Math.min(C.maxFwd * tireK, vf + C.accel * dt);
   if (rev) {
     if (vf > 8) vf = Math.max(0, vf - C.brake * dt);        // rolling: brake first
@@ -2152,7 +2205,6 @@ function gtaStepPlayerCar(dt) {
   vl *= Math.exp(-(gta.handbrake ? C.drift : C.grip * tireK) * dt);
 
   // Steering scales with speed (no curb-parked pirouettes), flips in reverse.
-  const steer = (gta.keys.left ? -1 : 0) + (gta.keys.right ? 1 : 0);
   const sf = Math.max(-1, Math.min(1, vf / 90));
   car.a += steer * C.steer * sf * dt;
 
@@ -3699,10 +3751,12 @@ function gtaDrawTitle(g, W, Hh) {
   g.fillStyle = '#9aa3c7';
   g.fillText('welcome to nuggetown. population: crispy.', W / 2, Hh * 0.56);
   g.fillStyle = '#eef2ff';
-  g.fillText('↑↓ drive · ←→ steer · SPACE handbrake/punch', W / 2, Hh * 0.64);
+  g.fillText(gta.steerMode === 'point'
+    ? 'ARROWS/WASD — hold where you want to GO · SPACE handbrake/punch'
+    : '↑↓ drive · ←→ steer · SPACE handbrake/punch', W / 2, Hh * 0.64);
   g.fillText('E in/out of cars · SHIFT sprint · F fire · Q weapons', W / 2, Hh * 0.71);
   g.fillStyle = '#ffd23a';
-  g.fillText('📞 phones = work · 📻 R radio · 🗺 M map', W / 2, Hh * 0.78);
+  g.fillText('📞 phones = work · 📻 R radio · 🗺 M map · 🕹 T steering', W / 2, Hh * 0.78);
   if (Math.floor(gta.t * 2.2) % 2 === 0) {
     g.font = '900 12px Consolas, monospace';
     g.fillStyle = '#ffe23a';
@@ -3743,6 +3797,16 @@ function gtaPress(code) {
   if (code === 'KeyE' || code === 'KeyX') { gtaInteract(); return true; }
   if (code === 'KeyM') { gta.mapOpen = !gta.mapOpen; return true; }
   if (code === 'KeyR') { gtaRadioCycle(); return true; }
+  if (code === 'KeyT') {
+    gta.steerMode = gta.steerMode === 'point' ? 'classic' : 'point';
+    gta.backing = false;
+    try { localStorage.setItem('nugGtaSteer', gta.steerMode); } catch (e) { /* private mode */ }
+    gta.toastMsg = gta.steerMode === 'point'
+      ? '🕹 POINT STEERING — HOLD WHERE YOU WANT TO GO'
+      : '🕹 CLASSIC STEERING — ←→ ROTATE · ↑ GAS';
+    gta.toastT = 3.2;
+    return true;
+  }
   if (code === 'ShiftLeft' || code === 'ShiftRight') { gta.keys.shift = true; return true; }
   return false;
 }
@@ -3763,18 +3827,23 @@ window.addEventListener('keyup', (e) => {
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') gta.keys.shift = false;
 });
 
-// Mouse (desktop convenience): hold to drive, left/right thirds steer.
-function gtaPointer(x, down) {
+// Mouse (desktop convenience). Point steering: hold the button and the car
+// chases the cursor. Classic (and on foot): hold to go, left/right thirds steer.
+function gtaPointer(x, y, down) {
   if (!gtaActive()) return;
+  if (!gta.mouse) gta.mouse = { cx: 0, cy: 0, down: false };
+  gta.mouse.cx = x; gta.mouse.cy = y; gta.mouse.down = down;
   if (!down) { gta.keys.up = false; gta.keys.left = false; gta.keys.right = false; return; }
-  if (gta.phase !== 'play') { gtaPress('Space'); return; }
+  if (gta.phase !== 'play') { gta.mouse.down = false; gtaPress('Space'); return; }
+  if (!gta.onFoot && gta.steerMode === 'point') return; // the cursor IS the wheel
   gta.keys.up = true;
   const t = x / window.innerWidth;
   gta.keys.left = t < 0.38;
   gta.keys.right = t > 0.62;
 }
-gtaWorld.addEventListener('mousedown', (e) => gtaPointer(e.clientX, true));
-window.addEventListener('mouseup', () => gta.on && gtaPointer(0, false));
+gtaWorld.addEventListener('mousedown', (e) => gtaPointer(e.clientX, e.clientY, true));
+gtaWorld.addEventListener('mousemove', (e) => { if (gta.mouse && gta.mouse.down) gtaPointer(e.clientX, e.clientY, true); });
+window.addEventListener('mouseup', (e) => gta.on && gtaPointer(e.clientX || 0, e.clientY || 0, false));
 
 // ---- touch: floating stick + buttons (Sprint 10) -----------------------------
 // First touch flips the on-canvas controls on. The left 60% anchors a

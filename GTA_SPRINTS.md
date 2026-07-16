@@ -715,6 +715,40 @@ damage-state screenshots eyeballed, zero pageerrors/warnings.
   HUD DOM card at common window sizes (the S7 brief card already lives
   with this; the objective flash was moved to 0.42 because of it).
 
+## Sprint 10.6 — POINT STEERING (2026-07-16, Beau's Claude) — controls patch
+
+Beau's second playtest note: rotational steering is "a mind melt" — when
+you're driving west, ← feels like it should mean "go south-er", not
+"rotate". Fixed with a second steering scheme, now the DEFAULT.
+
+**Shipped:** `gta.steerMode` — `'point'` (default) vs `'classic'`, toggled
+on **T** (toast announces, persisted in `nugGtaSteer`). Physics untouched;
+only the input INTERPRETATION branches at the top of `gtaStepPlayerCar`:
+- **POINT**: hold the direction you want to GO (screen-relative, matching
+  on-foot movement). Desired heading comes from the touch stick (analog)
+  → arrows/WASD (8-way) → held mouse cursor (the car chases it), in that
+  priority. Steer = clamped angle error × 2.5, gas while |error| < 2.6.
+- **Opposite direction** = brake while fast, then a BACK-OUT: `gta.backing`
+  (hysteresis: enters > 2.6 rad off + vf < 25, exits < 1.9) reverses with
+  the steer sign flipped (sf < 0 flips it back) so the tail aims at the
+  target and the nose comes around — natural three-point turns. Holding
+  exactly opposite = clean straight reverse.
+- **CLASSIC** = the old ↑ gas / ←→ rotate mapping, byte-for-byte.
+- Mouse in point mode: hold LMB and the car steers toward the cursor
+  (`gta.mouse`, mousemove tracked while held); on foot / classic keeps
+  the old thirds scheme. Title card + storm.js MODE_HINT updated (only
+  non-gta.js change).
+
+**Verified headless:** facing north + hold ← → heading lands on west and
+x falls; hold ↓ → backs out south still facing north (`backing` true);
+moving north fast + hold ↓→ → brakes then swings to a southeast heading
+(screenshot shows the skid arc); T toggles + persists both ways; classic
+rotation regression probed (0.45s hold → CCW as ever). Zero pageerrors.
+
+**Gotcha:** in point mode the touch stick ALSO sets the 8-way key flags
+(kept for classic) — the analog branch reads the stick first so they never
+conflict, but don't "simplify" one away without checking the other scheme.
+
 ---
 
 # 🏙️ SEASON 2 — NUGGETOWN NIGHTS (the next 10 sprints, NOT STARTED)
