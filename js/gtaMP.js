@@ -284,11 +284,28 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindEntry);
   else bindEntry();
 
+  // Read-only positions of remotes sharing our space right now — the interior
+  // darkness pass (gta.js 10.9.1) punches a light hole over each fellow patron
+  // so ghosts don't hide in the gloom. Same filter + interp as drawRemotes.
+  function sameSpaceRemotes() {
+    if (!active() || !remotes.size) return [];
+    const renderT = now() - INTERP_MS;
+    const here = (typeof gta !== 'undefined' && gta.interior) || '';
+    const out = [];
+    for (const r of remotes.values()) {
+      if ((r.interior || '') !== here) continue;
+      const st = sample(r, renderT);
+      if (st) out.push({ x: st.x, y: st.y });
+    }
+    return out;
+  }
+
   // ---- the public hooks gta.js calls ----------------------------------------------
   window.GtaNet = {
     active,
     onStep,
     drawRemotes,
+    sameSpaceRemotes,
     onGameExit() { if (net.active && net.game === 'gta') net.leave(); hideHud(); },
   };
 })();

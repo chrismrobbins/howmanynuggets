@@ -1097,3 +1097,11 @@ re-screenshotted and compared against Beau's complaint shot.
 levers that read on screen are LIGHT (darkness + holes), pattern frequency
 (6-12px, not 1-2px), silhouettes, and MOTION (walking peds). Single-pixel
 detailing is invisible — don't bother.
+
+**Same-day integration with Chris's same-venue sync:** his 21fbb16 draws
+remote ghosts inside the venue right before the local player — i.e. UNDER
+the 10.9.1 darkness, which is correct (they're in the room). So ghosts
+can't lurk unseen in dark corners, gtaMP.js gained a read-only
+`GtaNet.sameSpaceRemotes()` accessor (same filter + interp as drawRemotes)
+and the darkness pass punches a 26px light hole over each fellow patron.
+Guarded, additive, no-op offline — the net stack itself stays Chris's.

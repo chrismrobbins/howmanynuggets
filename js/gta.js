@@ -2989,6 +2989,9 @@ function gtaDrawInterior() {
   // fixtures themselves are drawn AFTER the darkness — they hang above it.
   const LTS = [{ x: gta.ped.x - ox, y: gta.ped.y - oy, r: 30, s: 0.8 }];
   if (pts.exit) LTS.push({ x: pts.exit.x - ox, y: pts.exit.y - oy, r: 22, s: 0.85 });
+  if (window.GtaNet && GtaNet.sameSpaceRemotes) { // online: fellow patrons glow too
+    for (const rp of GtaNet.sameSpaceRemotes()) LTS.push({ x: rp.x - ox, y: rp.y - oy, r: 26, s: 0.7 });
+  }
   let dark = 'rgba(10,3,16,0.62)';
   const lanterns = [], tubes = [];
   if (gta.interior === 'strip' && pts.stage) {
