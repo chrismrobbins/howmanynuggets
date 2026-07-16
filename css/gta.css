@@ -47,8 +47,7 @@ body.gta-mode #gtaWorld { display: block; }
 /* ---- Free-roam online overlay (Season 2, Sprint 9) ---- */
 .gta-mp-hud {
   position: fixed;
-  top: 8px; left: 50%;
-  transform: translateX(-50%);
+  top: 8px; left: 8px;   /* top-left — the storm HUD card owns top-center */
   z-index: 60;
   display: flex; align-items: center; gap: 0.7rem;
   padding: 0.3rem 0.7rem;

@@ -20,7 +20,7 @@
   const HORN_MS = 400;   // min gap between our own honks
   const KNOWN_CLASSES = ['compact', 'sedan', 'sports', 'bus', 'tanker', 'cruiser', 'van'];
 
-  // pid -> { samples:[{t,x,y,a,f}], cls, col, name, honkT }
+  // pid -> { samples:[{t,x,y,a,f}], cls, col, name }
   const remotes = new Map();
   let lastSend = 0;
   let lastHorn = 0;
@@ -94,7 +94,7 @@
       seen.add(pid);
       const p = players[pid];
       let r = remotes.get(pid);
-      if (!r) { r = { samples: [], cls: 'compact', col: '#c23a3a', name: p.n || 'Nugget', honkT: 0 }; remotes.set(pid, r); }
+      if (!r) { r = { samples: [], cls: 'compact', col: '#c23a3a', name: p.n || 'Nugget' }; remotes.set(pid, r); }
       r.cls = KNOWN_CLASSES.indexOf(p.c) >= 0 ? p.c : 'compact';
       r.col = p.col || r.col;
       r.name = p.n || r.name;
@@ -110,7 +110,6 @@
     if (m.kind === 'honk' && m.pid && m.pid !== net.you) {
       const r = remotes.get(m.pid);
       if (r) {
-        r.honkT = 0.9;
         const s = r.samples[r.samples.length - 1];
         if (s && typeof gta !== 'undefined' && gta.honks) {
           gta.honks.push({ x: s.x, y: s.y, t: 1.1 });
@@ -150,7 +149,10 @@
       if (!st) continue;
       const sx = st.x - ox, sy = st.y - oy;
       if (sx < -40 || sx > W + 40 || sy < -40 || sy > Hh + 40) continue;
-      if (r.honkT > 0) r.honkT -= 0.016;
+      // Ghosts render slightly translucent so YOU (crisp, full-opacity) always
+      // stand out from the crowd — including on foot, where every nug is golden.
+      g.save();
+      g.globalAlpha = 0.82;
       if (st.f) {
         if (typeof gtaDrawPed === 'function') {
           gtaDrawPed(g, sx, sy, { x: st.x, y: st.y, a: st.a, t: renderT / 1000, flee: 0, col: r.col }, false);
@@ -158,7 +160,8 @@
       } else if (typeof gtaDrawVehicle === 'function') {
         gtaDrawVehicle(g, ox, oy, { x: st.x, y: st.y, a: st.a, cls: r.cls, col: r.col }, false);
       }
-      // name tag
+      g.restore();
+      // name tag (full opacity — always legible)
       g.save();
       g.font = '600 6px "Segoe UI", system-ui, sans-serif';
       g.textAlign = 'center';

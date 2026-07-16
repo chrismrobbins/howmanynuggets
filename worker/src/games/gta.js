@@ -61,7 +61,12 @@ export class GtaGame {
       if (typeof msg.c === 'string' && GTA_CLASSES.has(msg.c)) s.cls = msg.c;
       if (typeof msg.col === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(msg.col)) s.col = msg.col;
     } else if (msg.t === 'honk') {
-      // Relay the horn to everyone (the sender ignores its own echo).
+      // Relay the horn to everyone (the sender ignores its own echo), but
+      // throttle per player so a spammer can't amplify one keypress into a
+      // broadcast storm across the whole city.
+      const t = Date.now();
+      if (t - (s.honkAt || 0) < 300) return;
+      s.honkAt = t;
       this.room.event({ kind: 'honk', pid });
     }
   }
