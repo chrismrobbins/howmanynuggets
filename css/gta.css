@@ -48,7 +48,7 @@ body.gta-mode #gtaWorld { display: block; }
 .gta-mp-hud {
   position: fixed;
   top: 8px; left: 8px;   /* top-left — the storm HUD card owns top-center */
-  z-index: 60;
+  z-index: 9995;         /* above #gtaWorld (9990), below the storm HUD chrome */
   display: flex; align-items: center; gap: 0.7rem;
   padding: 0.3rem 0.7rem;
   background: rgba(10, 12, 20, 0.82);

@@ -937,3 +937,8 @@ launches with `GtaNet.active()` false, no errors).
 garage's custom-plate string is S2.1 — wire it into the `xf`/snapshot `n` field
 once it exists). No spectator/quick-match. No online leaderboard yet (that's the
 "minutes survived at 5★" board in S2.10).
+
+**Post-merge fix (Beau's Claude, same day):** the MP pill was invisible in-game
+— `.gta-mp-hud` sat at z-index 60 while `#gtaWorld` is 9990, so the canvas
+covered it. Now 9995 (above the game, below the storm HUD chrome at 9998+).
+Anything overlaid during GTN needs z-index > 9990 — same trap as the pill.
