@@ -659,6 +659,62 @@ free-roam, photo mode, the Dill case-board collectible, DJ voice lines
 **GTN is done: 10 sprints, 12 games in the building, one storm still at
 large. Case open forever. 🚔🍗**
 
+## Sprint 10.5 — FRESH COAT (2026-07-16, Beau's Claude) — season-1 patch
+
+Beau played season 1 and filed three complaints: the people are "just
+squares", missions don't tell you where to go, and carjacking is a silent
+teleport. All three fixed, plus a general graphics pass. Not an S2 sprint —
+S2.1 (WHEELS OF YOUR OWN) is still next.
+
+**Shipped:**
+- **Ped rig rework** (`gtaDrawPed`): shadow ellipse, alternating feet,
+  arms that swing opposite the stride (fleeing pumps both up), an outfit
+  jacket (shoulders ellipse, `GTA_PED_OUTFITS`, ~1 in 5 wears a cap),
+  breading head with fried-crown highlight. New ped fields: `outfit`,
+  `hat`, `daze`. A dazed ped (`daze > 0`) draws SPRAWLED on the tarmac
+  (limbs out, blinking stars) and doesn't step until the timer runs out.
+  Player = golden head + black jacket (`outfit` set in gtaPlaceOnFoot).
+- **Vehicle rework** (`gtaDrawVehicle` + `GTA_BODY_CUT`): dark shell
+  (outline + bumpers) under class-tapered paint (sports get the long nose),
+  hood highlight / darker roof / glass reflections via `gtaShade(hex, k)`
+  (cached — safe per-frame), damage states (crumpled fenders > 40%,
+  spider-cracked glass > 70%), improved wrecks (gutted interior), cop
+  light bar with a real chassis and a red/blue GLOW thrown on the road
+  when lit, brake-light glow on the tarmac while braking.
+- **Carjacking is a scene now** (`gtaEnterCar`): the driver spawns at the
+  door AWAY from the thief (falls back to the near door against a wall),
+  lands with `daze: 0.85` + `flee: 3.4`, yells via the honk-bubble system
+  (`gta.honks` entries take an optional `txt`; `GTA_JACK_YELLS`, cops yell
+  'HEY— FREEZE!'), with `sfxGtaYelp(cop)` + `sfxGtaDoor()` (door thunk also
+  plays on enter/exit).
+- **Mission clarity**: bottom objective PLATE (dark backing + gold border)
+  with step counter (`2/4`), live distance in m, and the step clock;
+  `gtaGpsArrow` — GTA1-style gold arrow orbiting the player pointing at
+  the live marker with a distance tag (hidden < 60px; the ground ring +
+  new pulsing light-beam column take over); "— OBJECTIVE —" center-screen
+  flash for 3s on every step change (`gta.stepFlashT`, set in
+  gtaMissionStepInit, drawn at Hh*0.42 — 0.3 hides behind the storm HUD
+  card); and when idle with phones ringing the plate reads "📞 A PHONE IS
+  RINGING — ANSWER IT (E)" with the same arrows — new players now always
+  have a live objective. Gig HUD got the same plate + arrow treatment.
+- **Crosswalks**: zebra stripes on every road tile flanking an
+  intersection (drawn instead of lane dashes on those tiles).
+
+**Verified headless** (1400×920, swiftshader): carjack probe (swap, bail
+ped daze 0.85 → fleeing at 1.5s, yell txt), THE ERRAND end-to-end with the
+new HUD live (prog saved), NUG-EX gig branch, ped-lineup + cop-glow +
+damage-state screenshots eyeballed, zero pageerrors/warnings.
+
+**Gotchas for the next sprint:**
+- A ringing booth within 40px WINS the E press over carjack/exit — test
+  probes must teleport to open road or set `gta.ringCd = 999` first (bit
+  me twice this sprint).
+- `gtaShade` requires `#rrggbb` input — ped/vehicle cols are all hex; keep
+  it that way or the cache returns 'rgb(NaN…)'.
+- Anything drawn at canvas-y < ~0.35·Hh top-center sits behind the storm
+  HUD DOM card at common window sizes (the S7 brief card already lives
+  with this; the objective flash was moved to 0.42 because of it).
+
 ---
 
 # 🏙️ SEASON 2 — NUGGETOWN NIGHTS (the next 10 sprints, NOT STARTED)

@@ -10,6 +10,9 @@ already bitten someone.
 > NPD heat, weapons, the 11-contract syndicate campaign incl. THE HARBOR
 > JOB, side gigs, the street door, audio/touch/pause-map polish). Build
 > log + per-sprint handoff notes live in `GTA_SPRINTS.md` — which now also
+> Post-season patch 10.5 "FRESH COAT" (2026-07-16): ped/vehicle render
+> rigs rebuilt, carjack bail-out scene, GPS arrow + objective plates,
+> crosswalks. GTA_SPRINTS.md `Sprint 10.5` notes have the details. It also
 > holds the **SEASON 2 — NUGGETOWN NIGHTS plan (10 sprints, NOT STARTED)**:
 > garage + REP, mods, street races, the case board, Dill's chain,
 > procedural contracts, weather, photo mode, and free-roam online on the

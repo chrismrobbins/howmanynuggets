@@ -106,6 +106,25 @@ const GTA_PED_CAP = 22;
 const GTA_DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];           // E S W N
 const GTA_DIR_A = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
 const GTA_PED_COLS = ['#e8c07a', '#d8b06a', '#f0cc8a', '#c8a05a', '#e0b870'];
+// what the citizens wear over the breading (jackets, mostly stolen)
+const GTA_PED_OUTFITS = ['#3a6ac2', '#c23a3a', '#39ff7a', '#ff2fa0', '#8a62c2', '#c2a53a', '#4a9ab0', '#666f88', '#2a8a5a'];
+const GTA_JACK_YELLS = ['HEY!', 'MY CAR!', 'NUGGET!', 'WHY!?', 'NOT AGAIN!'];
+
+// Derive a darker/lighter shade of a #rrggbb color (cached — this runs per
+// car per frame and the palette is small).
+const gtaShadeCache = {};
+function gtaShade(hex, k) {
+  const key = hex + k;
+  let out = gtaShadeCache[key];
+  if (!out) {
+    const n = parseInt(hex.slice(1), 16);
+    const r = Math.min(255, Math.round(((n >> 16) & 255) * k));
+    const g2 = Math.min(255, Math.round(((n >> 8) & 255) * k));
+    const b = Math.min(255, Math.round((n & 255) * k));
+    out = gtaShadeCache[key] = 'rgb(' + r + ',' + g2 + ',' + b + ')';
+  }
+  return out;
+}
 
 // Tile kinds
 const GT_BLDG = 0, GT_ROAD = 1, GT_WALK = 2, GT_GRASS = 3, GT_WATER = 4;
@@ -166,6 +185,7 @@ const gta = {
   boothRing: false,      // a booth is ringing this frame
   ringCd: 0,             // quiet period after a dropped contract
   briefT: 0,             // mission brief card timer
+  stepFlashT: 0,         // "NEW OBJECTIVE" center-screen flash timer
   pierRows: [],          // the two pier rows from gen (missions + S8 use these)
   gig: null,             // side gig: {type, count, time, mk, felon?, need?}
   stormRise: 0,          // 0..1 — how far out of the bay the storm has come
@@ -552,7 +572,7 @@ function syncGta() {
     gta.wsel = 0; gta.fireCd = 0; gta.fireHeld = false; gta.firePress = false;
     gta.shots = []; gta.nades = [];
     gta.wtoastT = 0; gta.ammuCd = 0;
-    gta.mission = null; gta.briefT = 0; gta.ringCd = 0; gta.boothRing = false;
+    gta.mission = null; gta.briefT = 0; gta.ringCd = 0; gta.boothRing = false; gta.stepFlashT = 0;
     gta.gig = null; gta.stormRise = 0;
     gta.mapOpen = false;
     gta.touch = { stick: null, roles: {} };
@@ -781,8 +801,10 @@ function gtaSpawnPed() {
     if (gtaTile(tc, tr) !== GT_WALK) continue;
     gta.peds.push({
       x, y, a: Math.floor(Math.random() * 4) * Math.PI / 2,
-      spd: 15 + Math.random() * 13, t: Math.random() * 10, flee: 0,
+      spd: 15 + Math.random() * 13, t: Math.random() * 10, flee: 0, daze: 0,
       col: GTA_PED_COLS[Math.floor(Math.random() * GTA_PED_COLS.length)],
+      outfit: GTA_PED_OUTFITS[Math.floor(Math.random() * GTA_PED_OUTFITS.length)],
+      hat: Math.random() < 0.22,
     });
     return;
   }
@@ -796,6 +818,8 @@ function gtaPedTileOk(x, y, fleeing) {
 }
 
 function gtaStepPed(p, dt) {
+  // Dazed (yanked out of a car): sit on the tarmac a beat before the flee kicks in.
+  if (p.daze > 0) { p.daze -= dt; return; }
   p.t += dt;
   if (p.flee > 0) p.flee -= dt;
 
@@ -915,7 +939,8 @@ function gtaPlaceOnFoot(x, y) {
     if (!gtaSolidAt(x + s[0], y + s[1])) { px = x + s[0]; py = y + s[1]; break; }
   }
   gta.onFoot = true;
-  gta.ped = { x: px, y: py, a: -Math.PI / 2, vx: 0, vy: 0, t: 0, flee: 0, col: '#ffcf3a' };
+  // the golden nug in the black jacket — that's you
+  gta.ped = { x: px, y: py, a: -Math.PI / 2, vx: 0, vy: 0, t: 0, flee: 0, daze: 0, col: '#ffcf3a', outfit: '#262c3e' };
 }
 
 function gtaDamageCar(car, amt) {
@@ -986,20 +1011,39 @@ function gtaNearestCar(x, y, range) {
   return best;
 }
 
-// Take a car from gta.cars. Occupied ones pay — the driver bails and
-// remembers none of your face.
+// Take a car from gta.cars. Occupied ones pay — the driver gets hauled out
+// the far door, yells about it, sits dazed on the tarmac, then runs.
 function gtaEnterCar(best, fromX, fromY) {
   if (!best.parked) {
+    const BC = GTA_CLASSES[best.cls];
+    // bail out the door AWAY from whoever's doing the yanking
+    const perpA = best.a + Math.PI / 2;
+    const side = ((best.x - fromX) * Math.cos(perpA) + (best.y - fromY) * Math.sin(perpA)) >= 0 ? 1 : -1;
+    let doorA = best.a + side * Math.PI / 2;
+    let dx = best.x + Math.cos(doorA) * (BC.Wd / 2 + 6), dy = best.y + Math.sin(doorA) * (BC.Wd / 2 + 6);
+    if (gtaSolidAt(dx, dy)) { // door's against a wall — tumble out the other one
+      doorA = best.a - side * Math.PI / 2;
+      dx = best.x + Math.cos(doorA) * (BC.Wd / 2 + 6);
+      dy = best.y + Math.sin(doorA) * (BC.Wd / 2 + 6);
+    }
     gta.peds.push({
-      x: best.x + 8, y: best.y + 8, a: Math.atan2(best.y - fromY, best.x - fromX),
-      spd: 20, t: 0, flee: 2.4, col: GTA_PED_COLS[Math.floor(Math.random() * GTA_PED_COLS.length)],
+      x: dx, y: dy, a: doorA, spd: 20, t: 0, flee: 3.4, daze: 0.85,
+      col: GTA_PED_COLS[Math.floor(Math.random() * GTA_PED_COLS.length)],
+      outfit: best.cop ? '#1c3a5e' : GTA_PED_OUTFITS[Math.floor(Math.random() * GTA_PED_OUTFITS.length)],
+      hat: !!best.cop,
     });
+    gta.honks.push({
+      x: best.x, y: best.y, t: 1.5,
+      txt: best.cop ? 'HEY— FREEZE!' : GTA_JACK_YELLS[Math.floor(Math.random() * GTA_JACK_YELLS.length)],
+    });
+    sfxGtaYelp(best.cop);
     gtaPay(15, '🚗', gta.W / 2, gta.Hh * 0.42);
     gtaBanner('🚗 ' + GTA_CLASSES[best.cls].name + ' BOOSTED', 'go', 1.3);
     gtaAddHeat(best.cop ? 1.2 : 0.5); // it's in the game's name
   } else {
     gtaBanner('🚗 ' + GTA_CLASSES[best.cls].name, 'go', 1.1);
   }
+  sfxGtaDoor();
   gta.car = { x: best.x, y: best.y, a: best.a, vx: 0, vy: 0, cls: best.cls, col: best.col, hp: best.hp };
   gta.car.cop = best.cop; // driving a jacked cruiser keeps the livery
   gta.car.mis = best.mis; gta.car.misKey = best.misKey; // cargo rides with you
@@ -1058,6 +1102,7 @@ function gtaInteract() {
     // step out the driver's side (or wherever fits)
     gtaParkPlayerCar();
     gtaPlaceOnFoot(car.x - Math.sin(car.a) * -13, car.y + Math.cos(car.a) * -13);
+    sfxGtaDoor();
   }
 }
 
@@ -1589,6 +1634,7 @@ function gtaMissionStepInit() {
   M.st = { t: 0, close: 0, far: 0, hold: 0 };
   M.time = step.time || 0;
   M.warn = null;
+  gta.stepFlashT = 3; // every new objective announces itself
   if (step.spawn) for (const s of [].concat(step.spawn)) gtaMisCar(s);
 }
 
@@ -1946,6 +1992,19 @@ function sfxGtaSpray() {
 }
 function sfxGtaSting() { // DJ drop / booth answer
   [660, 880, 1320].forEach((f, i) => gtaTone(f, i * 0.05, 0.09, 0.04, 'square'));
+}
+function sfxGtaYelp(cop) { // an ex-driver, mid-opinion
+  if (cop) { // cops yelp lower and mean it
+    gtaTone(340, 0, 0.09, 0.06, 'square', 520);
+    gtaTone(480, 0.11, 0.16, 0.055, 'square', 220);
+  } else {
+    gtaTone(720, 0, 0.08, 0.055, 'square', 1050);
+    gtaTone(560, 0.09, 0.15, 0.05, 'square', 260);
+  }
+}
+function sfxGtaDoor() { // thunk. every car door in nuggetown sounds like this
+  gtaTone(130, 0, 0.045, 0.06, 'sine', 75);
+  gtaTone(68, 0.045, 0.08, 0.055, 'sine');
 }
 
 function gtaEngineOn() {
@@ -2491,6 +2550,7 @@ function gtaStepWorld(dt) {
 
   gta.wtoastT = Math.max(0, gta.wtoastT - dt);
   gta.ammuCd = Math.max(0, gta.ammuCd - dt);
+  gta.stepFlashT = Math.max(0, gta.stepFlashT - dt);
 
   // A hurting ride smokes; a dying one spits fire. Consider the Grease Garage.
   if (gta.wastedT <= 0 && !gta.onFoot) {
@@ -2606,9 +2666,18 @@ function gtaDraw() {
         // lane dashes down the middle of each 2-wide road (not at crossings)
         const crossing = gta.vRoad[tc] && gta.hRoad[tr];
         if (!crossing) {
-          g.fillStyle = '#8a8a3a';
-          if (gta.vDash[tc] && gta.vRoad[tc] && (tr & 1) === 0) g.fillRect(x, y + 3, 2, T - 10);
-          if (gta.hDash[tr] && gta.hRoad[tr] && (tc & 1) === 0) g.fillRect(x + 3, y, T - 10, 2);
+          // zebra crosswalks on every leg flanking an intersection
+          if (gta.vRoad[tc] && (gta.hRoad[tr - 1] || gta.hRoad[tr + 1])) {
+            g.fillStyle = 'rgba(210,216,230,0.13)';
+            for (let i = 2; i < T - 3; i += 5) g.fillRect(x + i, y + 2, 3, T - 4);
+          } else if (gta.hRoad[tr] && (gta.vRoad[tc - 1] || gta.vRoad[tc + 1])) {
+            g.fillStyle = 'rgba(210,216,230,0.13)';
+            for (let i = 2; i < T - 3; i += 5) g.fillRect(x + 2, y + i, T - 4, 3);
+          } else {
+            g.fillStyle = '#8a8a3a';
+            if (gta.vDash[tc] && gta.vRoad[tc] && (tr & 1) === 0) g.fillRect(x, y + 3, 2, T - 10);
+            if (gta.hDash[tr] && gta.hRoad[tr] && (tc & 1) === 0) g.fillRect(x + 3, y, T - 10, 2);
+          }
         }
       } else if (k === GT_WALK) {
         if (tc >= GTA_W - 14) {
@@ -2903,6 +2972,13 @@ function gtaDraw() {
       g.strokeStyle = 'rgba(255,210,58,0.3)';
       g.lineWidth = 1;
       g.beginPath(); g.arc(mx, my, r + 5, 0, Math.PI * 2); g.stroke();
+      // a light column over the spot, so it reads from across the screen
+      const beamA = 0.22 + 0.1 * Math.sin(gta.t * 3.4);
+      const bg2 = g.createLinearGradient(mx, my - 46, mx, my);
+      bg2.addColorStop(0, 'rgba(255,210,58,0)');
+      bg2.addColorStop(1, 'rgba(255,210,58,' + beamA.toFixed(3) + ')');
+      g.fillStyle = bg2;
+      g.fillRect(mx - 2, my - 46, 4, 44);
     }
   }
 
@@ -3001,8 +3077,8 @@ function gtaDraw() {
     g.globalAlpha = Math.min(1, hk.t * 2);
     g.textAlign = 'center';
     g.font = '900 8px Consolas, monospace';
-    g.fillStyle = '#ffe23a';
-    g.fillText('HONK!', px, py - 12 - (1.1 - hk.t) * 8);
+    g.fillStyle = hk.txt ? '#ff8a3d' : '#ffe23a'; // yells run hotter than honks
+    g.fillText(hk.txt || 'HONK!', px, py - 12 - (1.1 - hk.t) * 8);
   }
   g.globalAlpha = 1;
 
@@ -3042,12 +3118,22 @@ function gtaDrawBeams(g, cx, cy, a, reach, alpha) {
   }
 }
 
-// Any vehicle in Nuggetown, drawn nose-up and rotated to heading. Class sets
-// the footprint; buses get window strips, tankers get the BATTER barrel.
+// Per-class silhouette: [nose taper, tail taper] in px — how far the paint
+// steps in from the bumpers. Sports cars come to a point; vans don't bother.
+const GTA_BODY_CUT = {
+  compact: [3, 2], sedan: [3, 2], sports: [5, 2], bus: [2, 2],
+  tanker: [2, 1], cruiser: [3, 2], van: [2, 1],
+};
+
+// Any vehicle in Nuggetown, drawn nose-up and rotated to heading. A dark
+// shell reads as outline + bumpers, the paint tapers per class, panels get
+// real shading (bright hood, darker roof), glass reflects the streetlights,
+// hurt cars crumple, and lit cruisers throw actual red/blue light.
 function gtaDrawVehicle(g, ox, oy, v, isPlayer) {
   const C = GTA_CLASSES[v.cls];
   const hw = C.Wd / 2, hl = C.L / 2;
-  const body = v.wreck ? '#16161c' : v.col;
+  const cut = GTA_BODY_CUT[v.cls] || [3, 2];
+  const base = v.wreck ? '#1a1a20' : v.col;
   g.save();
   g.translate(v.x - ox, v.y - oy);
   g.rotate(v.a + Math.PI / 2);
@@ -3059,59 +3145,84 @@ function gtaDrawVehicle(g, ox, oy, v, isPlayer) {
   g.fillRect(-hw - 1, -hl + 1, 2, 4); g.fillRect(hw - 1, -hl + 1, 2, 4);
   g.fillRect(-hw - 1, hl - 5, 2, 4); g.fillRect(hw - 1, hl - 5, 2, 4);
   if (C.L > 26) { g.fillRect(-hw - 1, -2, 2, 4); g.fillRect(hw - 1, -2, 2, 4); }
-  // body
-  g.fillStyle = body;
+  // dark shell: outline + bumpers, corners knocked off
+  g.fillStyle = v.wreck ? '#0e0e12' : gtaShade(base, 0.42);
+  g.fillRect(-hw, -hl + 1, C.Wd, C.L - 2);
   g.fillRect(-hw + 1, -hl, C.Wd - 2, C.L);
-  if (!v.wreck) {
-    g.fillStyle = 'rgba(255,255,255,0.22)';
-    g.fillRect(-hw + 1, -hl, C.Wd - 2, 3); // hood shine
-  }
+  // paint, tapered at nose and tail
+  g.fillStyle = base;
+  g.fillRect(-hw + 1, -hl + cut[0], C.Wd - 2, C.L - cut[0] - cut[1]);
+  g.fillRect(-hw + 2, -hl + 1, C.Wd - 4, cut[0] - 1);
+  g.fillRect(-hw + 2, hl - cut[1], C.Wd - 4, cut[1] - 1);
   if (v.wreck) {
-    // burnt out: cracked shell, no glass, no lights
-    g.fillStyle = '#2a2018';
+    // burnt out: rust-edged shell, gutted interior, glass long gone
+    g.fillStyle = '#241c14';
     g.fillRect(-hw + 2, -hl + 3, C.Wd - 4, 2);
     g.fillRect(-hw + 2, hl - 6, C.Wd - 4, 2);
+    g.fillStyle = '#0a0a0e';
+    g.fillRect(-hw + 2, -hl + 5, C.Wd - 4, 3);
+    g.fillRect(-hw + 3, -2, C.Wd - 6, 5);
     g.restore();
     return;
   }
   if (v.cls === 'bus') {
-    // window strip down each flank
-    g.fillStyle = '#101522';
+    g.fillStyle = gtaShade(base, 0.82); // long flat roof
+    g.fillRect(-hw + 3, -hl + 5, C.Wd - 6, C.L - 11);
+    g.fillStyle = '#101522'; // window strip down each flank
     for (let wy = -hl + 5; wy < hl - 6; wy += 5) {
       g.fillRect(-hw + 1, wy, 2, 3);
       g.fillRect(hw - 3, wy, 2, 3);
     }
     g.fillRect(-hw + 2, -hl + 1, C.Wd - 4, 3); // windshield
+    g.fillStyle = 'rgba(150,190,255,0.28)';
+    g.fillRect(-hw + 2, -hl + 1, C.Wd - 4, 1);
   } else if (v.cls === 'tanker') {
     // cab up front, batter barrel behind (canon: S.W. Logistics)
+    g.fillStyle = gtaShade(base, 1.3);
+    g.fillRect(-hw + 2, -hl + 1, C.Wd - 4, 3); // cab roof
     g.fillStyle = '#101522';
-    g.fillRect(-hw + 2, -hl + 4, C.Wd - 4, 3);
+    g.fillRect(-hw + 2, -hl + 4, C.Wd - 4, 3); // cab glass
+    g.fillStyle = 'rgba(150,190,255,0.28)';
+    g.fillRect(-hw + 2, -hl + 4, C.Wd - 4, 1);
+    // the barrel: rounded steel with a highlight spine and weld bands
+    g.fillStyle = '#8a887c';
+    g.fillRect(-hw + 2, -hl + 8, C.Wd - 4, C.L - 10);
     g.fillStyle = '#c8c4b8';
-    g.fillRect(-hw + 2, -hl + 9, C.Wd - 4, C.L - 11);
+    g.fillRect(-hw + 3, -hl + 8, C.Wd - 6, C.L - 10);
+    g.fillRect(-hw + 2, -hl + 9, C.Wd - 4, C.L - 12);
+    g.fillStyle = '#dedbd0';
+    g.fillRect(-1, -hl + 9, 2, C.L - 12);
     g.fillStyle = '#a8a498';
-    g.fillRect(-hw + 2, -hl + 12, C.Wd - 4, 2);
-    g.fillRect(-hw + 2, hl - 8, C.Wd - 4, 2);
+    g.fillRect(-hw + 2, -hl + 12, C.Wd - 4, 1);
+    g.fillRect(-hw + 2, hl - 8, C.Wd - 4, 1);
     g.fillStyle = '#7a3a1a';
-    g.fillRect(-1, -2, 2, 2); // hazard placard: flammable when provoked
+    g.fillRect(-1.5, -2, 3, 3); // hazard placard: flammable when provoked
   } else {
-    // windshield + roof + rear glass
-    g.fillStyle = '#101522';
+    // hood catches the streetlight
+    g.fillStyle = gtaShade(base, 1.32);
+    g.fillRect(-hw + 2, -hl + cut[0] - 1, C.Wd - 4, 2);
+    // windshield + reflection
+    g.fillStyle = '#0e1420';
     g.fillRect(-hw + 2, -hl + 5, C.Wd - 4, 3);
-    g.fillStyle = 'rgba(0,0,0,0.28)';
+    g.fillStyle = 'rgba(150,190,255,0.3)';
+    g.fillRect(-hw + 2, -hl + 5, C.Wd - 4, 1);
+    // roof sits lower in the light than the hood
+    g.fillStyle = gtaShade(base, 0.8);
     g.fillRect(-hw + 2, -hl + 8, C.Wd - 4, C.L - 13);
-    g.fillStyle = '#101522';
+    // rear glass
+    g.fillStyle = '#0e1420';
     g.fillRect(-hw + 2, hl - 5, C.Wd - 4, 2);
     if (v.cls === 'sports') { // go-faster stripe, because of course
-      g.fillStyle = 'rgba(255,255,255,0.35)';
-      g.fillRect(-1, -hl, 2, C.L);
+      g.fillStyle = 'rgba(255,255,255,0.4)';
+      g.fillRect(-1, -hl + 1, 2, C.L - 2);
     }
   }
   // NPD livery: black-and-whites get the black, everyone gets the light bar
   if (v.cop) {
     if (v.cls === 'cruiser') {
       g.fillStyle = '#14161c';
-      g.fillRect(-hw + 1, -hl, C.Wd - 2, 4);
-      g.fillRect(-hw + 1, hl - 4, C.Wd - 2, 4);
+      g.fillRect(-hw + 1, -hl + 1, C.Wd - 2, 3);
+      g.fillRect(-hw + 1, hl - 4, C.Wd - 2, 3);
       g.fillStyle = '#3ad4ff'; // door crest
       g.fillRect(-hw + 1, -1, 1, 2); g.fillRect(hw - 2, -1, 1, 2);
     } else if (v.cls === 'van') {
@@ -3119,47 +3230,111 @@ function gtaDrawVehicle(g, ox, oy, v, isPlayer) {
       g.fillRect(-hw + 1, 1, C.Wd - 2, 1);
     }
     const lit = v.chase || v.lightsOn;
-    const flash = lit && Math.floor(gta.t * 7 + (v.x | 0)) % 2 === 0;
-    g.fillStyle = lit ? (flash ? '#ff4040' : '#5090ff') : '#20242e';
-    g.fillRect(-2, -2, 2, 2);
-    g.fillStyle = lit ? (flash ? '#5090ff' : '#ff4040') : '#20242e';
-    g.fillRect(0, -2, 2, 2);
+    const flash = Math.floor(gta.t * 7 + (v.x | 0)) % 2 === 0;
+    if (lit) { // the bar throws real light on the road
+      g.fillStyle = flash ? 'rgba(255,64,64,0.2)' : 'rgba(80,144,255,0.2)';
+      g.beginPath(); g.arc(0, -1, 9, 0, Math.PI * 2); g.fill();
+    }
+    g.fillStyle = '#14161c'; // bar chassis
+    g.fillRect(-3, -2.2, 6, 2.6);
+    g.fillStyle = lit && flash ? '#ff4040' : '#6a1818';
+    g.fillRect(-2.5, -2, 2.2, 2.2);
+    g.fillStyle = lit && !flash ? '#5090ff' : '#1a3060';
+    g.fillRect(0.3, -2, 2.2, 2.2);
+  }
+  // a hurting ride shows it: crumpled fenders, then a cracked windshield
+  const dmg = 1 - v.hp / C.hp;
+  if (dmg > 0.4) {
+    g.fillStyle = 'rgba(14,10,8,0.62)';
+    g.fillRect(-hw + 1, -hl + 2, 2, 3);
+    g.fillRect(hw - 3, hl - 7, 2, 3);
+    if (dmg > 0.7) {
+      g.fillRect(hw - 3, -hl + 3, 2, 4);
+      g.fillRect(-hw + 1, 1, 2, 4);
+      g.fillStyle = 'rgba(220,235,255,0.45)'; // spider-cracked glass
+      g.fillRect(-1, -hl + 5, 1, 3);
+      g.fillRect(-2, -hl + 6, 3, 1);
+    }
   }
   // headlights
-  g.fillStyle = '#ffe9a0';
+  g.fillStyle = '#fff2c0';
   g.fillRect(-hw + 2, -hl, 2, 1); g.fillRect(hw - 4, -hl, 2, 1);
   // taillights (the player's glow under braking/handbrake)
-  g.fillStyle = (isPlayer && (gta.keys.down || gta.handbrake)) ? '#ff5252' : '#7a1d1d';
+  const braking = isPlayer && (gta.keys.down || gta.handbrake);
+  g.fillStyle = braking ? '#ff5252' : '#7a1d1d';
   g.fillRect(-hw + 2, hl - 1, 2, 1); g.fillRect(hw - 4, hl - 1, 2, 1);
+  if (braking) { // brake glow on the wet tarmac
+    g.fillStyle = 'rgba(255,60,60,0.16)';
+    g.fillRect(-hw + 1, hl, C.Wd - 2, 3);
+  }
   g.restore();
 }
 
-// A nugget about town: 5px of breading with places to be. Rotated to heading,
-// feet alternating; fleeing nugs put their little arms up. The player is the
-// golden one — punches jab forward, taking damage blinks red.
+// A nugget about town, seen from above: shadow, alternating feet, a jacket
+// with swinging arms, and a golden-fried head on top. Fleeing nugs pump both
+// arms forward; dazed ex-drivers sit sprawled on the tarmac. The player is
+// the golden one in the black jacket — punches jab forward, damage blinks red.
 function gtaDrawPed(g, px, py, p, isPlayer) {
+  const outfit = p.outfit || '#666f88';
+  const hurt = isPlayer && gta.hurtI > 0.3 && Math.floor(gta.t * 14) % 2 === 0;
+  const head = hurt ? '#ff5252' : p.col;
   g.save();
   g.translate(px, py);
   g.rotate(p.a + Math.PI / 2);
+  // shadow
   g.fillStyle = 'rgba(0,0,0,0.35)';
-  g.fillRect(-3, -3, 6, 7);
+  g.beginPath(); g.ellipse(0, 0.5, 4.2, 3.4, 0, 0, Math.PI * 2); g.fill();
+  if (p.daze > 0) {
+    // freshly carjacked: flat on the road, limbs everywhere, dignity gone
+    g.fillStyle = gtaShade(outfit, 0.8);
+    g.fillRect(-5, -1, 10, 2.5);                       // arms out wide
+    g.fillStyle = '#2a1c10';
+    g.fillRect(-2.5, 2.5, 2, 2.5); g.fillRect(0.5, 3, 2, 2.5); // legs out back
+    g.fillStyle = outfit;
+    g.beginPath(); g.ellipse(0, 0.5, 3.4, 2.6, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = head;
+    g.beginPath(); g.arc(0, -1.5, 2.3, 0, Math.PI * 2); g.fill();
+    if (Math.floor(gta.t * 5) % 2 === 0) { // seeing little nuggets
+      g.fillStyle = '#ffe23a';
+      g.fillRect(-4, -5, 1, 1); g.fillRect(3, -4, 1, 1);
+    }
+    g.restore();
+    return;
+  }
   const step = Math.sin(p.t * (p.flee > 0 ? 22 : 11));
-  g.fillStyle = '#3a2a18'; // little shoes
-  g.fillRect(-2, -4 + (step > 0 ? -1 : 0), 2, 2);
-  g.fillRect(1, -4 + (step > 0 ? 0 : -1), 2, 2);
-  g.fillStyle = (isPlayer && gta.hurtI > 0.3 && Math.floor(gta.t * 14) % 2 === 0)
-    ? '#ff5252' : p.col;
-  g.fillRect(-2, -3, 5, 6); // the nug itself
-  g.fillStyle = 'rgba(255,255,255,0.25)';
-  g.fillRect(-2, -3, 5, 2); // golden-fried crown
+  // feet, alternating fore/aft along the walk direction
+  g.fillStyle = '#241a10';
+  g.fillRect(-2.2, -1.5 + step * 2, 2, 2.2);
+  g.fillRect(0.4, -1.5 - step * 2, 2, 2.2);
+  // arms: swing opposite the feet; fleeing pumps both up past the shoulders
+  g.fillStyle = gtaShade(outfit, 0.78);
+  if (p.flee > 0) {
+    g.fillRect(-4.6, -2.5 + (step > 0 ? -0.8 : 0), 2, 2.6);
+    g.fillRect(2.6, -2.5 + (step > 0 ? 0 : -0.8), 2, 2.6);
+  } else {
+    g.fillRect(-4.4, -1.4 - step * 1.7, 1.8, 2.6);
+    g.fillRect(2.6, -1.4 + step * 1.7, 1.8, 2.6);
+  }
+  // shoulders/jacket (outline first so the body pops off the pavement)
+  g.fillStyle = gtaShade(outfit, 0.5);
+  g.beginPath(); g.ellipse(0, 0.4, 3.9, 3, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = outfit;
+  g.beginPath(); g.ellipse(0, 0.4, 3.3, 2.5, 0, 0, Math.PI * 2); g.fill();
+  // the head: breading, slightly forward, with a fried crown highlight
+  g.fillStyle = gtaShade(head, 0.62);
+  g.beginPath(); g.arc(0, -0.8, 2.8, 0, Math.PI * 2); g.fill();
+  g.fillStyle = head;
+  g.beginPath(); g.arc(0, -0.8, 2.3, 0, Math.PI * 2); g.fill();
+  if (p.hat) { // some nugs wear a cap (all cops do)
+    g.fillStyle = gtaShade(outfit, 0.62);
+    g.beginPath(); g.arc(0, -0.8, 1.7, 0, Math.PI * 2); g.fill();
+  } else {
+    g.fillStyle = 'rgba(255,255,255,0.3)';
+    g.beginPath(); g.arc(-0.7, -1.6, 1, 0, Math.PI * 2); g.fill();
+  }
   if (isPlayer && gta.punchAnim > 0) { // the people's fist
     g.fillStyle = '#eef2ff';
-    g.fillRect(0, -8, 2, 4);
-  }
-  if (p.flee > 0) { // arms up, wobbling
-    g.fillStyle = p.col;
-    g.fillRect(-4, -2 + (step > 0 ? -1 : 0), 2, 2);
-    g.fillRect(3, -2 + (step > 0 ? 0 : -1), 2, 2);
+    g.fillRect(-0.5, -8.5, 2.4, 4.5);
   }
   g.restore();
 }
@@ -3309,58 +3484,85 @@ function gtaDrawHud(g, W, Hh) {
     g.globalAlpha = 1;
   }
 
-  // The contract: objective bottom-center, clock above it, warnings flashing.
-  if (gta.mission && gta.mission.st) {
-    const M = gta.mission, step = M.def.steps[M.si];
+  // Objective guidance: a backed plate bottom-center (step counter + text +
+  // clock + live distance), the GPS arrow orbiting the player, an edge arrow
+  // for offscreen markers, and a center flash whenever the objective changes.
+  const objPlate = (line, col) => {
     g.textAlign = 'center';
     g.font = '900 9px Consolas, monospace';
-    g.fillStyle = '#ffd23a';
-    let line = step.text;
+    const tw = Math.min(W - 20, g.measureText(line).width);
+    g.fillStyle = 'rgba(4,4,12,0.74)';
+    g.fillRect(W / 2 - tw / 2 - 7, Hh - 19, tw + 14, 14);
+    g.strokeStyle = 'rgba(255,210,58,0.45)';
+    g.lineWidth = 1;
+    g.strokeRect(W / 2 - tw / 2 - 6.5, Hh - 18.5, tw + 13, 13);
+    g.fillStyle = col || '#ffd23a';
+    g.fillText(line, W / 2, Hh - 9, W - 24);
+  };
+  const Pme = gtaPlayerPos();
+  if (gta.mission && gta.mission.st) {
+    const M = gta.mission, step = M.def.steps[M.si];
+    let line = (M.si + 1) + '/' + M.def.steps.length + '  ' + step.text;
     if (step.dur) {
       const held = (step.kind === 'watch' || step.kind === 'heathold') ? M.st.hold : M.st.t;
       line += ' · ' + Math.max(0, Math.ceil(step.dur - held)) + 's';
     }
-    g.fillText(line, W / 2, Hh - 8);
+    if (M.mk && (step.kind === 'go' || step.kind === 'jack')) {
+      const d = Math.round(Math.hypot(M.mk.x - Pme.x, M.mk.y - Pme.y));
+      if (d > 60) line += ' · ' + d + 'm';
+    }
+    if (M.mk) { gtaEdgeArrow(g, W, Hh, M.mk); gtaGpsArrow(g, W, Hh, M.mk); }
+    objPlate(line);
     if (M.warn && Math.floor(gta.t * 5) % 2 === 0) {
+      g.font = '900 9px Consolas, monospace';
       g.fillStyle = '#ff5252';
-      g.fillText('⚠ ' + M.warn, W / 2, Hh - 20);
+      g.fillText('⚠ ' + M.warn, W / 2, Hh - 24);
     } else if (M.time > 0) {
       g.font = '900 11px Consolas, monospace';
       g.fillStyle = M.time < 12 && Math.floor(gta.t * 4) % 2 === 0 ? '#ff5252' : '#eef2ff';
-      g.fillText('⏱ ' + Math.ceil(M.time), W / 2, Hh - 20);
+      g.fillText('⏱ ' + Math.ceil(M.time), W / 2, Hh - 24);
     }
-    if (M.mk) gtaEdgeArrow(g, W, Hh, M.mk);
+    // the flash: a new objective takes the middle of the screen for a beat
+    if (gta.stepFlashT > 0 && gta.briefT <= 0) {
+      g.globalAlpha = Math.min(1, gta.stepFlashT * 1.4);
+      g.textAlign = 'center';
+      g.font = '900 8px Consolas, monospace';
+      g.fillStyle = '#9aa3c7';
+      g.fillText('— OBJECTIVE —', W / 2, Hh * 0.42 - 11);
+      g.font = '900 12px Consolas, monospace';
+      g.fillStyle = '#ffd23a';
+      g.fillText(step.text, W / 2, Hh * 0.42 + 2, W - 30);
+      g.globalAlpha = 1;
+    }
   } else if (gta.gig) {
     // gig line: same slot, different boss
     const G = gta.gig;
-    g.textAlign = 'center';
-    g.font = '900 9px Consolas, monospace';
-    g.fillStyle = '#ffd23a';
-    const label = G.type === 'nugex' ? '📦 NUG-EX DROP · ' + G.count + ' DELIVERED'
+    let label = G.type === 'nugex' ? '📦 NUG-EX DROP · ' + G.count + ' DELIVERED'
       : G.type === 'vigil' ? '🚨 STOP THE FELON · ' + G.count + ' COLLARED'
       : '💀 RAMPAGE · ' + G.count + '/' + G.need;
-    g.fillText(label, W / 2, Hh - 8);
+    if (G.mk) {
+      const d = Math.round(Math.hypot(G.mk.x - Pme.x, G.mk.y - Pme.y));
+      if (d > 60) label += ' · ' + d + 'm';
+      gtaEdgeArrow(g, W, Hh, G.mk);
+      gtaGpsArrow(g, W, Hh, G.mk);
+    }
+    objPlate(label);
     g.font = '900 11px Consolas, monospace';
     g.fillStyle = G.time < 10 && Math.floor(gta.t * 4) % 2 === 0 ? '#ff5252' : '#eef2ff';
-    g.fillText('⏱ ' + Math.max(0, Math.ceil(G.time)), W / 2, Hh - 20);
-    if (G.mk) gtaEdgeArrow(g, W, Hh, G.mk);
+    g.fillText('⏱ ' + Math.max(0, Math.ceil(G.time)), W / 2, Hh - 24);
   } else if (gta.boothRing) {
-    // between jobs: point at the nearest ringing phone
+    // between jobs the phone IS the objective — say so, point at it
     let bb = null, bd = Infinity;
     for (const b of gta.booths) {
       const bx = (b.c + 0.5) * GTA_TILE, by = (b.r + 0.5) * GTA_TILE;
-      const d2 = (bx - gta.cam.x) * (bx - gta.cam.x) + (by - gta.cam.y) * (by - gta.cam.y);
+      const d2 = (bx - Pme.x) * (bx - Pme.x) + (by - Pme.y) * (by - Pme.y);
       if (d2 < bd) { bd = d2; bb = { x: bx, y: by }; }
     }
-    if (bb && (Math.abs(bb.x - gta.cam.x) > W / 2 - 10 || Math.abs(bb.y - gta.cam.y) > Hh / 2 - 10)) {
-      const rx = bb.x - gta.cam.x, ry = bb.y - gta.cam.y;
-      const k = Math.min((W / 2 - 16) / Math.max(1, Math.abs(rx)), (Hh / 2 - 16) / Math.max(1, Math.abs(ry)));
-      if (Math.floor(gta.t * 3) % 2 === 0) {
-        g.textAlign = 'center';
-        g.font = '900 9px Consolas, monospace';
-        g.fillStyle = '#ffd23a';
-        g.fillText('📞', W / 2 + rx * k, Hh / 2 + ry * k + 3);
-      }
+    if (bb) {
+      const d = Math.round(Math.sqrt(bd));
+      gtaEdgeArrow(g, W, Hh, bb);
+      gtaGpsArrow(g, W, Hh, bb);
+      objPlate('📞 A PHONE IS RINGING — ANSWER IT (E)' + (d > 60 ? ' · ' + d + 'm' : ''), '#3ad4ff');
     }
   }
 
@@ -3419,6 +3621,34 @@ function gtaDrawMap(g, W, Hh) {
   g.font = '700 8px Consolas, monospace';
   g.fillStyle = '#9aa3c7';
   g.fillText('M — BACK TO THE STREET', W / 2, Hh - 3);
+}
+
+// The GTA1 answer to "where do I go": a gold arrow orbiting the player,
+// always pointing at the live objective, with the distance riding past it.
+function gtaGpsArrow(g, W, Hh, mk) {
+  const P = gtaPlayerPos();
+  const dx = mk.x - P.x, dy = mk.y - P.y;
+  const d = Math.hypot(dx, dy);
+  if (d < 60) return; // you're basically there — the ground ring takes over
+  const a = Math.atan2(dy, dx);
+  const sx = W / 2 + (P.x - gta.cam.x), sy = Hh / 2 + (P.y - gta.cam.y);
+  const r = 24 + Math.sin(gta.t * 3.2) * 2.5;
+  const ax = sx + Math.cos(a) * r, ay = sy + Math.sin(a) * r;
+  g.save();
+  g.translate(ax, ay);
+  g.rotate(a);
+  g.fillStyle = 'rgba(5,5,12,0.55)'; // dark backing so it reads on any road
+  g.beginPath(); g.moveTo(11, 0); g.lineTo(-6, -7); g.lineTo(-2.5, 0); g.lineTo(-6, 7); g.closePath(); g.fill();
+  g.fillStyle = '#ffd23a';
+  g.beginPath(); g.moveTo(9, 0); g.lineTo(-5, -5.5); g.lineTo(-2, 0); g.lineTo(-5, 5.5); g.closePath(); g.fill();
+  g.restore();
+  const tx = sx + Math.cos(a) * (r + 14), ty = sy + Math.sin(a) * (r + 14) + 2.5;
+  g.textAlign = 'center';
+  g.font = '900 7px Consolas, monospace';
+  g.fillStyle = 'rgba(5,5,12,0.6)';
+  g.fillRect(tx - 11, ty - 7, 22, 9);
+  g.fillStyle = '#ffe9a0';
+  g.fillText(Math.round(d) + 'm', tx, ty);
 }
 
 // A gold arrow pinned to the screen edge, pointing at an offscreen marker.
