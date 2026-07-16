@@ -18,7 +18,13 @@
 // at walking pace — sprint stamina, a melee punch on SPACE, health measured
 // in breading with re-breading at Noodle Nug carts, pickups on foot, and a
 // proper ejection when your ride goes up with you in it.
-// The NPD and the syndicate arrive in later sprints (see GTA_SPRINTS.md).
+// Sprint 5 (NPD HEAT): the 🚔 emoji was a promise. Wanted stars 1–5, patrol
+// cruisers that lane-follow until you misbehave, free-driving pursuit AI,
+// spike-strip roadblocks at 3★, the armored BATTER VAN at 5★, BUSTED (walk
+// out of NPD HQ, heat gone), and the Grease Garage Pay 'n' Spray (respray
+// takes 3 seconds and costs nothing but your dignity — house rule: the
+// meter never goes down).
+// Weapons and the syndicate arrive in later sprints (see GTA_SPRINTS.md).
 //
 // Rendering is the low-res pixel canvas trick from Battered Brawlers / Fast
 // Food: a ~300px-tall backing store scaled up with image-rendering: pixelated.
@@ -45,6 +51,10 @@ const GTA_CLASSES = {
              cols: ['#c2a53a'] },
   tanker:  { name: 'BATTER TANKER', maxFwd: 150, maxRev: 55, accel: 65, brake: 220, grip: 9.5, drift: 2.6, steer: 1.6, r: 9, hp: 200, cruise: 66, L: 32, Wd: 12,
              cols: ['#d8d4c8'] },
+  cruiser: { name: 'NPD CRUISER', maxFwd: 235, maxRev: 80, accel: 175, brake: 320, grip: 8.6, drift: 1.4, steer: 3.2, r: 7, hp: 120, cruise: 88, L: 20, Wd: 10,
+             cols: ['#e8ecf4'] },
+  van:     { name: 'BATTER VAN', maxFwd: 240, maxRev: 60, accel: 130, brake: 260, grip: 9.8, drift: 2.4, steer: 2.2, r: 9, hp: 400, cruise: 70, L: 26, Wd: 13,
+             cols: ['#1c2230'] },
 };
 
 // What drives where (canon: S.W. Logistics tankers haunt Little Batter and
@@ -101,6 +111,14 @@ const gta = {
   noodleT: 0,            // > 0: currently re-breading at a cart
   noodleCarts: [],       // {c, r} — steam, broth, second chances
   cartT: 0,              // ambient cart-steam throttle
+  heat: 0,               // wanted level, 0..5 continuous; floor() = stars
+  bustT: 0,              // seconds a cop has been on top of a slow/on-foot you
+  bustedT: 0,            // > 0: the BUSTED interlude is playing
+  sprayT: 0,             // > 0: mid-respray at the Grease Garage
+  sprayCd: 0,            // respray cooldown (no camping the garage)
+  blockCd: 0,            // roadblock spawn throttle
+  tiresOut: false,       // spiked: mushy grip until you swap cars or respray
+  strips: [],            // spike strips: {x, y, w, h, life}
   cam: { x: 0, y: 0 },
   keys: {},
   handbrake: false,
@@ -133,7 +151,10 @@ function gtaTally() {
   const state = gta.onFoot
     ? '🍞 ' + Math.round(gta.breading) + '%'
     : Math.round(Math.hypot(gta.car.vx, gta.car.vy) * 0.6) + ' NPH';
-  return '📦 ' + gta.crates + ' · ' + state + ' · ' + GTA_DISTRICTS[gta.district];
+  const stars = gtaStars();
+  return '📦 ' + gta.crates + ' · ' + state +
+    (stars > 0 ? ' · 🚔' + '★'.repeat(stars) : '') +
+    ' · ' + GTA_DISTRICTS[gta.district];
 }
 
 // ---- city generation (seeded — everyone drives the same Nuggetown) -------------------
@@ -408,6 +429,10 @@ function syncGta() {
     gta.stamina = 100;
     gta.punchT = 0; gta.punchAnim = 0;
     gta.hurtI = 0; gta.noodleT = 0; gta.cartT = 0;
+    gta.heat = 0; gta.bustT = 0; gta.bustedT = 0;
+    gta.sprayT = 0; gta.sprayCd = 0; gta.blockCd = 0; gta.copT = 0;
+    gta.tiresOut = false;
+    gta.strips = [];
     gta.car.cls = 'compact';
     gta.car.col = '#c23a3a';
     gta.car.hp = GTA_CLASSES.compact.hp;
@@ -599,11 +624,14 @@ function gtaSpawnTraffic() {
     }
     const nd = gtaNextDecision(sx, sy, dir);
     if (!nd) continue;
-    const cls = gtaPickClass(gtaDistrictAt(tc, tr));
+    // one car in twelve is NPD on patrol (lane-locked until you're wanted)
+    const cop = Math.random() < 0.085;
+    const cls = cop ? 'cruiser' : gtaPickClass(gtaDistrictAt(tc, tr));
     const C = GTA_CLASSES[cls];
     gta.cars.push({
       x: sx, y: sy, a: GTA_DIR_A[dir], dir, v: C.cruise * (0.7 + Math.random() * 0.3),
       cls, col: C.cols[Math.floor(Math.random() * C.cols.length)], hp: C.hp,
+      cop, chase: false,
       parked: false, wreck: false, nd, blockT: 0, hitT: 0, emberT: 0,
     });
     return;
@@ -678,7 +706,10 @@ function gtaCrumb(p, mult, label) {
       q.flee = Math.max(q.flee, 2); q.a = Math.atan2(q.y - p.y, q.x - p.x);
     }
   }
-  if (mult) gtaPay(mult, label, p.x - (gta.cam.x - gta.W / 2), p.y - (gta.cam.y - gta.Hh / 2));
+  if (mult) {
+    gtaPay(mult, label, p.x - (gta.cam.x - gta.W / 2), p.y - (gta.cam.y - gta.Hh / 2));
+    gtaAddHeat(0.4); // someone always calls 555-DILL
+  }
 }
 
 // ---- damage, smoke, and the fireball ---------------------------------------------------
@@ -704,6 +735,7 @@ function gtaExplodeCar(car) {
   // a BATTER tanker going up is a neighborhood event
   const big = car.cls === 'tanker' ? 1.6 : 1;
   const R = 36 * big;
+  if (car.playerHit) gtaAddHeat(car.cop ? 1.4 : 0.8); // that one's on you
   gtaSpawnParts(car.x, car.y, Math.round(22 * big), 'fire');
   gtaSpawnParts(car.x, car.y, Math.round(12 * big), 'smoke');
   gta.decals.push({ x: car.x, y: car.y, type: 'scorch', life: 40, seed: gtaHash(car.x | 0, car.y | 0) });
@@ -793,6 +825,10 @@ function gtaRespawn() {
   gta.breading = 100;
   gta.stamina = 100;
   gta.hurtI = 1;
+  gta.heat = 0; // the NPD doesn't bill hospital beds
+  gta.bustT = 0;
+  gta.tiresOut = false;
+  for (const o of gta.cars) if (o.chase) { o.chase = false; o.parked = true; o.v = 0; }
   gta.cam.x = gta.ped.x; gta.cam.y = gta.ped.y;
   gtaBanner('🏥 NUGGET GENERAL', 'go', 1.6);
 }
@@ -819,12 +855,15 @@ function gtaEnterCar(best, fromX, fromY) {
     });
     gtaPay(15, '🚗', gta.W / 2, gta.Hh * 0.42);
     gtaBanner('🚗 ' + GTA_CLASSES[best.cls].name + ' BOOSTED', 'go', 1.3);
+    gtaAddHeat(best.cop ? 1.2 : 0.5); // it's in the game's name
   } else {
     gtaBanner('🚗 ' + GTA_CLASSES[best.cls].name, 'go', 1.1);
   }
   gta.car = { x: best.x, y: best.y, a: best.a, vx: 0, vy: 0, cls: best.cls, col: best.col, hp: best.hp };
+  gta.car.cop = best.cop; // driving a jacked cruiser keeps the livery
   gta.cars.splice(gta.cars.indexOf(best), 1);
   gta.onFoot = false;
+  gta.tiresOut = false; // different car, different tires
 }
 
 // Your ride stays at the curb, exactly as you left it.
@@ -865,6 +904,210 @@ function gtaFootAction() {
   else gtaPunch();
 }
 
+// ---- NPD HEAT --------------------------------------------------------------------------
+// Someone always calls 555-DILL. Heat is a 0..5 float; whole stars are what
+// the HUD shows and what the dispatch logic keys on. Cruisers patrol in the
+// normal traffic stream until you're wanted, then break lane-lock and hunt.
+
+function gtaAddHeat(amt) {
+  if (gta.bustedT > 0 || gta.wastedT > 0) return;
+  gta.heat = Math.min(5, gta.heat + amt);
+}
+
+function gtaStars() { return Math.floor(gta.heat); }
+
+// A cruiser (or, at 5★, the syndicate-plated BATTER VAN — the NPD bought
+// surplus armor and nobody at city hall asked questions) spawned just
+// offscreen, already hunting.
+function gtaSpawnChaser(cls) {
+  const T = GTA_TILE;
+  const R = Math.max(gta.W, gta.Hh) * 0.72;
+  for (let tries = 0; tries < 14; tries++) {
+    const ang = Math.random() * Math.PI * 2;
+    const rad = R + Math.random() * 90;
+    const x = gta.cam.x + Math.cos(ang) * rad, y = gta.cam.y + Math.sin(ang) * rad;
+    const tc = Math.floor(x / T), tr = Math.floor(y / T);
+    if (tc < 1 || tr < 1 || tc >= GTA_W - 1 || tr >= GTA_H - 1) continue;
+    if (gtaTile(tc, tr) !== GT_ROAD) continue;
+    const C = GTA_CLASSES[cls];
+    gta.cars.push({
+      x, y, a: Math.atan2(gta.cam.y - y, gta.cam.x - x), dir: 0, v: C.cruise,
+      cls, col: C.cols[0], hp: C.hp, cop: true, chase: true,
+      parked: false, wreck: false, nd: null, blockT: 0, hitT: 0, emberT: 0,
+    });
+    return;
+  }
+}
+
+// Free-driving pursuit: steer at an intercept point, feel for walls with
+// probes, box the player in when a bust is on, ram them when it isn't.
+function gtaStepChaser(o, dt) {
+  const C = GTA_CLASSES[o.cls];
+  const P = gtaPlayerPos();
+  const dist = Math.hypot(P.x - o.x, P.y - o.y);
+  const pSlow = gta.onFoot || Math.hypot(gta.car.vx, gta.car.vy) < 30;
+
+  let want = Math.atan2(P.y + (P.vy || 0) * 0.35 - o.y, P.x + (P.vx || 0) * 0.35 - o.x);
+  const probe = (ang, d) => gtaSolidAt(o.x + Math.cos(ang) * d, o.y + Math.sin(ang) * d);
+  if (probe(o.a, 26)) {
+    if (!probe(o.a + 0.7, 24)) want = o.a + 0.95;
+    else if (!probe(o.a - 0.7, 24)) want = o.a - 0.95;
+    else want = o.a + Math.PI * 0.5; // dead end: crank it around
+  }
+  let da = want - o.a;
+  while (da > Math.PI) da -= 2 * Math.PI;
+  while (da < -Math.PI) da += 2 * Math.PI;
+  o.a += Math.max(-3.4 * dt, Math.min(3.4 * dt, da));
+
+  // Bust posture: pull up next to a slow target instead of flattening it.
+  const targetV = (pSlow && dist < 46) ? 0 : C.maxFwd * (0.7 + 0.055 * gtaStars());
+  o.v += (targetV - o.v) * Math.min(1, 2.4 * dt);
+
+  const nx = o.x + Math.cos(o.a) * o.v * dt;
+  if (gtaSolidAt(nx + Math.sign(Math.cos(o.a)) * C.r, o.y)) o.v *= 0.4;
+  else o.x = nx;
+  const ny = o.y + Math.sin(o.a) * o.v * dt;
+  if (gtaSolidAt(o.x, ny + Math.sign(Math.sin(o.a)) * C.r)) o.v *= 0.4;
+  else o.y = ny;
+
+  // Keep the pack from stacking into one super-cruiser.
+  for (const q of gta.cars) {
+    if (q === o || !q.chase || q.wreck) continue;
+    const dx = o.x - q.x, dy = o.y - q.y;
+    const d2 = dx * dx + dy * dy, rr = C.r + GTA_CLASSES[q.cls].r;
+    if (d2 > 0 && d2 < rr * rr) {
+      const d = Math.sqrt(d2);
+      o.x += (dx / d) * (rr - d) * 0.5;
+      o.y += (dy / d) * (rr - d) * 0.5;
+    }
+  }
+
+  // Contact with the player. Driving: a real ram (the van hits like a vault
+  // door). On foot: getting clipped hurts; standing still is how you get busted.
+  if (!gta.onFoot && gta.wastedT <= 0) {
+    const rr = C.r + GTA_CLASSES[gta.car.cls].r;
+    if (Math.abs(gta.car.x - o.x) < rr && Math.abs(gta.car.y - o.y) < rr && o.v > 60 && gta.t > o.hitT) {
+      o.hitT = gta.t + 0.5;
+      const kx = gta.car.x - o.x, ky = gta.car.y - o.y, d = Math.hypot(kx, ky) || 1;
+      gta.car.vx += (kx / d) * o.v * 0.5;
+      gta.car.vy += (ky / d) * o.v * 0.5;
+      gtaDamagePlayerCar(o.v * (o.cls === 'van' ? 0.12 : 0.06));
+      gtaSpawnParts((gta.car.x + o.x) / 2, (gta.car.y + o.y) / 2, 4, 'spark');
+      gta.shake = Math.max(gta.shake, 0.3);
+      o.v *= 0.5;
+    }
+  } else if (gta.onFoot && o.v > 40) {
+    const rr = C.r + 3;
+    if (Math.abs(gta.ped.x - o.x) < rr && Math.abs(gta.ped.y - o.y) < rr) {
+      const kx = gta.ped.x - o.x, ky = gta.ped.y - o.y, d = Math.hypot(kx, ky) || 1;
+      gta.ped.vx += (kx / d) * o.v;
+      gta.ped.vy += (ky / d) * o.v;
+      gtaHurtPlayer(o.v * 0.2);
+      o.v *= 0.5;
+    }
+  }
+
+  // Pursuit driving is reckless driving.
+  if (o.v > 45) {
+    const rr = C.r + 3;
+    for (let i = gta.peds.length - 1; i >= 0; i--) {
+      const p = gta.peds[i];
+      if (Math.abs(p.x - o.x) < rr && Math.abs(p.y - o.y) < rr) gtaCrumb(p, 0);
+    }
+  }
+}
+
+function gtaBusted() {
+  if (gta.bustedT > 0 || gta.wastedT > 0) return;
+  gta.bustedT = 2.4;
+  gta.keys = {};
+  gta.handbrake = false;
+  if (!gta.onFoot) {
+    // the ride gets impounded where it stands; you get the walk of shame
+    gtaParkPlayerCar();
+    gtaPlaceOnFoot(gta.car.x + 16, gta.car.y);
+  }
+  gtaBanner('🚔 BUSTED', 'heat', 2.2);
+}
+
+// Processed and released out the front of NPD HQ. Heat's gone; so's your car.
+function gtaBustedRespawn() {
+  const L = gta.landmarks.npd || gta.landmarks.arcade;
+  gtaPlaceOnFoot((L.vLeft + 2.5) * GTA_TILE, (L.r + 2) * GTA_TILE);
+  gta.stamina = 100;
+  gta.hurtI = 1;
+  gta.heat = 0;
+  gta.bustT = 0;
+  gta.tiresOut = false;
+  for (const o of gta.cars) if (o.chase) { o.chase = false; o.parked = true; o.v = 0; }
+  gta.cam.x = gta.ped.x; gta.cam.y = gta.ped.y;
+  gtaBanner('🏛️ NPD HQ — RELEASED', 'go', 1.6);
+}
+
+// At 3★ dispatch drops spike-strip roadblocks across the road ahead of you.
+// Returns true only when one actually lands (a whiff shouldn't eat the timer).
+function gtaSpawnRoadblock() {
+  const car = gta.car, T = GTA_TILE;
+  const sp = Math.hypot(car.vx, car.vy);
+  if (sp < 70) return false;
+  const dx = car.vx / sp, dy = car.vy / sp;
+  const ax = car.x + dx * 350, ay = car.y + dy * 350;
+  const tc = Math.floor(ax / T), tr = Math.floor(ay / T);
+  if (tc < 2 || tr < 2 || tc >= GTA_W - 2 || tr >= GTA_H - 2) return false;
+  if (gtaTile(tc, tr) !== GT_ROAD) return false;
+  let strip, copA, copSpots;
+  if (gta.vRoad[tc] && !gta.hRoad[tr] && Math.abs(dy) > 0.7) {
+    // vertical road, mostly vertical travel: strip lies across both lanes
+    const v = gtaPairStartV(tc);
+    strip = { x: v * T, y: tr * T, w: 2 * T, h: 5, life: 26 };
+    copA = 0;
+    copSpots = [[gtaLaneX(v, 1), tr * T + dy * 30], [gtaLaneX(v, 3), tr * T + dy * 30]];
+  } else if (gta.hRoad[tr] && !gta.vRoad[tc] && Math.abs(dx) > 0.7) {
+    const h = gtaPairStartH(tr);
+    strip = { x: tc * T, y: h * T, w: 5, h: 2 * T, life: 26 };
+    copA = Math.PI / 2;
+    copSpots = [[tc * T + dx * 30, gtaLaneY(h, 0)], [tc * T + dx * 30, gtaLaneY(h, 2)]];
+  } else return false;
+  gta.strips.push(strip);
+  for (const s of copSpots) {
+    gta.cars.push({
+      x: s[0], y: s[1], a: copA, dir: 0, v: 0, cls: 'cruiser', col: '#e8ecf4',
+      hp: 120, cop: true, chase: false, parked: true, wreck: false,
+      nd: null, blockT: 0, hitT: 0, emberT: 0, lightsOn: true,
+    });
+  }
+  return true;
+}
+
+// The Grease Garage Pay 'n' Spray: three seconds under the gun-lube mist,
+// out clean. Free — Nuggetown scores only go up — but the tab is 30s.
+function gtaCheckRespray() {
+  if (gta.onFoot || gta.sprayT > 0 || gta.sprayCd > 0) return;
+  const G = gta.landmarks.garage;
+  if (!G) return;
+  const C = GTA_CLASSES[gta.car.cls];
+  if (gta.heat <= 0 && gta.car.hp >= C.hp && !gta.tiresOut) return;
+  // The zone reaches past the sidewalk to the bounding road even when the
+  // garage sits inset in a wide block — pulling up out front counts.
+  const T = GTA_TILE;
+  const x0 = G.c * T - 64, x1 = (G.c + G.w) * T + 64;
+  const y0 = G.r * T - 64, y1 = (G.r + G.h) * T + 64;
+  if (gta.car.x < x0 || gta.car.x > x1 || gta.car.y < y0 || gta.car.y > y1) return;
+  if (Math.hypot(gta.car.vx, gta.car.vy) > 50) return;
+  gta.sprayT = 3;
+  gtaBanner('🔧 PAY ’N’ SPRAY', 'go', 1.6);
+}
+
+function gtaFinishRespray() {
+  gta.heat = 0;
+  gta.bustT = 0;
+  gta.tiresOut = false;
+  gta.car.hp = GTA_CLASSES[gta.car.cls].hp;
+  gta.sprayCd = 30;
+  for (const o of gta.cars) if (o.chase) { o.chase = false; o.parked = true; o.v = 0; }
+  gtaBanner('✨ CLEAN SLATE', 'go', 1.4);
+}
+
 // ---- update ---------------------------------------------------------------------------
 
 function stepGta(dt, w, h) {
@@ -876,6 +1119,18 @@ function stepGta(dt, w, h) {
     if (gta.wastedT > 0) {
       gta.wastedT -= dt;
       if (gta.wastedT <= 0) gtaRespawn();
+    } else if (gta.bustedT > 0) {
+      gta.bustedT -= dt;
+      if (gta.bustedT <= 0) gtaBustedRespawn();
+    } else if (gta.sprayT > 0) {
+      // held still under the mist; a little smoke sells the paint job
+      gta.sprayT -= dt;
+      gta.car.vx *= Math.exp(-6 * dt);
+      gta.car.vy *= Math.exp(-6 * dt);
+      if (Math.random() < dt * 14) {
+        gtaSpawnParts(gta.car.x + (Math.random() - 0.5) * 16, gta.car.y + (Math.random() - 0.5) * 16, 1, 'smoke');
+      }
+      if (gta.sprayT <= 0) gtaFinishRespray();
     } else if (gta.onFoot) {
       gtaStepFoot(dt);
     } else {
@@ -890,6 +1145,8 @@ function stepGta(dt, w, h) {
 function gtaStepPlayerCar(dt) {
   const car = gta.car;
   const C = GTA_CLASSES[car.cls];
+  // Spiked tires: mushy grip, no top end, constant squirrel.
+  const tireK = gta.tiresOut ? 0.55 : 1;
   const cos = Math.cos(car.a), sin = Math.sin(car.a);
 
   // Decompose velocity into forward + lateral components.
@@ -898,7 +1155,7 @@ function gtaStepPlayerCar(dt) {
 
   // Throttle / brake / reverse
   const gas = (gta.keys.up ? 1 : 0), rev = (gta.keys.down ? 1 : 0);
-  if (gas) vf = Math.min(C.maxFwd, vf + C.accel * dt);
+  if (gas) vf = Math.min(C.maxFwd * tireK, vf + C.accel * dt);
   if (rev) {
     if (vf > 8) vf = Math.max(0, vf - C.brake * dt);        // rolling: brake first
     else vf = Math.max(-C.maxRev, vf - C.accel * 0.7 * dt); // then back up
@@ -906,7 +1163,7 @@ function gtaStepPlayerCar(dt) {
   // Handbrake locks the rears: hard forward scrub, loose rear end.
   if (gta.handbrake) vf *= Math.exp(-2.6 * dt);
   vf *= Math.exp(-GTA_DRAG * dt);
-  vl *= Math.exp(-(gta.handbrake ? C.drift : C.grip) * dt);
+  vl *= Math.exp(-(gta.handbrake ? C.drift : C.grip * tireK) * dt);
 
   // Steering scales with speed (no curb-parked pirouettes), flips in reverse.
   const steer = (gta.keys.left ? -1 : 0) + (gta.keys.right ? 1 : 0);
@@ -965,8 +1222,10 @@ function gtaStepPlayerCar(dt) {
     if (impact > 60 && gta.t > o.hitT) {
       o.hitT = gta.t + 0.3;
       const dmg = (impact - 45) * 0.22;
+      o.playerHit = true;
       gtaDamageCar(o, dmg);
       gtaDamagePlayerCar(dmg * 0.5);
+      gtaAddHeat(o.cop ? 0.35 : 0.08);
       gtaSpawnParts((car.x + o.x) / 2, (car.y + o.y) / 2, 5, 'spark');
       if (!o.wreck) o.v = Math.max(0, o.v - impact * 0.6);
       gta.shake = Math.max(gta.shake, 0.25);
@@ -984,6 +1243,19 @@ function gtaStepPlayerCar(dt) {
       p.flee = 2;
       p.a = Math.atan2(p.y - car.y, p.x - car.x);
       p.x += Math.cos(p.a) * 6; p.y += Math.sin(p.a) * 6;
+    }
+  }
+
+  // Spike strips do exactly what it says on the NPD requisition form.
+  if (!gta.tiresOut && spd > 40) {
+    for (const s of gta.strips) {
+      if (car.x > s.x - 4 && car.x < s.x + s.w + 4 && car.y > s.y - 4 && car.y < s.y + s.h + 4) {
+        gta.tiresOut = true;
+        gtaSpawnParts(car.x, car.y, 6, 'spark');
+        gta.shake = Math.max(gta.shake, 0.3);
+        gtaBanner('💥 SPIKED', 'heat', 1.2);
+        break;
+      }
     }
   }
 
@@ -1086,7 +1358,9 @@ function gtaPunch() {
   for (const o of gta.cars) {
     const rr = GTA_CLASSES[o.cls].r + 4;
     if (Math.abs(o.x - fx) < rr && Math.abs(o.y - fy) < rr) {
+      o.playerHit = true;
       gtaDamageCar(o, 6);
+      gtaAddHeat(o.cop ? 0.3 : 0.05);
       gtaSpawnParts(fx, fy, 2, 'spark');
       return;
     }
@@ -1104,7 +1378,7 @@ function gtaStepWorld(dt) {
   if (gta.spawnT <= 0) {
     gta.spawnT = 0.35;
     let moving = 0;
-    for (const o of gta.cars) if (!o.parked && !o.wreck) moving++;
+    for (const o of gta.cars) if (!o.parked && !o.wreck && !o.chase) moving++;
     if (moving < GTA_TRAFFIC_CAP) gtaSpawnTraffic();
     if (gta.peds.length < GTA_PED_CAP) { gtaSpawnPed(); gtaSpawnPed(); }
   }
@@ -1131,6 +1405,7 @@ function gtaStepWorld(dt) {
       }
       continue;
     }
+    if (o.chase) { gtaStepChaser(o, dt); continue; }
     if (o.parked) continue;
     gtaStepTrafficCar(o, dt);
     // drivers brake for peds, but a panicked nug can still dive under a bus
@@ -1144,6 +1419,64 @@ function gtaStepWorld(dt) {
   }
 
   for (const p of gta.peds) gtaStepPed(p, dt);
+
+  // ---- NPD dispatch -------------------------------------------------------
+  const stars = gtaStars();
+  const busy = gta.wastedT > 0 || gta.bustedT > 0;
+  if (stars >= 1 && !busy) {
+    // patrols in earshot join the pursuit
+    for (const o of gta.cars) {
+      if (o.cop && !o.chase && !o.wreck && !o.parked &&
+          Math.abs(o.x - P.x) < 330 && Math.abs(o.y - P.y) < 330) o.chase = true;
+    }
+    // dispatch tops the pack up to strength; 5★ sends the BATTER VAN
+    gta.copT = (gta.copT || 0) - dt;
+    if (gta.copT <= 0) {
+      gta.copT = 1.3;
+      let chasers = 0, vans = 0;
+      for (const o of gta.cars) if (o.chase && !o.wreck) { chasers++; if (o.cls === 'van') vans++; }
+      if (chasers < Math.min(5, stars + 1)) {
+        gtaSpawnChaser(stars >= 5 && vans < 2 ? 'van' : 'cruiser');
+      }
+    }
+  }
+  // heat decays when they can't see you; below one star the pursuit stands down
+  if (gta.heat > 0) {
+    let copNear = false;
+    for (const o of gta.cars) {
+      if (o.cop && !o.wreck && Math.abs(o.x - P.x) < 260 && Math.abs(o.y - P.y) < 260) { copNear = true; break; }
+    }
+    gta.heat = Math.max(0, gta.heat - (copNear ? 0.012 : 0.07) * dt);
+    if (gtaStars() === 0) {
+      for (const o of gta.cars) if (o.chase) { o.chase = false; o.parked = true; o.v = 0; }
+    }
+  }
+  // the bust: boxed in, slow (or on foot), a cruiser on top of you
+  if (stars >= 1 && !busy && gta.sprayT <= 0) {
+    const pSlow = gta.onFoot || Math.hypot(gta.car.vx, gta.car.vy) < 30;
+    let copOn = false;
+    if (pSlow) {
+      for (const o of gta.cars) {
+        if (o.chase && !o.wreck && Math.abs(o.x - P.x) < 30 && Math.abs(o.y - P.y) < 30) { copOn = true; break; }
+      }
+    }
+    if (copOn) {
+      gta.bustT += dt;
+      if (gta.bustT > 0.9) gtaBusted();
+    } else gta.bustT = Math.max(0, gta.bustT - dt * 2);
+  }
+  // roadblocks ahead of a hot, fast player
+  gta.blockCd -= dt;
+  if (stars >= 3 && !gta.onFoot && !busy && gta.blockCd <= 0) {
+    // a whiff (bad ground ahead) retries fast; a landed block earns the wait
+    gta.blockCd = gtaSpawnRoadblock() ? 11 : 0.7;
+  }
+  for (let i = gta.strips.length - 1; i >= 0; i--) {
+    if ((gta.strips[i].life -= dt) <= 0) gta.strips.splice(i, 1);
+  }
+  gta.sprayCd = Math.max(0, gta.sprayCd - dt);
+  gtaCheckRespray();
+  // -------------------------------------------------------------------------
 
   // A hurting ride smokes; a dying one spits fire. Consider the Grease Garage.
   if (gta.wastedT <= 0 && !gta.onFoot) {
@@ -1367,6 +1700,17 @@ function gtaDraw() {
     g.fillRect(px - wx - 1, py - wy - 1, 2, 2);
   }
   g.globalAlpha = 1;
+
+  // Spike strips: NPD-issue, stud pattern visible from orbit (that's the point)
+  for (const s of gta.strips) {
+    const sx = s.x - ox, sy = s.y - oy;
+    if (sx > W + 20 || sy > Hh + 20 || sx + s.w < -20 || sy + s.h < -20) continue;
+    g.fillStyle = '#20242e';
+    g.fillRect(sx, sy, s.w, s.h);
+    g.fillStyle = '#c8ccd8';
+    if (s.w > s.h) { for (let i = 2; i < s.w - 1; i += 4) g.fillRect(sx + i, sy + 1, 1, 2); }
+    else { for (let i = 2; i < s.h - 1; i += 4) g.fillRect(sx + 1, sy + i, 2, 1); }
+  }
 
   // Pickups
   for (const p of gta.pickups) {
@@ -1609,6 +1953,25 @@ function gtaDrawVehicle(g, ox, oy, v, isPlayer) {
       g.fillRect(-1, -hl, 2, C.L);
     }
   }
+  // NPD livery: black-and-whites get the black, everyone gets the light bar
+  if (v.cop) {
+    if (v.cls === 'cruiser') {
+      g.fillStyle = '#14161c';
+      g.fillRect(-hw + 1, -hl, C.Wd - 2, 4);
+      g.fillRect(-hw + 1, hl - 4, C.Wd - 2, 4);
+      g.fillStyle = '#3ad4ff'; // door crest
+      g.fillRect(-hw + 1, -1, 1, 2); g.fillRect(hw - 2, -1, 1, 2);
+    } else if (v.cls === 'van') {
+      g.fillStyle = '#ffd23a'; // the gold stripe nobody at city hall asked about
+      g.fillRect(-hw + 1, 1, C.Wd - 2, 1);
+    }
+    const lit = v.chase || v.lightsOn;
+    const flash = lit && Math.floor(gta.t * 7 + (v.x | 0)) % 2 === 0;
+    g.fillStyle = lit ? (flash ? '#ff4040' : '#5090ff') : '#20242e';
+    g.fillRect(-2, -2, 2, 2);
+    g.fillStyle = lit ? (flash ? '#5090ff' : '#ff4040') : '#20242e';
+    g.fillRect(0, -2, 2, 2);
+  }
   // headlights
   g.fillStyle = '#ffe9a0';
   g.fillRect(-hw + 2, -hl, 2, 1); g.fillRect(hw - 4, -hl, 2, 1);
@@ -1700,8 +2063,29 @@ function gtaDrawHud(g, W, Hh) {
     g.strokeStyle = 'rgba(238,242,255,0.45)';
     g.lineWidth = 1;
     g.strokeRect(dx - 0.5, dy - 0.5, MM + 1, MM + 1);
+    // pursuit blips flash on the radar (drawn over the blit, never onto gta.mini)
+    for (const o of gta.cars) {
+      if (!o.chase || o.wreck) continue;
+      const bc = o.x / GTA_TILE, br = o.y / GTA_TILE;
+      if (bc < sx || bc > sx + SRC || br < sy || br > sy + SRC) continue;
+      g.fillStyle = Math.floor(gta.t * 7) % 2 === 0 ? '#ff4040' : '#5090ff';
+      g.fillRect(dx + ((bc - sx) / SRC) * MM - 1, dy + ((br - sy) / SRC) * MM - 1, 2, 2);
+    }
     g.fillStyle = '#ffffff';
     g.fillRect(dx + ((pc - sx) / SRC) * MM - 1, dy + ((pr - sy) / SRC) * MM - 1, 3, 3);
+  }
+  // Wanted stars, top-right. They flash while the pursuit is live.
+  if (gta.heat > 0) {
+    const stars = gtaStars();
+    let chasing = false;
+    for (const o of gta.cars) if (o.chase && !o.wreck) { chasing = true; break; }
+    g.textAlign = 'right';
+    g.font = '900 11px Consolas, monospace';
+    let sTxt = '';
+    for (let i = 0; i < 5; i++) sTxt += i < stars ? '★' : '·';
+    g.fillStyle = chasing && Math.floor(gta.t * 4) % 2 === 0 ? '#ff5252'
+      : stars > 0 ? '#eef2ff' : 'rgba(158,163,199,0.65)';
+    g.fillText(sTxt, W - 6, 15);
   }
   // district toast
   if (gta.toastT > 0) {

@@ -333,3 +333,62 @@ exists) — no explosion path. Pay 'n' Spray: `garage` landmark, drive into
 its block with $$$ to clear heat + repair (storm.caught -= is FORBIDDEN by
 the house rule — charge nothing or pay in time, e.g. a 3s respray pause).
 Heat decay when unseen: reuse the spawn-ring distance check.
+
+## Sprint 5 — NPD HEAT (2026-07-15, Beau's Claude)
+
+**Shipped:** the 🚔 emoji pays off. `gta.heat` 0..5 float (floor = stars;
+top-right HUD flashes during live pursuit, radar shows red/blue chaser
+blips, tally gains 🚔★★★). Crimes feed `gtaAddHeat`: splats 0.4, punch-kill
+0.4, occupied carjack 0.5 (cop car 1.2!), rams 0.08, player-caused
+explosions 0.8 — cop versions roughly quadruple. Two new classes: NPD
+CRUISER (fast black-and-white, ~8.5% of the traffic stream patrols
+lane-locked with lights off) and the 5★ armored BATTER VAN (400hp, rams
+like a vault door — surplus syndicate armor, nobody at city hall asked).
+Pursuit AI (`gtaStepChaser`): steer-at-intercept + wall probes, boxes a
+slow/on-foot player for the bust instead of squashing, rams a moving one,
+splats peds en route. Pack strength = stars+1 (cap 5), topped up by
+dispatch every 1.3s, patrols within 330px convert. BUSTED: cruiser on top
+of slow/on-foot you for 0.9s → interlude → released ON FOOT at NPD HQ,
+heat cleared, ride impounded-in-place (parked where you left it). 3★+
+roadblocks: spike strips + two lit parked cruisers 350px ahead of a fast
+player; strips pop tires (`gta.tiresOut`: 0.55× top speed/grip until you
+swap cars or respray). Pay 'n' Spray at the Grease Garage: pull up slow
+within ~64px of the rect while hot/dinged/spiked → 3s mist → heat 0, full
+hp, new tires, 30s cooldown, free (house rule). Heat decays 0.07/s hidden
+(0.012/s seen); under 1★ the pack stands down and parks. Hospital also
+clears heat. Verified headless: heat/pursuit/roadblock/spray/busted/decay
+probes all green, zero errors, screenshots eyeballed (the roadblock shot
+is chef's kiss — strip laid, cruisers lit, three stars flashing).
+
+**How it works (for S6+):**
+- `o.cop` (livery + heat multipliers) and `o.chase` (free-drive AI) are
+  orthogonal: patrol = cop && !chase (lane physics), pursuit = chase
+  (gtaStepChaser), roadblock props = cop && parked && lightsOn.
+- `o.playerHit` marks cars the player damaged — `gtaExplodeCar` reads it
+  for heat attribution. **S6: pay combat $$$ from the same flag** (cop
+  explosions should pay more but heat more).
+- Interlude ladder in stepGta: wasted > busted > spray > foot/car. All
+  three gates (`wastedT/bustedT/sprayT`) block heat gain, busts, and
+  roadblocks (`busy` in the dispatch block).
+- Busted path parks the ride BEFORE gtaPlaceOnFoot (impound-in-place) and
+  is the third death path (no explosion, no breading loss). S6: zero the
+  ammo belt here.
+- Jacked cruisers keep `cop: true` on gta.car (livery persists, static
+  light bar) — cops are not fooled.
+- `gtaSpawnRoadblock` returns success; a whiff retries in 0.7s (setting
+  the full 11s cooldown on a whiff made roadblocks basically never land).
+- Respray zone is rect+64px because landmarks sit inset in their blocks —
+  34px never reached the curb.
+
+**S6 (ARMED & SAUCED) pointers:** weapons table wants
+[fist, sauce pistol, honey-mustard uzi, BBQ flamer, dip grenade] with
+per-weapon cd/speed/dmg/ammo; `gta.shots` as a capped array stepped in
+gtaStepWorld (solid tile → spark, ped → gtaCrumb(3), car → damage +
+playerHit). Fire on F (both modes; Space stays punch-or-fire on foot),
+Q/1-5 to switch. Drive-bys fire perpendicular from both windows. Flamer
+sets `o.burnT` (damage over time → eventual explosion). Grenades: lobbed
+projectile, 1.1s fuse, reuse the explosion splash pattern. AmmuNugget can
+be a SEVENTH landmark appended to GTA_LANDMARKS (placement iterates in
+order with a used-set — appending doesn't move the existing six; no rnd()
+involved) — restock on E with a cooldown, free (house rule). Ammo pickups:
+append-only rnd() gen like the noodle carts. Busted must zero all ammo.
