@@ -538,9 +538,13 @@ function stepRun(dt, w, h) {
     r.handB.setAttribute('transform', 'translate(-34,-10)');
   } else {
     // The run cycle: feet orbit like a wheel, hands pump opposite, body bobs.
+    // The wheel turns with -ph: planted foot sweeps front→back (pushing the
+    // ground AWAY), recovery swings back→front through the air. +ph plays the
+    // same frames in reverse order — a very committed moonwalk (shoutout Joe).
     r.all.setAttribute('transform', '');
-    const bob = -8 - Math.abs(Math.sin(ph)) * 8;
-    const lean = 9 + Math.sin(ph * 2) * 2;
+    const cyc = -ph;
+    const bob = -8 - Math.abs(Math.sin(cyc)) * 8;
+    const lean = 9 + Math.sin(cyc * 2) * 2;
     r.body.setAttribute('transform', `translate(3,${bob.toFixed(1)}) rotate(${lean.toFixed(1)})`);
     const foot = (a) => {
       const fx = Math.cos(a) * 34 + 2;
@@ -548,12 +552,12 @@ function stepRun(dt, w, h) {
       const fr = Math.cos(a) * 22;
       return `translate(${fx.toFixed(1)},${fy.toFixed(1)}) rotate(${fr.toFixed(0)})`;
     };
-    r.footF.setAttribute('transform', foot(ph));
-    r.footB.setAttribute('transform', foot(ph + Math.PI));
+    r.footF.setAttribute('transform', foot(cyc));
+    r.footB.setAttribute('transform', foot(cyc + Math.PI));
     const hand = (a, side) =>
       `translate(${(-Math.cos(a) * 22 + side * 8).toFixed(1)},${(-52 - Math.max(0, -Math.sin(a)) * 8 + bob * 0.4).toFixed(1)})`;
-    r.handF.setAttribute('transform', hand(ph, 1));
-    r.handB.setAttribute('transform', hand(ph + Math.PI, -1));
+    r.handF.setAttribute('transform', hand(cyc, 1));
+    r.handB.setAttribute('transform', hand(cyc + Math.PI, -1));
   }
 
   // Headband ribbons flutter behind (they trail left since he runs right).
