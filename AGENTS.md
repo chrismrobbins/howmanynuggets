@@ -22,6 +22,10 @@ already bitten someone.
 > NUGGETOWN NIGHTS plan (10 sprints)**: garage + REP, mods, street races,
 > the case board, Dill's chain, procedural contracts, weather, photo mode,
 > and free-roam online on the worker gameRoom pattern.
+> **2026-07-17:** game 13 shipped — 🎧 **DIP HOP** (mode `beat`, js/beat.js),
+> the rhythm cup rumor paid off; third STREET game (club door on the far
+> wall). Nugget Run's backwards feet fixed the same day (run cycle now
+> orbits with −ph; see the comment in js/run.js).
 > **S2.9 (FREE-ROAM ONLINE PT 1) SHIPPED EARLY, OUT OF ORDER** (js/gtaMP.js +
 > worker/src/games/gta.js — a pure state-relay, NOT server-authoritative; see
 > the S2.9 note at the bottom of GTA_SPRINTS.md before touching MP). S2.1–8 +
@@ -115,14 +119,30 @@ already bitten someone.
   The walkable street is x ∈ (−21.1, 21.1), z ∈ (0.1, 13.5) in `posValid`,
   plus the PIER corridor east of the gate (see the pier pattern above).
   The GREASE GARAGE (x −17.1..−12.1) is OPEN (FAST FOOD), and the PIER GATE
-  (east cap wall, z 9.0..12.8) is OPEN (KEEPING IT REEL, mode `reel`) — the
-  Hooded Nug is two-for-two; his last unresolved rumor is the rhythm cup.
+  (east cap wall, z 9.0..12.8) is OPEN (KEEPING IT REEL, mode `reel`).
+  Game 13 (DIP HOP, mode `beat`, the rhythm game) is the THIRD street game:
+  a basement club door on the FAR wall (z=13.9, x −6.7..−5.3, faces −z —
+  busSign winding) with a neon sign and glow kind `'thump'` (a bass-pulse
+  alpha curve in the sprite pass, ~123bpm — hazard's sibling). Its hotspot
+  launches `beat`; textures `beatDoor`/`beatSign` live on the STREET atlas.
+  With it, the Hooded Nug is THREE-FOR-THREE (garage, pier, basement) — his
+  rumor slate is CLOSED; he's "in R&D" for new ones. Playing the set well
+  earns THE STORM REMIX encore, which sets localStorage `nugBeatEncore`
+  (read via `beatEncoreDone()` in js/beat.js) — Hood + Dill react; Gravy
+  Jones has a `drip` branch (DJ DRIP is his estranged nephew). Canon-safe:
+  DJ DRIP only SAMPLED the harbor storm from the pier; nothing moved.
   Landing THE STORM in Keeping It Reel sets localStorage `nugReelStorm`
   (read via `reelStormLanded()` in js/reel.js) — the Hooded Nug and Detective
   Dill both have dialogue branches keyed on it. CANON UPDATE: the stolen
   storm from THE CATCH INCIDENT is ALIVE in the harbor off the pier (the
   syndicate dumped it); the case is "open forever", not closed — future
   games can still pull on this thread.
+  DIP HOP itself (js/beat.js): audio + note chart are generated from the
+  SAME seeded 16-step patterns (`beatGenTrack`), so gameplay always matches
+  the music; the WebAudio clock drives `beat.songT` when running, dt when
+  not. It's in `MODE_COMPACT_HUD` (the storm card would sit exactly on the
+  DJ booth). Verification gotcha: the page autofocuses the amount INPUT, so
+  synthetic Space/keys get eaten by the input guard — blur() first.
 
 ## Verifying changes (the pattern that works)
 

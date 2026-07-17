@@ -779,6 +779,7 @@ void main() {
       nodes: () => {
         const cleared = typeof brawlBest === 'function' &&
           ((brawlBest().spicy || {}).clears > 0 || (brawlBest().hell || {}).clears > 0);
+        const clubbed = H.best && H.best.beat > 0;
         return {
           root: {
             line: '*rain taps his lid* …I used to run with the mustard crowd, y\'know. penthouse security.',
@@ -786,11 +787,13 @@ void main() {
               { t: 'you worked for DIJON?', next: 'dijon' },
               { t: 'why sit out in the rain?', next: 'rain' },
               { t: 'any theories about the missing storm?', next: 'incident' },
+              clubbed ? { t: 'the DJ cup… relative of yours?', next: 'drip' } : null,
               cleared
                 ? { t: "I'm the one who cleared the Sauce Works.", next: 'cleared' }
                 : { t: 'take it easy, old timer.', next: 'easy' },
-            ],
+            ].filter(Boolean),
           },
+          drip: { line: '*the lid tilts one very small degree* …my sister\'s kid. we don\'t talk. he went into MUSIC. *a long, wet silence* …tell him his uncle says the 2am bass is… *quieter* …not bad.', opts: [] },
           dijon: {
             line: 'artisanal contract. no overtime. then some nugget in red gloves came up the stairs and, well. you seen the penthouse lately?',
             opts: [
@@ -824,12 +827,17 @@ void main() {
         const fished = (H.best && H.best.reel > 0) || sawStorm;
         const boosted = typeof gtaProgress === 'function' && gtaProgress() > 0;
         const droveOut = typeof gtaSawStorm === 'function' && gtaSawStorm();
+        const remixed = typeof beatEncoreDone === 'function' && beatEncoreDone();
+        const dropped = (H.best && H.best.beat > 0) || remixed;
         return {
         root: {
-          line: sawStorm
-            ? '*the hooded nugget is uncharacteristically quiet* …you went to the pier. at midnight. and it LOOKED at you. I can tell. you walk different now.'
-            : '*the hooded nugget stands by the OPEN garage bay, radiating smug* you hear that engine? that\'s the sound of me being right. TWICE, now that the pier gate\'s open.',
+          line: dropped
+            ? '*the hooded nugget does a very small, very smug two-step* the garage. the pier. and now the BASEMENT. three. for. three. I am not a nugget in a hood, friend — I am the morning paper.'
+            : sawStorm
+              ? '*the hooded nugget is uncharacteristically quiet* …you went to the pier. at midnight. and it LOOKED at you. I can tell. you walk different now.'
+              : '*the hooded nugget stands by the OPEN garage bay, radiating smug* you hear that engine? that\'s the sound of me being right. TWICE, now that the pier gate\'s open.',
           opts: [
+            { t: 'there\'s a CLUB across the street now.', next: 'beatClub' },
             { t: 'somebody left a car out front. hazards on.', next: 'gtaCar' },
             { t: 'the shutter… it\'s open!', next: 'garage' },
             { t: 'heard any rumors?', next: 'rumors' },
@@ -837,6 +845,19 @@ void main() {
             { t: "you're just a weird nugget in a hood.", next: 'weird' },
           ],
         },
+        beatClub: {
+          line: remixed
+            ? 'and you heard the ENCORE. *leans in under the neon* that bassline, friend — that\'s not a synth. he held a recorder over the pier rail at midnight and the harbor answered ON BEAT. my rumors have rumors now.'
+            : dropped
+              ? 'in already? of course you are. a cup with turntables, asking around for a rhythm section — EXACTLY as foretold. and word is he keeps one track in the crate for crowds that earn it. *taps hood* earn it.'
+              : 'sauce sessions. nightly. a cup with turntables — the LAST rumor on my slate, and there it stands, thumping. that\'s three for three. when the beat drops… you know the rest.',
+          opts: [
+            { t: 'who IS DJ DRIP?', next: 'beatWho' },
+            { t: 'you called it. again.', next: 'beatCalled' },
+          ],
+        },
+        beatWho: { line: 'a cup. headphones. no past, all bass. and don\'t ask the gravy on the bench about him unless you\'ve got time for a very long, very wet silence. *taps hood* family reunion energy.', opts: [] },
+        beatCalled: { line: 'I know. *lets the rain land on the hood, dramatically* tell your friends where rumors come from.', opts: [] },
         gtaCar: {
           line: droveOut
             ? '*the hood tilts, slowly* you took the invitation. eleven jobs. and then you sat at the end of a pier while the bay stood UP. *long pause* I start rumors, friend. you\'ve started a legend. we are not the same.'
@@ -867,11 +888,13 @@ void main() {
         },
         tips: { line: "brake INTO the hairpin, chili OUT of it. the tankers ride low and slow — pass 'em clean, it pays. and when a billboard asks about a storm… keep driving.", opts: [] },
         rumors: {
-          line: sawStorm
-            ? "rumors? friend, you OUTRANK my rumors now. you hooked the thing the harbor nugs only whisper about. …fine. one left: a cup with turntables, asking around for a rhythm section."
-            : fished
-              ? 'the harbor nugs say you\'ve been casting. good. keep going DEEP — what circles out there is golden at the edges. almost like… weather.'
-              : 'the pier gate is OPEN — end of the road, east, past the noodle shop. something BIG circles out there after midnight. swirling. golden at the edges. almost like… weather.',
+          line: dropped
+            ? 'rumors? friend, you CLOSED my slate. the garage, the pier, the basement — three for three, all cashed. I\'m in R&D now. good rumors need time in the barrel.'
+            : sawStorm
+              ? "rumors? friend, you OUTRANK my rumors now. you hooked the thing the harbor nugs only whisper about. …fine. one left: a cup with turntables, asking around for a rhythm section."
+              : fished
+                ? 'the harbor nugs say you\'ve been casting. good. keep going DEEP — what circles out there is golden at the edges. almost like… weather.'
+                : 'the pier gate is OPEN — end of the road, east, past the noodle shop. something BIG circles out there after midnight. swirling. golden at the edges. almost like… weather.',
           opts: [
             { t: '…like a storm?', next: 'hoodStorm' },
             { t: 'anything else?', next: 'rumors2' },
@@ -883,7 +906,12 @@ void main() {
             : "I don't say the s-word near open water. but if a certain missing storm wanted to hide, a pier at midnight is where I'd look. rod's provided at the gate. tell no one.",
           opts: [],
         },
-        rumors2: { line: "a cup with turntables keeps asking around for a rhythm section. when the beat drops… you'd better drop with it.", opts: [] },
+        rumors2: {
+          line: dropped
+            ? 'the cup found his rhythm section. it was YOU. *taps hood* when the beat drops, you drop with it — I hear you already do.'
+            : "a cup with turntables keeps asking around for a rhythm section. when the beat drops… you'd better drop with it.",
+          opts: [],
+        },
         incident: {
           line: 'the night it vanished? tanker trucks idled out back at 3am. unmarked. riding LOW — like a million nuggets low. they rolled toward the harbor. or the Sauce Works. same direction, if you think about it.',
           opts: [
@@ -945,6 +973,8 @@ void main() {
         const sawStorm = typeof reelStormLanded === 'function' && reelStormLanded();
         const rap = typeof gtaProgress === 'function' ? gtaProgress() : 0;
         const droveOut = typeof gtaSawStorm === 'function' && gtaSawStorm();
+        const remixed = typeof beatEncoreDone === 'function' && beatEncoreDone();
+        const clubbed = (H.best && H.best.beat > 0) || remixed;
         return {
         root: {
           line: '*flat voice* detective dill, NPD. this street is a crime scene. technically the whole street. don\'t touch the tape.',
@@ -953,11 +983,21 @@ void main() {
               ? { t: 'detective. I hooked the storm. at the pier.', next: 'sawIt' }
               : { t: 'what happened in there?', next: 'what' },
             rap > 0 ? { t: 'so… how\'s the crime wave treating you?', next: 'gtaRap' } : null,
+            clubbed ? { t: 'been down to the club across the street?', next: 'beatNoise' } : null,
             { t: 'got any suspects?', next: 'suspects' },
             { t: 'can I help?', next: 'help' },
             { t: 'stay salty, detective.', next: 'bye' },
           ].filter(Boolean),
         },
+        beatNoise: {
+          line: remixed
+            ? '*flat stare* every night at 2am: boom. boom. boom. I filed a noise complaint; the cup filed it under "kick drum". *long pause* …and that encore everyone keeps humming? I\'ve HEARD that rumble before, kid. off the end of MY pier. *opens notepad to a fresh page* the case file grows.'
+            : 'the DIP HOP joint. noise complaints: seventeen. crimes: none. annoyingly. *clicks pen* if you ever get close to those decks… pay attention to what he SAMPLES.',
+          opts: [
+            remixed ? { t: 'you can\'t subpoena a bassline, detective.', next: 'beatNoise2' } : { t: 'I\'ll keep an ear out.', next: null },
+          ],
+        },
+        beatNoise2: { line: '*writes "CAN I?" in the notepad. underlines it twice.*', opts: [] },
         gtaRap: {
           line: droveOut
             ? '*flips WAY back in the notepad* eleven syndicate contracts. boosted cruisers. a BATTER VAN bonfire outside my own HQ. and one civilian — at the END of my pier, at midnight, DURING a raid — who watched the evidence surface and drove home. *closes notepad slowly* I know it\'s you, kid. I can\'t prove it\'s you. it\'s the worst thing that\'s ever happened to me.'
@@ -1243,6 +1283,37 @@ void main() {
           H.lastCab = null;
           H.lastSpot = { stand: [cmx, 7.1], look: [cmx, 0.5, cmz] };
           launchGame('gta');
+        },
+      });
+    }
+
+    // ---- DIP HOP's front door ---------------------------------------------------
+    // Across the street, on the far wall: a steel basement door with a glowing
+    // porthole, a neon sign, and a bass thump you can SEE (glow kind 'thump'
+    // pulses in the sprite pass — same trick as the compact's hazards, but on
+    // the one and the three). The Hooded Nug's last rumor, three for three.
+    {
+      const dx0 = -6.7, dx1 = -5.3, dmx = (dx0 + dx1) / 2, dz = 13.86;
+      // the door (faces -z: wind +x → -x, busSign-style)
+      ST.quad([dx1, 0, dz], [dx0, 0, dz], [dx0, 2.2, dz], [dx1, 2.2, dz], suv.beatDoor, { e: 0.18 });
+      // the neon over it
+      ST.quad([dmx + 1.1, 2.38, dz + 0.02], [dmx - 1.1, 2.38, dz + 0.02], [dmx - 1.1, 3.48, dz + 0.02], [dmx + 1.1, 3.48, dz + 0.02], suv.beatSign, { e: 0.4 });
+      H.glows.push({ p: [dmx, 2.93, 13.6], c: [1, 0.18, 0.63], s: 1.5, a: 0.14, k: 'neon' });
+      H.glows.push({ p: [dmx, 2.93, 13.6], c: [0.49, 0.3, 1], s: 2.3, a: 0.06, k: 'neon' });
+      H.glows.push({ p: [dmx, 1.55, 13.7], c: [1, 0.4, 0.75], s: 0.5, a: 0.12, k: 'neon' }); // the porthole
+      // the THUMP (kick side + under-door light spill, offset half a beat)
+      H.glows.push({ p: [dmx, 1.1, 13.55], c: [1, 0.18, 0.63], s: 2.4, a: 0.15, k: 'thump' });
+      H.glows.push({ p: [dmx, 0.06, 13.7], c: [1, 0.3, 0.7], s: 0.9, a: 0.2, k: 'thump', ph: 0.5 });
+      H.hotspots.push({
+        kind: 'beat',
+        x: dmx, z: 13.65, r: 2.9,
+        min: [dx0 - 0.15, 0, 13.55], max: [dx1 + 0.15, 2.4, 13.92],
+        stand: [dmx, EYE, 12.3],
+        label: '🎧 DIP HOP — SLIDE IN',
+        act: () => {
+          H.lastCab = null;
+          H.lastSpot = { stand: [dmx, 12.3], look: [dmx, 1.2, 13.9] };
+          launchGame('beat');
         },
       });
     }
@@ -2045,7 +2116,7 @@ void main() {
     const ids = {
       catch: 'myCatch', blaster: 'myBlaster', flappy: 'myFlappy', dunk: 'myDunk',
       sim: 'mySim', run: 'myRun', knight: 'myKnight', brawl: 'myBrawl', ranch: 'myRanch',
-      kart: 'myKart', reel: 'myReel',
+      kart: 'myKart', reel: 'myReel', gta: 'myGta', beat: 'myBeat',
     };
     for (const [mode, id] of Object.entries(ids)) {
       const el = document.getElementById(id);
@@ -2452,6 +2523,10 @@ void main() {
       } else if (gsp.k === 'hazard') {
         // the double-parked compact: hazards blink like they mean it
         a = gsp.a * (Math.floor(H.t * 1.5) % 2 === 0 ? 1 : 0.05);
+      } else if (gsp.k === 'thump') {
+        // the club door: a kick drum you can see (~123bpm, sharp hit, long decay)
+        const ph2 = (H.t * 2.05 + (gsp.ph || 0)) % 1;
+        a = gsp.a * (0.22 + 0.78 * Math.pow(1 - ph2, 3));
       }
       pushSprite(arr, gx, gsp.p[1], gz, gsp.s, gsp.s, gsp.c[0], gsp.c[1], gsp.c[2], a, right, up);
     }
@@ -2519,7 +2594,7 @@ void main() {
       if (H.t - H.lastChime > 3) { H.lastChime = H.t; sfxChime(); }
       if (!H.wentOutside) {
         H.wentOutside = true;
-        toast('🌧️ NUGGETOWN AFTER DARK — the regulars will talk. the bus stop goes home. somebody left their hazards on.', 5);
+        toast('🌧️ NUGGETOWN AFTER DARK — the regulars will talk. the bus stop goes home. somebody left their hazards on. and the basement across the street is THUMPING.', 5);
       }
     }
     if (!H.wentPier && H.cam.x > 21.3 && H.state !== 'intro') {

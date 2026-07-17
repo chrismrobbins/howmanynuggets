@@ -23,7 +23,7 @@ const ALLOWED_ORIGINS = new Set([
   'http://localhost:5173',
 ]);
 
-const GAMES = new Set(['catch', 'blaster', 'flappy', 'dunk', 'sim', 'run', 'knight', 'brawl', 'ranch', 'kart', 'reel', 'gta']);
+const GAMES = new Set(['catch', 'blaster', 'flappy', 'dunk', 'sim', 'run', 'knight', 'brawl', 'ranch', 'kart', 'reel', 'gta', 'beat']);
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const PBKDF2_ITERATIONS = 100000;
 const MAX_SCORE = 1e15; // absolute backstop (per-game caps below are the real gate)
@@ -43,6 +43,7 @@ const GAME_MAX_SCORE = {
   kart: 40e6,                       // distance banking like flappy/dunk; X-restart keeps runs going
   reel: 40e6,                       // catches bank forever; THE STORM jackpot is 1000× perFlyer (~5.6M max)
   gta: 40e6,                        // open-world banking: distance trickle + crates over a long joyride
+  beat: 40e6,                       // rhythm sets bank like dunk; FEVER + encore 2× headroom
 };
 const MIN_SUBMIT_INTERVAL_MS = 10000; // one score per 10s per account
 
@@ -136,7 +137,7 @@ async function scoresForUser(env, userId) {
   const { results } = await env.DB.prepare(
     'SELECT game, best_score FROM scores WHERE user_id = ?'
   ).bind(userId).all();
-  const map = { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0, knight: 0, brawl: 0, ranch: 0, kart: 0, reel: 0, gta: 0 };
+  const map = { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0, knight: 0, brawl: 0, ranch: 0, kart: 0, reel: 0, gta: 0, beat: 0 };
   for (const r of results) map[r.game] = r.best_score;
   return map;
 }

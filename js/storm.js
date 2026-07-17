@@ -46,14 +46,15 @@ const MODE_HINTS = {
   kart:    'deliver the order hot! ← → steer · ↓ brake · SPACE nitro 🌶️ · make the checkpoints',
   reel:    'the pier at midnight — HOLD space/click to cast · press on the ❗ bite · reel easy, rest the runs',
   gta:     'hold where you want to GO (T = classic steering) · E in/out + answer 📞 · SPACE brake/punch · F fire · Q weapons · R radio · M map',
+  beat:    'the beat drops — drop with it! D F J K (or ← ↓ ↑ →) dunk on the beat · PERFECT dips build HYPE',
 };
-const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘', run: '🏃', knight: '⚔️', brawl: '🥊', ranch: '🐔', kart: '🏎️', reel: '🎣', gta: '🚗' };
+const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘', run: '🏃', knight: '⚔️', brawl: '🥊', ranch: '🐔', kart: '🏎️', reel: '🎣', gta: '🚗', beat: '🎧' };
 
 // Free-roam games draw their own rich in-game HUD, so the storm card backs
 // off to a slim translucent pill — hover it (or tap the game badge on touch)
 // to bring back the hint + mode switch. See .storm-hud.compact in storm.css.
-const MODE_COMPACT_HUD = new Set(['gta']);
-const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated', run: 'ran', knight: 'vanquished', brawl: 'sauced', ranch: 'harvested', kart: 'delivered', reel: 'reeled in', gta: 'boosted' };
+const MODE_COMPACT_HUD = new Set(['gta', 'beat']);
+const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated', run: 'ran', knight: 'vanquished', brawl: 'sauced', ranch: 'harvested', kart: 'delivered', reel: 'reeled in', gta: 'boosted', beat: 'dropped' };
 
 // Self-contained minigames run their own entities and pause the storm's own
 // falling-nugget spawner + auto-complete (like Flappy). Catch and Blaster both
@@ -62,7 +63,7 @@ function pausesStorm() {
   return storm.mode === 'flappy' || storm.mode === 'dunk' || storm.mode === 'sim' ||
          storm.mode === 'run' || storm.mode === 'knight' || storm.mode === 'brawl' ||
          storm.mode === 'ranch' || storm.mode === 'kart' || storm.mode === 'reel' ||
-         storm.mode === 'gta';
+         storm.mode === 'gta' || storm.mode === 'beat';
 }
 
 const storm = {
@@ -110,6 +111,7 @@ function setStormMode(mode) {
   syncKart();
   syncReel();
   syncGta();
+  syncBeat();
   updateStormHud();
 }
 
@@ -220,6 +222,9 @@ function updateStormHud() {
   } else if (storm.mode === 'gta') {
     stormLabel.textContent = '🚔 Grand Theft Nugget';
     stormTally.textContent = gtaTally();
+  } else if (storm.mode === 'beat') {
+    stormLabel.textContent = '🎧 Dip Hop';
+    stormTally.textContent = beatTally();
   } else {
     const shown = Math.min(storm.launched, storm.total);
     stormLabel.textContent = storm.cat.emoji + ' ' + storm.cat.name;
@@ -297,6 +302,7 @@ function stepStorm(ts) {
   else if (storm.mode === 'kart') stepKart(dt, w, h);
   else if (storm.mode === 'reel') stepReel(dt, w, h);
   else if (storm.mode === 'gta') stepGta(dt, w, h);
+  else if (storm.mode === 'beat') stepBeat(dt, w, h);
 
   updateStormHud();
 
@@ -394,6 +400,7 @@ function stopStorm(completed = false) {
   syncKart();
   syncReel();
   syncGta();
+  syncBeat();
   if (completed) {
     // Leave a short victory-lap summary in the HUD, then tuck it away.
     stormLabel.textContent = '✅ Storm complete';

@@ -1,0 +1,59 @@
+/* ---- DIP HOP (basement rhythm sessions, js/beat.js) ---- */
+#beatWorld {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  display: none;
+  background: #0a0614;
+}
+body.beat-mode #beatWorld { display: block; }
+
+#beatWorld canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* NOW SPINNING / FEVER / encore banners */
+.beat-banner {
+  position: absolute;
+  left: 50%;
+  top: 24%;
+  transform: translate(-50%, -50%) scale(0.6);
+  font: 900 clamp(1.2rem, 4vw, 2.4rem)/1.2 Consolas, 'Courier New', monospace;
+  letter-spacing: 0.1em;
+  text-align: center;
+  color: #ff2fa0;
+  text-shadow: 3px 3px 0 #1c0418, 0 0 24px rgba(255, 47, 160, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  max-width: 90vw;
+}
+.beat-banner.show {
+  animation: beat-banner-pop 0.35s ease-out forwards;
+}
+.beat-banner.go { color: #39ff7a; text-shadow: 3px 3px 0 #04140a, 0 0 24px rgba(57, 255, 122, 0.5); }
+.beat-banner.gold { color: #ffd23a; text-shadow: 3px 3px 0 #3a2a04, 0 0 28px rgba(255, 210, 58, 0.6); }
+.beat-banner.fever {
+  color: #ff8a3d;
+  text-shadow: 3px 3px 0 #2a0a04, 0 0 18px rgba(255, 138, 61, 0.8), 0 0 44px rgba(255, 47, 160, 0.6);
+  animation: beat-banner-pop 0.35s ease-out forwards, beat-throb 0.45s ease-in-out 0.35s infinite;
+}
+.beat-banner.storm {
+  color: #ffd23a;
+  text-shadow: 3px 3px 0 #2a1a30, 0 0 18px rgba(255, 210, 58, 0.8), 0 0 44px rgba(124, 77, 255, 0.6);
+  animation: beat-banner-pop 0.35s ease-out forwards, beat-throb 0.9s ease-in-out 0.35s infinite;
+}
+
+@keyframes beat-banner-pop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  60% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes beat-throb {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -50%) scale(1.05); }
+}

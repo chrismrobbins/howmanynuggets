@@ -28,6 +28,7 @@ const ArcadeArt = (() => {
   const STREET_GAMES = [
     { mode: 'reel', title: 'KEEPING IT REEL', icon: '🎣', c1: '#26e0ff', c2: '#0a5a7a', tag: 'THE PIER AT MIDNIGHT' },
     { mode: 'gta',  title: 'GRAND THEFT NUGGET', icon: '🚔', c1: '#ffd23a', c2: '#3ad4ff', tag: 'WELCOME TO NUGGETOWN' },
+    { mode: 'beat', title: 'DIP HOP', icon: '🎧', c1: '#ff2fa0', c2: '#7c4dff', tag: 'SAUCE SESSIONS · NIGHTLY' },
   ];
 
   const NEON = ['#ff2fa0', '#26e0ff', '#ffe23a', '#7c4dff', '#39ff7a'];
@@ -1270,6 +1271,9 @@ const ArcadeArt = (() => {
     alloc('pierSign', 192, 96, pPierSign);
     // GRAND THEFT NUGGET's street door: the double-parked compact
     alloc('gtaCarSide', 192, 64, pGtaCarSide);
+    // DIP HOP's front door: the basement club across the street
+    alloc('beatDoor', 128, 192, pBeatDoor);
+    alloc('beatSign', 192, 96, pBeatSign);
     const SW2 = {
       iron: '#3a4256', wood: '#6d5426', woodDark: '#42320e', red: '#e8412c',
       amber: '#ffb020', curb: '#3c3c46', black: '#0a0a12', white: '#f4f0e6',
@@ -1382,6 +1386,67 @@ const ArcadeArt = (() => {
     }
     neonText(g, 'KEEPING IT REEL', w / 2, h * 0.36, '900 23px Impact, "Arial Black", sans-serif', '#26e0ff', 12);
     neonText(g, 'bait provided · tell no one', w / 2, h * 0.72, '700 11px Consolas, monospace', '#ffb020', 7);
+  }
+
+  // The club door: steel, a porthole leaking warm light, and a bass you can
+  // FEEL from the texture alone (the actual thump is a glow sprite pulsing).
+  function pBeatDoor(g, w, h) {
+    g.fillStyle = '#141220';
+    g.fillRect(0, 0, w, h);
+    // steel door panel
+    g.fillStyle = '#221e34';
+    g.fillRect(10, 8, w - 20, h - 8);
+    g.strokeStyle = '#0a0814';
+    g.lineWidth = 3;
+    g.strokeRect(10, 8, w - 20, h - 8);
+    for (const y of [h * 0.3, h * 0.62]) {
+      g.strokeStyle = 'rgba(0,0,0,0.5)';
+      g.lineWidth = 2;
+      g.beginPath(); g.moveTo(14, y); g.lineTo(w - 14, y); g.stroke();
+    }
+    // the porthole, glowing from inside
+    const px = w / 2, py = h * 0.3, pr = 15;
+    const grad = g.createRadialGradient(px, py, 2, px, py, pr);
+    grad.addColorStop(0, '#ffd2ee');
+    grad.addColorStop(0.6, '#ff2fa0');
+    grad.addColorStop(1, '#5a0a3a');
+    g.fillStyle = grad;
+    g.beginPath(); g.arc(px, py, pr, 0, 7); g.fill();
+    g.strokeStyle = '#3a3448';
+    g.lineWidth = 4;
+    g.beginPath(); g.arc(px, py, pr + 2, 0, 7); g.stroke();
+    // handle + kick plate
+    g.fillStyle = '#3a3448';
+    g.fillRect(w - 26, h * 0.52, 8, 20);
+    g.fillStyle = '#0e0c18';
+    g.fillRect(12, h - 26, w - 24, 24);
+    // light bleeding under the door
+    g.fillStyle = 'rgba(255,47,160,0.55)';
+    g.fillRect(12, h - 4, w - 24, 4);
+    // flyers by the frame ("SAUCE SESSIONS" — wheat-pasted, slightly crooked)
+    g.save();
+    g.translate(0, 0); g.rotate(-0.06);
+    g.fillStyle = '#e8e2d2';
+    g.fillRect(-2, h * 0.42, 12, 16);
+    g.restore();
+    speckle(g, w, h, 30, '#050508', 0.4, 2);
+  }
+
+  // The neon over the door. He paid extra for the drip animation. It's static.
+  function pBeatSign(g, w, h) {
+    g.fillStyle = '#0a0814';
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#221e34';
+    g.lineWidth = 4;
+    g.strokeRect(2, 2, w - 4, h - 4);
+    neonText(g, 'DIP HOP', w / 2, h * 0.34, '900 30px Impact, "Arial Black", sans-serif', '#ff2fa0', 14);
+    neonText(g, 'sauce sessions · nightly', w / 2, h * 0.68, '700 12px Consolas, monospace', '#7c4dff', 8);
+    // a neon drip off the P, because branding
+    g.strokeStyle = '#ff2fa0';
+    g.lineWidth = 2;
+    g.shadowColor = '#ff2fa0'; g.shadowBlur = 8;
+    g.beginPath(); g.moveTo(w * 0.72, h * 0.42); g.lineTo(w * 0.72, h * 0.52); g.stroke();
+    g.shadowBlur = 0;
   }
 
   // Soft radial sprite used (tinted) for every glow halo, dust mote, and raindrop.
