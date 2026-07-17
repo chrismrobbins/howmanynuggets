@@ -577,6 +577,45 @@ void main() {
       H.propBoxes.push({ min: [cx2 - 0.4, 0, cz - 0.35], max: [cx2 + 0.4, 1.5, cz + 0.35] });
     }
 
+    // ---- the JUKEBOX (further left) — three loops and an OFF switch ------------
+    // Built entirely from existing atlas regions (the main page is FULL): dark
+    // body, swatch neon, and 'juke' glow sprites that pulse ON THE BEAT. The
+    // music itself lives in stepJuke() and remembers your pick (nugJukebox).
+    {
+      const jx = -4.8, jz = -0.52, hw2 = 0.42, hd = 0.3, jh = 1.55;
+      const fz = jz - hd - 0.012; // the face, sitting proud of the cabinet
+      boxProp(jx, jz, hw2, hd, jh, uv.dark, 0.04);
+      // sloped crown + cap (the classic jukebox arch, low-poly edition)
+      B.quad([jx + 0.36, jh, jz - hd], [jx - 0.36, jh, jz - hd], [jx - 0.26, jh + 0.16, jz - hd + 0.16], [jx + 0.26, jh + 0.16, jz - hd + 0.16], uv.dark, {});
+      B.quad([jx - 0.26, jh + 0.16, jz + hd], [jx + 0.26, jh + 0.16, jz + hd], [jx + 0.26, jh + 0.16, jz - hd + 0.16], [jx - 0.26, jh + 0.16, jz - hd + 0.16], uv.dark, {});
+      // neon arch tubes: magenta over violet, then down the front edges
+      B.quad([jx + 0.34, jh - 0.06, fz], [jx - 0.34, jh - 0.06, fz], [jx - 0.34, jh - 0.015, fz], [jx + 0.34, jh - 0.015, fz], uv.sw_magenta, { e: 0.7 });
+      B.quad([jx + 0.3, jh - 0.115, fz], [jx - 0.3, jh - 0.115, fz], [jx - 0.3, jh - 0.07, fz], [jx + 0.3, jh - 0.07, fz], uv.sw_violet, { e: 0.55 });
+      for (const sd of [-1, 1]) {
+        B.quad([jx + sd * 0.40, 0.18, fz], [jx + sd * 0.355, 0.18, fz], [jx + sd * 0.355, jh - 0.13, fz], [jx + sd * 0.40, jh - 0.13, fz], uv.sw_violet, { e: 0.45 });
+      }
+      // glass window (where the records would spin, if we had records)
+      B.quad([jx + 0.3, 1.0, fz], [jx - 0.3, 1.0, fz], [jx - 0.3, 1.38, fz], [jx + 0.3, 1.38, fz], uv.sw_glass, { e: 0.16 });
+      // amber button row + cyan speaker grille
+      B.quad([jx + 0.28, 0.84, fz], [jx - 0.28, 0.84, fz], [jx - 0.28, 0.9, fz], [jx + 0.28, 0.9, fz], uv.sw_amber, { e: 0.5 });
+      for (const gx of [-0.2, 0, 0.2]) {
+        B.quad([jx + gx + 0.045, 0.24, fz], [jx + gx - 0.045, 0.24, fz], [jx + gx - 0.045, 0.72, fz], [jx + gx + 0.045, 0.72, fz], uv.sw_tube, { e: 0.14, tint: 0.5 });
+      }
+      // the lights: they thump with the track (kind 'juke' in the sprite pass)
+      H.glows.push({ p: [jx, jh - 0.05, jz - 0.55], c: [1, 0.18, 0.63], s: 1.0, a: 0.16, k: 'juke' });
+      H.glows.push({ p: [jx, 1.2, jz - 0.55], c: [0.15, 0.88, 1], s: 0.7, a: 0.12, k: 'juke' });
+      H.glows.push({ p: [jx, 0.5, jz - 0.55], c: [1, 0.69, 0.13], s: 0.7, a: 0.1, k: 'juke' });
+      H.propBoxes.push({ min: [jx - 0.52, 0, jz - 0.4], max: [jx + 0.52, jh + 0.2, jz + 0.35] });
+      H.hotspots.push({
+        kind: 'juke',
+        x: jx, z: jz, r: 2.2,
+        min: [jx - 0.45, 0, jz - 0.34], max: [jx + 0.45, jh + 0.2, jz + 0.3],
+        stand: [jx, EYE, jz - 1.35],
+        label: '🎶 JUKEBOX — SPIN IT (free play, obviously)',
+        act: () => jukeCycle(),
+      });
+    }
+
     // velvet ropes guiding you in from the doors (decor — you can step over)
     for (const side of [-1, 1]) {
       const posts = [[side * 2.0, -0.8], [side * 2.6, -2.3]];
@@ -2527,6 +2566,9 @@ void main() {
         // the club door: a kick drum you can see (~123bpm, sharp hit, long decay)
         const ph2 = (H.t * 2.05 + (gsp.ph || 0)) % 1;
         a = gsp.a * (0.22 + 0.78 * Math.pow(1 - ph2, 3));
+      } else if (gsp.k === 'juke') {
+        // the jukebox lights ride the actual track; dim idle glow when it's off
+        a = gsp.a * (0.35 + 0.65 * jukeBeatLevel());
       }
       pushSprite(arr, gx, gsp.p[1], gz, gsp.s, gsp.s, gsp.c[0], gsp.c[1], gsp.c[2], a, right, up);
     }
@@ -2754,6 +2796,74 @@ void main() {
         tone(notes[(Math.random() * notes.length) | 0] * (Math.random() < 0.3 ? 0.5 : 1),
           t0, 0.09, g, 'square');
       }
+    }
+    stepJuke();
+  }
+
+  // ---- the JUKEBOX ------------------------------------------------------------------
+  // Three synthesized loops scheduled just-in-time (beat.js school): when a
+  // game launches, frame() stops, the lookahead runs dry, the music stops —
+  // the exact seam we want. Volume scales with distance; mute gates it all.
+
+  const JUKE = {
+    cur: 0, nextT: 0, step: 0,
+    tracks: [
+      null,
+      { name: 'LOUNGE NUG', bpm: 84, root: 98, leadType: 'triangle', scale: [0, 3, 5, 7, 10],
+        kick: 'x.....x.x.......', hat: '..x...x...x..x..', bass: '0...........3...', lead: '....2...4...3...' },
+      { name: 'CRISPY FUNK', bpm: 106, root: 110, leadType: 'square', scale: [0, 3, 5, 7, 10],
+        kick: 'x..x..x...x..x..', hat: 'x.x.x.xxx.x.x.x.', bass: '0.0...3...2.2...', lead: '..4.....2..4....' },
+      { name: 'INSERT COIN', bpm: 126, root: 123, leadType: 'square', scale: [0, 4, 7, 12],
+        kick: 'x...x...x...x...', hat: 'x.x.x.x.x.x.x.x.', bass: '0...1...2...3...', lead: '0.2.3.2.0.2.3.2.' },
+    ],
+  };
+  try { JUKE.cur = Math.min(3, Math.max(0, +(localStorage.getItem('nugJukebox') || 0) || 0)); } catch (e) { /* fresh ears */ }
+
+  function jukeCycle() {
+    JUKE.cur = (JUKE.cur + 1) % 4;
+    try { localStorage.setItem('nugJukebox', String(JUKE.cur)); } catch (e) { /* ok */ }
+    JUKE.nextT = 0;
+    JUKE.step = 0;
+    sfxCoin();
+    toast(JUKE.cur === 0 ? '🔇 JUKEBOX OFF — the hum returns' : '🎶 NOW PLAYING: ' + JUKE.tracks[JUKE.cur].name, 3);
+  }
+
+  // 0..1 thump for the cabinet lights (kind 'juke' in the sprite pass).
+  function jukeBeatLevel() {
+    if (!JUKE.cur || !AC.ctx || AC.muted) return 0;
+    const spb = 60 / JUKE.tracks[JUKE.cur].bpm;
+    return Math.pow(1 - (AC.ctx.currentTime / spb) % 1, 2);
+  }
+
+  function stepJuke() {
+    if (!JUKE.cur || !AC.ctx || AC.muted || H.state === 'intro') return;
+    const tr = JUKE.tracks[JUKE.cur];
+    const sps = 60 / tr.bpm / 4;
+    const nowT = AC.ctx.currentTime;
+    if (JUKE.nextT < nowT) JUKE.nextT = nowT + 0.05; // resync after idle/suspend
+    // near the box it BUMPS; across the hall it's wallpaper
+    const d = Math.hypot(-4.8 - H.cam.x, -0.52 - H.cam.z);
+    const vol = 0.45 + 0.55 * Math.max(0, 1 - d / 15);
+    const deg = (pat, s) => tr.scale[+pat[s] % tr.scale.length];
+    while (JUKE.nextT < nowT + 0.16) {
+      const s = JUKE.step % 16;
+      const t0 = JUKE.nextT;
+      if (tr.kick[s] === 'x') {
+        const o = AC.ctx.createOscillator();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(130, t0);
+        o.frequency.exponentialRampToValueAtTime(40, t0 + 0.1);
+        const g = AC.ctx.createGain();
+        g.gain.setValueAtTime(0.15 * vol, t0);
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.14);
+        o.connect(g).connect(AC.master);
+        o.start(t0); o.stop(t0 + 0.16);
+      }
+      if (tr.hat[s] === 'x') tone(7800 + Math.random() * 400, t0, 0.03, 0.011 * vol, 'square');
+      if (tr.bass[s] !== '.') tone(tr.root * Math.pow(2, deg(tr.bass, s) / 12), t0, sps * 2, 0.04 * vol, 'triangle');
+      if (tr.lead[s] !== '.') tone(tr.root * 4 * Math.pow(2, deg(tr.lead, s) / 12), t0, 0.14, 0.018 * vol, tr.leadType);
+      JUKE.step++;
+      JUKE.nextT += sps;
     }
   }
 

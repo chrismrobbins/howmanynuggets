@@ -110,6 +110,14 @@ already bitten someone.
   whenever a dialog/modal needs the cursor and on game launch/exit.
 - **Walk-up interactables** live in `H.hotspots` (label + AABB + `act()`).
   Cabinets get prompts automatically from `H.cabinets`.
+- **The JUKEBOX** (entrance zone, x −4.8, left of the change machine):
+  three synthesized loops + OFF, cycled on interact, remembered in
+  localStorage `nugJukebox` (default OFF — opt-in ambience). Music is
+  scheduled just-in-time from `stepJuke()` inside `stepAudio` (beat.js
+  school), so it stops when a game launches (frame() stops) and respects
+  the hall mute. Its cabinet is built ONLY from existing atlas regions
+  (uv.dark + sw_ swatches — the main page is FULL, no new allocs); the
+  lights are glow kind `'juke'`, pulsing via `jukeBeatLevel()`.
 - **The street** (outside the doors, z > 0) is a real place: shops, lamps,
   a bus-stop exit hotspot, and FIVE NPCs with branching dialogue (`NPCS` +
   `openDialog` in arcade.js — nodes() rebuilds per chat so lines can react
