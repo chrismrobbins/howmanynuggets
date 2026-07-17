@@ -28,8 +28,13 @@ already bitten someone.
 > orbits with −ph; see the comment in js/run.js).
 > **S2.9 (FREE-ROAM ONLINE PT 1) SHIPPED EARLY, OUT OF ORDER** (js/gtaMP.js +
 > worker/src/games/gta.js — a pure state-relay, NOT server-authoritative; see
-> the S2.9 note at the bottom of GTA_SPRINTS.md before touching MP). S2.1–8 +
-> S2.10 remain. It's a STREET
+> the S2.9 note at the bottom of GTA_SPRINTS.md before touching MP).
+> **S2.1 (WHEELS OF YOUR OWN) SHIPPED 2026-07-17**: REP currency
+> (`nugGtaRep`/`gtaPayRep`/`gtaRep()`), the 3-slot garage
+> (`nugGtaGarage`, E to store/retrieve at the Grease Garage, L = plate
+> press, active car survives reloads) + 📍 map waypoints & online player
+> tags (click the pause map; `GtaNet.remoteList()`) — see the S2.1 sprint
+> note. S2.2–8 + S2.10 remain. It's a STREET
 > game (no cabinet): entry = the double-parked compact near the bus stop.
 > Campaign flags other code can read: `gtaProgress()` (0-11 contracts done)
 > and `gtaSawStorm()` (localStorage `nugGtaProg` / `nugGtaSawStorm`).

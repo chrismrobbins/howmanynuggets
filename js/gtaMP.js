@@ -300,12 +300,26 @@
     return out;
   }
 
+  // Every remote's live position + name, for the pause map and the 📍 player
+  // tag (S2.1 waypoints): tap a blip, the GPS locks on. Same interp as draw.
+  function remoteList() {
+    if (!active() || !remotes.size) return [];
+    const renderT = now() - INTERP_MS;
+    const out = [];
+    for (const [pid, r] of remotes) {
+      const st = sample(r, renderT);
+      if (st) out.push({ pid, name: r.name, x: st.x, y: st.y, interior: r.interior || '' });
+    }
+    return out;
+  }
+
   // ---- the public hooks gta.js calls ----------------------------------------------
   window.GtaNet = {
     active,
     onStep,
     drawRemotes,
     sameSpaceRemotes,
+    remoteList,
     onGameExit() { if (net.active && net.game === 'gta') net.leave(); hideHud(); },
   };
 })();

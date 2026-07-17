@@ -1105,3 +1105,66 @@ can't lurk unseen in dark corners, gtaMP.js gained a read-only
 `GtaNet.sameSpaceRemotes()` accessor (same filter + interp as drawRemotes)
 and the darkness pass punches a 26px light hole over each fellow patron.
 Guarded, additive, no-op offline — the net stack itself stays Chris's.
+
+## S2.1 — WHEELS OF YOUR OWN (2026-07-17, Beau's Claude)
+
+The Grease Garage is YOURS now, and Nuggetown pays in reputation.
+
+**Shipped:**
+- **REP** (`nugGtaRep`, `gta.rep`, HUD chip ⭐ above the belt, flashes on
+  gain): missions (`max(8, reward/12)`), gigs (+3 per drop/collar, +15
+  rampage), occupied carjacks (+1), player-caused wrecks (+1, cops +2),
+  golden pickups (+5), and strip-club MOVES (+1) all pay REP alongside $$$
+  via `gtaPayRep(amt, why)` — a golden pop label under the cash one.
+  Spending lands in S2.2 (the mod shop). `gtaRep()` is the read-anywhere
+  accessor for street dialogue. Open question resolved: display name is
+  plain **REP** (Beau was around, didn't object, default won).
+- **The garage** (`nugGtaGarage`: `{slots:[3], active, next}`): E while
+  idling in the Pay 'n' Spray zone STORES the ride (first free slot, or
+  its old slot; mission cargo refuses; mid-respray refuses — one service
+  at a time). E on foot in the lot RETRIEVES, cycling slots on repeat
+  presses. Cop cars store fine and keep the livery heat rules (the
+  "jacked cruiser in slot 3" ruling from the design notes). Damage does
+  NOT persist — retrieve = full hp ("the mechanics work nights").
+- **Plates**: stored cars get a seeded vanity plate (GTA_PLATE_WORDS);
+  **L while driving a garage car** opens the plate press (DOM overlay,
+  `.gta-plate-ui`, 8 chars A-Z0-9-space; Enter/Esc; the gta keydown/keyup
+  handlers gained INPUT guards so typing doesn't drive the car). Plate
+  shows next to the car name in the HUD. Touch has no L — touch keeps the
+  fun random plates for now.
+- **Reload persistence**: `garage.active` = the slot you last drove out;
+  session init starts you IN that car (cls/col/plate/slot). Parking it on
+  a curb keeps plate+slot on the parked object (gtaParkPlayerCar /
+  gtaEnterCar carry them); retrieving TOWS any street copy of that slot
+  (no clone fleet). A wrecked garage car resurrects on next retrieve —
+  garage magic, deliberately unexplained.
+
+**Also shipped (community request, Beau, same day): 📍 WAYPOINTS + TAGS**
+- Click/tap the pause map → cyan waypoint pin; the GPS runs a SECOND
+  arrow (cyan, wider orbit r=33 vs gold 24, so mission gold + pin never
+  overlap) + cyan edge arrow + cyan radar blip. Arriving (<46px) clears
+  it with a banner. Tap the pin again on the map to clear manually.
+- ONLINE: the pause map now draws every same-street remote as a named
+  cyan blip (`GtaNet.remoteList()` — new read-only accessor in gtaMP.js,
+  same interp as drawRemotes). Tap a blip → **GPS LOCKED: <name>** — the
+  arrow tracks them LIVE (name rides above the distance). Tag survives
+  their driving; clears if they log off ("TAG LOST — THEY LEFT TOWN") or
+  if you tap them again. If they duck into an interior the arrow yields
+  to an objective-plate line ("<NAME> IS INSIDE — <VENUE>") instead of
+  pointing at the -9000 interior origin.
+- Input seams: `gtaPointer` routes clicks to `gtaMapTap` while the map is
+  open (no steering through the map); touch keeps the 🗺 button live
+  (drawn as ✕ on the open map) and treats other taps as pins.
+
+**Verify (headless, all green):** REP pay + persistence; store→retrieve
+round-trip (slot/col/plate/active); plate press types + saves; RELOAD
+resurrects the active car (purple compact [BEAU-1] survived); waypoint
+set→arrow→arrival-clear; stubbed remote tag→live follow→log-off clear.
+Screenshots eyeballed: cyan/gold arrow pair, map blip + ring, REP chip.
+
+**Handoff to S2.2 (the mod shop):** slots already carry a `mods` field
+implicitly (add it to the slot object; gtaGarageLoad tolerates extras).
+Spend REP via `gta.rep` −= and gtaGarageSave. The plate press UI
+(.gta-plate-ui) is the pattern for any garage menu. NOTE for S2.10: the
+snapshot `n` field still carries the display NAME; the custom plate now
+EXISTS (slot.plate) — decide there whether ghosts show name or plate.

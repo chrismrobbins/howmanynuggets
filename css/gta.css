@@ -62,3 +62,59 @@ body.gta-mode #gtaWorld { display: block; }
 }
 .gta-mp-hud .gta-mp-count { color: #eef2ff; }
 .gta-mp-hud .gta-mp-hint { color: #8b93a7; font-weight: 700; }
+
+/* ---- The plate press (Season 2.1: WHEELS OF YOUR OWN) ---- */
+.gta-plate-ui {
+  position: fixed;
+  inset: 0;
+  z-index: 9996; /* above #gtaWorld + the MP pill, below storm HUD chrome */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 4, 12, 0.55);
+}
+.gta-plate-ui .card {
+  background: rgba(10, 12, 20, 0.95);
+  border: 2px solid #ffd23a;
+  border-radius: 10px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  box-shadow: 0 14px 40px -10px rgba(0, 0, 0, 0.9);
+}
+.gta-plate-ui .t {
+  font: 900 0.8rem/1 Consolas, monospace;
+  color: #ffd23a;
+  letter-spacing: 0.06em;
+}
+.gta-plate-ui input {
+  font: 900 1.3rem/1 Consolas, monospace;
+  letter-spacing: 0.22em;
+  text-align: center;
+  text-transform: uppercase;
+  color: #0a0a12;
+  background: #eef2ff;          /* license-plate white */
+  border: 3px solid #2a3244;
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  width: 11ch;
+  outline: none;
+}
+.gta-plate-ui .row { display: flex; gap: 0.5rem; }
+.gta-plate-ui button {
+  flex: 1;
+  font: 800 0.72rem/1 Consolas, monospace;
+  letter-spacing: 0.04em;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 210, 58, 0.5);
+  background: rgba(255, 210, 58, 0.14);
+  color: #ffe23a;
+  cursor: pointer;
+}
+.gta-plate-ui button.no {
+  border-color: rgba(158, 163, 199, 0.4);
+  background: rgba(158, 163, 199, 0.1);
+  color: #9aa3c7;
+}

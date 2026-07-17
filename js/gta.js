@@ -643,6 +643,24 @@ function syncGta() {
     gta.car.cls = 'compact';
     gta.car.col = '#c23a3a';
     gta.car.hp = GTA_CLASSES.compact.hp;
+    gta.car.plate = null; gta.car.slot = null;
+    // Season 2.1: REP + WHEELS OF YOUR OWN. The active garage car survives
+    // page reloads — the mechanics kept the engine warm for you.
+    try { gta.rep = Math.max(0, Math.round(+(localStorage.getItem('nugGtaRep') || 0) || 0)); } catch (e) { gta.rep = 0; }
+    gta.garage = gtaGarageLoad();
+    gta.repFlashT = 0;
+    gta.waypoint = null; gta.wpTag = null; // 📍 map pin / tagged online player
+    {
+      const act = gta.garage.active >= 0 ? gta.garage.slots[gta.garage.active] : null;
+      if (act && GTA_CLASSES[act.cls]) {
+        gta.car.cls = act.cls;
+        gta.car.col = act.col;
+        gta.car.hp = GTA_CLASSES[act.cls].hp;
+        gta.car.cop = !!act.cop;
+        gta.car.plate = act.plate;
+        gta.car.slot = gta.garage.active;
+      }
+    }
     gta.crates = 0;
     gta.dist = 0; gta.distPay = 0;
     gta.toastT = 0;
@@ -679,6 +697,175 @@ function gtaPay(mult, label, sx, sy) {
   storm.caught += worth;
   if (label) spawnPopLabel(sx * gta.scale, sy * gta.scale, label + ' +' + fmt.format(worth), label.includes('✨') ? 'golden' : '');
   updateStormHud();
+}
+
+// ---- REP (Season 2.1) ------------------------------------------------------------------
+// The meter only goes up; REP is the currency. Missions, gigs, and dirty work
+// pay it alongside $$$ — S2.2's mod shop is where it gets spent.
+
+function gtaPayRep(amt, why) {
+  gta.rep += amt;
+  gta.repFlashT = 1.6;
+  try { localStorage.setItem('nugGtaRep', String(gta.rep)); } catch (e) { /* private mode */ }
+  spawnPopLabel(gta.W / 2 * gta.scale, (gta.Hh * 0.42 + 22) * gta.scale,
+    '⭐ +' + amt + ' REP' + (why ? ' · ' + why : ''), 'golden');
+}
+
+// Anyone with dialogue can ask how known you are (street NPCs, future sprints).
+function gtaRep() {
+  try { return Math.max(0, Math.round(+(localStorage.getItem('nugGtaRep') || 0) || 0)); } catch (e) { return 0; }
+}
+
+// ---- THE GARAGE (Season 2.1: WHEELS OF YOUR OWN) ----------------------------------------
+// Three slots under the Grease Garage, persisted in nugGtaGarage. E while
+// driving in the lot stores the ride; E on foot takes one out (repeat E to
+// cycle slots). Damage doesn't persist — the mechanics work nights.
+
+const GTA_PLATE_WORDS = [
+  'NUG-LIFE', 'SAUCEBOI', 'CRISPY-1', 'DIP-N-GO', 'BATTER-U', 'GLD-NUGZ',
+  '2FRIED4U', 'MC-RUNNR', 'HONK-OK', 'NPD-WHO', '6-PIECE', 'EL-CRUNCH',
+];
+
+function gtaRandomPlate() {
+  return GTA_PLATE_WORDS[Math.floor(Math.random() * GTA_PLATE_WORDS.length)];
+}
+
+function gtaGarageLoad() {
+  try {
+    const g = JSON.parse(localStorage.getItem('nugGtaGarage') || 'null');
+    if (g && Array.isArray(g.slots) && g.slots.length === 3) {
+      return { slots: g.slots, active: typeof g.active === 'number' ? g.active : -1, next: g.next || 0 };
+    }
+  } catch (e) { /* fresh garage */ }
+  return { slots: [null, null, null], active: -1, next: 0 };
+}
+
+function gtaGarageSave() {
+  try { localStorage.setItem('nugGtaGarage', JSON.stringify(gta.garage)); } catch (e) { /* private mode */ }
+}
+
+// Same reach as the Pay 'n' Spray: pulling up out front counts.
+function gtaAtGarage(x, y) {
+  const G = gta.landmarks.garage;
+  if (!G) return false;
+  const T = GTA_TILE;
+  return x > G.c * T - 64 && x < (G.c + G.w) * T + 64 &&
+         y > G.r * T - 64 && y < (G.r + G.h) * T + 64;
+}
+
+function gtaGarageStore() {
+  const car = gta.car;
+  if (car.mis) { gtaBanner('🚚 CARGO STAYS ON THE JOB', 'heat', 1.6); return true; }
+  let idx = car.slot != null && !gta.garage.slots[car.slot] ? car.slot : gta.garage.slots.indexOf(null);
+  if (idx < 0) { gtaBanner('🏚️ GARAGE FULL — 3/3', 'heat', 1.6); return true; }
+  gta.garage.slots[idx] = {
+    cls: car.cls, col: car.col, cop: !!car.cop,
+    plate: car.plate || gtaRandomPlate(),
+  };
+  gta.garage.active = -1;
+  gtaGarageSave();
+  // step out; the shutter takes it from here
+  gtaPlaceOnFoot(car.x - Math.sin(car.a) * -13, car.y + Math.cos(car.a) * -13);
+  sfxGtaDoor();
+  gtaBanner('🏚️ STORED — SLOT ' + (idx + 1) + '/3 [' + gta.garage.slots[idx].plate + ']', 'go', 1.8);
+  return true;
+}
+
+function gtaGarageRetrieve() {
+  const occ = [];
+  for (let i = 0; i < 3; i++) if (gta.garage.slots[i]) occ.push(i);
+  if (!occ.length) { gtaBanner('🏚️ GARAGE EMPTY — STORE A RIDE (E, DRIVING)', '', 2); return true; }
+  const idx = occ[gta.garage.next % occ.length];
+  gta.garage.next = (gta.garage.next + 1) % Math.max(1, occ.length);
+  const s = gta.garage.slots[idx];
+  // the garage TOWS: if this slot's car was abandoned on a curb somewhere,
+  // it despawns — no clone fleet
+  for (let i = gta.cars.length - 1; i >= 0; i--) if (gta.cars[i].slot === idx) gta.cars.splice(i, 1);
+  // roll it out next to you (first open spot around your feet)
+  const P = gta.ped;
+  let px = P.x + 26, py = P.y;
+  for (const [ox, oy] of [[26, 0], [-26, 0], [0, 26], [0, -26], [34, 18], [-34, 18]]) {
+    if (!gtaSolidAt(P.x + ox, P.y + oy)) { px = P.x + ox; py = P.y + oy; break; }
+  }
+  gta.car = {
+    x: px, y: py, a: 0, vx: 0, vy: 0,
+    cls: s.cls, col: s.col, hp: GTA_CLASSES[s.cls].hp,
+    cop: !!s.cop, plate: s.plate, slot: idx,
+  };
+  gta.onFoot = false;
+  gta.tiresOut = false;
+  gta.garage.active = idx;
+  gtaGarageSave();
+  sfxGtaDoor();
+  gtaBanner('🔑 SLOT ' + (idx + 1) + '/3 — ' + GTA_CLASSES[s.cls].name + ' [' + s.plate + ']' +
+    (occ.length > 1 ? ' · E AGAIN TO CYCLE' : ''), 'go', 2);
+  return true;
+}
+
+// ---- 📍 WAYPOINTS + PLAYER TAGS (community request, Beau 2026-07-17) ---------------------
+// Click/tap the pause map to drop a pin — the GPS runs cyan alongside any
+// mission gold. In an online city, tap a player's blip instead and the GPS
+// locks onto them LIVE (the tag follows until cleared or they log off).
+
+function gtaMapRect() {
+  const W = gta.W, Hh = gta.Hh;
+  const s = Math.min((W - 24) / GTA_W, (Hh - 36) / GTA_H);
+  return { s, mx: W / 2 - GTA_W * s / 2, my: (Hh - GTA_H * s) / 2 + 4 };
+}
+
+function gtaRemotes() {
+  return (window.GtaNet && GtaNet.remoteList) ? GtaNet.remoteList() : [];
+}
+
+function gtaMapTap(clientX, clientY) {
+  const px = clientX / gta.scale, py = clientY / gta.scale;
+  const R = gtaMapRect();
+  if (px < R.mx - 4 || px > R.mx + GTA_W * R.s + 4 || py < R.my - 4 || py > R.my + GTA_H * R.s + 4) return;
+  // an online blip in reach? tag the player instead of the pavement
+  for (const r of gtaRemotes()) {
+    if (r.interior) continue; // indoors = off the map
+    const bx = R.mx + (r.x / GTA_TILE) * R.s, by = R.my + (r.y / GTA_TILE) * R.s;
+    if (Math.hypot(px - bx, py - by) < 8) {
+      if (gta.wpTag === r.pid) { gta.wpTag = null; gtaBanner('📍 TAG CLEARED', '', 1.2); }
+      else { gta.wpTag = r.pid; gta.waypoint = null; gtaBanner('📍 GPS LOCKED: ' + r.name, 'go', 1.8); }
+      return;
+    }
+  }
+  const wx = ((px - R.mx) / R.s) * GTA_TILE, wy = ((py - R.my) / R.s) * GTA_TILE;
+  if (gta.waypoint && Math.hypot(
+    R.mx + (gta.waypoint.x / GTA_TILE) * R.s - px,
+    R.my + (gta.waypoint.y / GTA_TILE) * R.s - py) < 7) {
+    gta.waypoint = null;
+    gtaBanner('📍 WAYPOINT CLEARED', '', 1.2);
+    return;
+  }
+  gta.waypoint = { x: wx, y: wy };
+  gta.wpTag = null;
+  gtaBanner('📍 WAYPOINT SET', 'go', 1.2);
+}
+
+// The live GPS target: a pinned spot, or a tagged player's current position.
+function gtaWpTarget() {
+  if (gta.wpTag) {
+    for (const r of gtaRemotes()) {
+      if (r.pid === gta.wpTag) {
+        return r.interior ? { inside: r.interior, name: r.name } : { x: r.x, y: r.y, name: r.name };
+      }
+    }
+    gta.wpTag = null; // logged off — the GPS shrugs
+    gtaBanner('📍 TAG LOST — THEY LEFT TOWN', '', 1.8);
+    return null;
+  }
+  return gta.waypoint;
+}
+
+function gtaStepWaypoint() {
+  if (!gta.waypoint) return;
+  const P = gtaPlayerPos();
+  if (P && Math.hypot(gta.waypoint.x - P.x, gta.waypoint.y - P.y) < 46) {
+    gta.waypoint = null;
+    gtaBanner('📍 YOU HAVE ARRIVED', 'go', 1.4);
+  }
 }
 
 // ---- the living city: traffic ----------------------------------------------------------
@@ -956,6 +1143,7 @@ function gtaExplodeCar(car) {
     gtaAddHeat(car.cop ? 1.4 : 0.8);
     gtaPay(car.cop ? 30 : 20, '💥',
       car.x - (gta.cam.x - gta.W / 2), car.y - (gta.cam.y - gta.Hh / 2));
+    gtaPayRep(car.cop ? 2 : 1, car.cop ? 'NPD PAINT' : 'DEMOLITION');
   }
   sfxGtaBoom(car.x, car.y, big);
   gtaSpawnParts(car.x, car.y, Math.round(22 * big), 'fire');
@@ -1100,6 +1288,7 @@ function gtaEnterCar(best, fromX, fromY) {
     });
     sfxGtaYelp(best.cop);
     gtaPay(15, '🚗', gta.W / 2, gta.Hh * 0.42);
+    gtaPayRep(1, 'BOOST');
     gtaBanner('🚗 ' + GTA_CLASSES[best.cls].name + ' BOOSTED', 'go', 1.3);
     gtaAddHeat(best.cop ? 1.2 : 0.5); // it's in the game's name
   } else {
@@ -1109,6 +1298,7 @@ function gtaEnterCar(best, fromX, fromY) {
   gta.car = { x: best.x, y: best.y, a: best.a, vx: 0, vy: 0, cls: best.cls, col: best.col, hp: best.hp };
   gta.car.cop = best.cop; // driving a jacked cruiser keeps the livery
   gta.car.mis = best.mis; gta.car.misKey = best.misKey; // cargo rides with you
+  gta.car.plate = best.plate || null; gta.car.slot = best.slot != null ? best.slot : null; // garage papers too
   gta.cars.splice(gta.cars.indexOf(best), 1);
   gta.onFoot = false;
   gta.tiresOut = false; // different car, different tires
@@ -1123,6 +1313,7 @@ function gtaParkPlayerCar() {
   gta.cars.push({
     x: car.x, y: car.y, a: car.a, dir: 0, v: 0, cls: car.cls, col: car.col, hp: car.hp,
     cop: car.cop, mis: car.mis, misKey: car.misKey,
+    plate: car.plate, slot: car.slot, // a garage car remembers who it belongs to
     parked: true, wreck: false, nd: null, blockT: 0, hitT: 0, emberT: 0,
   });
 }
@@ -1137,6 +1328,8 @@ function gtaInteract() {
     if (best) { gtaEnterCar(best, gta.ped.x, gta.ped.y); return; }
     // no door in reach — a ringing phone beats a shopping trip
     if (gtaTryBooth(gta.ped.x, gta.ped.y, 26)) return;
+    // standing in the garage lot: roll out one of YOUR rides (S2.1)
+    if (gtaAtGarage(gta.ped.x, gta.ped.y) && gtaGarageRetrieve()) return;
     // a lit doorway: step inside (patch 10.8)
     for (const d of gta.doors) {
       if (Math.abs(gta.ped.x - d.mx) < 22 && Math.abs(gta.ped.y - d.my) < 22) {
@@ -1164,6 +1357,9 @@ function gtaInteract() {
   const car = gta.car;
   if (Math.hypot(car.vx, car.vy) > 55) return; // this isn't an action movie
   if (Math.hypot(car.vx, car.vy) < 40 && gtaTryBooth(car.x, car.y, 40)) return; // curbside pickup
+  // idling in the garage lot: the shutter is open for YOUR car (S2.1) —
+  // unless the Pay 'n' Spray mist is mid-coat; one service at a time
+  if (Math.hypot(car.vx, car.vy) < 40 && gta.sprayT <= 0 && gtaAtGarage(car.x, car.y) && gtaGarageStore()) return;
   const best = gtaNearestCar(car.x, car.y, 34);
   if (best) {
     gtaParkPlayerCar();
@@ -1761,6 +1957,7 @@ function gtaMissionComplete() {
   gta.prog++;
   try { localStorage.setItem('nugGtaProg', String(gta.prog)); } catch (e) { /* private mode */ }
   gtaPay(def.reward, '💰', gta.W / 2, gta.Hh * 0.42);
+  gtaPayRep(Math.max(8, Math.round(def.reward / 12)), 'CONTRACT');
   sfxGtaPassed();
   gtaBanner('✔ MISSION PASSED', 'go', 2);
   gta.toastMsg = def.outro || '"payment sent. stay near a phone." — S.W.';
@@ -1919,6 +2116,7 @@ function gtaStepGig(dt) {
     if (Math.abs(P.x - G.mk.x) < 32 && Math.abs(P.y - G.mk.y) < 32) {
       G.count++;
       gtaPay(40 + G.count * 6, '📦', gta.W / 2, gta.Hh * 0.42);
+      gtaPayRep(3, 'DELIVERY');
       G.mk = gtaGigDrop(G.mk.key);
       G.time = Math.max(38, 62 - G.count * 2); // the routes get tighter
     }
@@ -1935,6 +2133,7 @@ function gtaStepGig(dt) {
     if (G.felon.wreck) {
       G.count++;
       gtaPay(35 + G.count * 8, '🚨', gta.W / 2, gta.Hh * 0.42);
+      gtaPayRep(3, 'COLLAR');
       gtaBanner('🚨 FELON COLLARED', 'go', 1.1);
       G.felon = null; // dispatch has another
       return;
@@ -1944,6 +2143,7 @@ function gtaStepGig(dt) {
     G.time -= dt;
     if (G.count >= G.need) {
       gtaPay(150, '💀', gta.W / 2, gta.Hh * 0.42);
+      gtaPayRep(15, 'RAMPAGE');
       gtaAddHeat(1.5); // that many crumbs, someone counted
       gtaGigEnd('💀 RAMPAGE COMPLETE');
       return;
@@ -2120,6 +2320,7 @@ function gtaInteriorInteract() {
     gta.tipHype = Math.min(4, gta.tipHype + 2.5);
     for (const pol of pts.poles) gtaSpawnParts(pol.x, pol.y + 8, 8, 'crumbspray');
     gtaPay(6, '💃', gta.W / 2, gta.Hh * 0.42);
+    gtaPayRep(1, 'MOVES');
     sfxGtaPickup(false);
     gtaTone(392, 0.1, 0.12, 0.05, 'square');
     gtaTone(523, 0.2, 0.16, 0.05, 'square');
@@ -3451,6 +3652,8 @@ function stepGta(dt, w, h) {
       gtaStepFire(dt);
     }
     if (!gta.interior) gtaStepWorld(dt);
+    gtaStepWaypoint();
+    if (gta.repFlashT > 0) gta.repFlashT -= dt;
   }
 
   gtaStepAudio();
@@ -3989,7 +4192,7 @@ function gtaStepWorld(dt) {
         if (gta.wsel === 0) gtaSelectWeapon(GTA_WEAPONS.indexOf(w));
         spawnPopLabel(gta.W / 2 * gta.scale, gta.Hh * 0.42 * gta.scale, w.icon + ' +' + w.give, '');
       }
-      else if (p.gold) { gtaPay(120, '✨', gta.W / 2, gta.Hh * 0.42); sfxGtaPickup(true); }
+      else if (p.gold) { gtaPay(120, '✨', gta.W / 2, gta.Hh * 0.42); gtaPayRep(5, 'GOLDEN'); sfxGtaPickup(true); }
       else { gta.crates++; gtaPay(12, '📦', gta.W / 2, gta.Hh * 0.42); sfxGtaPickup(false); }
     }
   }
@@ -4953,7 +5156,7 @@ function gtaDrawHud(g, W, Hh) {
     const pct = Math.max(0, gta.car.hp / C.hp);
     bar(Hh - 44, pct, pct > 0.5 ? '#39ff7a' : pct > 0.25 ? '#ffe23a' : '#ff5252');
     g.fillStyle = '#9aa3c7';
-    g.fillText(C.name, 54, Hh - 38);
+    g.fillText(C.name + (gta.car.plate ? ' [' + gta.car.plate + ']' : ''), 54, Hh - 38);
   }
 
   // The belt: current condiment + rounds remaining.
@@ -4961,6 +5164,10 @@ function gtaDrawHud(g, W, Hh) {
   g.font = '900 9px Consolas, monospace';
   g.fillStyle = gta.wsel > 0 && gta.ammo[wp.key] === 0 ? '#ff5252' : '#eef2ff';
   g.fillText(wp.icon + ' ' + (gta.wsel === 0 ? wp.name : gta.ammo[wp.key]), 6, Hh - 50);
+
+  // REP, riding above the belt: street cred that spends (mods land in S2.2).
+  g.fillStyle = gta.repFlashT > 0 && Math.floor(gta.t * 6) % 2 === 0 ? '#ffffff' : '#ffd23a';
+  g.fillText('⭐ ' + fmt.format(gta.rep) + ' REP', 6, Hh - 62);
 
   // Weapon-switch toast: the whole wheel, selection bracketed.
   if (gta.wtoastT > 0) {
@@ -5014,6 +5221,15 @@ function gtaDrawHud(g, W, Hh) {
       if (Math.floor(gta.t * 5) % 2 === 0) blip(mkR.x / GTA_TILE, mkR.y / GTA_TILE);
     } else if (gta.boothRing && Math.floor(gta.t * 3) % 2 === 0) {
       for (const b of gta.booths) blip(b.c + 0.5, b.r + 0.5);
+    }
+    // the waypoint/tag rides the radar in cyan
+    const wpR = gtaWpTarget();
+    if (wpR && !wpR.inside) {
+      const bc = wpR.x / GTA_TILE, br = wpR.y / GTA_TILE;
+      if (bc >= sx && bc <= sx + SRC && br >= sy && br <= sy + SRC && Math.floor(gta.t * 5) % 2 === 0) {
+        g.fillStyle = '#3ad4ff';
+        g.fillRect(dx + ((bc - sx) / SRC) * MM - 1, dy + ((br - sy) / SRC) * MM - 1, 2, 2);
+      }
     }
     g.fillStyle = '#ffffff';
     g.fillRect(dx + ((pc - sx) / SRC) * MM - 1, dy + ((pr - sy) / SRC) * MM - 1, 3, 3);
@@ -5146,6 +5362,20 @@ function gtaDrawHud(g, W, Hh) {
     }
   }
 
+  // 📍 the waypoint GPS runs cyan, alongside whatever gold is already up
+  const wpT = gtaWpTarget();
+  if (wpT) {
+    if (wpT.inside) {
+      // a tagged player who's gone indoors: no arrow to a -9000 origin, thanks
+      if (!(gta.mission && gta.mission.st) && !gta.gig && !gta.boothRing) {
+        objPlate('📍 ' + (wpT.name || '?') + ' IS INSIDE — ' + String(wpT.inside).toUpperCase(), '#3ad4ff');
+      }
+    } else {
+      gtaEdgeArrow(g, W, Hh, wpT, '#3ad4ff');
+      gtaGpsArrow(g, W, Hh, wpT, '#3ad4ff', wpT.name);
+    }
+  }
+
   // The brief: S.W. talks, you read, the city keeps moving underneath.
   if (gta.briefT > 0 && gta.mission) {
     g.globalAlpha = Math.min(1, gta.briefT / 0.8);
@@ -5192,6 +5422,32 @@ function gtaDrawMap(g, W, Hh) {
     g.fillStyle = '#ffd23a';
     g.fillRect(mx + (mk.x / GTA_TILE) * s - 2, my + (mk.y / GTA_TILE) * s - 2, 4, 4);
   }
+  // online players: cyan blips with names — tap one to lock the GPS on them
+  for (const r of gtaRemotes()) {
+    if (r.interior) continue;
+    const bx = mx + (r.x / GTA_TILE) * s, by = my + (r.y / GTA_TILE) * s;
+    const tagged = gta.wpTag === r.pid;
+    g.fillStyle = tagged ? '#ffffff' : '#3ad4ff';
+    g.fillRect(bx - 2, by - 2, 4, 4);
+    if (tagged) {
+      g.strokeStyle = '#3ad4ff';
+      g.lineWidth = 1;
+      g.strokeRect(bx - 4.5, by - 4.5, 9, 9);
+    }
+    g.font = '700 6px Consolas, monospace';
+    g.fillStyle = tagged ? '#ffffff' : 'rgba(58,212,255,0.85)';
+    g.fillText(String(r.name || '').slice(0, 10), bx, by - 4);
+  }
+  // the 📍 pin (a static one — player tags draw as the ringed blip above)
+  if (gta.waypoint && Math.floor(gta.t * 4) % 2 === 0) {
+    const wx = mx + (gta.waypoint.x / GTA_TILE) * s, wy = my + (gta.waypoint.y / GTA_TILE) * s;
+    g.strokeStyle = '#3ad4ff';
+    g.lineWidth = 1.5;
+    g.beginPath();
+    g.moveTo(wx - 3, wy - 3); g.lineTo(wx + 3, wy + 3);
+    g.moveTo(wx + 3, wy - 3); g.lineTo(wx - 3, wy + 3);
+    g.stroke();
+  }
   const P = gtaPlayerPos();
   g.fillStyle = Math.floor(gta.t * 3) % 2 === 0 ? '#ffffff' : '#3ad4ff';
   g.fillRect(mx + (P.x / GTA_TILE) * s - 2, my + (P.y / GTA_TILE) * s - 2, 4, 4);
@@ -5200,26 +5456,39 @@ function gtaDrawMap(g, W, Hh) {
   g.fillText('NUGGETOWN', W / 2, Math.max(10, my - 3));
   g.font = '700 8px Consolas, monospace';
   g.fillStyle = '#9aa3c7';
-  g.fillText('M — BACK TO THE STREET', W / 2, Hh - 3);
+  g.fillText('CLICK/TAP — 📍 WAYPOINT (players too) · M — BACK', W / 2, Hh - 3);
+  if (gta.isTouch) {
+    // the 🗺 button stays visible (and tappable) while the map is up
+    g.fillStyle = 'rgba(5,5,12,0.7)';
+    g.beginPath(); g.arc(14, 52, 9, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = 'rgba(238,242,255,0.5)';
+    g.lineWidth = 1;
+    g.beginPath(); g.arc(14, 52, 9, 0, Math.PI * 2); g.stroke();
+    g.font = '900 9px Consolas, monospace';
+    g.fillStyle = '#eef2ff';
+    g.fillText('✕', 14, 55);
+  }
 }
 
 // The GTA1 answer to "where do I go": a gold arrow orbiting the player,
 // always pointing at the live objective, with the distance riding past it.
-function gtaGpsArrow(g, W, Hh, mk) {
+function gtaGpsArrow(g, W, Hh, mk, col, label) {
   const P = gtaPlayerPos();
   const dx = mk.x - P.x, dy = mk.y - P.y;
   const d = Math.hypot(dx, dy);
   if (d < 60) return; // you're basically there — the ground ring takes over
   const a = Math.atan2(dy, dx);
   const sx = W / 2 + (P.x - gta.cam.x), sy = Hh / 2 + (P.y - gta.cam.y);
-  const r = 24 + Math.sin(gta.t * 3.2) * 2.5;
+  // a second (cyan waypoint) arrow orbits a ring further out so the pair
+  // never overlaps when a mission and a pin are both live
+  const r = (col ? 33 : 24) + Math.sin(gta.t * 3.2) * 2.5;
   const ax = sx + Math.cos(a) * r, ay = sy + Math.sin(a) * r;
   g.save();
   g.translate(ax, ay);
   g.rotate(a);
   g.fillStyle = 'rgba(5,5,12,0.55)'; // dark backing so it reads on any road
   g.beginPath(); g.moveTo(11, 0); g.lineTo(-6, -7); g.lineTo(-2.5, 0); g.lineTo(-6, 7); g.closePath(); g.fill();
-  g.fillStyle = '#ffd23a';
+  g.fillStyle = col || '#ffd23a';
   g.beginPath(); g.moveTo(9, 0); g.lineTo(-5, -5.5); g.lineTo(-2, 0); g.lineTo(-5, 5.5); g.closePath(); g.fill();
   g.restore();
   const tx = sx + Math.cos(a) * (r + 14), ty = sy + Math.sin(a) * (r + 14) + 2.5;
@@ -5227,19 +5496,25 @@ function gtaGpsArrow(g, W, Hh, mk) {
   g.font = '900 7px Consolas, monospace';
   g.fillStyle = 'rgba(5,5,12,0.6)';
   g.fillRect(tx - 11, ty - 7, 22, 9);
-  g.fillStyle = '#ffe9a0';
+  g.fillStyle = col ? '#bfefff' : '#ffe9a0';
   g.fillText(Math.round(d) + 'm', tx, ty);
+  if (label) {
+    g.fillStyle = 'rgba(5,5,12,0.6)';
+    g.fillRect(tx - 16, ty - 16, 32, 9);
+    g.fillStyle = col || '#ffe9a0';
+    g.fillText(String(label).slice(0, 10), tx, ty - 9);
+  }
 }
 
 // A gold arrow pinned to the screen edge, pointing at an offscreen marker.
-function gtaEdgeArrow(g, W, Hh, mk) {
+function gtaEdgeArrow(g, W, Hh, mk, col) {
   const rx = mk.x - gta.cam.x, ry = mk.y - gta.cam.y;
   if (Math.abs(rx) <= W / 2 - 10 && Math.abs(ry) <= Hh / 2 - 10) return;
   const k = Math.min((W / 2 - 14) / Math.max(1, Math.abs(rx)), (Hh / 2 - 14) / Math.max(1, Math.abs(ry)));
   g.save();
   g.translate(W / 2 + rx * k, Hh / 2 + ry * k);
   g.rotate(Math.atan2(ry, rx));
-  g.fillStyle = Math.floor(gta.t * 3) % 2 === 0 ? '#ffd23a' : '#ffe9a0';
+  g.fillStyle = Math.floor(gta.t * 3) % 2 === 0 ? (col || '#ffd23a') : (col ? '#bfefff' : '#ffe9a0');
   g.beginPath(); g.moveTo(8, 0); g.lineTo(-4, -5); g.lineTo(-4, 5); g.closePath(); g.fill();
   g.restore();
 }
@@ -5284,7 +5559,7 @@ function gtaDrawTitle(g, W, Hh) {
     : '↑↓ drive · ←→ steer · SPACE handbrake/punch', W / 2, Hh * 0.64);
   g.fillText('E — cars, phones & lit doors 🚪 · SHIFT sprint · F fire · Q weapons', W / 2, Hh * 0.71);
   g.fillStyle = '#ffd23a';
-  g.fillText('📞 phones = work · 📻 R radio · 🗺 M map · 🕹 T steering', W / 2, Hh * 0.78);
+  g.fillText('📞 phones = work · 📻 R radio · 🗺 M map (click = 📍) · 🔩 L plate', W / 2, Hh * 0.78);
   if (Math.floor(gta.t * 2.2) % 2 === 0) {
     g.font = '900 12px Consolas, monospace';
     g.fillStyle = '#ffe23a';
@@ -5293,6 +5568,57 @@ function gtaDrawTitle(g, W, Hh) {
 }
 
 // ---- input -----------------------------------------------------------------------------
+
+// L: the plate press. Garage cars only — vanity is a member benefit.
+function gtaPlateUi() {
+  if (gta.onFoot || gta.car.slot == null) {
+    gtaBanner('🔩 PLATES ARE A GARAGE SERVICE — STORE A RIDE FIRST', '', 2);
+    return;
+  }
+  if (gta.plateEl) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'gta-plate-ui';
+  const card = document.createElement('div');
+  card.className = 'card';
+  const title = document.createElement('div');
+  title.className = 't';
+  title.textContent = '🔩 CUSTOM PLATE — SLOT ' + (gta.car.slot + 1);
+  const input = document.createElement('input');
+  input.maxLength = 8;
+  input.spellcheck = false;
+  input.value = gta.car.plate || '';
+  const row = document.createElement('div');
+  row.className = 'row';
+  const ok = document.createElement('button');
+  ok.type = 'button'; ok.className = 'ok'; ok.textContent = 'BOLT IT ON';
+  const no = document.createElement('button');
+  no.type = 'button'; no.className = 'no'; no.textContent = 'NEVERMIND';
+  row.append(ok, no);
+  card.append(title, input, row);
+  wrap.appendChild(card);
+  gtaWorld.appendChild(wrap);
+  gta.plateEl = wrap;
+  const close = () => { wrap.remove(); gta.plateEl = null; };
+  const save = () => {
+    const txt = (input.value || '').toUpperCase().replace(/[^A-Z0-9\- ]/g, '').trim().slice(0, 8);
+    if (txt) {
+      gta.car.plate = txt;
+      const s = gta.garage.slots[gta.car.slot];
+      if (s) { s.plate = txt; gtaGarageSave(); }
+      gtaBanner('🔩 PLATE: ' + txt, 'go', 1.6);
+    }
+    close();
+  };
+  ok.addEventListener('click', save);
+  no.addEventListener('click', close);
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') save();
+    if (e.key === 'Escape') close();
+  });
+  input.focus();
+  input.select();
+}
 
 function gtaPress(code) {
   if (gta.phase === 'title' &&
@@ -5324,6 +5650,7 @@ function gtaPress(code) {
   }
   if (code === 'KeyE' || code === 'KeyX') { gtaInteract(); return true; }
   if (code === 'KeyM') { if (!gta.interior) gta.mapOpen = !gta.mapOpen; return true; }
+  if (code === 'KeyL') { gtaPlateUi(); return true; }
   if (code === 'KeyR') { gtaRadioCycle(); return true; }
   if (code === 'KeyT') {
     gta.steerMode = gta.steerMode === 'point' ? 'classic' : 'point';
@@ -5341,11 +5668,13 @@ function gtaPress(code) {
 
 window.addEventListener('keydown', (e) => {
   if (!gtaActive()) return;
+  if (e.target && e.target.tagName === 'INPUT') return; // the plate editor is typing
   if (gtaPress(e.code)) e.preventDefault();
 });
 
 window.addEventListener('keyup', (e) => {
   if (!gta.on) return;
+  if (e.target && e.target.tagName === 'INPUT') return;
   if (e.code === 'ArrowUp' || e.code === 'KeyW') gta.keys.up = false;
   if (e.code === 'ArrowDown' || e.code === 'KeyS') gta.keys.down = false;
   if (e.code === 'ArrowLeft' || e.code === 'KeyA') gta.keys.left = false;
@@ -5363,6 +5692,7 @@ function gtaPointer(x, y, down) {
   gta.mouse.cx = x; gta.mouse.cy = y; gta.mouse.down = down;
   if (!down) { gta.keys.up = false; gta.keys.left = false; gta.keys.right = false; return; }
   if (gta.phase !== 'play') { gta.mouse.down = false; gtaPress('Space'); return; }
+  if (gta.mapOpen) { gta.mouse.down = false; gtaMapTap(x, y); return; } // the map takes the click
   if (!gta.onFoot && gta.steerMode === 'point') return; // the cursor IS the wheel
   gta.keys.up = true;
   const t = x / window.innerWidth;
@@ -5397,6 +5727,13 @@ gtaWorld.addEventListener('touchstart', (e) => {
   if (gta.phase !== 'play') { gtaPress('Space'); e.preventDefault(); return; }
   for (const t of e.changedTouches) {
     const cx = t.clientX / gta.scale, cy = t.clientY / gta.scale;
+    if (gta.mapOpen) {
+      // map's open: the 🗺 button still closes it, anything else drops a pin
+      const mb = gtaTouchBtns().find((b) => b.k === 'map');
+      if (mb && Math.hypot(cx - mb.x, cy - mb.y) <= mb.r + 5) gta.mapOpen = false;
+      else gtaMapTap(t.clientX, t.clientY);
+      continue;
+    }
     let hit = null;
     for (const b of gtaTouchBtns()) {
       if (Math.hypot(cx - b.x, cy - b.y) <= b.r + 5) { hit = b; break; }
