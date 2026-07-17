@@ -5,8 +5,34 @@
   z-index: 9990;
   display: none;
   background: #0a0614;
+  touch-action: none; /* thumbs drum here — no scroll, no double-tap zoom */
 }
 body.beat-mode #beatWorld { display: block; }
+
+/* BRING YOUR OWN BEAT: the file picker on the title screen */
+.beat-byob {
+  position: absolute;
+  left: 50%;
+  bottom: 9%;
+  transform: translateX(-50%);
+  display: none;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
+  font: 800 clamp(0.75rem, 2.6vw, 0.95rem)/1 Consolas, monospace;
+  letter-spacing: 0.06em;
+  color: #ffd2ee;
+  background: rgba(28, 4, 24, 0.85);
+  border: 2px solid #ff2fa0;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 0 18px rgba(255, 47, 160, 0.35);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.beat-byob.show { display: inline-flex; }
+.beat-byob:hover { background: rgba(255, 47, 160, 0.2); }
+.beat-byob input { display: none; }
 
 #beatWorld canvas {
   position: absolute;

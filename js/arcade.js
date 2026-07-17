@@ -2744,7 +2744,7 @@ void main() {
       const hp = AC.ctx.createBiquadFilter();
       hp.type = 'highpass'; hp.frequency.value = 2200;
       AC.rain = AC.ctx.createGain();
-      AC.rain.gain.value = 0.035;
+      AC.rain.gain.value = 0.026;
       rainSrc.connect(hp).connect(AC.rain);
       AC.amb.connect(AC.master);
       AC.rain.connect(AC.master);
@@ -2765,7 +2765,7 @@ void main() {
 
   function setAmbient(level) {
     if (AC.amb) AC.amb.gain.value = level;
-    if (AC.rain) AC.rain.gain.value = 0.035 * level;
+    if (AC.rain) AC.rain.gain.value = 0.026 * level;
     if (AC.ctx && level === 0 && AC.ctx.state === 'running') AC.ctx.suspend();
     if (AC.ctx && level > 0 && AC.ctx.state === 'suspended') AC.ctx.resume();
   }
@@ -2776,10 +2776,12 @@ void main() {
 
   function stepAudio(dt) {
     if (!AC.ctx || AC.muted) return;
-    // rain volume tracks how close to the door you are
+    // rain volume tracks how close to the door you are — and ducks under the
+    // jukebox, because there's music on now and the weather isn't the show
     if (AC.rain) {
       const t = Math.max(0, Math.min(1, (H.cam.z + 3) / 4));
-      AC.rain.gain.value = 0.005 + 0.04 * t;
+      const rainMax = JUKE.cur ? 0.014 : 0.026;
+      AC.rain.gain.value = 0.003 + rainMax * t;
     }
     // sparse chiptune blips drifting over from the cabinets — louder when
     // you're standing near one, faint from across the room

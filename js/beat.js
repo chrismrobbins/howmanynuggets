@@ -111,6 +111,12 @@ const beat = {
   cupDip: [0, 0, 0, 0],
   laneFlash: [0, 0, 0, 0],
   rngState: 1,
+  // mobile + BRING YOUR OWN BEAT
+  isTouch: false,
+  byob: null,       // the 🎵 YOUR MUSIC file-picker label (DOM)
+  analyzing: false,
+  src: null,        // AudioBufferSourceNode for a custom track
+  lastCustom: false,
 };
 
 function beatActive() {
@@ -155,6 +161,21 @@ function syncBeat() {
       beat.banner = document.createElement('div');
       beat.banner.className = 'beat-banner';
       beatWorld.appendChild(beat.banner);
+      // BRING YOUR OWN BEAT: feed DJ DRIP a track off your device; he charts
+      // it live (onset detection + BPM estimate in beatAnalyze). No accounts,
+      // no cloud, works on phones — the file never leaves the browser.
+      beat.byob = document.createElement('label');
+      beat.byob.className = 'beat-byob';
+      beat.byob.textContent = '🎵 PLAY YOUR MUSIC';
+      const fi = document.createElement('input');
+      fi.type = 'file';
+      fi.accept = 'audio/*';
+      fi.addEventListener('change', () => {
+        if (fi.files && fi.files[0]) beatLoadFile(fi.files[0]);
+        fi.value = '';
+      });
+      beat.byob.appendChild(fi);
+      beatWorld.appendChild(beat.byob);
     }
     beat.phase = 'title';
     beat.t = 0;
@@ -172,6 +193,8 @@ function syncBeat() {
     beatLayout();
   } else {
     beat.banner && beat.banner.classList.remove('show');
+    beat.byob && beat.byob.classList.remove('show');
+    if (beat.src) { try { beat.src.stop(); } catch (e) { /* already done */ } beat.src = null; }
     // orphan any scheduled audio: old nodes hang on the old master, which we
     // drop here — resuming later gets a fresh silent-to-start graph
     if (beat.master) { try { beat.master.disconnect(); } catch (e) { /* fine */ } beat.master = null; }
@@ -352,9 +375,152 @@ function beatGenTrack(spec, intensity) {
   return { spec, bpm, spb, countin, events, notes, dur };
 }
 
+// ---- BRING YOUR OWN BEAT (analysis happens right here, in the browser) ------------------
+
+async function beatLoadFile(file) {
+  const c = beatCtx();
+  if (!c) { beatBanner('🔇 NO AUDIO CONTEXT — NO DICE', 'over', 2); return; }
+  if (beat.analyzing) return;
+  beat.analyzing = true;
+  beatBanner('🎧 DJ DRIP IS LISTENING…', 'go', 3);
+  try {
+    const buf = await c.decodeAudioData(await file.arrayBuffer());
+    const tr = beatAnalyzeBuffer(buf, file.name);
+    beat.analyzing = false;
+    if (!tr || tr.notes.length < 12) {
+      beatBanner('🎵 COULDN\'T FIND THE BEAT IN THAT ONE', 'over', 2.4);
+      return;
+    }
+    beatStartCustom(tr);
+  } catch (e) {
+    beat.analyzing = false;
+    beatBanner('🎵 COULDN\'T READ THAT FILE', 'over', 2.2);
+  }
+}
+
+// Onset detection + tempo estimate, the classic recipe: per-hop energy (plus
+// a one-pole low band, because kicks live down there), positive flux, an
+// autocorrelation over 60–180 BPM, then local-max onsets snapped to the beat
+// grid. Lanes split by how bassy each hit is. Whole pass runs in ~100ms.
+function beatAnalyzeBuffer(buf, name) {
+  const sr = buf.sampleRate, hop = 512;
+  const ch0 = buf.getChannelData(0);
+  const ch1 = buf.numberOfChannels > 1 ? buf.getChannelData(1) : null;
+  const n = Math.floor(ch0.length / hop);
+  if (n < 200) return null; // shorter than ~2.5s isn't a song, it's a ringtone
+  const eng = new Float32Array(n), low = new Float32Array(n);
+  const k = Math.exp(-2 * Math.PI * 180 / sr);
+  let lp = 0;
+  for (let i = 0; i < n; i++) {
+    let e = 0, l = 0;
+    const o = i * hop;
+    for (let j = 0; j < hop; j++) {
+      const s = ch1 ? (ch0[o + j] + ch1[o + j]) * 0.5 : ch0[o + j];
+      lp = lp * k + s * (1 - k);
+      e += s * s;
+      l += lp * lp;
+    }
+    eng[i] = e;
+    low[i] = l;
+  }
+  const flux = new Float32Array(n);
+  for (let i = 1; i < n; i++)
+    flux[i] = Math.max(0, eng[i] - eng[i - 1]) + 2 * Math.max(0, low[i] - low[i - 1]);
+
+  const fps = sr / hop;
+  const corr = (lag) => {
+    let s = 0;
+    for (let i = 0; i + lag < n; i++) s += flux[i] * flux[i + lag];
+    return s;
+  };
+  let bestLag = Math.round(fps * 0.5), bestScore = -1;
+  for (let lag = Math.round(fps * 60 / 180); lag <= Math.round(fps * 60 / 60); lag++) {
+    const s = corr(lag) * Math.sqrt(lag); // mild bias against double-time hearings
+    if (s > bestScore) { bestScore = s; bestLag = lag; }
+  }
+  // octave fold: if half the lag correlates nearly as well, the song is
+  // actually double-time — prefer the danceable hearing (90–180 over 45–90)
+  const halfLag = Math.round(bestLag / 2);
+  if ((60 * fps) / bestLag < 95 && halfLag >= Math.round(fps * 60 / 180) &&
+      corr(halfLag) >= 0.55 * corr(bestLag)) {
+    bestLag = halfLag;
+  }
+  const bpm = Math.max(60, Math.min(180, Math.round((60 * fps) / bestLag)));
+  let bestOff = 0, bestP = -1;
+  for (let off = 0; off < bestLag; off += 2) {
+    let s = 0;
+    for (let i = off; i < n; i += bestLag) s += flux[i];
+    if (s > bestP) { bestP = s; bestOff = off; }
+  }
+
+  const half = bestLag / 2;
+  const notes = [];
+  const winR = Math.round(fps * 0.5);
+  let lastT = -1;
+  for (let i = 2; i < n - 2; i++) {
+    if (flux[i] < flux[i - 1] || flux[i] < flux[i + 1]) continue;
+    let mean = 0, cnt = 0;
+    for (let j = Math.max(0, i - winR); j < Math.min(n, i + winR); j++) { mean += flux[j]; cnt++; }
+    mean /= cnt;
+    if (flux[i] < mean * 1.9) continue;
+    let fi = i;
+    const gridPos = Math.round((i - bestOff) / half) * half + bestOff;
+    if (Math.abs(gridPos - i) < half * 0.28) fi = gridPos; // snap the near-misses
+    const t = fi / fps;
+    if (t - lastT < 0.18) continue; // keep it thumb-playable
+    lastT = t;
+    const bassy = low[i] > eng[i] * 0.45;
+    notes.push({
+      t,
+      lane: bassy ? notes.length % 2 : 2 + (notes.length % 2),
+      golden: notes.length % 16 === 15,
+      state: 'wait',
+    });
+  }
+
+  const spb = 60 / bpm;
+  const countin = 4 * spb;
+  const events = [];
+  for (let beatN = -4; beatN < 0; beatN++) events.push({ t: beatN * spb, kind: 'tick' });
+  const pal = BEAT_TRACKS[(name || '').length % BEAT_TRACKS.length].pal;
+  const title = (name || 'YOUR TRACK').replace(/\.[^.]+$/, '').toUpperCase().slice(0, 18);
+  return {
+    spec: {
+      name: title, sub: 'your crate · charted live', custom: true,
+      bpm, bars: Math.max(1, Math.ceil(buf.duration / (spb * 4))), pal,
+    },
+    bpm, spb, countin, events, notes,
+    dur: buf.duration + 0.5,
+    buffer: buf,
+  };
+}
+
+function beatStartCustom(tr) {
+  beat.track = tr;
+  beat.encoreUp = false;
+  beat.lastCustom = true;
+  beat.songT = -tr.countin;
+  beat.schedIdx = 0;
+  beat.phase = 'countin';
+  beat.trackHits = 0; beat.trackJudged = 0; beat.trackSum = 0;
+  beat.card = null;
+  beat.fx = []; beat.splash = [];
+  const c = beatCtx();
+  beat.ctxT0 = c.currentTime + 0.1 - beat.songT;
+  // the record drops at song-time zero, sample-accurate on the same clock
+  if (beat.src) { try { beat.src.stop(); } catch (e) { /* fine */ } }
+  beat.src = c.createBufferSource();
+  beat.src.buffer = tr.buffer;
+  beat.src.connect(beat.master);
+  beat.src.start(beat.ctxT0);
+  beatBanner('🎵 NOW SPINNING: ' + tr.spec.name + ' · ' + tr.bpm + ' BPM', 'gold', 2.6);
+}
+
 // ---- flow ------------------------------------------------------------------------------
 
 function beatStartTrack(spec) {
+  if (beat.src) { try { beat.src.stop(); } catch (e) { /* fine */ } beat.src = null; }
+  beat.lastCustom = false;
   beat.track = beatGenTrack(spec, beat.intensity);
   beat.encoreUp = !!spec.encore;
   beat.songT = -beat.track.countin;
@@ -378,6 +544,19 @@ function beatRating(acc) {
 function beatEndTrack() {
   const tr = beat.track;
   const acc = beat.trackJudged > 0 ? beat.trackSum / beat.trackJudged : 0;
+
+  if (tr.spec.custom) {
+    // your record, your results — then back to the crate
+    if (beat.src) { try { beat.src.stop(); } catch (e) { /* faded out */ } beat.src = null; }
+    beat.phase = 'results';
+    beat.card = {
+      title: '🎵 ' + tr.spec.name,
+      lines: [beatRating(acc), Math.round(acc * 100) + '% on the sauce · max combo x' + beat.maxCombo,
+        'DJ DRIP: "…where did you FIND this?"'],
+    };
+    return;
+  }
+
   beat.setRatings.push({ name: tr.spec.name, acc, rating: beatRating(acc) });
 
   if (tr.spec.encore) {
@@ -417,6 +596,13 @@ function beatShowResults(title, extraLines) {
 function beatAdvanceFromCard() {
   if (beat.phase === 'interlude') return; // interludes auto-advance
   if (beat.phase === 'results') {
+    if (beat.lastCustom) {
+      // custom tracks return to the title — the crate is right there
+      beat.lastCustom = false;
+      beat.card = null;
+      beat.phase = 'title';
+      return;
+    }
     // run it back: same set, hotter — intensity nudges BPM and density
     beat.intensity++;
     beat.trackIdx = 0;
@@ -492,11 +678,16 @@ function beatHitLane(lane) {
 }
 
 // ---- geometry helpers --------------------------------------------------------------------
+// Everything derives from W/Hh so portrait phones get a lane highway that
+// fits (narrower lanes, cups above the touch pads) instead of a desktop
+// layout hanging off both edges.
 
-function beatLaneW() { return 24; }
+function beatLaneW() {
+  return beat.W < 210 ? Math.max(15, Math.floor(beat.W * 0.16)) : 24;
+}
 function beatHwX0() { return Math.round(beat.W / 2 - beatLaneW() * 2); }
 function beatLaneX(l) { return beatHwX0() + l * beatLaneW(); }
-function beatRecepY() { return beat.Hh - 34; }
+function beatRecepY() { return beat.Hh - (beat.isTouch ? 46 : 34); }
 
 // ---- update ----------------------------------------------------------------------------
 
@@ -504,6 +695,7 @@ function stepBeat(dt, w, h) {
   if (!beat.on) return;
   if (beat.cv.width !== Math.ceil(w / beat.scale) || beat.cv.height !== Math.ceil(h / beat.scale)) beatLayout();
   beat.t += dt;
+  if (beat.byob) beat.byob.classList.toggle('show', beat.phase === 'title' && !beat.analyzing);
   if (beat.feverT > 0) beat.feverT -= dt;
   for (let l = 0; l < 4; l++) {
     beat.cupDip[l] = Math.max(0, beat.cupDip[l] - dt);
@@ -633,6 +825,7 @@ function beatDraw() {
   g.globalAlpha = 1;
 
   if (playing || beat.phase === 'title') beatDrawHighway(g, W, Hh, pal, fever);
+  if (beat.isTouch && playing) beatDrawPads(g, W, Hh);
 
   // splash + judgments
   for (const s of beat.splash) {
@@ -716,6 +909,7 @@ function beatDrawBooth(g, W, pal, ph, pulse) {
 }
 
 function beatDrawSpeakers(g, W, Hh, pulse) {
+  if (W < 210) return; // portrait: the speakers are behind you, trust me
   for (const sx of [16, W - 50]) {
     g.fillStyle = '#0e0c16';
     g.fillRect(sx, Hh - 100, 34, 88);
@@ -734,6 +928,7 @@ function beatDrawSpeakers(g, W, Hh, pulse) {
 function beatDrawCrowd(g, W, Hh, ph, fever) {
   // nuggets in the dark: two rows either side of the highway, bobbing on beat
   const x0 = beatHwX0(), x1 = x0 + beatLaneW() * 4;
+  if (x0 < 26) return; // portrait: the crowd is BEHIND the camera, packed in
   for (let i = 0; i < 16; i++) {
     const side = i % 2 ? 1 : -1;
     const px = side === -1 ? 8 + (i * 13) % Math.max(12, x0 - 22) : x1 + 10 + (i * 17) % Math.max(12, W - x1 - 24);
@@ -816,6 +1011,21 @@ function beatDrawHighway(g, W, Hh, pal, fever) {
   }
 }
 
+// Four full-width tap pads along the bottom — thumbs are the drumsticks.
+// (Input has always been screen-quarters; the pads just make it VISIBLE.)
+function beatDrawPads(g, W, Hh) {
+  const padH = 26;
+  for (let l = 0; l < 4; l++) {
+    const x0 = (W / 4) * l;
+    g.fillStyle = BEAT_SAUCE[l].c;
+    g.globalAlpha = 0.09 + Math.min(0.6, beat.laneFlash[l] * 3);
+    g.fillRect(x0 + 1, Hh - padH, W / 4 - 2, padH);
+    g.globalAlpha = 0.4;
+    g.fillRect(x0 + 1, Hh - padH, W / 4 - 2, 2);
+  }
+  g.globalAlpha = 1;
+}
+
 function beatDrawHud(g, W, Hh, pal) {
   const tr = beat.track;
   g.font = '700 8px Consolas, monospace';
@@ -823,7 +1033,7 @@ function beatDrawHud(g, W, Hh, pal) {
   g.fillStyle = '#9aa3c7';
   const bar = Math.max(0, Math.floor(beat.songT / (tr.spb * 4))) + 1;
   g.fillText((beat.encoreUp ? '🌩 ' : '') + tr.spec.name + ' · bar ' + Math.min(bar, tr.spec.bars) + '/' + tr.spec.bars +
-    (beat.intensity > 0 ? ' · set ' + (beat.intensity + 1) : ''), 6, 12);
+    (beat.intensity > 0 ? ' · set ' + (beat.intensity + 1) : ''), 6, 12, W * 0.66);
   const acc = beat.trackJudged > 0 ? Math.round(beat.trackSum / beat.trackJudged * 100) : 100;
   g.textAlign = 'right';
   g.fillText(acc + '%', W - 6, 12);
@@ -888,16 +1098,20 @@ function beatDrawTitle(g, W, Hh) {
   g.fillText('DIP HOP', W / 2, Hh * 0.3 + bob);
   g.font = '700 10px Consolas, monospace';
   g.fillStyle = '#9aa3c7';
-  g.fillText('sauce sessions · nightly · DJ DRIP behind the decks', W / 2, Hh * 0.39);
+  g.fillText('sauce sessions · nightly · DJ DRIP behind the decks', W / 2, Hh * 0.39, W - 12);
   g.fillStyle = '#eef2ff';
-  g.fillText('D F J K (or ← ↓ ↑ →) — dunk the nuggets ON the beat', W / 2, Hh * 0.52);
-  g.fillText('PERFECT dips build HYPE · full HYPE goes FEVER (2×)', W / 2, Hh * 0.59);
+  g.fillText(beat.isTouch
+    ? 'TAP THE FOUR LANES — dunk the nuggets ON the beat'
+    : 'D F J K (or ← ↓ ↑ →) — dunk the nuggets ON the beat', W / 2, Hh * 0.52, W - 12);
+  g.fillText('PERFECT dips build HYPE · full HYPE goes FEVER (2×)', W / 2, Hh * 0.59, W - 12);
   g.fillStyle = '#ffd166';
-  g.fillText('play the whole set clean. he keeps one in the crate.', W / 2, Hh * 0.66);
+  g.fillText('play the whole set clean. he keeps one in the crate.', W / 2, Hh * 0.66, W - 12);
+  g.fillStyle = '#ff9ed4';
+  g.fillText('or hand him YOUR track — he charts anything ↓', W / 2, Hh * 0.72, W - 12);
   if (Math.floor(beat.t * 2.2) % 2 === 0) {
     g.font = '900 12px Consolas, monospace';
     g.fillStyle = '#ffe23a';
-    g.fillText('PRESS SPACE / TAP — DROP IN', W / 2, Hh * 0.78);
+    g.fillText(beat.isTouch ? 'TAP — DROP IN' : 'PRESS SPACE / TAP — DROP IN', W / 2, Hh * 0.8, W - 12);
   }
 }
 
@@ -936,10 +1150,12 @@ function beatPointer(clientX) {
 
 window.addEventListener('mousedown', (e) => {
   if (!beatActive()) return;
-  if (e.target.closest('.storm-hud')) return;
+  if (e.target.closest('.storm-hud') || e.target.closest('.beat-byob')) return;
   beatPointer(e.clientX);
 });
 beatWorld.addEventListener('touchstart', (e) => {
+  beat.isTouch = true;
+  if (e.target.closest && e.target.closest('.beat-byob')) return; // the file picker owns this tap
   for (const t of e.changedTouches) beatPointer(t.clientX);
   e.preventDefault();
 }, { passive: false });
