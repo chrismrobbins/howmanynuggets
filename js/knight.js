@@ -764,8 +764,45 @@ window.addEventListener('keyup', (e) => {
 window.addEventListener('mousedown', (e) => {
   if (!knightActive()) return;
   if (e.target.closest('.storm-hud')) return;
+  if (e.target.closest('.k-touch')) return; // buttons speak for themselves
   knightSlash();
 });
+
+// Touch: a proper button cluster (GTN school) — ◀ ▶ under the left thumb,
+// jump + slash under the right. Gesture-only combat is mud; buttons win.
+// Appears on the first touch and stays for the session. Field taps still
+// slash (the synthetic mousedown above); buttons preventDefault their own.
+let kTouchUi = null;
+function knightTouchUi() {
+  if (kTouchUi) return kTouchUi;
+  kTouchUi = document.createElement('div');
+  kTouchUi.className = 'k-touch';
+  kTouchUi.innerHTML =
+    '<button type="button" class="k-tbtn k-t-left">◀</button>' +
+    '<button type="button" class="k-tbtn k-t-right">▶</button>' +
+    '<button type="button" class="k-tbtn k-t-jump">⤴</button>' +
+    '<button type="button" class="k-tbtn k-t-slash">⚔️</button>';
+  document.body.appendChild(kTouchUi);
+  const bind = (sel, down, up) => {
+    const el = kTouchUi.querySelector(sel);
+    el.addEventListener('touchstart', (e) => { down(); e.preventDefault(); }, { passive: false });
+    if (up) {
+      el.addEventListener('touchend', (e) => { up(); e.preventDefault(); }, { passive: false });
+      el.addEventListener('touchcancel', up);
+    }
+  };
+  bind('.k-t-left', () => { knight.keys.left = true; }, () => { knight.keys.left = false; });
+  bind('.k-t-right', () => { knight.keys.right = true; }, () => { knight.keys.right = false; });
+  bind('.k-t-jump', () => {
+    if (knight.y <= 0 && knight.ko <= 0 && !knight.choosing && !knight.oathOpen) knight.vy = K_JUMP_V * knight.stats.jumpV;
+  });
+  bind('.k-t-slash', () => knightSlash());
+  return kTouchUi;
+}
+window.addEventListener('touchstart', () => {
+  if (!knightActive()) { kTouchUi && kTouchUi.classList.remove('on'); return; }
+  knightTouchUi().classList.add('on');
+}, { passive: true });
 
 // ---- The step -----------------------------------------------------------------------
 

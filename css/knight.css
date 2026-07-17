@@ -138,3 +138,36 @@
 .k-elite {
   filter: drop-shadow(0 0 9px rgba(255, 61, 61, 0.9)) saturate(1.5);
 }
+
+/* ---- touch button cluster (mobile patch) ---- */
+.k-touch {
+  position: fixed;
+  inset: 0;
+  z-index: 9992; /* above the courtyard, below the storm HUD */
+  display: none;
+  pointer-events: none;
+}
+.k-touch.on { display: block; }
+.k-tbtn {
+  position: absolute;
+  bottom: 4vh;
+  width: 15vmin;
+  height: 15vmin;
+  min-width: 52px;
+  min-height: 52px;
+  border-radius: 50%;
+  border: 1px solid rgba(238, 242, 255, 0.35);
+  background: rgba(5, 5, 12, 0.45);
+  color: #eef2ff;
+  font-size: clamp(1.1rem, 5vmin, 1.8rem);
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.k-tbtn:active { background: rgba(255, 210, 58, 0.25); }
+.k-t-left  { left: 4vw; }
+.k-t-right { left: calc(4vw + 17vmin); }
+.k-t-slash { right: 4vw; bottom: 5vh; }
+.k-t-jump  { right: calc(4vw + 17vmin); bottom: 12vh; }

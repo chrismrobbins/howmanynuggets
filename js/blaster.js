@@ -294,6 +294,27 @@ window.addEventListener('mouseup', () => {
   blaster.firing = false;
 });
 
+// Touch: your finger IS the cannon — drag to aim, hold to keep firing.
+// preventDefault also swallows the synthetic mousedown (no double bolts).
+window.addEventListener('touchstart', (e) => {
+  if (!blasterActive()) return;
+  if (e.target.closest('.storm-hud')) return;
+  blaster.x = clampCannonX(e.touches[0].clientX);
+  positionCannon();
+  blaster.firing = true;
+  if (blaster.cooldown <= 0) fireBolt();
+  e.preventDefault();
+}, { passive: false });
+window.addEventListener('touchmove', (e) => {
+  if (!blasterActive()) return;
+  blaster.x = clampCannonX(e.touches[0].clientX);
+  positionCannon();
+  e.preventDefault();
+}, { passive: false });
+window.addEventListener('touchend', (e) => {
+  if (blaster.firing && e.touches.length === 0) blaster.firing = false;
+});
+
 window.addEventListener('keydown', (e) => {
   if (!blasterActive()) return;
   if (e.target && e.target.tagName === 'INPUT') return; // don't hijack typing

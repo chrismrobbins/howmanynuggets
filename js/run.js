@@ -392,6 +392,29 @@ window.addEventListener('keyup', (e) => {
   if (e.code === 'ArrowDown' || e.code === 'KeyS') run.sliding = false;
 });
 
+// Touch: tap = jump (as ever); touch-and-HOLD the bottom strip of the screen
+// (the floor, basically) = slide until you let go. preventDefault swallows
+// the synthetic mousedown so a floor-hold doesn't also jump.
+window.addEventListener('touchstart', (e) => {
+  if (!runActive()) return;
+  if (e.target.closest('.storm-hud')) return;
+  const t = e.changedTouches[0];
+  if (t.clientY > window.innerHeight * 0.72) {
+    if (!run.crashed && run.y <= 0) { run.sliding = true; run.slideTouch = t.identifier; }
+  } else {
+    runJump();
+  }
+  e.preventDefault();
+}, { passive: false });
+const runSlideEnd = (e) => {
+  if (run.slideTouch == null) return;
+  for (const t of e.changedTouches) {
+    if (t.identifier === run.slideTouch) { run.sliding = false; run.slideTouch = null; }
+  }
+};
+window.addEventListener('touchend', runSlideEnd);
+window.addEventListener('touchcancel', runSlideEnd);
+
 // ---- The step --------------------------------------------------------------------------
 
 function stepRun(dt, w, h) {

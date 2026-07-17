@@ -35,12 +35,12 @@ const TTL_SECS = 9;   // recycle swirling nuggets that never drift off screen
 
 const MODE_HINTS = {
   catch:   "click nugs to catch 'em!",
-  blaster: 'defend the city! ← → to move · space or click to blast',
+  blaster: 'defend the city! ← → to move · space/click to blast · touch: drag = aim, hold = fire',
   flappy:  'space or click to flap — mind the nugget towers!',
   dunk:    'time it! space or click to dunk each nugget in the sauce',
   sim:     'you are a nugget. sit. watch. accrue wisdom.',
-  run:     'space/click to jump (twice = flip!) · hold ↓ to slide',
-  knight:  'defend the gate! ← → move · space jump · click/X slash',
+  run:     'space/click to jump (twice = flip!) · hold ↓ to slide · touch: hold the FLOOR to slide',
+  knight:  'defend the gate! ← → move · space jump · click/X slash · touch: button cluster',
   brawl:   'they took Honey! ←→↑↓ move · X/click punch · space dodge · C cyclone',
   ranch:   'raise the flock! 🌾 feed to keep birds alive · 🏭 ship grown hens for nuggets',
   kart:    'deliver the order hot! ← → steer · ↓ brake · SPACE nitro 🌶️ · make the checkpoints',
