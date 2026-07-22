@@ -440,6 +440,28 @@ fail. 21/21 headless + screenshots (autumn-rain, aurora-night, ENLIGHTENED).
 - **Consistency:** all five reuse `ArcadeKit` (difficulty overlay, FEVER/streak,
   medals, burst, kick) and touch schemes, so they read as one arcade.
 
+### Sprint 7 — 🎣 KEEPING IT REEL ✅ (2026-07-21) — bonus 6th game
+
+Beau called "one last cooking session" on the fishing game. It was already a
+meaty 957-line canvas game (its own scene, the STORM finale), so this brought it
+to the OVEN RELIGHT bar rather than rebuilding it. 23/23 headless + screenshots
+(dock scene + the STORM eruption).
+
+- **Depth ladder** (`AK.tierSelect` storeKey `reel`): 🪝 THE DOCK / 🎣 OPEN WATER /
+  🌙 **THE MIDNIGHT** (locked until you've landed the storm — `reelMidnightUnlocked()`
+  = `reelStormLanded()`). Tier scales pay ×mult, tension strain, and how soon the
+  whirlpool circles. Replaces the old canvas title screen (scene shows behind it).
+- **Expanded roster + BESTIARY:** +4 species (🦐 shrimp, 🦀 crab, 🐡 puffer, 🦈 batter
+  shark) with new pixel sprites, depth-gated by `spec.min`. First-ever catch of
+  each is a 🆕 NEW SPECIES moment; the journal persists in `nugReelLog`; complete
+  all 10 → 🏆 banner. HUD tally shows `🐟 n/10`.
+- **ArcadeKit juice:** `AK.kick` on land/snap/storm-surge/finale, `AK.burst` on
+  every catch (gold for golden, ⭐ for new species, ✨ for the storm). Per-tier
+  best via `AK.saveBest`.
+- **Canon intact:** THE STORM finale still sets `nugReelStorm` (the whole reason
+  this game exists); the eruption + 555-DILL banner unchanged. Added `window.reelDebug`
+  (the game had no test hook). Worker cap 40e6 → 60e6.
+
 ## SHIP CHECKLIST (nothing pushed yet — all local, uncommitted)
 
 - [ ] `git pull` first (Chris shares this repo — pull before shipping).

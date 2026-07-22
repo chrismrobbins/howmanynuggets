@@ -42,7 +42,7 @@ const GAME_MAX_SCORE = {
   brawl: 30e6,                      // campaign KOs + act bonuses; HELL heat pays 3x (knight parity)
   ranch: 5e6,                       // ~28 nugs/hen shipped over a long farming session
   kart: 40e6,                       // distance banking like flappy/dunk; X-restart keeps runs going
-  reel: 40e6,                       // catches bank forever; THE STORM jackpot is 1000× perFlyer (~5.6M max)
+  reel: 60e6,                       // OVEN RELIGHT: depth-tier ×3 + combo ×3 + THE STORM jackpot (1000× perFlyer)
   gta: 40e6,                        // open-world banking: distance trickle + crates over a long joyride
   beat: 40e6,                       // rhythm sets bank like dunk; FEVER + encore 2× headroom
 };

@@ -44,7 +44,7 @@ const MODE_HINTS = {
   brawl:   'they took Honey! ←→↑↓ move · X/click punch · space dodge · C cyclone',
   ranch:   'raise the flock! 🌾 feed to keep birds alive · 🏭 ship grown hens for nuggets',
   kart:    'deliver the order hot! ← → steer · ↓ brake · SPACE nitro 🌶️ · make the checkpoints',
-  reel:    'the pier at midnight — HOLD space/click to cast · press on the ❗ bite · reel easy, rest the runs',
+  reel:    'the pier at midnight — HOLD to cast (deep = better) · press on the ❗ · reel easy, rest the runs · land every species',
   gta:     'hold where you want to GO (T = classic steering) · E in/out + answer 📞 · SPACE brake/punch · F fire · Q weapons · R radio · M map',
   beat:    'the beat drops — drop with it! D F J K (or ← ↓ ↑ →) dunk on the beat · PERFECT dips build HYPE',
 };

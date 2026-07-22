@@ -21,20 +21,38 @@ const reelWorld = document.getElementById('reelWorld');
 
 const REEL_CAST_CYCLE = 1.15;  // seconds for the power meter to sweep 0→1
 const REEL_BITE_WINDOW = 0.5;  // seconds to hook a bite
-const REEL_STORM_AFTER = 4;    // landings before the whirlpool shows up
 const REEL_STORM_MULT = 1000;  // the jackpot (perFlyer-scaled, like everything)
 
 // The catch table. zone: how far out the cast must land (0..1 of open water).
 // fight: pull = how hard it takes line back, run = how often it panics,
 // reel = how fast holding brings it in (px/sec-ish, scaled in stepFight).
+// min = deepest depth-tier the species starts appearing at (0 DOCK / 1 OPEN+).
 const REEL_FISH = [
-  { kind: 'boot',    name: 'OLD BOOT',        mult: 1,   zone: [0.00, 0.55], w: 16, spd: 0,  pull: 2,  run: 0,    reel: 95, tens: 0.24, rare: 0 },
-  { kind: 'can',     name: 'TIP-LINE CAN',    mult: 3,   zone: [0.00, 0.45], w: 12, spd: 0,  pull: 2,  run: 0,    reel: 95, tens: 0.2,  rare: 0 },
-  { kind: 'cod',     name: 'CRUMB COD',       mult: 8,   zone: [0.00, 0.70], w: 20, spd: 26, pull: 10, run: 0.25, reel: 85, tens: 0.34, rare: 0 },
-  { kind: 'snapper', name: 'SAUCE SNAPPER',   mult: 16,  zone: [0.35, 0.90], w: 24, spd: 34, pull: 16, run: 0.4,  reel: 72, tens: 0.42, rare: 0 },
-  { kind: 'eel',     name: 'BATTER EEL',      mult: 30,  zone: [0.50, 1.00], w: 34, spd: 40, pull: 22, run: 0.55, reel: 64, tens: 0.5,  rare: 0 },
-  { kind: 'golden',  name: 'GOLDEN NUG-FISH', mult: 80,  zone: [0.72, 1.00], w: 18, spd: 52, pull: 28, run: 0.7,  reel: 62, tens: 0.55, rare: 1 },
+  { kind: 'boot',    name: 'OLD BOOT',        mult: 1,   zone: [0.00, 0.55], w: 16, spd: 0,  pull: 2,  run: 0,    reel: 95, tens: 0.24, rare: 0, min: 0 },
+  { kind: 'can',     name: 'TIP-LINE CAN',    mult: 3,   zone: [0.00, 0.45], w: 12, spd: 0,  pull: 2,  run: 0,    reel: 95, tens: 0.2,  rare: 0, min: 0 },
+  { kind: 'shrimp',  name: 'NUG SHRIMP',      mult: 4,   zone: [0.00, 0.45], w: 12, spd: 30, pull: 6,  run: 0.15, reel: 100, tens: 0.26, rare: 0, min: 0 },
+  { kind: 'cod',     name: 'CRUMB COD',       mult: 8,   zone: [0.00, 0.70], w: 20, spd: 26, pull: 10, run: 0.25, reel: 85, tens: 0.34, rare: 0, min: 0 },
+  { kind: 'crab',    name: 'SAUCE CRAB',      mult: 12,  zone: [0.10, 0.60], w: 18, spd: 20, pull: 18, run: 0.1,  reel: 80, tens: 0.4,  rare: 0, min: 0 },
+  { kind: 'snapper', name: 'SAUCE SNAPPER',   mult: 16,  zone: [0.35, 0.90], w: 24, spd: 34, pull: 16, run: 0.4,  reel: 72, tens: 0.42, rare: 0, min: 0 },
+  { kind: 'puffer',  name: 'PUFF POCKET',     mult: 22,  zone: [0.45, 0.95], w: 20, spd: 22, pull: 14, run: 0.3,  reel: 70, tens: 0.6,  rare: 0, min: 1 },
+  { kind: 'eel',     name: 'BATTER EEL',      mult: 30,  zone: [0.50, 1.00], w: 34, spd: 40, pull: 22, run: 0.55, reel: 64, tens: 0.5,  rare: 0, min: 1 },
+  { kind: 'shark',   name: 'BATTER SHARK',    mult: 45,  zone: [0.60, 1.00], w: 44, spd: 44, pull: 30, run: 0.65, reel: 60, tens: 0.5,  rare: 1, min: 1 },
+  { kind: 'golden',  name: 'GOLDEN NUG-FISH', mult: 80,  zone: [0.72, 1.00], w: 18, spd: 52, pull: 28, run: 0.7,  reel: 62, tens: 0.55, rare: 1, min: 1 },
 ];
+const REEL_SPECIES = REEL_FISH.map((f) => f.kind);   // bestiary roster (10)
+
+// Depth tiers (ArcadeKit oath). mult scales pay, tens scales the tension gain,
+// storm = landings before the whirlpool circles. THE MIDNIGHT opens once you've
+// seen the storm — the deep only shows itself to those who've met it.
+const REEL_TIERS = [
+  { key: 'dock',     emoji: '🪝', name: 'THE DOCK',     mult: 1, storm: 6, tens: 0.82, blurb: 'calm shallows, forgiving line' },
+  { key: 'open',     emoji: '🎣', name: 'OPEN WATER',   mult: 2, storm: 4, tens: 1.0,  blurb: 'the real pier — deeper fish' },
+  { key: 'midnight', emoji: '🌙', name: 'THE MIDNIGHT', mult: 3, storm: 3, tens: 1.2,  blurb: 'the deep bites back',
+    lockNote: 'land THE STORM once' },
+];
+function reelMidnightUnlocked() { return reelStormLanded(); }
+function reelLogSeen() { try { return new Set(JSON.parse(localStorage.getItem('nugReelLog') || '[]')); } catch (e) { return new Set(); } }
+function reelSaveLog(s) { try { localStorage.setItem('nugReelLog', JSON.stringify([...s])); } catch (e) { /* ok */ } }
 
 const reel = {
   on: false,
@@ -65,6 +83,14 @@ const reel = {
   rain: [],
   splashes: [],         // { x, y, r, t }
   keys: {},
+  // ---- THE OVEN RELIGHT ----
+  cfg: REEL_TIERS[1],   // chosen depth tier
+  tierIdx: 1,
+  tierPick: null,       // handle to the open tier overlay
+  log: null,            // Set of species kinds landed ever (the bestiary)
+  best: 0,              // best catches in a session (per tier, via ArcadeKit)
+  biggest: 0,           // biggest single payout this session
+  newThisRun: 0,        // species logged for the first time this run
 };
 
 function reelActive() {
@@ -77,13 +103,14 @@ function reelStormLanded() {
 }
 
 function reelTally() {
-  if (reel.phase === 'title') return '"the pier at midnight"';
+  if (reel.phase === 'tier') return '🎣 choose your depth…';
   if (reel.phase === 'fight' && reel.hooked) {
     const pct = Math.round(reel.hooked.tension * 100);
     return (reel.hooked.isStorm ? '🌪️ THE STORM' : '🎣 ' + reel.hooked.spec.name) +
       ' · tension ' + pct + '%';
   }
-  return '🎣 ' + reel.catches + ' landed' +
+  const seen = reel.log ? reel.log.size : 0;
+  return '🎣 ' + reel.catches + ' landed · 🐟 ' + seen + '/' + REEL_SPECIES.length +
     (reel.combo >= 2 ? ' · 🔥x' + reel.combo : '') +
     (reel.stormState === 'caught' ? ' · 🌪️ FOUND' : '');
 }
@@ -121,7 +148,9 @@ function reelZoneAt(x) {
 
 function reelSpawnFish() {
   // Keep a small school distributed across the zones; junk doesn't swim in.
-  const swimmers = REEL_FISH.filter((s) => s.spd > 0);
+  // Deeper tiers unlock the bigger, rarer, meaner species (spec.min).
+  let swimmers = REEL_FISH.filter((s) => s.spd > 0 && (s.min || 0) <= reel.tierIdx);
+  if (!swimmers.length) swimmers = REEL_FISH.filter((s) => s.spd > 0);
   const spec = swimmers[(Math.random() * swimmers.length) | 0];
   const zone = spec.zone[0] + Math.random() * (spec.zone[1] - spec.zone[0]);
   const x0 = reel.pierEndX + 14, x1 = reel.W * 0.92;
@@ -153,23 +182,48 @@ function syncReel() {
       reel.banner.className = 'reel-banner';
       reelWorld.appendChild(reel.banner);
     }
-    reel.phase = 'title';
+    reel.log = reelLogSeen();
+    reel.phase = 'tier';         // pick a depth before the pier opens
     reel.t = 0;
     reel.holding = false;
     reel.power = 0; reel.castT = 0;
     reel.fish = [];
     reel.biter = null; reel.hooked = null;
     reel.catches = 0; reel.combo = 0;
+    reel.biggest = 0; reel.newThisRun = 0;
     reel.stormState = 'hidden'; // re-catchable per session — it always comes back
-    reel.stormCooldown = REEL_STORM_AFTER;
+    reel.stormCooldown = reel.cfg.storm;
     reel.stormAngle = 0;
     reel.burst = [];
     reel.splashes = [];
     reelLayout();
     for (let i = 0; i < 6; i++) reelSpawnFish();
+    openReelTier();
   } else {
+    if (reel.tierPick) { reel.tierPick.close(); reel.tierPick = null; }
     reel.banner && reel.banner.classList.remove('show');
   }
+}
+
+function openReelTier() {
+  reel.phase = 'tier';
+  const tiers = REEL_TIERS.map((t) => t.key === 'midnight' && !reelMidnightUnlocked() ? { ...t, locked: true } : t);
+  reel.tierPick = ArcadeKit.tierSelect({
+    storeKey: 'reel',
+    title: '🎣 How deep?',
+    note: reelMidnightUnlocked() ? 'the midnight deep is open to you · 1 · 2 · 3' : 'HOLD to cast · press on the ❗ · reel, rest the runs',
+    tiers,
+    onPick: (key, t) => { reel.tierPick = null; reelApplyTier(key, t); },
+  });
+}
+
+function reelApplyTier(key, t) {
+  reel.cfg = t;
+  reel.tierIdx = REEL_TIERS.findIndex((x) => x.key === key);
+  reel.stormCooldown = t.storm;
+  reel.fish = [];
+  for (let i = 0; i < 6; i++) reelSpawnFish(); // reschool for the chosen depth
+  reelToIdle();
 }
 
 function reelBanner(text, cls, secs) {
@@ -184,8 +238,9 @@ function reelBanner(text, cls, secs) {
 
 function reelPay(mult, label, golden) {
   const comboFactor = 1 + Math.min(Math.max(reel.combo - 1, 0), 20) * 0.1; // up to 3×
-  const worth = Math.max(1, Math.round(storm.perFlyer * mult * comboFactor));
+  const worth = Math.max(1, Math.round(storm.perFlyer * mult * comboFactor * reel.cfg.mult));
   storm.caught += worth;
+  if (worth > reel.biggest) reel.biggest = worth;
   if (label) {
     spawnPopLabel(reel.rodX * reel.scale, (reel.surfaceY - 30) * reel.scale,
       label + ' +' + fmt.format(worth), golden ? 'golden' : '');
@@ -266,12 +321,16 @@ function reelLand() {
   const junk = h.spec.mult <= 3;
   if (!junk) reel.combo += 1; // boots don't feed the fire (but don't kill it either)
 
+  const sx = reel.rodX * reel.scale, sy = (reel.surfaceY - 8) * reel.scale;
+
   if (h.isStorm) {
     // THE CATCH INCIDENT: partially solved. The storm is ALIVE off the pier.
     reel.stormState = 'caught';
     try { localStorage.setItem('nugReelStorm', '1'); } catch (e) { /* private mode */ }
     reelPay(REEL_STORM_MULT, '🌪️✨', true);
     reelBanner('🌪️ YOU FOUND THE STORM — CALL IT IN! 555-DILL', 'storm', 4.5);
+    ArcadeKit.kick(26, 900);
+    ArcadeKit.burst(reel.W * 0.8 * reel.scale, reel.surfaceY * reel.scale, { n: 30, emoji: '✨', speed: 460, life: 1.1 });
     // the eruption: a stolen storm's worth of nuggets, briefly airborne
     for (let i = 0; i < 160; i++) {
       const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.5;
@@ -293,9 +352,23 @@ function reelLand() {
       if (i >= 0) reel.fish.splice(i, 1);
     }
     reelPay(h.spec.mult, (golden ? '✨ ' : '') + reelFishEmoji(h.spec.kind), golden);
-    if (junk) reelBanner(h.spec.kind === 'boot' ? '🥾 EVIDENCE? …no. it\'s a boot.' : '🥫 TIP-LINE CAN — every bit helps', '', 1.6);
-    else reelBanner(reelFishEmoji(h.spec.kind) + ' ' + h.spec.name + (reel.combo >= 2 ? ' · 🔥x' + reel.combo : ''), golden ? 'gold' : 'go', 1.6);
+    ArcadeKit.kick(Math.min(14, 4 + h.spec.mult * 0.12), 260);
+    ArcadeKit.burst(sx, sy, { n: golden ? 16 : 9, color: golden ? '#ffd23a' : (h.spec.kind === 'shark' ? '#9fb0c0' : '#7fd4ff'), speed: 240, life: 0.55 });
+    // the bestiary: the first-ever catch of a species is a moment
+    if (reel.log && !reel.log.has(h.spec.kind)) {
+      reel.log.add(h.spec.kind); reelSaveLog(reel.log); reel.newThisRun++;
+      reelBanner('🆕 NEW SPECIES · ' + reelFishEmoji(h.spec.kind) + ' ' + h.spec.name +
+        '  (' + reel.log.size + '/' + REEL_SPECIES.length + ')', 'gold', 2.4);
+      ArcadeKit.burst(sx, sy, { n: 18, emoji: '⭐', speed: 300, life: 0.9 });
+      if (reel.log.size >= REEL_SPECIES.length) reelBanner('🏆 THE PIER HOLDS NO SECRETS FROM YOU — bestiary complete!', 'storm', 4);
+    } else if (junk) {
+      reelBanner(h.spec.kind === 'boot' ? '🥾 EVIDENCE? …no. it\'s a boot.' : '🥫 TIP-LINE CAN — every bit helps', '', 1.6);
+    } else {
+      reelBanner(reelFishEmoji(h.spec.kind) + ' ' + h.spec.name + (reel.combo >= 2 ? ' · 🔥x' + reel.combo : ''), golden ? 'gold' : 'go', 1.6);
+    }
     reel.catches++;
+    ArcadeKit.saveBest('reel', reel.cfg.key, reel.catches);
+    if (reel.catches > reel.best) reel.best = reel.catches;
     if (reel.stormState === 'hidden' && !junk) {
       reel.stormCooldown--;
       if (reel.stormCooldown <= 0) {
@@ -312,6 +385,7 @@ function reelSnap() {
   reel.phase = 'snap';
   reel.snapT = 0;
   reel.combo = 0;
+  ArcadeKit.kick(16, 380);
   if (h && h.isStorm) {
     reel.stormState = 'hidden';
     reel.stormCooldown = 2; // it sulks, then circles back
@@ -329,7 +403,8 @@ function reelSnap() {
 }
 
 function reelFishEmoji(kind) {
-  return { boot: '🥾', can: '🥫', cod: '🐟', snapper: '🐠', eel: '🐍', golden: '✨🐟' }[kind] || '🐟';
+  return { boot: '🥾', can: '🥫', shrimp: '🦐', cod: '🐟', crab: '🦀', snapper: '🐠',
+    puffer: '🐡', eel: '🐍', shark: '🦈', golden: '✨🐟' }[kind] || '🐟';
 }
 
 // ---- update ----------------------------------------------------------------------------
@@ -519,9 +594,10 @@ function stepReelFight(dt) {
   }
   const running = h.runT > 0;
 
+  const tensMul = reel.cfg ? reel.cfg.tens : 1; // depth tier scales the strain
   if (reel.holding) {
     h.dist -= s.reel * (running ? 0.35 : 1) * dt;
-    h.tension += (s.tens + (running ? 0.55 : 0)) * dt;
+    h.tension += (s.tens + (running ? 0.55 : 0)) * tensMul * dt;
   } else {
     h.dist += s.pull * (running ? 2.2 : 1) * dt;
     h.tension -= 0.5 * dt;
@@ -532,7 +608,7 @@ function stepReelFight(dt) {
   if (h.isStorm) {
     const total = reel.W * 0.62 - reel.rodX;
     const prog = 1 - h.dist / total;
-    if (prog > (h.stage + 1) / 3) { h.stage++; h.runT = Math.max(h.runT, 1.1); }
+    if (prog > (h.stage + 1) / 3) { h.stage++; h.runT = Math.max(h.runT, 1.1); ArcadeKit.kick(14, 420); }
   }
 
   // keep the hooked fish sprite on the line
@@ -874,6 +950,47 @@ function reelDrawFish(g, f) {
     g.fillRect(-w / 2 + 2, -2, w - 4, 4);        // faded NPD TIP LINE label
     g.restore();
     return;
+  } else if (s.kind === 'shrimp') {
+    g.fillStyle = '#ff9a8a';
+    g.beginPath(); g.ellipse(0, 0, w / 2, w / 3.2, 0, 0, 7); g.fill();
+    g.fillStyle = '#ff9a8a';
+    g.beginPath(); g.moveTo(-w / 2, 0); g.lineTo(-w / 2 - 4, -3); g.lineTo(-w / 2 - 4, 3); g.closePath(); g.fill(); // tail fan
+    g.strokeStyle = '#c25a30'; g.lineWidth = 0.8;
+    g.beginPath(); g.moveTo(w / 2 - 1, -1); g.lineTo(w / 2 + 3, -4); g.moveTo(w / 2 - 1, 1); g.lineTo(w / 2 + 3, 3); g.stroke(); // antennae
+    g.fillStyle = '#1a0a0a'; g.fillRect(w / 2 - 3, -2, 1.5, 1.5);
+    g.restore();
+    return;
+  } else if (s.kind === 'crab') {
+    g.strokeStyle = '#a02a1a'; g.lineWidth = 1.5;
+    for (let i = 0; i < 3; i++) { const lx = -w / 3 + i * w / 3; g.beginPath(); g.moveTo(lx, w / 5); g.lineTo(lx - 3, w / 2); g.moveTo(lx, w / 5); g.lineTo(lx + 3, w / 2); g.stroke(); }
+    g.fillStyle = '#d23a2a';
+    g.beginPath(); g.ellipse(0, 0, w / 2, w / 3, 0, 0, 7); g.fill();
+    g.fillStyle = '#f26a4a'; g.fillRect(-w / 2, -1, w, 2);
+    g.fillStyle = '#d23a2a'; g.fillRect(w / 2 - 2, -4, 5, 4); g.fillRect(-w / 2 - 3, -4, 5, 4); // claws
+    g.fillStyle = '#1a0a0a'; g.fillRect(-3, -3, 1.5, 1.5); g.fillRect(2, -3, 1.5, 1.5);
+    g.restore();
+    return;
+  } else if (s.kind === 'puffer') {
+    g.fillStyle = '#c9a84a';
+    g.beginPath(); g.arc(0, 0, w / 2.4, 0, 7); g.fill();
+    g.strokeStyle = '#8a6a20'; g.lineWidth = 1;
+    for (let a = 0; a < 8; a++) { const an = a / 8 * Math.PI * 2; g.beginPath(); g.moveTo(Math.cos(an) * w / 2.4, Math.sin(an) * w / 2.4); g.lineTo(Math.cos(an) * w / 1.7, Math.sin(an) * w / 1.7); g.stroke(); }
+    g.fillStyle = '#e8d88a'; g.beginPath(); g.arc(0, 1, w / 3.5, 0, 7); g.fill();
+    g.fillStyle = '#1a0a0a'; g.fillRect(w / 5, -2, 2, 2);
+    g.restore();
+    return;
+  } else if (s.kind === 'shark') {
+    g.fillStyle = '#8a93a8';
+    g.beginPath(); g.moveTo(-w / 2, 0); g.lineTo(-w / 2 - 8, -6); g.lineTo(-w / 2 - 8, 6); g.closePath(); g.fill(); // tail
+    g.beginPath(); g.ellipse(0, 0, w / 2, w / 5, 0, 0, 7); g.fill();
+    g.fillStyle = '#aab2c2';
+    g.beginPath(); g.ellipse(0, 1.5, w / 2.3, w / 9, 0, 0, 7); g.fill();
+    g.fillStyle = '#8a93a8';
+    g.beginPath(); g.moveTo(-2, -w / 5); g.lineTo(4, -w / 5 - 7); g.lineTo(8, -w / 5); g.closePath(); g.fill(); // dorsal fin
+    g.fillStyle = '#1a0a12'; g.fillRect(w / 2 - 8, -2, 2, 2);
+    g.strokeStyle = '#e8ecf4'; g.lineWidth = 0.8; g.beginPath(); g.moveTo(w / 2 - 2, 2); g.lineTo(w / 2 - 8, 3); g.stroke();
+    g.restore();
+    return;
   } else if (s.kind === 'golden') {
     g.fillStyle = '#ffd23a';
     g.fillRect(-w / 2, -3, w, 6);
@@ -914,8 +1031,8 @@ function reelDrawFish(g, f) {
 
 function reelPress() {
   if (reel.holding) return;
+  if (reel.phase === 'tier') return; // the depth-select overlay owns input
   reel.holding = true;
-  if (reel.phase === 'title') { reelToIdle(); reel.holding = false; return; }
   if (reel.phase === 'idle') { reelStartCast(); return; }
   if (reel.phase === 'wait') {
     if (reel.biter) reelHook();
@@ -949,9 +1066,33 @@ window.addEventListener('keyup', (e) => {
 });
 window.addEventListener('mousedown', (e) => {
   if (!reelActive()) return;
-  if (e.target.closest('.storm-hud')) return;
+  if (e.target.closest('.storm-hud') || e.target.closest('.ak-tier')) return;
   reelPress();
 });
 window.addEventListener('mouseup', () => reel.on && reelRelease());
-reelWorld.addEventListener('touchstart', (e) => { reelPress(); e.preventDefault(); }, { passive: false });
+reelWorld.addEventListener('touchstart', (e) => { if (reel.phase === 'tier') return; reelPress(); e.preventDefault(); }, { passive: false });
 window.addEventListener('touchend', () => reel.on && reelRelease());
+
+// Test/debug hook (headless verification): pick a depth, force hooks/lands, storm.
+window.reelDebug = function (opts) {
+  opts = opts || {};
+  if (opts.tier) {
+    const t = REEL_TIERS.find((x) => x.key === opts.tier);
+    if (t) { if (reel.tierPick) { reel.tierPick.close(); reel.tierPick = null; } reelApplyTier(opts.tier, t); }
+  }
+  if (opts.hook) {
+    const spec = REEL_FISH.find((f) => f.kind === opts.hook);
+    if (spec) { reel.hooked = { spec, fish: null, dist: 18, tension: 0.2, runT: 0, calmT: 0.5, isStorm: false, stage: 0 }; reel.phase = 'fight'; }
+  }
+  if (opts.landStorm) {
+    reel.hooked = { spec: { name: 'THE STORM', mult: REEL_STORM_MULT, pull: 18, run: 0.9, reel: 52, tens: 0.48 }, fish: null, dist: 14, tension: 0.2, runT: 0, calmT: 0.5, isStorm: true, stage: 0 };
+    reel.phase = 'fight'; reelLand();
+  }
+  if (opts.land && reel.hooked) reelLand();
+  return {
+    phase: reel.phase, tier: reel.cfg ? reel.cfg.key : null, tierIdx: reel.tierIdx,
+    catches: reel.catches, combo: reel.combo, species: reel.log ? [...reel.log] : [],
+    total: REEL_SPECIES.length, best: (ArcadeKit.bests('reel')[reel.cfg ? reel.cfg.key : 'open'] || 0),
+    stormLanded: reelStormLanded(), stormState: reel.stormState, biggest: reel.biggest,
+  };
+};
