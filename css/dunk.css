@@ -2,6 +2,40 @@
    The conveyor belt, dynamic sauce-cup stations, color-coded nuggets, the FEVER
    pill and the shift quota bar. Cup fill/ring ride --sauce / --rim per station. */
 
+/* Full-screen fry-station backdrop so the game takes over the whole screen
+   (instead of floating over the calculator card). Sits under the belt/cups/HUD. */
+.dunk-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 9992;
+  display: none;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 55% at 50% -8%, rgba(255, 180, 90, 0.16), transparent 60%),
+    linear-gradient(180deg, #221a13 0%, #17110c 55%, #0d0906 100%);
+}
+.dunk-bg.active { display: block; }
+.dunk-bg::before { /* tiled wall up top */
+  content: '';
+  position: absolute;
+  inset: 0 0 46% 0;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 46px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 46px);
+  opacity: 0.6;
+}
+.dunk-bg::after { /* brushed-steel counter the belt rides on */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 53%;
+  height: 16%;
+  background: linear-gradient(180deg, #3b414a, #2a2f37 42%, #1b1f25);
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.1) inset, 0 12px 34px rgba(0, 0, 0, 0.5);
+}
+
 .dunk-belt {
   position: fixed;
   left: 0;

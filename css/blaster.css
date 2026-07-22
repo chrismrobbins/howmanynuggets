@@ -2,6 +2,36 @@
    Cannon + bolts, the Nuggetown skyline you defend, enemy archetypes, the Batter
    Bomber boss + its health bar, and the run-over card. (Migrated from storm.css.) */
 
+/* Full-screen Nuggetown-night backdrop so the defense takes over the whole
+   screen (city glow at the horizon, stars up high). Under the game + HUD. */
+.blaster-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 9992;
+  display: none;
+  pointer-events: none;
+  background:
+    radial-gradient(150% 62% at 50% 120%, rgba(245, 158, 11, 0.18), transparent 55%),
+    radial-gradient(90% 55% at 82% 10%, rgba(80, 120, 200, 0.12), transparent 60%),
+    linear-gradient(180deg, #05070f 0%, #0a0f1e 45%, #12182b 100%);
+}
+.blaster-bg.active { display: block; }
+.blaster-bg::before { /* a scatter of stars in the upper sky */
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.85;
+  background-image:
+    radial-gradient(1.5px 1.5px at 15% 18%, rgba(207, 224, 255, 0.9), transparent),
+    radial-gradient(1.5px 1.5px at 42% 11%, rgba(207, 224, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 68% 24%, rgba(207, 224, 255, 0.7), transparent),
+    radial-gradient(2px 2px at 82% 14%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 30% 31%, rgba(207, 224, 255, 0.6), transparent),
+    radial-gradient(1.5px 1.5px at 55% 28%, rgba(207, 224, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 90% 33%, rgba(207, 224, 255, 0.6), transparent),
+    radial-gradient(1.5px 1.5px at 8% 37%, rgba(207, 224, 255, 0.5), transparent);
+}
+
 .blaster-cannon {
   position: fixed;
   bottom: 0.75rem;

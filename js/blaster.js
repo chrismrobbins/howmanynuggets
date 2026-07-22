@@ -19,6 +19,7 @@
 
 const BlasterGame = (() => {
 const cannonEl = document.getElementById('blasterCannon');
+const blasterBg = document.getElementById('blasterBg');
 const cityEl = document.getElementById('cityRow');
 const shieldEl = document.getElementById('cityShield');
 const powerChip = document.getElementById('powerChip');
@@ -111,6 +112,7 @@ function syncBlaster() {
   if (active === blaster.on) return;
   blaster.on = active;
   document.body.classList.toggle('blaster-mode', active);
+  blasterBg.classList.toggle('active', active);
   cannonEl.classList.toggle('active', active);
   cityEl.classList.toggle('active', active);
   if (active) {

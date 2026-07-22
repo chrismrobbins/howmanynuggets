@@ -11,6 +11,7 @@
 // pauses the storm, still banks into storm.caught (perFlyer parity).
 
 const dunkBelt = document.getElementById('dunkBelt');
+const dunkBg = document.getElementById('dunkBg');
 const dunkStations = document.getElementById('dunkStations');
 const dunkCombo = document.getElementById('dunkCombo');
 const dunkQuota = document.getElementById('dunkQuota');
@@ -145,6 +146,7 @@ function syncDunk() {
   if (active === dunk.on) return;
   dunk.on = active;
   document.body.classList.toggle('dunk-mode', active);
+  dunkBg.classList.toggle('active', active);
   dunkBelt.classList.toggle('active', active);
   if (active) {
     openDunkTier();
