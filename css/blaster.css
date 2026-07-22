@@ -1,0 +1,163 @@
+/* ---- Blaster — THE OVEN RELIGHT edition (js/blaster.js) ------------------------
+   Cannon + bolts, the Nuggetown skyline you defend, enemy archetypes, the Batter
+   Bomber boss + its health bar, and the run-over card. (Migrated from storm.css.) */
+
+.blaster-cannon {
+  position: fixed;
+  bottom: 0.75rem;
+  left: -28px;              /* translateX() centers the cannon on the cursor */
+  z-index: 9999;
+  width: 56px;
+  display: none;
+  pointer-events: none;
+  will-change: transform;
+}
+.blaster-cannon.active { display: block; }
+.blaster-cannon .barrel {
+  width: 10px;
+  height: 26px;
+  margin: 0 auto -4px;
+  background: linear-gradient(#fde047, var(--accent));
+  border-radius: 4px 4px 2px 2px;
+  box-shadow: 0 0 12px var(--accentGlow);
+}
+.blaster-cannon .base {
+  width: 56px;
+  height: 20px;
+  background: linear-gradient(#f59e0b, #b45309);
+  border-radius: 10px 10px 4px 4px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5), 0 0 14px var(--accentGlow);
+}
+.blaster-bolt {
+  position: fixed;
+  top: 0;
+  left: -2px;
+  z-index: 9998;
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  background: linear-gradient(#fde047, #f43f5e);
+  box-shadow: 0 0 10px rgba(253, 224, 71, 0.9);
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* The Nuggetown skyline you're defending. */
+.city-row {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 200px;
+  z-index: 9996;
+  pointer-events: none;
+  display: none;
+}
+.city-row.active { display: block; }
+.city-building {
+  position: absolute;
+  bottom: 0;
+  background:
+    repeating-linear-gradient(0deg, rgba(253, 224, 71, 0.22) 0 6px, transparent 6px 16px),
+    repeating-linear-gradient(90deg, rgba(253, 224, 71, 0.16) 0 8px, transparent 8px 20px),
+    linear-gradient(#1e293b, #0b1120);
+  border: 1px solid rgba(51, 65, 85, 0.8);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.4s ease, filter 0.3s;
+}
+.city-building.dmg1 { filter: brightness(0.7); }
+.city-building.dmg2 { filter: brightness(0.45) saturate(0.6); }
+.city-building.rubble { filter: brightness(0.3); border-radius: 2px 2px 0 0; }
+
+.city-shield {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 168px;
+  height: 6px;
+  z-index: 9996;
+  display: none;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.9), transparent);
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.8);
+}
+.city-shield.active { display: block; }
+
+.power-drop {
+  position: fixed;
+  top: -18px;
+  left: -18px;
+  z-index: 9998;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  background: rgba(15, 23, 42, 0.9);
+  border: 2px solid #38bdf8;
+  border-radius: 50%;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.7);
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* Enemy archetypes (a div: nugget img + type tint/ring). */
+.blaster-enemy {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 46px;
+  height: 46px;
+  z-index: 9997;
+  pointer-events: none;
+  will-change: transform;
+}
+.blaster-enemy img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5)); transition: filter 0.08s; }
+.blaster-enemy.e-small { width: 34px; height: 34px; }
+.blaster-enemy.e-armor::after { content: ''; position: absolute; inset: -2px; border: 3px solid #9aa7b8; border-radius: 50%; opacity: 0.7; box-shadow: 0 0 8px rgba(148, 163, 184, 0.6); }
+.blaster-enemy.e-armor img { filter: grayscale(0.55) brightness(0.92) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.5)); }
+.blaster-enemy.e-split img { filter: hue-rotate(105deg) saturate(1.5) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.5)); }
+.blaster-enemy.e-diver img { filter: hue-rotate(-40deg) saturate(1.7) brightness(1.08) drop-shadow(0 0 8px rgba(244, 63, 94, 0.6)); }
+.blaster-enemy.golden img { filter: sepia(1) saturate(3.5) hue-rotate(-15deg) brightness(1.15) drop-shadow(0 0 12px rgba(255, 200, 40, 0.85)); }
+.blaster-enemy.hurt img { filter: brightness(3.5) !important; }
+
+/* THE BATTER BOMBER. */
+.blaster-boss { position: fixed; top: 0; left: 0; z-index: 9997; pointer-events: none; will-change: transform; }
+.bo-body { font-size: 92px; line-height: 1; filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.65)); animation: bossBob 1.8s ease-in-out infinite; }
+@keyframes bossBob { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-7px) rotate(4deg); } }
+
+.blaster-bossbar {
+  position: fixed;
+  bottom: 21%;              /* bottom-center, clear of the top storm-HUD card */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  display: none;
+  width: min(420px, 72vw);
+  text-align: center;
+}
+.blaster-bossbar.on { display: block; }
+.bb-name { display: block; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.05em; color: #fb7185; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85); margin-bottom: 3px; }
+.bb-track { height: 12px; border-radius: 7px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(251, 113, 133, 0.6); overflow: hidden; }
+.bb-track > i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #7f1d1d, #fb7185); transition: width 0.15s ease; }
+
+/* Run-over card. */
+.blaster-over { position: fixed; inset: 0; z-index: 10040; display: none; align-items: center; justify-content: center; pointer-events: none; }
+.blaster-over.on { display: flex; }
+.blaster-over .bo-card {
+  text-align: center;
+  background: rgba(8, 12, 24, 0.78);
+  backdrop-filter: blur(3px);
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.3));
+  border-radius: 1.2rem;
+  padding: 1.3rem 2rem;
+  box-shadow: 0 22px 60px -20px rgba(0, 0, 0, 0.85);
+  animation: foIn 0.3s ease-out both;
+}
+.blaster-over .bo-medal { font-size: 3rem; line-height: 1; }
+.blaster-over .bo-title { font-weight: 900; font-size: 1.25rem; letter-spacing: 0.03em; color: #f8fafc; margin-top: 0.2rem; }
+.blaster-over .bo-stat { opacity: 0.85; margin-top: 0.4rem; }
+.blaster-over .bo-best { opacity: 0.6; font-size: 0.8rem; margin-top: 0.2rem; }
+.blaster-over .bo-go { margin-top: 0.8rem; font-size: 0.78rem; opacity: 0.75; color: var(--accent, #f59e0b); }

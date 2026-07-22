@@ -1,0 +1,218 @@
+/* ---- Sauce Dunk — THE OVEN RELIGHT edition (js/dunk.js) ------------------------
+   The conveyor belt, dynamic sauce-cup stations, color-coded nuggets, the FEVER
+   pill and the shift quota bar. Cup fill/ring ride --sauce / --rim per station. */
+
+.dunk-belt {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 10px;
+  z-index: 9996;
+  display: none;
+  pointer-events: none;
+  background: repeating-linear-gradient(90deg,
+    rgba(148, 163, 184, 0.55) 0 22px, rgba(148, 163, 184, 0.15) 22px 44px);
+  border-top: 2px solid rgba(148, 163, 184, 0.5);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  animation: beltRoll 0.6s linear infinite;
+}
+.dunk-belt.active { display: block; }
+@keyframes beltRoll { from { background-position: 0 0; } to { background-position: -44px 0; } }
+body.dunk-fever .dunk-belt { filter: saturate(1.6) brightness(1.25); }
+
+/* Station container — full-screen, transparent; cups inside are tappable. */
+.dunk-stations { position: fixed; inset: 0; z-index: 9997; pointer-events: none; }
+
+/* Color-coded nugget (a div: nugget img + a target-sauce flag). */
+.dunk-nug {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 54px;
+  height: 54px;
+  z-index: 9998;
+  pointer-events: none;
+  will-change: transform;
+}
+.dunk-nug img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.5)); }
+.dunk-nug.golden img { filter: sepia(1) saturate(3.5) hue-rotate(-15deg) brightness(1.15) drop-shadow(0 0 12px rgba(255, 200, 40, 0.85)); }
+.dunk-nug.burnt img { filter: brightness(0.32) contrast(1.35) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6)); }
+.dn-flag {
+  position: absolute;
+  top: -17px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 15px;
+  line-height: 1;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+.dn-flag.dot {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 7px rgba(0, 0, 0, 0.6);
+}
+
+/* Sweet-spot zone over a cup. .ready = a matching order is parked in it. */
+.dunk-zone {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9996;
+  pointer-events: none;
+  border-radius: 12px;
+  border: 2px dashed rgba(148, 163, 184, 0.5);
+  background: rgba(148, 163, 184, 0.06);
+  transition: border-color 0.1s, background 0.1s, box-shadow 0.1s;
+}
+.dunk-zone .perfect {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--zw, 46px);
+  border-radius: 10px;
+  border: 2px solid rgba(34, 197, 94, 0.7);
+  background: rgba(34, 197, 94, 0.12);
+}
+.dunk-zone.ready {
+  border-color: rgba(56, 189, 248, 0.9);
+  background: rgba(56, 189, 248, 0.14);
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.4);
+}
+
+/* A sauce cup station. */
+.dunk-cup {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9997;
+  width: 92px;
+  height: 70px;
+  pointer-events: auto;
+  cursor: pointer;
+  border-radius: 10px 10px 26px 26px;
+  background: linear-gradient(#f1f5f9, #cbd5e1);
+  border: 2px solid var(--rim, #e2e8f0);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.dc-sauce {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 62%;
+  background: var(--sauce, #b91c1c);
+  box-shadow: inset 0 5px 9px rgba(0, 0, 0, 0.35);
+}
+.dc-sauce::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background: var(--rim, #dc2626);
+  border-radius: 50%;
+  opacity: 0.85;
+}
+.dc-key {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.8);
+  color: #f8fafc;
+  font-size: 0.66rem;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+}
+.dc-label {
+  position: absolute;
+  bottom: 3px;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  text-align: center;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #f8fafc;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.dunk-cup.splash { animation: cupSplash 0.28s ease-out; }
+@keyframes cupSplash {
+  0% { transform: translateY(0); }
+  40% { transform: translateY(-7px) scale(1.05); }
+  100% { transform: translateY(0); }
+}
+
+/* FEVER / combo pill. */
+.dunk-combo {
+  position: fixed;
+  bottom: calc(7% + 34px);
+  left: 50%;
+  z-index: 10000;
+  display: none;
+  pointer-events: none;
+  transform: translateX(-50%);
+  font-weight: 900;
+  font-size: 1.05rem;
+  color: #fbbf24;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
+}
+.dunk-combo.active { display: block; }
+.dunk-combo.fever { color: #fb7185; font-size: 1.25rem; }
+.dunk-combo.pulse { animation: comboPulse 0.3s ease-out; }
+@keyframes comboPulse {
+  0% { transform: translateX(-50%) scale(1.4); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+
+/* Shift quota bar (top-center). */
+.dunk-quota {
+  position: fixed;
+  bottom: 7%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  display: none;
+  width: min(320px, 62vw);
+  height: 22px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.3));
+  overflow: hidden;
+  pointer-events: none;
+}
+.dunk-quota.active { display: block; }
+.dunk-quota::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--p, 0%);
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  transition: width 0.25s ease;
+}
+.dunk-quota::after {
+  content: attr(data-label);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #f8fafc;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+}

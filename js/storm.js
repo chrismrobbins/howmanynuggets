@@ -35,11 +35,11 @@ const TTL_SECS = 9;   // recycle swirling nuggets that never drift off screen
 
 const MODE_HINTS = {
   catch:   "click nugs to catch 'em!",
-  blaster: 'defend the city! ← → to move · space/click to blast · touch: drag = aim, hold = fire',
-  flappy:  'space or click to flap — mind the nugget towers!',
-  dunk:    'time it! space or click to dunk each nugget in the sauce',
-  sim:     'you are a nugget. sit. watch. accrue wisdom.',
-  run:     'space/click to jump (twice = flip!) · hold ↓ to slide · touch: hold the FLOOR to slide',
+  blaster: 'defend Nuggetown! ←→/mouse move · space/click/hold fire · shoot 📦 for power-ups · survive the waves & the 🛢️ BOMBER',
+  flappy:  'space/click to flap · thread gaps close for a WHOOSH combo · grab power-ups · fly to THE STORM',
+  dunk:    'route each nug to its sauce! tap a cup (or 1·2·3·4) · SPACE auto-serves · skip the 🔥 burnt · clear the shift',
+  sim:     'you are a nugget. sit, watch the seasons turn, tap to 🧘 meditate — witness every Sight for 🕉️',
+  run:     'jump (space/↑/tap · twice = flip) · hold ↓/floor to slide · F/Shift or double-tap = 🚀 dash · reach THE PIER',
   knight:  'defend the gate! ← → move · space jump · click/X slash · touch: button cluster',
   brawl:   'they took Honey! ←→↑↓ move · X/click punch · space dodge · C cyclone',
   ranch:   'raise the flock! 🌾 feed to keep birds alive · 🏭 ship grown hens for nuggets',
@@ -63,7 +63,7 @@ function pausesStorm() {
   return storm.mode === 'flappy' || storm.mode === 'dunk' || storm.mode === 'sim' ||
          storm.mode === 'run' || storm.mode === 'knight' || storm.mode === 'brawl' ||
          storm.mode === 'ranch' || storm.mode === 'kart' || storm.mode === 'reel' ||
-         storm.mode === 'gta' || storm.mode === 'beat';
+         storm.mode === 'gta' || storm.mode === 'beat' || storm.mode === 'blaster';
 }
 
 const storm = {
@@ -225,6 +225,15 @@ function updateStormHud() {
   } else if (storm.mode === 'beat') {
     stormLabel.textContent = '🎧 Dip Hop';
     stormTally.textContent = beatTally();
+  } else if (storm.mode === 'flappy') {
+    stormLabel.textContent = '🐤 Flappy Nug';
+    stormTally.textContent = flappyTally();
+  } else if (storm.mode === 'dunk') {
+    stormLabel.textContent = '🥣 Sauce Dunk';
+    stormTally.textContent = dunkTally();
+  } else if (storm.mode === 'blaster') {
+    stormLabel.textContent = '🎯 Nuggetown Defense';
+    stormTally.textContent = blasterTally();
   } else {
     const shown = Math.min(storm.launched, storm.total);
     stormLabel.textContent = storm.cat.emoji + ' ' + storm.cat.name;

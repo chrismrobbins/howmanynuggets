@@ -27,3 +27,33 @@
   filter: sepia(1) saturate(3) hue-rotate(-12deg) brightness(1.2)
           drop-shadow(0 0 6px rgba(255, 200, 60, 0.8));
 }
+
+/* Power-up token (SVG emoji) */
+.run-token { filter: drop-shadow(0 0 7px rgba(255, 240, 180, 0.95)); }
+
+/* ---- Run-over medal card (THE OVEN RELIGHT) ---- */
+.run-over {
+  position: fixed;
+  inset: 0;
+  z-index: 10040;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.run-over.on { display: flex; }
+.run-over .ro-card {
+  text-align: center;
+  background: rgba(8, 12, 24, 0.78);
+  backdrop-filter: blur(3px);
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.3));
+  border-radius: 1.2rem;
+  padding: 1.3rem 2rem;
+  box-shadow: 0 22px 60px -20px rgba(0, 0, 0, 0.85);
+  animation: foIn 0.3s ease-out both;
+}
+.run-over .ro-medal { font-size: 3rem; line-height: 1; }
+.run-over .ro-title { font-weight: 900; font-size: 1.25rem; letter-spacing: 0.03em; color: #f8fafc; margin-top: 0.2rem; }
+.run-over .ro-stat { opacity: 0.85; margin-top: 0.4rem; }
+.run-over .ro-best { opacity: 0.6; font-size: 0.8rem; margin-top: 0.2rem; }
+.run-over .ro-go { margin-top: 0.8rem; font-size: 0.78rem; opacity: 0.75; color: var(--accent, #f59e0b); }

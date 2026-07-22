@@ -1,0 +1,112 @@
+/* ---- ArcadeKit shared styles (js/arcadeKit.js) --------------------------------
+   The particle-burst overlay and the reusable difficulty-select screen every
+   upgraded game shares. Themed onto the app's dark storm UI (var(--accent) etc.
+   from styles.css). Kept generic — no per-game names. */
+
+/* Screen-space particle pops from ArcadeKit.burst(). Above the games, below the
+   storm HUD's floating "+1,234" labels (z 10000) is fine — these are ambient. */
+.ak-fx {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  overflow: hidden;
+}
+.ak-p {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform, opacity;
+  transform: translate(-9999px, -9999px);
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+/* ---- Difficulty-select overlay (ArcadeKit.tierSelect) ---- */
+.ak-tier {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: radial-gradient(120% 120% at 50% 30%, rgba(8, 12, 24, 0.72), rgba(2, 4, 10, 0.92));
+  backdrop-filter: blur(3px);
+  animation: akTierIn 0.22s ease-out both;
+}
+@keyframes akTierIn { from { opacity: 0; } to { opacity: 1; } }
+.ak-tier-panel {
+  width: min(720px, 100%);
+  text-align: center;
+}
+.ak-tier-title {
+  font-size: clamp(1.1rem, 3.5vw, 1.7rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: #f8fafc;
+  text-shadow: 0 3px 14px rgba(0, 0, 0, 0.6);
+  margin-bottom: 0.9rem;
+}
+.ak-tier-cards {
+  display: flex;
+  gap: 0.7rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.ak-tier-card {
+  position: relative;
+  flex: 1 1 150px;
+  max-width: 210px;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 1rem 0.7rem 0.8rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.3));
+  background: rgba(23, 32, 52, 0.85);
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s, background 0.12s, box-shadow 0.12s;
+}
+.ak-tier-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent, #f59e0b);
+  box-shadow: 0 14px 34px -16px rgba(0, 0, 0, 0.8);
+}
+.ak-tier-card.ak-last {
+  border-color: var(--accent, #f59e0b);
+  box-shadow: 0 0 0 1px var(--accent, #f59e0b) inset;
+}
+.ak-tier-num {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  opacity: 0.4;
+}
+.ak-tier-emoji { font-size: 2rem; line-height: 1; }
+.ak-tier-name { font-size: 0.95rem; font-weight: 800; letter-spacing: 0.02em; }
+.ak-tier-blurb { font-size: 0.72rem; opacity: 0.72; line-height: 1.25; flex: 1; }
+.ak-tier-mult { font-size: 0.72rem; font-weight: 700; color: var(--accent, #f59e0b); }
+.ak-tier-best { font-size: 0.66rem; opacity: 0.55; }
+.ak-tier-card.ak-locked {
+  cursor: not-allowed;
+  opacity: 0.55;
+  filter: grayscale(0.7);
+}
+.ak-tier-card.ak-locked:hover { transform: none; border-color: var(--border, rgba(148, 163, 184, 0.3)); box-shadow: none; }
+.ak-tier-note {
+  margin-top: 0.9rem;
+  font-size: 0.74rem;
+  opacity: 0.7;
+  color: #cbd5e1;
+}
+
+@media (max-width: 560px) {
+  .ak-tier-card { min-height: 132px; flex-basis: 120px; padding: 0.8rem 0.5rem; }
+  .ak-tier-emoji { font-size: 1.6rem; }
+}

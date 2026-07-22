@@ -1,0 +1,148 @@
+/* ---- Flappy Nug — THE OVEN RELIGHT edition (js/flappy.js) ----------------------
+   Biome sky + parallax, the character bird rig, tinted nugget towers, power-up
+   tokens, sauce drips, and the run-over medal card. Biome colors ride two CSS
+   vars set from JS: --fpipe (tower tint) and --fhue (parallax silhouette). */
+
+/* Biome sky behind everything (below pipes). Gradient set + transitioned in JS. */
+.flappy-sky {
+  position: fixed;
+  inset: 0;
+  z-index: 9995;
+  display: none;
+  overflow: hidden;
+  pointer-events: none;
+}
+.flappy-sky.active { display: block; }
+.fp-far, .fp-near {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 220%;
+  will-change: transform;
+  pointer-events: none;
+}
+.fp-far {
+  height: 40%;
+  opacity: 0.45;
+  background: radial-gradient(70px 68px at 70px 100%, var(--fhue, #444) 60%, transparent 62%) repeat-x;
+  background-size: 400px 100%;
+}
+.fp-near {
+  height: 24%;
+  opacity: 0.85;
+  background: radial-gradient(95px 78px at 95px 100%, var(--fhue, #333) 60%, transparent 62%) repeat-x;
+  background-size: 300px 100%;
+  filter: brightness(0.68);
+}
+.fp-flash { position: absolute; inset: 0; background: #e4ecff; opacity: 0; pointer-events: none; }
+.fp-flash.zap { animation: fpZap 0.55s ease-out; }
+@keyframes fpZap {
+  0% { opacity: 0; } 8% { opacity: 0.75; } 20% { opacity: 0.12; }
+  32% { opacity: 0.5; } 100% { opacity: 0; }
+}
+
+/* The bird — an SVG rig injected by JS (wings, panic eyes, sauce streak). */
+.flappy-bird {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9998;
+  width: 52px;
+  height: 52px;
+  display: none;
+  pointer-events: none;
+  will-change: transform;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5));
+}
+.flappy-bird.active { display: block; }
+.fb-wing { transform-origin: -6px 4px; transition: transform 0.02s linear; }
+
+/* Nugget towers, tinted per biome via background-blend. */
+.flappy-pipe {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 66px;
+  z-index: 9997;
+  pointer-events: none;
+  will-change: transform, height;
+  background: var(--fpipe, #e8a13a) url('../nugget.png');
+  background-size: 46px 46px;
+  background-blend-mode: multiply;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.22), 0 0 12px rgba(0, 0, 0, 0.42);
+}
+.flappy-pipe.cap-bottom {
+  border-bottom: 5px solid rgba(255, 255, 255, 0.5);
+  border-bottom-left-radius: 11px;
+  border-bottom-right-radius: 11px;
+}
+.flappy-pipe.cap-top {
+  border-top: 5px solid rgba(255, 255, 255, 0.5);
+  border-top-left-radius: 11px;
+  border-top-right-radius: 11px;
+}
+.flappy-pipe.golden {
+  background-color: #f6c944;
+  box-shadow: inset 0 0 0 2px rgba(120, 80, 0, 0.3), 0 0 20px rgba(255, 200, 40, 0.85);
+}
+
+/* Power-up token floating in a gap. */
+.flappy-token {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9998;
+  font-size: 30px;
+  line-height: 1;
+  pointer-events: none;
+  will-change: transform;
+  transform: translate(-9999px, -9999px);
+  filter: drop-shadow(0 0 8px rgba(255, 240, 180, 0.9));
+  animation: ftPulse 1.1s ease-in-out infinite;
+}
+@keyframes ftPulse { 0%, 100% { filter: drop-shadow(0 0 6px rgba(255, 240, 180, 0.6)); } 50% { filter: drop-shadow(0 0 14px rgba(255, 240, 180, 1)); } }
+
+/* Falling sauce drip hazard (Caverns / Storm). */
+.flappy-drip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9997;
+  width: 16px;
+  height: 22px;
+  pointer-events: none;
+  will-change: transform;
+  transform: translate(-9999px, -9999px);
+  border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
+  background: radial-gradient(circle at 40% 30%, #ff8f6a, #c0304a 70%);
+  box-shadow: 0 0 8px rgba(200, 40, 60, 0.6);
+}
+
+/* Run-over medal card. pointer-events off so a flap taps straight through to restart. */
+.flappy-over {
+  position: fixed;
+  inset: 0;
+  z-index: 10040;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.flappy-over.on { display: flex; }
+.fo-card {
+  text-align: center;
+  background: rgba(8, 12, 24, 0.74);
+  backdrop-filter: blur(3px);
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.3));
+  border-radius: 1.2rem;
+  padding: 1.3rem 2rem;
+  box-shadow: 0 22px 60px -20px rgba(0, 0, 0, 0.85);
+  animation: foIn 0.3s ease-out both;
+}
+@keyframes foIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+.fo-medal { font-size: 3rem; line-height: 1; }
+.fo-title { font-weight: 900; font-size: 1.3rem; letter-spacing: 0.03em; color: #f8fafc; margin-top: 0.2rem; }
+.fo-stat { opacity: 0.85; margin-top: 0.4rem; }
+.fo-best { opacity: 0.6; font-size: 0.8rem; margin-top: 0.2rem; }
+.fo-go { margin-top: 0.8rem; font-size: 0.78rem; opacity: 0.75; color: var(--accent, #f59e0b); }

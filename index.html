@@ -6,6 +6,10 @@
   <title>McNugget Converter</title>
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="stylesheet" href="css/storm.css" />
+  <link rel="stylesheet" href="css/arcadeKit.css" />
+  <link rel="stylesheet" href="css/flappy.css" />
+  <link rel="stylesheet" href="css/dunk.css" />
+  <link rel="stylesheet" href="css/blaster.css" />
   <link rel="stylesheet" href="css/account.css" />
   <link rel="stylesheet" href="css/sim.css" />
   <link rel="stylesheet" href="css/run.css" />
@@ -155,14 +159,16 @@
   <div class="city-row" id="cityRow"></div>
   <div class="city-shield" id="cityShield"></div>
 
-  <!-- Flappy Nug player -->
-  <img class="flappy-bird" id="flappyBird" src="nugget.png" alt="" draggable="false" />
+  <!-- Flappy Nug: biome sky (behind the towers), the bird rig, run-over card -->
+  <div class="flappy-sky" id="flappySky" aria-hidden="true"></div>
+  <div class="flappy-bird" id="flappyBird" aria-hidden="true"></div>
+  <div class="flappy-over" id="flappyOver" aria-hidden="true"></div>
 
-  <!-- Sauce Dunk: conveyor belt, sweet-spot zone, sauce cup, combo pill -->
+  <!-- Sauce Dunk: belt, dynamic sauce-cup stations, FEVER pill, shift quota bar -->
   <div class="dunk-belt" id="dunkBelt"></div>
-  <div class="dunk-zone" id="dunkZone"><span class="perfect"></span></div>
-  <div class="dunk-cup" id="dunkCup"><span class="sauce"></span></div>
+  <div class="dunk-stations" id="dunkStations"></div>
   <div class="dunk-combo" id="dunkCombo"></div>
+  <div class="dunk-quota" id="dunkQuota"></div>
 
   <!-- Nugget Simulator: the diorama (SVG injected by js/sim.js) and the void -->
   <div id="simWorld"></div>
@@ -349,6 +355,7 @@
   <script src="js/util.js"></script>
   <script src="js/pricing.js"></script>
   <script src="js/storm.js"></script>
+  <script src="js/arcadeKit.js"></script>
   <script src="js/blaster.js"></script>
   <script src="js/flappy.js"></script>
   <script src="js/dunk.js"></script>

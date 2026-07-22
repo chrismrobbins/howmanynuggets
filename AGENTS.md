@@ -38,6 +38,20 @@ already bitten someone.
 > game (no cabinet): entry = the double-parked compact near the bus stop.
 > Campaign flags other code can read: `gtaProgress()` (0-11 contracts done)
 > and `gtaSawStorm()` (localStorage `nugGtaProg` / `nugGtaSawStorm`).
+> **2026-07-21 — THE OVEN RELIGHT:** the first five games got deep upgrades
+> (build log in `UPGRADE_SPRINTS.md`). 🐤 Flappy (biomes + finale), 🥣 Dunk
+> (multi-sauce shifts), 🔫 Blaster (wave defense + Batter Bomber boss; now
+> IIFE-wrapped + in `pausesStorm()`), 🏃 Run (biomes + rival + dash), 🧘 Sim
+> (seasons + Sights + ENLIGHTENMENT; stays zen). Shared toolkit **`js/arcadeKit.js`**
+> (`ArcadeKit`/`AK`: shake/hitStop/burst/makeFever/medal/tierSelect + difficulty
+> localStorage) loads after storm.js, before the games. Each game now has its own
+> CSS file (`css/flappy|dunk|blaster.css`; run/sim extended). New lore flags read
+> by street NPCs (Dill's "case file"): `flappyStormFlown()` `dunkSecretServed()`
+> `blasterHeld()` `runReachedPier()` `simSawStorm()`. Difficulty picks/bests live in
+> `<game>TierLast`/`Best`. **Catch leak sealed:** `body.hall-open #modeSwitch{display:none}`
+> hides the cabinet-hop switch in-hall (calculator storm keeps it). LESSON: game
+> files share ONE global scope — prefix helpers or IIFE-wrap (Blaster's `spawnEnemy`
+> clobbered Knight's; Flappy's `BASE_SPEED` clobbered Dunk's).
 
 ## Adding a new game (the full checklist)
 

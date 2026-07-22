@@ -33,10 +33,11 @@ const MAX_SCORE = 1e15; // absolute backstop (per-game caps below are the real g
 // out well under 20M per session. Time-accruing games get generous multi-hour
 // ceilings. Anything beyond these did not come from the game.
 const GAME_MAX_SCORE = {
-  catch: 20e6, blaster: 20e6,       // one storm, ~13M nugs, golden 10x headroom
-  flappy: 40e6, dunk: 40e6,         // gate/dunk banking over a very long session
-  sim: 2e6,                         // 1 wisdom/sec + events — covers ~10 days
-  run: 2e6,                         // ~68k/hour at max speed + pickups
+  catch: 20e6,                      // one storm, ~13M nugs, golden 10x headroom
+  blaster: 60e6,                    // OVEN RELIGHT: wave defense + boss bonuses, BATTER STORM tier 3x
+  flappy: 40e6, dunk: 40e6,         // gate/dunk banking over a very long session (re-check w/ tier 3x)
+  sim: 10e6,                        // OVEN RELIGHT: wisdom + rare-event/season/enlightenment bonuses, long idle
+  run: 20e6,                        // OVEN RELIGHT: distance + pickups + power-ups, GAUNTLET tier 3x
   knight: 30e6,                     // kills + wave bonuses; NUGGMARE oath pays 3x
   brawl: 30e6,                      // campaign KOs + act bonuses; HELL heat pays 3x (knight parity)
   ranch: 5e6,                       // ~28 nugs/hen shipped over a long farming session

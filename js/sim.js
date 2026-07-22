@@ -37,6 +37,40 @@ const LIFE_STAGES = [
   { days: 0,  label: 'Fresh from the Fryer' },
 ];
 
+// ---- THE OVEN RELIGHT: seasons, weather, rare Sights, enlightenment ----
+// Sim stays ZEN: no fail states, no difficulty. The depth is a living world and
+// a gentle collection: witness the rare Sights, fill the journal, reach 🕉️ ENLIGHTENMENT.
+const DAYS_PER_SEASON = 2;
+const SEASONS = [
+  { key: 'spring', name: 'Spring', emoji: '🌸', canopy: ['#57a263', '#3d7a4f'], particle: 'blossom', pcolor: '#ffc2dd' },
+  { key: 'summer', name: 'Summer', emoji: '☀️', canopy: ['#3e8a4a', '#2f6a3c'], particle: 'none',    pcolor: '#ffffff' },
+  { key: 'autumn', name: 'Autumn', emoji: '🍂', canopy: ['#c47a2a', '#8c5016'], particle: 'leaf',    pcolor: '#d98a3a' },
+  { key: 'winter', name: 'Winter', emoji: '❄️', canopy: ['#9fb6bd', '#6b8890'], particle: 'snow',    pcolor: '#ffffff' },
+];
+const WEATHERS = ['rain', 'fog', 'aurora']; // snow is auto-picked in winter
+const SIGHTS = [
+  { key: 'fox',     emoji: '🦊', note: 'a fox trots by',                 award: 40,  when: 'day' },
+  { key: 'balloon', emoji: '🎈', note: 'a hot-air balloon drifts over',  award: 55,  when: 'day' },
+  { key: 'monk',    emoji: '🧘', note: 'a wandering monk shares a koan',  award: 70,  when: 'any', koan: true },
+  { key: 'comet',   emoji: '☄️', note: 'a great comet crosses the sky',  award: 120, when: 'night' },
+  { key: 'aurora',  emoji: '🌌', note: 'the aurora unfurls above you',    award: 100, when: 'night' },
+  { key: 'rainbow', emoji: '🌈', note: 'a rainbow after the rain',        award: 80,  when: 'day' },
+  { key: 'ufo',     emoji: '🛸', note: 'you are not alone',               award: 160, when: 'night' },
+  { key: 'storm',   emoji: '🌩️', note: 'a storm flickers on the far horizon…', award: 90, when: 'night', lore: true },
+];
+const KOANS = [
+  'the nugget that is shared is never cold.',
+  'seek not the sauce; become the sauce.',
+  'a fryer forgives. a freezer remembers.',
+  'to wait is also to travel.',
+  'the crispiest shell hides the softest heart.',
+];
+function simSightsSeen() { try { return new Set(JSON.parse(localStorage.getItem('nugSimSights') || '[]')); } catch (e) { return new Set(); } }
+function simSaveSights(set) { try { localStorage.setItem('nugSimSights', JSON.stringify([...set])); } catch (e) { /* ok */ } }
+function simIsEnlightened() { try { return localStorage.getItem('nugSimZen') === '1'; } catch (e) { return false; } }
+// Read by arcade.js street dialogue (Sprint 6): did the old nugget glimpse the storm?
+function simSawStorm() { try { return localStorage.getItem('nugSimStorm') === '1'; } catch (e) { return false; } }
+
 const sim = {
   on: false,
   sub: 'regular',      // 'regular' | 'ultra' — sticky across sessions
@@ -54,6 +88,17 @@ const sim = {
   star: null,          // active shooting star { el, x, y, t }
   leaves: [],          // falling leaves { el, x, y, t, swayPhase }
   refs: null,          // handles into the SVG, filled by buildSimScene()
+  // ---- OVEN RELIGHT ----
+  seasonIdx: 0,
+  sights: null,        // Set of seen sight keys (loaded from localStorage)
+  weather: null,       // { type, t, dur }
+  weatherT: 25,        // secs until next weather rolls
+  wparts: [],          // weather particles { el, x, y, vx, vy, swp }
+  postRain: 0,         // >0 → a rainbow may appear (day)
+  sightT: 18,          // secs until next rare Sight rolls
+  sight: null,         // active sight { key, el, t, dur, extra }
+  meditT: 0,           // meditation glow timer
+  enlightened: false,
 };
 
 function simActive() {
@@ -114,7 +159,10 @@ function phaseName(f) {
 
 // Storm HUD asks us for the tally line while sim mode is active.
 function simTally() {
-  return `📍 ${sim.location} · Day ${sim.days + 1} · ${phaseName(sim.frac)}`;
+  const s = SEASONS[sim.seasonIdx];
+  const seen = sim.sights ? sim.sights.size : 0;
+  const z = sim.enlightened ? ' · 🕉️ ENLIGHTENED' : '';
+  return `${s.emoji} ${s.name} · Day ${sim.days + 1} · ${phaseName(sim.frac)} · 👁️ ${seen}/${SIGHTS.length}${z}`;
 }
 
 // Map viewBox (1600×900, xMidYMax slice) coords to screen pixels for labels.
@@ -238,7 +286,7 @@ function buildSimScene() {
       <g id="simTree">
         <path fill="url(#simTrunk)" d="M1216,762 C1210,700 1206,660 1196,612 L1216,606 C1224,656 1232,700 1244,758 Z"/>
         <path fill="url(#simTrunk)" d="M1203,648 C1188,628 1172,616 1152,606 L1158,594 C1182,604 1200,618 1212,636 Z"/>
-        <g class="sim-canopy">
+        <g id="simCanopy" class="sim-canopy">
           <ellipse cx="1198" cy="520" rx="150" ry="96" fill="#39704a"/>
           <ellipse cx="1116" cy="556" rx="86" ry="62" fill="#3d7a4f"/>
           <ellipse cx="1284" cy="556" rx="82" ry="58" fill="#356a45"/>
@@ -302,6 +350,8 @@ function buildSimScene() {
 
     <g id="simFireflies" opacity="0">${flies}</g>
     <g id="simFx"></g>
+    <g id="simSeason"></g>
+    <g id="simWeather" pointer-events="none"></g>
 
     <rect width="1600" height="900" fill="url(#simVignette)" pointer-events="none"/>
   </svg>`;
@@ -340,7 +390,26 @@ function buildSimScene() {
     glasses: simWorld.querySelector('#simGlasses'),
     tuft: simWorld.querySelector('#simTuft'),
     cane: simWorld.querySelector('#simCane'),
+    canopy: simWorld.querySelector('#simCanopy'),
+    nugGroup: simWorld.querySelector('#simNugget'),
+    season: simWorld.querySelector('#simSeason'),
+    weather: simWorld.querySelector('#simWeather'),
   };
+  // Weather overlays: CSS-animated divs layered over the SVG.
+  ['sim-rain', 'sim-fog', 'sim-aurora'].forEach((c) => {
+    const d = document.createElement('div');
+    d.className = 'sim-wx ' + c;
+    simWorld.appendChild(d);
+  });
+  sim.refs.rain = simWorld.querySelector('.sim-rain');
+  sim.refs.fog = simWorld.querySelector('.sim-fog');
+  sim.refs.aurora = simWorld.querySelector('.sim-aurora');
+  // Tap the nugget to meditate (pointer-events:auto re-enables it under the
+  // pointer-events:none world). Zen, optional — the game still plays itself.
+  sim.refs.nugGroup.style.cursor = 'pointer';
+  sim.refs.nugGroup.style.pointerEvents = 'auto';
+  sim.refs.nugGroup.addEventListener('click', simMeditate);
+  sim.refs.nugGroup.addEventListener('touchstart', (e) => { simMeditate(); e.preventDefault(); }, { passive: false });
 }
 
 // ---- Mode plumbing ---------------------------------------------------------------
@@ -359,7 +428,17 @@ function syncSim() {
     sim.birdT = 6;
     sim.starT = 20;
     sim.leafT = 10;
+    sim.seasonIdx = 0;
+    sim.sights = simSightsSeen();
+    sim.enlightened = simIsEnlightened();
+    sim.weather = null;
+    sim.weatherT = 22;
+    sim.sightT = 16;
+    sim.postRain = 0;
+    sim.meditT = 0;
     clearSimFx();
+    simApplySeason(0);
+    if (sim.enlightened && sim.refs) sim.refs.nugGroup.classList.add('sim-enlightened');
     applySimSub();
     renderSimScene();
   } else {
@@ -402,6 +481,11 @@ function clearSimFx() {
   sim.leaves.forEach((l) => l.el.remove());
   sim.leaves = [];
   if (sim.star) { sim.star.el.remove(); sim.star = null; }
+  (sim.wparts || []).forEach((p) => p.el.remove());
+  sim.wparts = [];
+  if (sim.sight) { sim.sight.el.remove(); sim.sight = null; }
+  if (sim.refs && sim.refs.weather) sim.refs.weather.innerHTML = '';
+  sim.weather = null;
 }
 
 // ---- Ambient events ---------------------------------------------------------------
@@ -452,17 +536,25 @@ function spawnShootingStar() {
   };
 }
 
+// Season "leaf": autumn leaves off the tree, spring blossom + winter snow drift
+// across the whole sky. Recolored per season (summer stays a plain green leaf).
 function spawnLeaf() {
+  const s = SEASONS[sim.seasonIdx];
+  const snow = s.particle === 'snow';
   const el = document.createElementNS(SVG_NS, 'ellipse');
-  el.setAttribute('rx', '7'); el.setAttribute('ry', '3.5');
-  el.setAttribute('fill', '#5d9a55');
+  el.setAttribute('rx', snow ? '4' : '7');
+  el.setAttribute('ry', snow ? '4' : '3.5');
+  el.setAttribute('fill', s.particle === 'none' ? '#5d9a55' : s.pcolor);
+  if (snow) el.setAttribute('opacity', '0.9');
   sim.refs.fx.appendChild(el);
+  const fromTree = s.key === 'autumn' || s.particle === 'none';
   sim.leaves.push({
     el,
-    x: 1120 + Math.random() * 170,
-    y: 470 + Math.random() * 90,
+    x: fromTree ? (1120 + Math.random() * 170) : (Math.random() * 1600),
+    y: fromTree ? (470 + Math.random() * 90) : (Math.random() * 120),
     t: 0,
     swayPhase: Math.random() * Math.PI * 2,
+    snow,
   });
 }
 
@@ -470,6 +562,172 @@ function awardWisdom(amount, sx, sy, note) {
   storm.caught += amount;
   const [px, py] = simToScreen(sx, sy);
   spawnPopLabel(px, py, `${note} +${amount}`, 'golden');
+}
+
+// ---- Seasons -------------------------------------------------------------------
+function simApplySeason(idx) {
+  sim.seasonIdx = ((idx % 4) + 4) % 4;
+  if (!sim.refs || !sim.refs.canopy) return;
+  // cheap seasonal recolor of the canopy (green → autumn orange, frosty winter…)
+  const filt = ['saturate(1.08) hue-rotate(-6deg)', 'none',
+    'hue-rotate(-70deg) saturate(1.6) brightness(1.05)', 'saturate(0.22) brightness(1.55)'][sim.seasonIdx];
+  sim.refs.canopy.style.filter = filt;
+}
+function simCheckSeason() {
+  const idx = Math.floor(sim.days / DAYS_PER_SEASON) % 4;
+  if (idx !== sim.seasonIdx) {
+    simApplySeason(idx);
+    const s = SEASONS[sim.seasonIdx];
+    const [px, py] = simToScreen(800, 300);
+    spawnPopLabel(px, py, `${s.emoji} ${s.name}`, 'big');
+  }
+}
+
+// ---- Weather (episodic CSS overlays) -------------------------------------------
+function simStartWeather(type) {
+  sim.weather = { type, t: 0, dur: type === 'rain' ? 13 : 15 };
+  const el = { rain: sim.refs.rain, fog: sim.refs.fog, aurora: sim.refs.aurora }[type];
+  if (el) el.classList.add('on');
+  if (type === 'aurora') simSeeSight('aurora', 800, 220); // the aurora itself is a Sight
+}
+function simEndWeather() {
+  if (!sim.weather) return;
+  const el = { rain: sim.refs.rain, fog: sim.refs.fog, aurora: sim.refs.aurora }[sim.weather.type];
+  if (el) el.classList.remove('on');
+  if (sim.weather.type === 'rain') sim.postRain = 6; // a rainbow may follow in daylight
+  sim.weather = null;
+}
+function simStepWeather(dt) {
+  const night = sim.frac < 0.2 || sim.frac > 0.82;
+  if (sim.weather) {
+    sim.weather.t += dt;
+    if (sim.weather.t >= sim.weather.dur) simEndWeather();
+  } else {
+    sim.weatherT -= dt;
+    if (sim.weatherT <= 0) {
+      sim.weatherT = 30 + Math.random() * 42;
+      simStartWeather(night && Math.random() < 0.5 ? 'aurora' : (Math.random() < 0.6 ? 'rain' : 'fog'));
+    }
+  }
+  if (sim.postRain > 0) {
+    sim.postRain -= dt;
+    if (sim.postRain <= 0 && sim.frac > 0.28 && sim.frac < 0.72 && !sim.sight) simSpawnSight('rainbow');
+  }
+}
+
+// ---- Rare Sights + the journal -------------------------------------------------
+function simSightEligible(s) {
+  const night = sim.frac < 0.2 || sim.frac > 0.82;
+  if (s.when === 'night') return night;
+  if (s.when === 'day') return !night;
+  return true;
+}
+function simRollSight() {
+  if (sim.sight) return;
+  const pool = SIGHTS.filter((s) => s.key !== 'rainbow' && s.key !== 'aurora' && simSightEligible(s));
+  if (!pool.length) return;
+  const weighted = [];
+  for (const s of pool) {
+    let w = sim.sights.has(s.key) ? 1 : 3;                 // nudge toward unseen (completion)
+    if (s.key === 'ufo' || s.key === 'storm') w *= 0.45;   // keep the big ones rare
+    for (let i = 0; i < Math.ceil(w * 2); i++) weighted.push(s.key);
+  }
+  simSpawnSight(weighted[Math.floor(Math.random() * weighted.length)]);
+}
+function simSpawnSight(key) {
+  if (sim.sight || !sim.refs) return;
+  const def = SIGHTS.find((s) => s.key === key);
+  const g = document.createElementNS(SVG_NS, 'g');
+  sim.refs.fx.appendChild(g);
+  const st = { key, el: g, t: 0, def, bob: Math.random() * 6 };
+  // motion: [startX, startY, endX, endY, dur]
+  const M = {
+    fox: [-90, 738, 1690, 738, 7], balloon: [-110, 360, 1730, 170, 12],
+    monk: [700, 706, 700, 706, 7], ufo: [-130, 190, 1720, 150, 7],
+    comet: [240, 90, 1240, 380, 2.6], storm: [1360, 616, 1360, 616, 9],
+    rainbow: [800, 500, 800, 500, 8],
+  }[key] || [800, 400, 800, 400, 6];
+  st.sx = M[0]; st.sy = M[1]; st.ex = M[2]; st.ey = M[3]; st.dur = M[4];
+  if (key === 'rainbow') g.innerHTML = simRainbowSvg();
+  else if (key === 'storm') g.innerHTML = '<ellipse cx="0" cy="8" rx="120" ry="30" fill="#0b1226"/><ellipse cx="-44" cy="-8" rx="72" ry="30" fill="#141d34"/><ellipse cx="52" cy="-4" rx="66" ry="26" fill="#0e1730"/>';
+  else g.innerHTML = `<text font-size="${key === 'balloon' ? 74 : key === 'ufo' ? 66 : 58}" text-anchor="middle">${def.emoji}</text>`;
+  sim.sight = st;
+  simPositionSight(st, 0);
+}
+function simRainbowSvg() {
+  const cols = ['#ff5a5a', '#ffa13a', '#ffe14a', '#5ad06a', '#4aa3ff', '#9a6bff'];
+  return cols.map((c, i) => `<path d="M-360,300 A360,360 0 0,1 360,300" fill="none" stroke="${c}" stroke-width="14" transform="translate(0,${i * 16})"/>`).join('');
+}
+function simPositionSight(st, tt) {
+  if (!st.el) return;
+  const k = st.dur ? Math.min(1, tt / st.dur) : 0;
+  const x = lerp(st.sx, st.ex, k), y = lerp(st.sy, st.ey, k) + Math.sin(st.bob + tt * 2) * (st.key === 'balloon' ? 10 : 4);
+  st.el.setAttribute('transform', `translate(${x.toFixed(0)},${y.toFixed(0)})`);
+  // fade in/out at the edges of the appearance
+  let op = 1;
+  if (st.key === 'storm') op = 0.55 + Math.sin(tt * 6) * 0.35; // flickering on the horizon
+  else op = Math.min(1, k * 5, (1 - k) * 5);
+  st.el.setAttribute('opacity', op.toFixed(2));
+}
+function simStepSight(dt) {
+  const st = sim.sight;
+  if (!st) return;
+  st.t += dt;
+  simPositionSight(st, st.t);
+  if (st.t >= st.dur) {
+    const [cx, cy] = [lerp(st.sx, st.ex, 0.5), lerp(st.sy, st.ey, 0.5)];
+    simSeeSight(st.key, cx, cy);
+    if (st.el) st.el.remove();
+    sim.sight = null;
+  }
+}
+function simSeeSight(key, sx, sy) {
+  const def = SIGHTS.find((s) => s.key === key);
+  if (!def) return;
+  const fresh = !sim.sights.has(key);
+  awardWisdom(def.award, sx || 800, sy || 400, (fresh ? '✨ NEW · ' : '') + def.emoji + ' ' + def.note);
+  if (def.koan) {
+    const [px, py] = simToScreen(700, 560);
+    spawnPopLabel(px, py, '“' + KOANS[Math.floor(Math.random() * KOANS.length)] + '”', 'big');
+  }
+  if (def.lore) { try { localStorage.setItem('nugSimStorm', '1'); } catch (e) { /* ok */ } }
+  if (fresh) {
+    sim.sights.add(key);
+    simSaveSights(sim.sights);
+    simMaybeEnlighten();
+  }
+}
+function simMaybeEnlighten() {
+  if (sim.enlightened) return;
+  if (SIGHTS.every((s) => sim.sights.has(s.key))) {
+    sim.enlightened = true;
+    try { localStorage.setItem('nugSimZen', '1'); } catch (e) { /* ok */ }
+    if (sim.refs) sim.refs.nugGroup.classList.add('sim-enlightened');
+    const [px, py] = simToScreen(880, 500);
+    spawnPopLabel(px, py, '🕉️ ENLIGHTENMENT', 'big');
+    ArcadeKit.burst(window.innerWidth / 2, window.innerHeight * 0.5, { n: 40, emoji: '✨', speed: 300, life: 1.2 });
+  }
+}
+
+// ---- Meditation (click the nugget) ---------------------------------------------
+function simMeditate() {
+  if (!sim.on || sim.sub === 'ultra') return;
+  sim.meditT = 3.2;                          // a calm ring + boosted wisdom
+  const [px, py] = simToScreen(880, 610);
+  spawnPopLabel(px, py, '🧘 breathe…', 'golden');
+  ArcadeKit.burst(px, py, { n: 8, color: 'rgba(180,220,255,0.9)', speed: 90, life: 0.9, gravity: -20 });
+}
+
+// ---- The void: nuggets cannot see, but they can FEEL ---------------------------
+function simVoidEvent() {
+  const lines = ['…a bird, somewhere.', '…the wind shifts.', '…distant waves.', '…you feel watched.', '…a low rumble, far off.'];
+  const line = lines[Math.floor(Math.random() * lines.length)];
+  spawnPopLabel(window.innerWidth / 2, window.innerHeight * (0.4 + Math.random() * 0.2), line, '');
+  if (line.includes('rumble')) {
+    awardWisdom(60, 800, 400, '🌩️ …the storm?');
+    try { localStorage.setItem('nugSimStorm', '1'); } catch (e) { /* ok */ }
+    if (sim.sights && !sim.sights.has('storm')) { sim.sights.add('storm'); simSaveSights(sim.sights); simMaybeEnlighten(); }
+  } else { storm.caught += 15; }
 }
 
 // ---- Aging -----------------------------------------------------------------------
@@ -537,23 +795,28 @@ function stepSim(dt, w, h) {
   // Time always flows — even in the void.
   sim.seconds += dt;
   sim.frac += dt / DAY_SECS;
+  if (sim.meditT > 0) sim.meditT -= dt;
   if (sim.frac >= 1) {
     sim.frac -= 1;
     sim.days += 1;
-    if (sim.sub === 'regular') applyAging();
+    if (sim.sub === 'regular') { applyAging(); simCheckSeason(); }
     const [px, py] = simToScreen(880, 560);
     spawnPopLabel(px, py, `☀️ Day ${sim.days + 1} — ${simStage().label}`, 'big');
   }
 
-  // Wisdom drip: 1/sec for simply existing.
-  sim.wisdomAcc += dt * WISDOM_PER_SEC;
+  // Wisdom drip: 1/sec for simply existing (4× while meditating).
+  sim.wisdomAcc += dt * WISDOM_PER_SEC * (sim.meditT > 0 ? 4 : 1);
   if (sim.wisdomAcc >= 1) {
     const whole = Math.floor(sim.wisdomAcc);
     sim.wisdomAcc -= whole;
     storm.caught += whole;
   }
 
-  if (sim.sub === 'ultra') return; // nuggets cannot see; nothing to draw
+  if (sim.sub === 'ultra') { // nuggets cannot see, but they can FEEL
+    sim.sightT -= dt;
+    if (sim.sightT <= 0) { simVoidEvent(); sim.sightT = 12 + Math.random() * 14; }
+    return;
+  }
 
   // Ambient events
   const daytime = sim.frac > 0.28 && sim.frac < 0.72;
@@ -571,8 +834,14 @@ function stepSim(dt, w, h) {
   sim.leafT -= dt;
   if (sim.leafT <= 0) {
     spawnLeaf();
-    sim.leafT = 22 + Math.random() * 24;
+    sim.leafT = (SEASONS[sim.seasonIdx].particle === 'none' ? 55 : 13) + Math.random() * 16;
   }
+
+  // Weather + rare Sights — the living world
+  simStepWeather(dt);
+  sim.sightT -= dt;
+  if (sim.sightT <= 0 && !sim.sight) { simRollSight(); sim.sightT = 20 + Math.random() * 22; }
+  simStepSight(dt);
 
   // Drift clouds
   for (const c of sim.clouds) c.x = (c.x + c.speed * dt + 1900) % 1900;
@@ -617,7 +886,7 @@ function stepSim(dt, w, h) {
     l.t += dt;
     l.swayPhase += dt * 3;
     const x = l.x + Math.sin(l.swayPhase) * 24;
-    const y = l.y + l.t * 42;
+    const y = l.y + l.t * (l.snow ? 24 : 42);
     l.el.setAttribute('transform',
       `translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${(Math.sin(l.swayPhase) * 40).toFixed(0)})`);
     if (y > 780) {
@@ -632,6 +901,21 @@ function stepSim(dt, w, h) {
 // Test/debug hook: jump the simulation to a time of day / age. Used by the
 // smoke-test harness to screenshot dawn/noon/dusk/night and an elder nugget.
 window.simDebug = function (frac, days, sub) {
+  // Object form drives the OVEN RELIGHT systems (seasons/weather/sights).
+  if (frac && typeof frac === 'object') {
+    const o = frac;
+    if (o.season != null) simApplySeason(o.season);
+    if (o.weather) simStartWeather(o.weather);
+    if (o.sight) simSpawnSight(o.sight);
+    if (o.see) simSeeSight(o.see, 800, 400);
+    if (o.seeAll) SIGHTS.forEach((s) => simSeeSight(s.key, 800, 400));
+    if (o.meditate) simMeditate();
+    if (o.days != null) { sim.days = o.days; simCheckSeason(); }
+    if (o.step) stepSim(o.dt || 0.016, window.innerWidth, window.innerHeight);
+    return { season: SEASONS[sim.seasonIdx].key, sights: sim.sights ? [...sim.sights] : [],
+      enlightened: sim.enlightened, sawStorm: simSawStorm(), weather: sim.weather ? sim.weather.type : null,
+      meditating: sim.meditT > 0 };
+  }
   if (typeof frac === 'number') sim.frac = frac;
   if (typeof days === 'number') { sim.days = days; if (sim.built) applyAging(); }
   if (sub) { sim.sub = sub; applySimSub(); }

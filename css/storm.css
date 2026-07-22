@@ -193,6 +193,17 @@ body.storm-shake .card { animation: stormShake 0.25s infinite; }
   opacity: 1;
 }
 
+/* ---- THE CATCH INCIDENT: no cabinet-hopping inside the hall ----
+   In the 3D hall you pick a game by walking up to its cabinet; you don't swap
+   modes mid-cabinet. While a hall session is up (body.hall-open, set in
+   arcade.js enter() and kept for the whole session incl. a launched game),
+   hide the mode-switch entirely. That also seals the taped-off Catch: you can
+   no longer hop into it from another game's HUD. The plain calculator storm
+   (WebGL fallback / no hall) never gets .hall-open, so it keeps its full
+   switch AND its Catch, exactly as the lore promises. The #id selector wins
+   over .mode-switch / .storm-hud.compact:hover .mode-switch without !important. */
+body.hall-open #modeSwitch { display: none; }
+
 /* In the minigames you shoot/dodge nuggets — no grabbing them by hand. */
 body.blaster-mode #nuggetStorm img,
 body.flappy-mode #nuggetStorm img,
@@ -201,262 +212,11 @@ body.dunk-mode #nuggetStorm img {
   cursor: default;
 }
 
-/* ---- Blaster mode: laser cannon + bolts ---- */
-.blaster-cannon {
-  position: fixed;
-  bottom: 0.75rem;
-  left: -28px;            /* translateX() then centers the cannon on the cursor */
-  z-index: 9999;
-  width: 56px;
-  display: none;
-  pointer-events: none;
-  will-change: transform;
-}
-.blaster-cannon.active { display: block; }
-.blaster-cannon .barrel {
-  width: 10px;
-  height: 26px;
-  margin: 0 auto -4px;
-  background: linear-gradient(#fde047, var(--accent));
-  border-radius: 4px 4px 2px 2px;
-  box-shadow: 0 0 12px var(--accentGlow);
-}
-.blaster-cannon .base {
-  width: 56px;
-  height: 20px;
-  background: linear-gradient(#f59e0b, #b45309);
-  border-radius: 10px 10px 4px 4px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5), 0 0 14px var(--accentGlow);
-}
-.blaster-bolt {
-  position: fixed;
-  top: 0;
-  left: -2px;             /* translate() centers the 4px bolt on its x */
-  z-index: 9998;
-  width: 4px;
-  height: 18px;
-  border-radius: 2px;
-  background: linear-gradient(#fde047, #f43f5e);
-  box-shadow: 0 0 10px rgba(253, 224, 71, 0.9);
-  pointer-events: none;
-  will-change: transform;
-}
+/* ---- Blaster: cannon, city, enemies, boss ---- moved to css/blaster.css
+   (THE OVEN RELIGHT upgrade — wave defense — see UPGRADE_SPRINTS.md Sprint 3). */
 
-/* The skyline you're defending. Buildings darken as they take hits,
-   then collapse to rubble on the third. */
-.city-row {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 200px;
-  z-index: 9996;
-  pointer-events: none;
-  display: none;
-}
-.city-row.active { display: block; }
-.city-building {
-  position: absolute;
-  bottom: 0;
-  background:
-    repeating-linear-gradient(0deg, rgba(253, 224, 71, 0.22) 0 6px, transparent 6px 16px),
-    repeating-linear-gradient(90deg, rgba(253, 224, 71, 0.16) 0 8px, transparent 8px 20px),
-    linear-gradient(#1e293b, #0b1120);
-  border: 1px solid rgba(51, 65, 85, 0.8);
-  border-bottom: none;
-  border-radius: 4px 4px 0 0;
-  transition: height 0.4s ease, filter 0.3s;
-}
-.city-building.dmg1 { filter: brightness(0.7); }
-.city-building.dmg2 { filter: brightness(0.45) saturate(0.6); }
-.city-building.rubble { filter: brightness(0.3); border-radius: 2px 2px 0 0; }
+/* ---- Flappy Nug: bird, biome sky, towers, tokens ---- moved to css/flappy.css
+   (THE OVEN RELIGHT upgrade — see UPGRADE_SPRINTS.md Sprint 1). */
 
-/* 🛡️ power-up: a glowing line the nuggets fizzle on */
-.city-shield {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 168px;
-  height: 6px;
-  z-index: 9996;
-  display: none;
-  pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.9), transparent);
-  box-shadow: 0 0 18px rgba(56, 189, 248, 0.8);
-}
-.city-shield.active { display: block; }
-
-/* Falling power-up crates — shoot to activate */
-.power-drop {
-  position: fixed;
-  top: -18px;
-  left: -18px;            /* translate() centers the crate on its x/y */
-  z-index: 9998;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
-  background: rgba(15, 23, 42, 0.9);
-  border: 2px solid #38bdf8;
-  border-radius: 50%;
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.7);
-  pointer-events: none;
-  will-change: transform;
-}
-
-/* ---- Flappy Nug: the bird and the nugget towers ---- */
-.flappy-bird {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 9998;
-  width: 44px;
-  height: 44px;
-  object-fit: contain;
-  display: none;
-  pointer-events: none;
-  will-change: transform;
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5));
-}
-.flappy-bird.active { display: block; }
-.flappy-pipe {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 9997;
-  width: 58px;
-  background-image: url('../nugget.png');
-  background-size: 52px 52px;
-  background-repeat: repeat;
-  pointer-events: none;
-  will-change: transform;
-  filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.4));
-}
-.flappy-pipe.golden {
-  filter: sepia(1) saturate(3.5) hue-rotate(-15deg) brightness(1.15)
-          drop-shadow(0 0 12px rgba(255, 200, 40, 0.8));
-}
-
-/* ---- Sauce Dunk: conveyor belt, nuggets, sweet-spot zone, sauce cup ---- */
-.dunk-belt {
-  position: fixed;
-  left: 0;
-  right: 0;
-  height: 10px;
-  z-index: 9996;
-  display: none;
-  pointer-events: none;
-  background: repeating-linear-gradient(90deg,
-    rgba(148, 163, 184, 0.55) 0 22px, rgba(148, 163, 184, 0.15) 22px 44px);
-  border-top: 2px solid rgba(148, 163, 184, 0.5);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
-  animation: beltRoll 0.6s linear infinite;
-}
-.dunk-belt.active { display: block; }
-@keyframes beltRoll { from { background-position: 0 0; } to { background-position: -44px 0; } }
-
-.dunk-nug {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 54px;
-  height: 54px;
-  object-fit: contain;
-  z-index: 9997;
-  pointer-events: none;
-  will-change: transform;
-  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.5));
-}
-.dunk-nug.golden {
-  filter: sepia(1) saturate(3.5) hue-rotate(-15deg) brightness(1.15)
-          drop-shadow(0 0 12px rgba(255, 200, 40, 0.85));
-}
-
-.dunk-zone {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 9996;
-  display: none;
-  pointer-events: none;
-  border-radius: 12px;
-  border: 2px dashed rgba(56, 189, 248, 0.55);
-  background: rgba(56, 189, 248, 0.08);
-}
-.dunk-zone.active { display: block; }
-.dunk-zone .perfect {
-  position: absolute;
-  top: -2px;
-  bottom: -2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 48px;                   /* 2 × PERFECT_HALF */
-  border-radius: 10px;
-  border: 2px solid rgba(34, 197, 94, 0.85);
-  background: rgba(34, 197, 94, 0.14);
-}
-
-.dunk-cup {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 9997;
-  display: none;
-  pointer-events: none;
-  width: 90px;
-  height: 66px;
-  border-radius: 8px 8px 22px 22px;
-  background: linear-gradient(#e2e8f0, #94a3b8);
-  border: 2px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
-  overflow: hidden;
-}
-.dunk-cup.active { display: block; }
-.dunk-cup .sauce {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 62%;
-  background: linear-gradient(#b91c1c, #7f1d1d);
-  box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.35);
-}
-.dunk-cup .sauce::before {
-  content: '';
-  position: absolute;
-  top: -6px;
-  left: 0;
-  right: 0;
-  height: 10px;
-  background: #dc2626;
-  border-radius: 50%;
-}
-.dunk-cup.splash { animation: cupSplash 0.28s ease-out; }
-@keyframes cupSplash {
-  0%   { transform: translateY(0); }
-  40%  { transform: translateY(-6px) scale(1.04); }
-  100% { transform: translateY(0); }
-}
-
-.dunk-combo {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 9998;
-  display: none;
-  pointer-events: none;
-  transform: translateX(-50%);
-  font-weight: 900;
-  font-size: 1.1rem;
-  color: #fbbf24;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
-  white-space: nowrap;
-}
-.dunk-combo.active { display: block; }
-.dunk-combo.pulse { animation: comboPulse 0.3s ease-out; }
-@keyframes comboPulse {
-  0%   { transform: translateX(-50%) scale(1.4); }
-  100% { transform: translateX(-50%) scale(1); }
-}
+/* ---- Sauce Dunk: belt, sauce-cup stations, quota bar ---- moved to css/dunk.css
+   (THE OVEN RELIGHT upgrade — see UPGRADE_SPRINTS.md Sprint 2). */

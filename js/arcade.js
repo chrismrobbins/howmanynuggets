@@ -1014,6 +1014,13 @@ void main() {
         const droveOut = typeof gtaSawStorm === 'function' && gtaSawStorm();
         const remixed = typeof beatEncoreDone === 'function' && beatEncoreDone();
         const clubbed = (H.best && H.best.beat > 0) || remixed;
+        // THE OVEN RELIGHT: the upgraded cabinets each leave a mark on the case file.
+        const flewStorm = typeof flappyStormFlown === 'function' && flappyStormFlown();
+        const heldCity = typeof blasterHeld === 'function' && blasterHeld();
+        const ranPier = typeof runReachedPier === 'function' && runReachedPier();
+        const sawSimStorm = typeof simSawStorm === 'function' && simSawStorm();
+        const servedSecret = typeof dunkSecretServed === 'function' && dunkSecretServed();
+        const caseNotes = flewStorm || heldCity || ranPier || sawSimStorm || servedSecret;
         return {
         root: {
           line: '*flat voice* detective dill, NPD. this street is a crime scene. technically the whole street. don\'t touch the tape.',
@@ -1023,11 +1030,28 @@ void main() {
               : { t: 'what happened in there?', next: 'what' },
             rap > 0 ? { t: 'so… how\'s the crime wave treating you?', next: 'gtaRap' } : null,
             clubbed ? { t: 'been down to the club across the street?', next: 'beatNoise' } : null,
+            caseNotes ? { t: 'about my… extracurriculars, detective.', next: 'caseNotes' } : null,
             { t: 'got any suspects?', next: 'suspects' },
             { t: 'can I help?', next: 'help' },
             { t: 'stay salty, detective.', next: 'bye' },
           ].filter(Boolean),
         },
+        caseNotes: {
+          line: '*flips to a thick new section of the notepad marked "THE CRISPY IRREGULAR"* let\'s review, because you have been BUSY. every cabinet in that hall, and somehow every one of them leads back to my storm.',
+          opts: [
+            heldCity ? { t: 'the Bomber over Nuggetown — that was me.', next: 'cnBlaster' } : null,
+            flewStorm ? { t: 'I flew a nugget INTO the harbor storm.', next: 'cnFlappy' } : null,
+            ranPier ? { t: 'I ran the whole town out to the pier.', next: 'cnRun' } : null,
+            servedSecret ? { t: 'I served the… secret sauce.', next: 'cnDunk' } : null,
+            sawSimStorm ? { t: 'an old nugget on a bench saw something.', next: 'cnSim' } : null,
+            { t: 'that\'s all for now, detective.', next: null },
+          ].filter(Boolean),
+        },
+        cnBlaster: { line: '*taps a photo of a burning tanker-airship* the "BATTER BOMBER" — syndicate air support, the outfit behind the whole Incident. you put it in the bay and held the skyline: the ARCADE, the PIER, the RANCH, all still standing. NPD had nothing that night. off the record, kid — the city owes you a fry basket.', opts: [] },
+        cnFlappy: { line: '*long stare* you flew a nugget through the EDGE of the harbor storm and came BACK. nobody flies the storm. …did it feel like it was watching you? *doesn\'t wait for an answer — writes it down anyway.* the case grows.', opts: [] },
+        cnRun: { line: 'sprinted the counter, the freezer, the grill, the alley, and out onto MY pier at a dead run. *rubs temples* you and that harbor have a standing appointment, don\'t you. do NOT touch the water.', opts: [] },
+        cnDunk: { line: '*pen freezes mid-word* …the SECRET sauce. the recipe the Sauce Works triples batter output for. you served it and you\'re still standing. that\'s not a condiment, kid — that\'s EVIDENCE. eat responsibly.', opts: [] },
+        cnSim: { line: '*softens, barely* the old one on Bench Hill. said the far horizon "flickered" one night — a storm that shouldn\'t be there. I get a lot of crank calls. THAT one I filed. *taps the notepad* the quiet witnesses are always right.', opts: [] },
         beatNoise: {
           line: remixed
             ? '*flat stare* every night at 2am: boom. boom. boom. I filed a noise complaint; the cup filed it under "kick drum". *long pause* …and that encore everyone keeps humming? I\'ve HEARD that rumble before, kid. off the end of MY pier. *opens notepad to a fresh page* the case file grows.'
