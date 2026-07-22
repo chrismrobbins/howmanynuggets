@@ -116,7 +116,7 @@ function newToken() {
 // /api/auth/google endpoint returns 503 and the button stays hidden.
 // Hardcoded default (public by design). A GOOGLE_CLIENT_ID Worker var overrides
 // it if you'd rather configure via the Cloudflare dashboard than commit it.
-const GOOGLE_CLIENT_ID_DEFAULT = '__GOOGLE_CLIENT_ID__';
+const GOOGLE_CLIENT_ID_DEFAULT = '987646382743-ukh7apei1fjhv7fgv24vcemblcj6to1j.apps.googleusercontent.com';
 const GOOGLE_ISSUERS = new Set(['accounts.google.com', 'https://accounts.google.com']);
 const gClientId = (env) => (env && env.GOOGLE_CLIENT_ID) || GOOGLE_CLIENT_ID_DEFAULT;
 
