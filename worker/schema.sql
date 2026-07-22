@@ -8,8 +8,11 @@ CREATE TABLE IF NOT EXISTS users (
   username      TEXT    NOT NULL,
   display_name  TEXT    NOT NULL,
   password_hash TEXT    NOT NULL,   -- format: pbkdf2$<iterations>$<salt_b64>$<hash_b64>
-  created_at    INTEGER NOT NULL    -- epoch ms
+  created_at    INTEGER NOT NULL,   -- epoch ms
+  is_admin      INTEGER NOT NULL DEFAULT 0  -- 1 = can see the admin portal + grant admin
 );
+-- NOTE: DBs created before is_admin existed get the column added lazily by the
+-- Worker (ensureAdminColumn), so no destructive ALTER is needed here.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username COLLATE NOCASE);
 
 -- One best score per (user, game). Submitting a lower score never lowers the best.

@@ -303,3 +303,88 @@
   border-top: 1px solid var(--border);
 }
 .lb-myrank .kicker { margin-bottom: 0.4rem; }
+
+/* ---- Admin portal ---- */
+.admin-modal { max-width: 560px; }
+.admin-hero {
+  display: flex; align-items: baseline; gap: 0.6rem;
+  padding: 0.4rem 0 0.9rem;
+}
+.admin-hero .big {
+  font-size: 2.6rem; font-weight: 900; line-height: 1;
+  color: var(--accent); font-variant-numeric: tabular-nums;
+}
+.admin-hero .cap { font-size: 0.82rem; font-weight: 700; color: var(--textMain); }
+.admin-hero .muted, .admin-urow .muted, .admin-recent .muted { color: var(--textMuted); font-weight: 600; }
+
+.admin-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem;
+}
+@media (max-width: 480px) { .admin-grid { grid-template-columns: repeat(2, 1fr); } }
+.admin-stat {
+  background: var(--panelBgAlt); border: 1px solid var(--border);
+  border-radius: 0.7rem; padding: 0.55rem 0.6rem; text-align: center;
+}
+.admin-stat .v { font-size: 1.25rem; font-weight: 900; color: var(--textMain); font-variant-numeric: tabular-nums; }
+.admin-stat .l { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--textMuted); margin-top: 2px; }
+.admin-stat .s { font-size: 0.56rem; color: var(--textMuted); opacity: 0.7; }
+
+.admin-games { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem; }
+@media (max-width: 480px) { .admin-games { grid-template-columns: 1fr; } }
+.admin-grow {
+  background: var(--panelBgAlt); border: 1px solid var(--border);
+  border-radius: 0.6rem; padding: 0.45rem 0.6rem;
+}
+.admin-grow .g { font-size: 0.78rem; font-weight: 800; color: var(--textMain); }
+.admin-grow .who { font-size: 0.72rem; color: var(--textMuted); font-weight: 700; margin-top: 1px; }
+.admin-grow .who .sc { color: var(--accent); font-weight: 900; font-variant-numeric: tabular-nums; }
+.admin-grow .pl { font-size: 0.62rem; color: var(--textMuted); opacity: 0.75; }
+
+.admin-recent { display: flex; flex-direction: column; gap: 0.3rem; }
+.admin-rrow, .admin-urow {
+  display: flex; align-items: center; gap: 0.6rem;
+  background: var(--panelBgAlt); border: 1px solid var(--border);
+  border-radius: 0.6rem; padding: 0.45rem 0.65rem;
+}
+.admin-rrow .who, .admin-urow .who { flex: 1; min-width: 0; }
+.admin-rrow .dn, .admin-urow .dn { font-size: 0.82rem; font-weight: 800; color: var(--textMain); }
+.admin-rrow .un, .admin-urow .un { font-size: 0.68rem; color: var(--textMuted); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-rrow .when { font-size: 0.68rem; color: var(--textMuted); font-weight: 700; white-space: nowrap; }
+
+.admin-urow.is-admin { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.admin-search { margin-bottom: 0.6rem; }
+.admin-search input {
+  width: 100%; box-sizing: border-box;
+  background: var(--panelBgAlt); border: 1px solid var(--border);
+  border-radius: 0.6rem; padding: 0.5rem 0.7rem;
+  color: var(--textMain); font-size: 0.85rem; outline: none;
+}
+.admin-search input:focus { border-color: var(--accent); }
+#adminUserList { display: flex; flex-direction: column; gap: 0.3rem; max-height: 46vh; overflow-y: auto; }
+
+.admin-toggle {
+  border: 1px solid var(--border); background: var(--panelBg);
+  color: var(--textMuted); border-radius: 0.5rem;
+  padding: 0.34rem 0.6rem; font-size: 0.7rem; font-weight: 800; cursor: pointer;
+  white-space: nowrap; transition: transform 0.1s, filter 0.15s;
+}
+.admin-toggle:hover:not(:disabled) { filter: brightness(1.15); }
+.admin-toggle:active:not(:disabled) { transform: scale(0.94); }
+.admin-toggle.on { background: var(--accent); border-color: var(--accent); color: #05070f; }
+.admin-toggle:disabled { opacity: 0.5; cursor: default; }
+.admin-lock { font-size: 0.68rem; font-weight: 800; color: var(--accent); white-space: nowrap; }
+
+.admin-cleanup {
+  width: 100%;
+  margin: 0 0 0.7rem;
+  border: 1px solid rgba(244, 63, 94, 0.5);
+  background: rgba(244, 63, 94, 0.12);
+  color: #fda4af;
+  border-radius: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.76rem; font-weight: 800; cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+}
+.admin-cleanup:hover:not(:disabled) { filter: brightness(1.12); }
+.admin-cleanup:active:not(:disabled) { transform: scale(0.98); }
+.admin-cleanup:disabled { opacity: 0.6; cursor: default; }

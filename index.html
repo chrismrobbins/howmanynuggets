@@ -259,6 +259,7 @@
           <div class="un" id="menuUsername"></div>
         </div>
         <button type="button" class="primary-btn" id="menuLeaderboards" style="margin-bottom:.6rem">🏆 Leaderboards</button>
+        <button type="button" class="primary-btn" id="menuAdmin" style="margin-bottom:.6rem;display:none">🛠️ Admin portal</button>
         <button type="button" class="ghost-btn" id="menuLogout" style="width:100%">Sign out</button>
       </div>
     </div>
@@ -287,6 +288,21 @@
         <button type="button" data-game="beat">🎧 Dip Hop</button>
       </div>
       <div id="lbBody"><div class="lb-loading">Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- Admin portal: signup/engagement stats + admin management (admins only) -->
+  <div class="modal-overlay" id="adminModal">
+    <div class="modal admin-modal" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
+      <div class="modal-head">
+        <h2 id="adminTitle">🛠️ Admin Portal</h2>
+        <button class="modal-close" id="adminClose" type="button" aria-label="Close">✕</button>
+      </div>
+      <div class="tab-row" id="adminTabs">
+        <button type="button" data-tab="overview" class="on">📊 Overview</button>
+        <button type="button" data-tab="admins">👥 Admins</button>
+      </div>
+      <div id="adminBody"><div class="lb-loading">Loading…</div></div>
     </div>
   </div>
 

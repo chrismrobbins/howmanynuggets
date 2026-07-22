@@ -51,8 +51,17 @@
   const lbTabs = document.getElementById('lbTabs');
   const lbBody = document.getElementById('lbBody');
 
+  // Admin portal (admins only)
+  const menuAdmin = document.getElementById('menuAdmin');
+  const adminModal = document.getElementById('adminModal');
+  const adminClose = document.getElementById('adminClose');
+  const adminTabs = document.getElementById('adminTabs');
+  const adminBody = document.getElementById('adminBody');
+
   let currentUser = null;
+  let isAdmin = false;
   let lbGame = 'catch';
+  let adminTab = 'overview';
 
   const initials = (name) => (name || '?').trim().slice(0, 1).toUpperCase();
   const esc = (s) => String(s).replace(/[&<>"']/g,
@@ -75,8 +84,10 @@
     myBeat.textContent = fmtNum(scores.beat || 0);
   }
 
-  function applyUser(user, scores) {
+  function applyUser(user, scores, admin) {
     currentUser = user;
+    isAdmin = !!admin;
+    if (menuAdmin) menuAdmin.style.display = isAdmin ? '' : 'none';
     if (user) {
       accountAvatar.style.display = '';
       accountAvatar.textContent = initials(user.displayName);
@@ -88,6 +99,7 @@
       accountLabel.textContent = 'Sign in';
       myScores.classList.remove('active');
       setScores(null);
+      if (adminModal) closeModal(adminModal);
     }
   }
 
@@ -133,7 +145,7 @@
   authModal.addEventListener('click', (e) => { if (e.target === authModal) closeModal(authModal); });
   lbModal.addEventListener('click', (e) => { if (e.target === lbModal) closeModal(lbModal); });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { closeModal(authModal); closeModal(lbModal); }
+    if (e.key === 'Escape') { closeModal(authModal); closeModal(lbModal); if (adminModal) closeModal(adminModal); }
   });
 
   // ---- Login / register / logout ----
@@ -147,7 +159,7 @@
       API.setToken(res.token);
       loginForm.reset();
       const meRes = await API.me().catch(() => ({ user: res.user, scores: null }));
-      applyUser(meRes.user || res.user, meRes.scores);
+      applyUser(meRes.user || res.user, meRes.scores, meRes.isAdmin);
       closeModal(authModal);
     } catch (err) {
       showError(loginError, err.message);
@@ -164,7 +176,7 @@
         registerForm.username.value, registerForm.displayName.value, registerForm.password.value);
       API.setToken(res.token);
       registerForm.reset();
-      applyUser(res.user, { catch: 0, blaster: 0, flappy: 0 });
+      applyUser(res.user, { catch: 0, blaster: 0, flappy: 0 }, false);
       closeModal(authModal);
     } catch (err) {
       showError(registerError, err.message);
@@ -234,6 +246,130 @@
     }
   }
 
+  // ---- Admin portal ----
+  const ago = (ms) => {
+    const s = Math.max(1, Math.floor((Date.now() - ms) / 1000));
+    if (s < 60) return s + 's ago';
+    const mm = Math.floor(s / 60); if (mm < 60) return mm + 'm ago';
+    const h = Math.floor(mm / 60); if (h < 24) return h + 'h ago';
+    const d = Math.floor(h / 24); if (d < 30) return d + 'd ago';
+    return new Date(ms).toLocaleDateString();
+  };
+
+  menuAdmin && menuAdmin.addEventListener('click', () => { closeModal(authModal); openAdmin(); });
+  adminClose && adminClose.addEventListener('click', () => closeModal(adminModal));
+  adminModal && adminModal.addEventListener('click', (e) => { if (e.target === adminModal) closeModal(adminModal); });
+  adminTabs && adminTabs.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (b) { adminTab = b.dataset.tab; adminTabs.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); loadAdmin(); }
+  });
+
+  function openAdmin() { if (!isAdmin) return; openModal(adminModal); loadAdmin(); }
+  function loadAdmin() {
+    adminBody.innerHTML = '<div class="lb-loading">Loading…</div>';
+    return adminTab === 'admins' ? loadAdminUsers() : loadAdminOverview();
+  }
+
+  async function loadAdminOverview() {
+    let d;
+    try { d = await API.adminStats(); }
+    catch (err) { adminBody.innerHTML = '<div class="lb-empty">' + esc(err.message) + '</div>'; return; }
+    const u = d.users, e = d.engagement;
+    const tile = (label, val, sub) =>
+      '<div class="admin-stat"><div class="v">' + val + '</div><div class="l">' + label + '</div>' +
+      (sub ? '<div class="s">' + sub + '</div>' : '') + '</div>';
+    let html =
+      '<div class="admin-hero"><div class="big">' + fmtNum(u.real) + '</div>' +
+      '<div class="cap">real signups <span class="muted">· ' + fmtNum(u.total) + ' total · ' + fmtNum(u.test) + ' test</span></div></div>';
+    if (u.test > 0) {
+      html += '<button type="button" id="adminCleanup" class="admin-cleanup">🧹 Clean up ' +
+        fmtNum(u.test) + ' test account' + (u.test === 1 ? '' : 's') + '</button>';
+    }
+    html +=
+      '<div class="admin-grid">' +
+        tile('New · 24h', fmtNum(u.new24h)) +
+        tile('New · 7d', fmtNum(u.new7d)) +
+        tile('New · 30d', fmtNum(u.new30d)) +
+        tile('Have played', fmtNum(e.players)) +
+        tile('Active now', fmtNum(e.activeSessions), 'live sessions') +
+        tile('Scores set', fmtNum(e.scoreRows)) +
+        tile('MP matches', fmtNum(d.matches)) +
+      '</div>';
+    if (d.perGame && d.perGame.length) {
+      html += '<p class="kicker" style="margin-top:1.1rem">Per-game leaders</p><div class="admin-games">' +
+        d.perGame.map((g) =>
+          '<div class="admin-grow"><div class="g">' + (GAME_LABEL[g.game] || esc(g.game)) + '</div>' +
+          '<div class="who">🥇 @' + esc(g.leader) + ' <span class="sc">' + fmtNum(g.topScore) + '</span></div>' +
+          '<div class="pl">' + fmtNum(g.players) + ' player' + (g.players === 1 ? '' : 's') + '</div></div>').join('') +
+        '</div>';
+    }
+    if (d.recentSignups && d.recentSignups.length) {
+      html += '<p class="kicker" style="margin-top:1.1rem">Recent signups</p><div class="admin-recent">' +
+        d.recentSignups.map((r) =>
+          '<div class="admin-rrow"><div class="who"><div class="dn">' + esc(r.displayName) + '</div>' +
+          '<div class="un">@' + esc(r.username) + '</div></div><div class="when">' + ago(r.createdAt) + '</div></div>').join('') +
+        '</div>';
+    }
+    adminBody.innerHTML = html;
+
+    const cleanBtn = document.getElementById('adminCleanup');
+    if (cleanBtn) cleanBtn.addEventListener('click', async () => {
+      if (!window.confirm('Delete ' + fmtNum(u.test) + ' test account' + (u.test === 1 ? '' : 's') +
+        ' (and their scores)? This can\'t be undone.')) return;
+      cleanBtn.disabled = true; cleanBtn.textContent = 'Cleaning up…';
+      try {
+        const r = await API.adminCleanupTests();
+        loadAdmin(); // refresh the overview with the new numbers
+      } catch (e) { window.alert(e.message); cleanBtn.disabled = false; }
+    });
+  }
+
+  function adminUserRow(u) {
+    const you = currentUser && u.username.toLowerCase() === currentUser.username.toLowerCase();
+    const ctrl = u.bootstrap
+      ? '<span class="admin-lock">🔒 Owner</span>'
+      : '<button type="button" data-id="' + u.id + '" data-admin="' + (u.admin ? '1' : '0') +
+        '" class="admin-toggle' + (u.admin ? ' on' : '') + '"' + (you ? ' disabled title="that&#39;s you"' : '') +
+        '>' + (u.admin ? '✓ Admin' : 'Make admin') + '</button>';
+    return '<div class="admin-urow' + (u.admin ? ' is-admin' : '') + '">' +
+      '<div class="who"><div class="dn">' + esc(u.displayName) + (you ? ' <span class="muted">(you)</span>' : '') + '</div>' +
+      '<div class="un">@' + esc(u.username) + ' · joined ' + ago(u.createdAt) + '</div></div>' +
+      '<div class="ctrl">' + ctrl + '</div></div>';
+  }
+
+  function loadAdminUsers() {
+    adminBody.innerHTML =
+      '<div class="admin-search"><input id="adminSearch" type="text" placeholder="Search username or name…" autocomplete="off" /></div>' +
+      '<div id="adminUserList"><div class="lb-loading">Loading…</div></div>';
+    const listEl = document.getElementById('adminUserList');
+    const searchEl = document.getElementById('adminSearch');
+    let t;
+    const fetchUsers = async (query) => {
+      listEl.innerHTML = '<div class="lb-loading">Loading…</div>';
+      let d;
+      try { d = await API.adminUsers(query || ''); }
+      catch (err) { listEl.innerHTML = '<div class="lb-empty">' + esc(err.message) + '</div>'; return; }
+      listEl.innerHTML = d.users.length ? d.users.map(adminUserRow).join('')
+        : '<div class="lb-empty">No matching users.</div>';
+    };
+    searchEl.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => fetchUsers(searchEl.value.trim()), 250); });
+    listEl.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-id]');
+      if (!btn || btn.disabled) return;
+      const id = +btn.dataset.id, makeAdmin = btn.dataset.admin === '0';
+      btn.disabled = true;
+      try {
+        await API.adminSetAdmin(id, makeAdmin);
+        btn.dataset.admin = makeAdmin ? '1' : '0';
+        btn.textContent = makeAdmin ? '✓ Admin' : 'Make admin';
+        btn.classList.toggle('on', makeAdmin);
+        const row = btn.closest('.admin-urow'); if (row) row.classList.toggle('is-admin', makeAdmin);
+      } catch (err) { alert(err.message); }
+      finally { btn.disabled = false; }
+    });
+    fetchUsers('');
+  }
+
   // ---- Score submission hook (invoked by storm.js when a game session ends) ----
   window.onArcadeScore = async function (game, score) {
     if (!currentUser || !score || score <= 0) return;
@@ -251,7 +387,7 @@
     if (!API.getToken()) return;
     try {
       const meRes = await API.me();
-      applyUser(meRes.user, meRes.scores);
+      applyUser(meRes.user, meRes.scores, meRes.isAdmin);
     } catch {
       API.setToken(''); // stale/expired token
     }

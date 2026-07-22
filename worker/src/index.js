@@ -128,6 +128,42 @@ async function getUserByToken(env, token) {
   return { id: row.id, username: row.username, displayName: row.display_name, token };
 }
 
+// ---- Admin ------------------------------------------------------------------
+// Bootstrap admins are ALWAYS admin (case-insensitive) and can't be demoted —
+// they're the seed that lets the admin system exist before anyone can grant it
+// in-app. Everyone else's status lives in users.is_admin, editable from the
+// admin portal by any admin. Usernames aren't secrets; the gate is the caller's
+// validated session, so hardcoding the owner here is safe.
+const BOOTSTRAP_ADMINS = new Set([
+  'chrismrobbins', // the owner — permanent admin; can grant admin to others in-app
+]);
+
+// Older DBs predate users.is_admin — add it on demand (once per isolate).
+let adminColumnReady = false;
+async function ensureAdminColumn(env) {
+  if (adminColumnReady) return;
+  try { await env.DB.prepare('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0').run(); }
+  catch (e) { /* already exists — fine */ }
+  adminColumnReady = true;
+}
+
+async function userIsAdmin(env, u) {
+  if (!u) return false;
+  if (BOOTSTRAP_ADMINS.has(String(u.username).toLowerCase())) return true;
+  try {
+    const row = await env.DB.prepare('SELECT is_admin FROM users WHERE id = ?').bind(u.id).first();
+    return !!(row && row.is_admin);
+  } catch { return false; } // column missing → not admin (bootstrap still works)
+}
+
+// Gate helper for /api/admin/*. Returns { u } on success or { err: Response }.
+async function requireAdmin(request, env, origin) {
+  const u = await getSessionUser(request, env);
+  if (!u) return { err: json({ error: 'Not authenticated' }, 401, origin) };
+  if (!(await userIsAdmin(env, u))) return { err: json({ error: 'Admin access required.' }, 403, origin) };
+  return { u };
+}
+
 async function getSessionUser(request, env) {
   const auth = request.headers.get('Authorization') || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
@@ -209,7 +245,11 @@ async function logout(request, env, origin) {
 async function me(request, env, origin) {
   const u = await getSessionUser(request, env);
   if (!u) return json({ error: 'Not authenticated' }, 401, origin);
-  return json({ user: { username: u.username, displayName: u.displayName }, scores: await scoresForUser(env, u.id) }, 200, origin);
+  return json({
+    user: { username: u.username, displayName: u.displayName },
+    scores: await scoresForUser(env, u.id),
+    isAdmin: await userIsAdmin(env, u),
+  }, 200, origin);
 }
 
 async function submitScore(request, env, origin) {
@@ -338,6 +378,151 @@ async function joinRoom(request, env, url) {
 // Which games currently have a multiplayer module (mirrors games/registry.js).
 const MULTIPLAYER_GAMES = new Set(['blaster', 'gta']);
 
+// ---- Admin portal endpoints -------------------------------------------------
+// Throwaway accounts created while building/testing multiplayer. Counted
+// separately so the "real signups" number is honest. Extend as needed.
+// Unambiguous, auto-generated test-account prefixes. Deliberately specific:
+// this filter also drives bulk deletion, so short/ambiguous prefixes that could
+// match a real user (cdp, ph_, pj_) are intentionally excluded.
+const TEST_USER_SQL = `(
+  username LIKE 'gtadiag%' OR username LIKE 'gtafix%' OR username LIKE 'gtapx%' OR
+  username LIKE 'gtapy%'   OR username LIKE 'gtap3%'  OR username LIKE 'gtaint%' OR
+  username LIKE 'gtaii%'   OR username LIKE 'gtamp%'  OR username LIKE 'gtapg%' OR
+  username LIKE 'gtap3%'   OR username LIKE 'smoketest%' OR username LIKE 'dunktest%' OR
+  username LIKE 'prodmp%'  OR username LIKE 'pmech%'  OR username LIKE 'pdiag%'
+)`;
+
+async function adminStats(request, env, origin) {
+  const gate = await requireAdmin(request, env, origin);
+  if (gate.err) return gate.err;
+  await ensureAdminColumn(env);
+  const now = Date.now();
+  const d1 = now - 864e5, d7 = now - 7 * 864e5, d30 = now - 30 * 864e5;
+
+  const users = await env.DB.prepare(
+    `SELECT COUNT(*) AS total,
+            SUM(CASE WHEN ${TEST_USER_SQL} THEN 1 ELSE 0 END) AS test,
+            SUM(CASE WHEN created_at > ? THEN 1 ELSE 0 END) AS new24h,
+            SUM(CASE WHEN created_at > ? THEN 1 ELSE 0 END) AS new7d,
+            SUM(CASE WHEN created_at > ? THEN 1 ELSE 0 END) AS new30d
+       FROM users`
+  ).bind(d1, d7, d30).first();
+
+  const eng = await env.DB.prepare(
+    `SELECT (SELECT COUNT(DISTINCT user_id) FROM scores) AS players,
+            (SELECT COUNT(*) FROM scores) AS scoreRows,
+            (SELECT COUNT(DISTINCT user_id) FROM sessions WHERE expires_at > ?) AS activeSessions`
+  ).bind(now).first();
+
+  // Leader + player count per game, in one pass (SQLite window functions).
+  const perGame = (await env.DB.prepare(
+    `SELECT game, username, best_score AS topScore, players FROM (
+       SELECT s.game, u.username, s.best_score,
+              ROW_NUMBER() OVER (PARTITION BY s.game ORDER BY s.best_score DESC) rn,
+              COUNT(*)     OVER (PARTITION BY s.game) players
+         FROM scores s JOIN users u ON u.id = s.user_id
+     ) WHERE rn = 1 ORDER BY players DESC, game`
+  ).all()).results || [];
+
+  const recent = (await env.DB.prepare(
+    `SELECT username, display_name, created_at FROM users
+      WHERE NOT ${TEST_USER_SQL} ORDER BY created_at DESC LIMIT 15`
+  ).all()).results || [];
+
+  const matches = await env.DB.prepare('SELECT COUNT(*) AS total FROM matches').first();
+
+  const total = users.total || 0, test = users.test || 0;
+  return json({
+    users: {
+      total, test, real: total - test,
+      new24h: users.new24h || 0, new7d: users.new7d || 0, new30d: users.new30d || 0,
+    },
+    engagement: {
+      players: eng.players || 0, scoreRows: eng.scoreRows || 0, activeSessions: eng.activeSessions || 0,
+    },
+    perGame: perGame.map((g) => ({ game: g.game, leader: g.username, topScore: g.topScore, players: g.players })),
+    recentSignups: recent.map((r) => ({ username: r.username, displayName: r.display_name, createdAt: r.created_at })),
+    matches: matches.total || 0,
+    generatedAt: now,
+  }, 200, origin);
+}
+
+async function adminUsers(request, env, origin, url) {
+  const gate = await requireAdmin(request, env, origin);
+  if (gate.err) return gate.err;
+  await ensureAdminColumn(env);
+  const q = (url.searchParams.get('q') || '').trim().slice(0, 40);
+  const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit'), 10) || 100));
+  let rows;
+  if (q) {
+    // Escape LIKE wildcards (usernames legitimately contain '_'), don't strip them.
+    const like = '%' + q.replace(/[\\%_]/g, (c) => '\\' + c) + '%';
+    rows = await env.DB.prepare(
+      `SELECT id, username, display_name, created_at, is_admin FROM users
+        WHERE username LIKE ?1 ESCAPE '\\' OR display_name LIKE ?1 ESCAPE '\\'
+        ORDER BY is_admin DESC, created_at DESC LIMIT ?2`
+    ).bind(like, limit).all();
+  } else {
+    rows = await env.DB.prepare(
+      `SELECT id, username, display_name, created_at, is_admin FROM users
+        ORDER BY is_admin DESC, created_at DESC LIMIT ?`
+    ).bind(limit).all();
+  }
+  const list = (rows.results || []).map((r) => {
+    const boot = BOOTSTRAP_ADMINS.has(String(r.username).toLowerCase());
+    return {
+      id: r.id, username: r.username, displayName: r.display_name, createdAt: r.created_at,
+      admin: !!r.is_admin || boot, bootstrap: boot,
+    };
+  });
+  return json({ users: list }, 200, origin);
+}
+
+async function adminSetAdmin(request, env, origin) {
+  const gate = await requireAdmin(request, env, origin);
+  if (gate.err) return gate.err;
+  await ensureAdminColumn(env);
+  const body = await request.json().catch(() => ({}));
+  const userId = parseInt(body.userId, 10);
+  const admin = body.admin ? 1 : 0;
+  if (!Number.isInteger(userId) || userId <= 0) return json({ error: 'Invalid user.' }, 400, origin);
+  const target = await env.DB.prepare('SELECT id, username FROM users WHERE id = ?').bind(userId).first();
+  if (!target) return json({ error: 'No such user.' }, 404, origin);
+  if (BOOTSTRAP_ADMINS.has(String(target.username).toLowerCase()))
+    return json({ error: 'That account is a permanent admin and cannot be changed.' }, 400, origin);
+  if (userId === gate.u.id && !admin)
+    return json({ error: "You can't remove your own admin access." }, 400, origin);
+  await env.DB.prepare('UPDATE users SET is_admin = ? WHERE id = ?').bind(admin, userId).run();
+  console.log(`admin: ${gate.u.username} set is_admin=${admin} for ${target.username} (#${userId})`);
+  return json({ ok: true, userId, admin: !!admin }, 200, origin);
+}
+
+// Delete throwaway test accounts (and their scores/sessions/match rows). Only
+// removes accounts matching the unambiguous TEST_USER_SQL prefixes, and never
+// an admin. GET returns a preview (how many + who); POST performs the delete.
+async function adminCleanupTests(request, env, origin) {
+  const gate = await requireAdmin(request, env, origin);
+  if (gate.err) return gate.err;
+  await ensureAdminColumn(env);
+  const rows = (await env.DB.prepare(
+    `SELECT id, username FROM users WHERE ${TEST_USER_SQL} AND is_admin = 0`
+  ).all()).results || [];
+  const ids = rows.filter((r) => !BOOTSTRAP_ADMINS.has(String(r.username).toLowerCase())).map((r) => r.id);
+
+  if (request.method === 'GET') {
+    return json({ count: ids.length, sample: rows.slice(0, 20).map((r) => r.username) }, 200, origin);
+  }
+  if (!ids.length) return json({ ok: true, deleted: 0 }, 200, origin);
+
+  const ph = ids.map(() => '?').join(',');
+  await env.DB.prepare(`DELETE FROM scores WHERE user_id IN (${ph})`).bind(...ids).run();
+  await env.DB.prepare(`DELETE FROM sessions WHERE user_id IN (${ph})`).bind(...ids).run();
+  await env.DB.prepare(`DELETE FROM match_players WHERE user_id IN (${ph})`).bind(...ids).run();
+  await env.DB.prepare(`DELETE FROM users WHERE id IN (${ph})`).bind(...ids).run();
+  console.log(`admin: ${gate.u.username} deleted ${ids.length} test accounts`);
+  return json({ ok: true, deleted: ids.length }, 200, origin);
+}
+
 // ---- Router -----------------------------------------------------------------
 export default {
   async fetch(request, env) {
@@ -363,6 +548,10 @@ export default {
       if (path === '/api/score' && m === 'POST') return await submitScore(request, env, origin);
       if (path === '/api/scores/me' && m === 'GET') return await myScores(request, env, origin);
       if (path === '/api/leaderboard' && m === 'GET') return await leaderboard(request, env, origin);
+      if (path === '/api/admin/stats' && m === 'GET') return await adminStats(request, env, origin);
+      if (path === '/api/admin/users' && m === 'GET') return await adminUsers(request, env, origin, url);
+      if (path === '/api/admin/set-admin' && m === 'POST') return await adminSetAdmin(request, env, origin);
+      if (path === '/api/admin/cleanup-tests' && (m === 'GET' || m === 'POST')) return await adminCleanupTests(request, env, origin);
       if (path === '/api/rooms' && m === 'POST') return await createRoom(request, env, origin);
       if (path === '/' || path === '/api') return json({ ok: true, service: 'howmanynuggets-api' }, 200, origin);
       return json({ error: 'Not found' }, 404, origin);

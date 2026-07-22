@@ -52,5 +52,11 @@
     myScores: () => req('/api/scores/me', { auth: true }),
     leaderboard: (game, limit = 25) =>
       req('/api/leaderboard?game=' + encodeURIComponent(game) + '&limit=' + limit, { auth: true }),
+    // Admin portal (server enforces admin-only; these 403 for non-admins).
+    adminStats: () => req('/api/admin/stats', { auth: true }),
+    adminUsers: (q = '') => req('/api/admin/users' + (q ? '?q=' + encodeURIComponent(q) : ''), { auth: true }),
+    adminSetAdmin: (userId, admin) =>
+      req('/api/admin/set-admin', { method: 'POST', auth: true, body: { userId, admin } }),
+    adminCleanupTests: () => req('/api/admin/cleanup-tests', { method: 'POST', auth: true }),
   };
 })();
