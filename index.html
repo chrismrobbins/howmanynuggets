@@ -22,6 +22,12 @@
   <link rel="stylesheet" href="css/beat.css" />
   <link rel="stylesheet" href="css/arcade.css" />
   <link rel="stylesheet" href="css/multiplayer.css" />
+
+  <!-- Sign in with Google. The client id is public by design; the Worker still
+       verifies every ID token's signature + audience server-side. Set the OAuth
+       Web client id here to enable the button (account.js loads Google's library
+       only when it's configured). -->
+  <script>window.NUGGET_GOOGLE_CLIENT_ID = '__GOOGLE_CLIENT_ID__';</script>
 </head>
 <body>
   <main class="card">
@@ -209,6 +215,11 @@
       </div>
 
       <div id="authForms">
+        <!-- Sign in with Google (shown only when configured; wired in account.js) -->
+        <div id="googleAuth" style="display:none">
+          <div id="googleSignin" class="google-signin"></div>
+          <div class="mp-or">— or with a username —</div>
+        </div>
         <div class="tab-row" id="authTabs">
           <button type="button" data-tab="login" class="on">Log in</button>
           <button type="button" data-tab="register">Create account</button>

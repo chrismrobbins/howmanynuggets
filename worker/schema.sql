@@ -7,12 +7,16 @@ CREATE TABLE IF NOT EXISTS users (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   username      TEXT    NOT NULL,
   display_name  TEXT    NOT NULL,
-  password_hash TEXT    NOT NULL,   -- format: pbkdf2$<iterations>$<salt_b64>$<hash_b64>
+  password_hash TEXT    NOT NULL,   -- pbkdf2$<iters>$<salt>$<hash>, or 'google' for OAuth-only accounts
   created_at    INTEGER NOT NULL,   -- epoch ms
-  is_admin      INTEGER NOT NULL DEFAULT 0  -- 1 = can see the admin portal + grant admin
+  is_admin      INTEGER NOT NULL DEFAULT 0, -- 1 = can see the admin portal + grant admin
+  google_sub    TEXT,               -- Google account subject id (Sign in with Google); NULL for password accounts
+  email         TEXT                -- from Google; reference/display only
 );
--- NOTE: DBs created before is_admin existed get the column added lazily by the
--- Worker (ensureAdminColumn), so no destructive ALTER is needed here.
+-- One account per Google identity (partial: password accounts leave it NULL).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google ON users(google_sub) WHERE google_sub IS NOT NULL;
+-- NOTE: DBs created before these columns existed get them added lazily by the
+-- Worker (ensureUserColumns), so no destructive ALTER is needed here.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username COLLATE NOCASE);
 
 -- One best score per (user, game). Submitting a lower score never lowers the best.

@@ -45,6 +45,8 @@
       req('/api/register', { method: 'POST', body: { username, displayName, password } }),
     login: (username, password) =>
       req('/api/login', { method: 'POST', body: { username, password } }),
+    googleAuth: (credential) =>
+      req('/api/auth/google', { method: 'POST', body: { credential } }),
     logout: () => req('/api/logout', { method: 'POST', auth: true }),
     me: () => req('/api/me', { auth: true }),
     submitScore: (game, score) =>

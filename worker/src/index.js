@@ -3,6 +3,7 @@
 // Endpoints (all JSON):
 //   POST /api/register      { username, displayName, password }  -> { token, user }
 //   POST /api/login         { username, password }               -> { token, user }
+//   POST /api/auth/google   { credential }                        -> { token, user }  (verifies Google ID token)
 //   POST /api/logout        (Bearer)                             -> { ok }
 //   GET  /api/me            (Bearer)                             -> { user, scores }
 //   POST /api/score         (Bearer) { game, score }             -> { ok, best }
@@ -14,6 +15,8 @@
 //   - All SQL uses bound parameters (no string concatenation).
 //   - Sessions are opaque random bearer tokens with a 30-day expiry.
 //   - This is a hobby project; users are warned not to reuse real passwords.
+
+import { verifyRS256 } from './google.js';
 
 const ALLOWED_ORIGINS = new Set([
   'https://howmanynuggets.com',
@@ -107,6 +110,34 @@ function newToken() {
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+// ---- Sign in with Google (verify the ID token server-side) ------------------
+// The OAuth 2.0 Web client id. Public by design (also embedded in the frontend);
+// it's the `aud` we require on every Google ID token. Until it's set, the
+// /api/auth/google endpoint returns 503 and the button stays hidden.
+// Hardcoded default (public by design). A GOOGLE_CLIENT_ID Worker var overrides
+// it if you'd rather configure via the Cloudflare dashboard than commit it.
+const GOOGLE_CLIENT_ID_DEFAULT = '__GOOGLE_CLIENT_ID__';
+const GOOGLE_ISSUERS = new Set(['accounts.google.com', 'https://accounts.google.com']);
+const gClientId = (env) => (env && env.GOOGLE_CLIENT_ID) || GOOGLE_CLIENT_ID_DEFAULT;
+
+// Google's signing keys rotate; cache them briefly. (JWKS URL is overridable for
+// tests via a GOOGLE_JWKS_URL var.)
+let googleKeys = null, googleKeysAt = 0, googleKeysUrl = '';
+async function googleJWKS(env) {
+  const url = (env && env.GOOGLE_JWKS_URL) || 'https://www.googleapis.com/oauth2/v3/certs';
+  if (googleKeys && url === googleKeysUrl && Date.now() - googleKeysAt < 3600e3) return googleKeys;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Could not fetch Google keys');
+  googleKeys = (await res.json()).keys || [];
+  googleKeysAt = Date.now();
+  googleKeysUrl = url;
+  return googleKeys;
+}
+
+async function verifyGoogleIdToken(env, idToken) {
+  return verifyRS256(idToken, await googleJWKS(env), gClientId(env), GOOGLE_ISSUERS);
+}
+
 // ---- Validation -------------------------------------------------------------
 const validUsername = (u) => typeof u === 'string' && /^[a-zA-Z0-9_]{3,20}$/.test(u);
 const validDisplay = (d) => typeof d === 'string' && d.trim().length >= 1 && d.trim().length <= 40;
@@ -138,13 +169,22 @@ const BOOTSTRAP_ADMINS = new Set([
   'chrismrobbins', // the owner — permanent admin; can grant admin to others in-app
 ]);
 
-// Older DBs predate users.is_admin — add it on demand (once per isolate).
-let adminColumnReady = false;
-async function ensureAdminColumn(env) {
-  if (adminColumnReady) return;
-  try { await env.DB.prepare('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0').run(); }
-  catch (e) { /* already exists — fine */ }
-  adminColumnReady = true;
+// Older DBs predate is_admin / google_sub / email — add them on demand (once
+// per isolate). Each ALTER throws harmlessly if the column already exists.
+let userColumnsReady = false;
+async function ensureUserColumns(env) {
+  if (userColumnsReady) return;
+  for (const sql of [
+    'ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE users ADD COLUMN google_sub TEXT',
+    'ALTER TABLE users ADD COLUMN email TEXT',
+  ]) { try { await env.DB.prepare(sql).run(); } catch (e) { /* already exists */ } }
+  try {
+    await env.DB.prepare(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google ON users(google_sub) WHERE google_sub IS NOT NULL'
+    ).run();
+  } catch (e) { /* ok */ }
+  userColumnsReady = true;
 }
 
 async function userIsAdmin(env, u) {
@@ -211,6 +251,53 @@ async function register(request, env, origin) {
 
   const token = await createSession(env, res.meta.last_row_id);
   return json({ token, user: { username, displayName } }, 201, origin);
+}
+
+// Derive a unique, valid username from a Google email/name.
+async function uniqueUsername(env, seed) {
+  let base = String(seed || '').split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16);
+  if (base.length < 3) base = 'nug' + base;
+  for (let i = 0; i < 60; i++) {
+    const candidate = i === 0 ? base : (base.slice(0, 14) + Math.floor(Math.random() * 100000));
+    const clipped = candidate.slice(0, 20);
+    const taken = await env.DB.prepare('SELECT 1 FROM users WHERE username = ? COLLATE NOCASE').bind(clipped).first();
+    if (!taken) return clipped;
+  }
+  return ('nug' + Date.now().toString().slice(-9)).slice(0, 20);
+}
+
+// POST /api/auth/google { credential } — verify a Google ID token, then find or
+// create the matching account and issue a normal session. New accounts get an
+// auto-generated handle and a non-password 'google' hash (can't password-login).
+async function googleAuth(request, env, origin) {
+  if (gClientId(env).startsWith('__')) return json({ error: 'Google sign-in is not configured yet.' }, 503, origin);
+  const body = await request.json().catch(() => ({}));
+  if (!body.credential) return json({ error: 'Missing Google credential.' }, 400, origin);
+
+  let payload;
+  try { payload = await verifyGoogleIdToken(env, body.credential); }
+  catch (e) { return json({ error: 'Google sign-in failed (' + e.message + ').' }, 401, origin); }
+  if (payload.email && payload.email_verified === false) {
+    return json({ error: 'Your Google email is not verified.' }, 401, origin);
+  }
+
+  await ensureUserColumns(env);
+  const sub = String(payload.sub);
+  let user = await env.DB.prepare(
+    'SELECT id, username, display_name FROM users WHERE google_sub = ?'
+  ).bind(sub).first();
+
+  if (!user) {
+    const displayName = String(payload.name || (payload.email || '').split('@')[0] || 'Nugget Fan').trim().slice(0, 40) || 'Nugget Fan';
+    const username = await uniqueUsername(env, payload.email || payload.name || 'nugget');
+    const res = await env.DB.prepare(
+      'INSERT INTO users (username, display_name, password_hash, created_at, google_sub, email) VALUES (?, ?, ?, ?, ?, ?)'
+    ).bind(username, displayName, 'google', Date.now(), sub, payload.email || null).run();
+    user = { id: res.meta.last_row_id, username, display_name: displayName };
+  }
+
+  const token = await createSession(env, user.id);
+  return json({ token, user: { username: user.username, displayName: user.display_name } }, 200, origin);
 }
 
 async function login(request, env, origin) {
@@ -395,7 +482,7 @@ const TEST_USER_SQL = `(
 async function adminStats(request, env, origin) {
   const gate = await requireAdmin(request, env, origin);
   if (gate.err) return gate.err;
-  await ensureAdminColumn(env);
+  await ensureUserColumns(env);
   const now = Date.now();
   const d1 = now - 864e5, d7 = now - 7 * 864e5, d30 = now - 30 * 864e5;
 
@@ -450,7 +537,7 @@ async function adminStats(request, env, origin) {
 async function adminUsers(request, env, origin, url) {
   const gate = await requireAdmin(request, env, origin);
   if (gate.err) return gate.err;
-  await ensureAdminColumn(env);
+  await ensureUserColumns(env);
   const q = (url.searchParams.get('q') || '').trim().slice(0, 40);
   const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit'), 10) || 100));
   let rows;
@@ -481,7 +568,7 @@ async function adminUsers(request, env, origin, url) {
 async function adminSetAdmin(request, env, origin) {
   const gate = await requireAdmin(request, env, origin);
   if (gate.err) return gate.err;
-  await ensureAdminColumn(env);
+  await ensureUserColumns(env);
   const body = await request.json().catch(() => ({}));
   const userId = parseInt(body.userId, 10);
   const admin = body.admin ? 1 : 0;
@@ -503,7 +590,7 @@ async function adminSetAdmin(request, env, origin) {
 async function adminCleanupTests(request, env, origin) {
   const gate = await requireAdmin(request, env, origin);
   if (gate.err) return gate.err;
-  await ensureAdminColumn(env);
+  await ensureUserColumns(env);
   const rows = (await env.DB.prepare(
     `SELECT id, username FROM users WHERE ${TEST_USER_SQL} AND is_admin = 0`
   ).all()).results || [];
@@ -543,6 +630,7 @@ export default {
       const m = request.method;
       if (path === '/api/register' && m === 'POST') return await register(request, env, origin);
       if (path === '/api/login' && m === 'POST') return await login(request, env, origin);
+      if (path === '/api/auth/google' && m === 'POST') return await googleAuth(request, env, origin);
       if (path === '/api/logout' && m === 'POST') return await logout(request, env, origin);
       if (path === '/api/me' && m === 'GET') return await me(request, env, origin);
       if (path === '/api/score' && m === 'POST') return await submitScore(request, env, origin);

@@ -190,6 +190,44 @@
     closeModal(authModal);
   });
 
+  // ---- Sign in with Google ----
+  // Verified server-side by the Worker; we just hand it the ID token. The button
+  // renders only when a client id is configured (otherwise the classic form is
+  // the only path). Google's library loads async, so retry until it's ready.
+  async function onGoogleCredential(resp) {
+    if (!resp || !resp.credential) return;
+    clearErrors();
+    try {
+      const res = await API.googleAuth(resp.credential);
+      API.setToken(res.token);
+      const meRes = await API.me().catch(() => ({ user: res.user, scores: null, isAdmin: false }));
+      applyUser(meRes.user || res.user, meRes.scores, meRes.isAdmin);
+      closeModal(authModal);
+    } catch (e) { showError(loginError, e.message); }
+  }
+  (function initGoogleAuth() {
+    const CID = window.NUGGET_GOOGLE_CLIENT_ID || '';
+    if (!CID || CID.indexOf('__') === 0) return; // not configured yet
+    const render = () => {
+      if (!(window.google && window.google.accounts && google.accounts.id)) return false;
+      try {
+        google.accounts.id.initialize({ client_id: CID, callback: onGoogleCredential });
+        google.accounts.id.renderButton(document.getElementById('googleSignin'),
+          { theme: 'filled_blue', size: 'large', shape: 'pill', text: 'continue_with' });
+        const wrap = document.getElementById('googleAuth');
+        if (wrap) wrap.style.display = '';
+      } catch (e) { /* ignore */ }
+      return true;
+    };
+    if (render()) return;
+    // Load Google's library only when Google sign-in is actually enabled.
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.async = true;
+    s.onload = render;
+    document.head.appendChild(s);
+  })();
+
   // ---- Leaderboards ----
   const GAME_LABEL = { catch: '🧺 Catch', blaster: '🎯 Blaster', flappy: '🐤 Flappy', dunk: '🥣 Dunk', sim: '🧘 Sim', run: '🏃 Run', knight: '⚔️ Knight', brawl: '🥊 Brawl', ranch: '🐔 Ranch', kart: '🏎️ Fast Food', reel: '🎣 Reel', gta: '🚔 GTN', beat: '🎧 Dip Hop' };
 

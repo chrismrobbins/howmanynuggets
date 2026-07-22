@@ -388,3 +388,6 @@
 .admin-cleanup:hover:not(:disabled) { filter: brightness(1.12); }
 .admin-cleanup:active:not(:disabled) { transform: scale(0.98); }
 .admin-cleanup:disabled { opacity: 0.6; cursor: default; }
+
+/* Sign in with Google button (Google renders its own button; we just center it) */
+.google-signin { display: flex; justify-content: center; margin-bottom: 0.5rem; min-height: 40px; }
