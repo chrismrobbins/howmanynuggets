@@ -197,7 +197,9 @@ function shiftQuota(s) { return 7 + s * 2; }
 
 function clearNuggets() { dunk.nuggets.forEach((n) => n.el.remove()); dunk.nuggets = []; }
 
-function spawnNugget() {
+// Prefixed: a bare `spawnNugget` here CLOBBERED storm.js's storm spawner
+// (same global scope — the blaster/knight `spawnEnemy` incident, round two).
+function dunkSpawnNugget() {
   const burnt = Math.random() < dunk.cfg.burnt;
   const golden = !burnt && Math.random() < storm.cat.golden;
   // pick a target among the current cups (golden = wildcard, burnt = none)
@@ -384,7 +386,7 @@ function stepDunk(dt, w, h) {
 
   dunk.elapsed += dt;
   dunk.spawnT -= dt;
-  if (dunk.spawnT <= 0) spawnNugget();
+  if (dunk.spawnT <= 0) dunkSpawnNugget();
   stepNuggets(dt, w, h, false);
 
   // ready-glow on zones holding a matching nugget

@@ -43,6 +43,7 @@
   const myReel = document.getElementById('myReel');
   const myGta = document.getElementById('myGta');
   const myBeat = document.getElementById('myBeat');
+  const myDrain = document.getElementById('myDrain');
 
   // Leaderboard modal
   const openLeaderboards = document.getElementById('openLeaderboards');
@@ -68,7 +69,7 @@
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   function setScores(scores) {
-    scores = scores || { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0, knight: 0, brawl: 0, ranch: 0, kart: 0, reel: 0, gta: 0, beat: 0 };
+    scores = scores || { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0, knight: 0, brawl: 0, ranch: 0, kart: 0, reel: 0, gta: 0, beat: 0, drain: 0 };
     myCatch.textContent = fmtNum(scores.catch || 0);
     myBlaster.textContent = fmtNum(scores.blaster || 0);
     myFlappy.textContent = fmtNum(scores.flappy || 0);
@@ -82,6 +83,7 @@
     myReel.textContent = fmtNum(scores.reel || 0);
     myGta.textContent = fmtNum(scores.gta || 0);
     myBeat.textContent = fmtNum(scores.beat || 0);
+    myDrain.textContent = fmtNum(scores.drain || 0);
   }
 
   function applyUser(user, scores, admin) {
@@ -203,7 +205,11 @@
       const meRes = await API.me().catch(() => ({ user: res.user, scores: null, isAdmin: false }));
       applyUser(meRes.user || res.user, meRes.scores, meRes.isAdmin);
       closeModal(authModal);
-    } catch (e) { showError(loginError, e.message); }
+    } catch (e) {
+      // The Google button works from either tab — report where the user can see it.
+      const onRegister = registerForm && registerForm.style.display !== 'none';
+      showError(onRegister ? registerError : loginError, e.message);
+    }
   }
   (function initGoogleAuth() {
     const CID = window.NUGGET_GOOGLE_CLIENT_ID || '';
@@ -229,7 +235,7 @@
   })();
 
   // ---- Leaderboards ----
-  const GAME_LABEL = { catch: '🧺 Catch', blaster: '🎯 Blaster', flappy: '🐤 Flappy', dunk: '🥣 Dunk', sim: '🧘 Sim', run: '🏃 Run', knight: '⚔️ Knight', brawl: '🥊 Brawl', ranch: '🐔 Ranch', kart: '🏎️ Fast Food', reel: '🎣 Reel', gta: '🚔 GTN', beat: '🎧 Dip Hop' };
+  const GAME_LABEL = { catch: '🧺 Catch', blaster: '🎯 Blaster', flappy: '🐤 Flappy', dunk: '🥣 Dunk', sim: '🧘 Sim', run: '🏃 Run', knight: '⚔️ Knight', brawl: '🥊 Brawl', ranch: '🐔 Ranch', kart: '🏎️ Fast Food', reel: '🎣 Reel', gta: '🚔 GTN', beat: '🎧 Dip Hop', drain: '🕳️ Drain' };
 
   menuLeaderboards.addEventListener('click', () => { closeModal(authModal); openLb(); });
   openLeaderboards.addEventListener('click', openLb);
@@ -256,15 +262,19 @@
       '<div class="score">' + fmtNum(r.score) + '</div></div>';
   }
 
+  let lbSeq = 0; // stale-response guard: fast tab clicks must not resurrect old bodies
   async function loadLb() {
+    const seq = ++lbSeq;
     lbBody.innerHTML = '<div class="lb-loading">Loading…</div>';
     let data;
     try {
       data = await API.leaderboard(lbGame, 25);
     } catch (err) {
+      if (seq !== lbSeq) return;
       lbBody.innerHTML = '<div class="lb-empty">' + esc(err.message) + '</div>';
       return;
     }
+    if (seq !== lbSeq) return; // a newer tab click already owns the body
 
     const meUser = currentUser && currentUser.username.toLowerCase();
     if (!data.top.length) {
@@ -409,13 +419,20 @@
   }
 
   // ---- Score submission hook (invoked by storm.js when a game session ends) ----
-  window.onArcadeScore = async function (game, score) {
+  window.onArcadeScore = async function (game, score, isRetry) {
     if (!currentUser || !score || score <= 0) return;
     try {
       const res = await API.submitScore(game, score);
-      const el = { catch: myCatch, blaster: myBlaster, flappy: myFlappy, dunk: myDunk, sim: mySim, run: myRun, knight: myKnight, brawl: myBrawl, ranch: myRanch, kart: myKart, reel: myReel, gta: myGta, beat: myBeat }[game];
+      const el = { catch: myCatch, blaster: myBlaster, flappy: myFlappy, dunk: myDunk, sim: mySim, run: myRun, knight: myKnight, brawl: myBrawl, ranch: myRanch, kart: myKart, reel: myReel, gta: myGta, beat: myBeat, drain: myDrain }[game];
       if (el && res && typeof res.best === 'number') el.textContent = fmtNum(res.best);
-    } catch { /* offline / not deployed — scores just don't persist */ }
+    } catch (err) {
+      // The server allows one submission per 10s; banking a score on a quick
+      // mode switch can 429 a legit personal best. One polite retry, then let
+      // it go. (Offline / not deployed still lands here with no status.)
+      if (err && err.status === 429 && !isRetry) {
+        setTimeout(() => window.onArcadeScore(game, score, true), 10500);
+      }
+    }
   };
 
   window.NuggetAuth = { get user() { return currentUser; } };
@@ -426,8 +443,10 @@
     try {
       const meRes = await API.me();
       applyUser(meRes.user, meRes.scores, meRes.isAdmin);
-    } catch {
-      API.setToken(''); // stale/expired token
+    } catch (err) {
+      // Only a real rejection means the token is stale. A network hiccup (no
+      // err.status) used to sign people out for opening the site offline.
+      if (err && (err.status === 401 || err.status === 403)) API.setToken('');
     }
   })();
 })();

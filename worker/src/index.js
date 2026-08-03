@@ -26,7 +26,7 @@ const ALLOWED_ORIGINS = new Set([
   'http://localhost:5173',
 ]);
 
-const GAMES = new Set(['catch', 'blaster', 'flappy', 'dunk', 'sim', 'run', 'knight', 'brawl', 'ranch', 'kart', 'reel', 'gta', 'beat']);
+const GAMES = new Set(['catch', 'blaster', 'flappy', 'dunk', 'sim', 'run', 'knight', 'brawl', 'ranch', 'kart', 'reel', 'gta', 'beat', 'drain']);
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const PBKDF2_ITERATIONS = 100000;
 const MAX_SCORE = 1e15; // absolute backstop (per-game caps below are the real gate)
@@ -48,6 +48,7 @@ const GAME_MAX_SCORE = {
   reel: 60e6,                       // OVEN RELIGHT: depth-tier ×3 + combo ×3 + THE STORM jackpot (1000× perFlyer)
   gta: 40e6,                        // open-world banking: distance trickle + crates over a long joyride
   beat: 40e6,                       // rhythm sets bank like dunk; FEVER + encore 2× headroom
+  drain: 40e6,                      // depth trickle + pickups + THE PASSING jackpot (500× perFlyer), UNDERTOW 3×
 };
 const MIN_SUBMIT_INTERVAL_MS = 10000; // one score per 10s per account
 
@@ -214,7 +215,7 @@ async function scoresForUser(env, userId) {
   const { results } = await env.DB.prepare(
     'SELECT game, best_score FROM scores WHERE user_id = ?'
   ).bind(userId).all();
-  const map = { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0, knight: 0, brawl: 0, ranch: 0, kart: 0, reel: 0, gta: 0, beat: 0 };
+  const map = { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0, knight: 0, brawl: 0, ranch: 0, kart: 0, reel: 0, gta: 0, beat: 0, drain: 0 };
   for (const r of results) map[r.game] = r.best_score;
   return map;
 }
@@ -238,6 +239,13 @@ async function register(request, env, origin) {
   if (!validUsername(username)) return json({ error: 'Username must be 3–20 letters, numbers, or underscores.' }, 400, origin);
   if (!validDisplay(displayName)) return json({ error: 'Display name must be 1–40 characters.' }, 400, origin);
   if (!validPassword(password)) return json({ error: 'Password must be at least 8 characters.' }, 400, origin);
+
+  // Bootstrap-admin names grant admin by NAME (userIsAdmin checks the set
+  // before the DB) — if that row ever doesn't exist, registering it would be
+  // an instant admin takeover. Reserved, full stop.
+  if (BOOTSTRAP_ADMINS.has(username.toLowerCase())) {
+    return json({ error: 'That username is reserved.' }, 409, origin);
+  }
 
   const existing = await env.DB.prepare(
     'SELECT id FROM users WHERE username = ? COLLATE NOCASE'
@@ -355,10 +363,12 @@ async function submitScore(request, env, origin) {
   }
 
   // Rate limit: scores land when a session ends, which takes longer than 10s.
-  // (Every submission bumps updated_at via the upsert, so MAX() is "last submit".)
+  // Per-GAME, not per-account — switching games mid-storm banks each game's
+  // score separately (storm.js), and game B's legit best must not 429 because
+  // game A submitted 5 seconds ago.
   const lastSub = await env.DB.prepare(
-    'SELECT MAX(updated_at) AS t FROM scores WHERE user_id = ?'
-  ).bind(u.id).first();
+    'SELECT MAX(updated_at) AS t FROM scores WHERE user_id = ? AND game = ?'
+  ).bind(u.id, game).first();
   if (lastSub && lastSub.t && Date.now() - lastSub.t < MIN_SUBMIT_INTERVAL_MS) {
     return json({ error: 'Easy there, sharpshooter — one score every 10 seconds.' }, 429, origin);
   }

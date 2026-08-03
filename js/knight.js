@@ -390,10 +390,10 @@ function startWave(n) {
   updateStormHud();
   const [px, py] = knightToScreen(800, 330);
   if (n % knight.cfg.bossEvery === 0) {
-    spawnEnemy('whisk');
+    knightSpawnEnemy('whisk');
     if (knight.oath === 'nuggmare') { // the Whisk brings an honor guard
-      spawnEnemy('spork');
-      spawnEnemy('spork');
+      knightSpawnEnemy('spork');
+      knightSpawnEnemy('spork');
     }
     spawnPopLabel(px, py, `🌀 Wave ${n} — THE WHISK approaches`, 'big');
   } else {
@@ -513,7 +513,7 @@ function rollEnemyType(wave) {
   return 'spork';
 }
 
-function spawnEnemy(forceType) {
+function knightSpawnEnemy(forceType) {
   const type = forceType || rollEnemyType(knight.wave);
   const cfg = knight.cfg;
   const el = enemySvg(type);
@@ -837,7 +837,7 @@ function stepKnight(dt, w, h) {
   } else if (knight.pending > 0) {
     knight.spawnT -= dt;
     if (knight.spawnT <= 0) {
-      spawnEnemy();
+      knightSpawnEnemy();
       knight.pending--;
       knight.spawnT = (Math.max(0.26, 0.6 - knight.wave * 0.035) + Math.random() * 0.6) * knight.cfg.gap;
     }
@@ -1144,7 +1144,7 @@ window.knightDebug = function (opts) {
   if (opts.wave !== undefined) { knight.breakT = 0; startWave(opts.wave); knight.pending = 0; }
   if (opts.spawn) {
     for (let i = 0; i < (opts.n || 1); i++) {
-      spawnEnemy(opts.spawn);
+      knightSpawnEnemy(opts.spawn);
       const e = knight.enemies[knight.enemies.length - 1];
       e.x = opts.at !== undefined ? opts.at + i * 90 : 1100 + i * 90;
       if (opts.state) { e.state = opts.state; e.stateT = opts.stateT || 0.5; e.dashDir = -1; }

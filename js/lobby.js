@@ -58,7 +58,9 @@
     readyBtn.textContent = myReady() ? "✓ Ready (tap to unready)" : 'Ready up';
     readyBtn.classList.toggle('on', myReady());
     startBtn.style.display = net.host ? '' : 'none';
-    startBtn.disabled = net.players.length < 1;
+    // Co-op needs a second player, and everyone ready — `< 1` was always false
+    // (the host is in their own roster), so Start was a live solo-launch button.
+    startBtn.disabled = net.players.length < 2 || !net.players.every((p) => p.ready);
   }
 
   // ---- actions ----

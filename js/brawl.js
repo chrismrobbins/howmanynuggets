@@ -315,6 +315,8 @@ function syncBrawl() {
       brawlWorld.appendChild(brawl.banner);
     }
     brawl.t = 0;
+    brawl.session = (brawl.session || 0) + 1; // stale act-transition timers check this
+    brawl.touch = null;                       // a finger from last session isn't steering
     brawl.shift = 1;
     brawl.act = 0;
     brawl.kos = 0;
@@ -467,8 +469,9 @@ function brawlActCleared() {
   if (brawl.act < BRAWL_ACTS.length - 1) {
     brawlBanner('🏆 ACT ' + (brawl.act + 1) + ' CLEAR!', '', 2);
     const nextAct = brawl.act + 1;
+    const session = brawl.session; // exit + re-enter during the beat = new session, stale timer stands down
     setTimeout(() => {
-      if (!brawl.on) return;
+      if (!brawl.on || brawl.session !== session) return;
       if (brawl.shift > 1) brawlStartAct(nextAct); // OVERTIME skips the story
       else brawlEnterCut(nextAct === 1 ? 'act2' : 'act3', () => brawlStartAct(nextAct));
     }, 1600);
@@ -486,8 +489,9 @@ function brawlCampaignCleared() {
   brawlRecordBest(brawl.heat, 3, true);
   brawlBanner('🏆 CAMPAIGN CLEAR!', '', 2.2);
   sfxBrawlBossDown();
+  const session = brawl.session;
   setTimeout(() => {
-    if (!brawl.on) return;
+    if (!brawl.on || brawl.session !== session) return;
     if (brawl.shift > 1) { brawlStartOvertime(); return; } // seen the credits already
     brawlEnterCut('ending', () => {
       brawl.phase = 'end';
@@ -1838,7 +1842,7 @@ function brawlStripSauceWorks(Hh, ground) {
 // One lumpy pixel nugget body, deterministic per seed. Cached per (seed, r).
 const nugBodyCache = {};
 function nugBody(r, seed, base, dark) {
-  const key = r + seed + base;
+  const key = r + '|' + seed + '|' + base; // r+seed ADDED collided (8,4)≡(6,6): wrong-size sprite from cache
   if (nugBodyCache[key]) return nugBodyCache[key];
   const size = r * 2 + 3;
   const c = document.createElement('canvas');
@@ -2831,6 +2835,9 @@ window.addEventListener('touchend', () => {
   }
   brawl.touch = null;
 });
+// The OS can cancel a gesture (notification shade, palm rejection) — without
+// this the frozen touch kept steering P1 until the next real tap.
+window.addEventListener('touchcancel', () => { brawl.touch = null; });
 
 window.addEventListener('resize', () => { if (brawl.on) brawlLayout(); });
 

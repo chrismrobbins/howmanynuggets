@@ -29,11 +29,18 @@
         method, headers, body: body ? JSON.stringify(body) : undefined,
       });
     } catch {
+      // No `status` on network failures — callers use that to tell "offline"
+      // apart from "the server said no" (account.js keeps the session on the
+      // former and only signs out on a real 401).
       throw new Error("Can't reach the server. Is the API deployed?");
     }
     let data = null;
     try { data = await res.json(); } catch {}
-    if (!res.ok) throw new Error((data && data.error) || ('Request failed (' + res.status + ')'));
+    if (!res.ok) {
+      const err = new Error((data && data.error) || ('Request failed (' + res.status + ')'));
+      err.status = res.status;
+      throw err;
+    }
     return data;
   }
 

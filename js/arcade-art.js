@@ -29,6 +29,7 @@ const ArcadeArt = (() => {
     { mode: 'reel', title: 'KEEPING IT REEL', icon: '🎣', c1: '#26e0ff', c2: '#0a5a7a', tag: 'THE PIER AT MIDNIGHT' },
     { mode: 'gta',  title: 'GRAND THEFT NUGGET', icon: '🚔', c1: '#ffd23a', c2: '#3ad4ff', tag: 'WELCOME TO NUGGETOWN' },
     { mode: 'beat', title: 'DIP HOP', icon: '🎧', c1: '#ff2fa0', c2: '#7c4dff', tag: 'SAUCE SESSIONS · NIGHTLY' },
+    { mode: 'drain', title: 'STORM DRAIN', icon: '🕳️', c1: '#39ff7a', c2: '#ffd23a', tag: 'ALL PIPES LEAD TO THE HARBOR' },
   ];
 
   const NEON = ['#ff2fa0', '#26e0ff', '#ffe23a', '#7c4dff', '#39ff7a'];
@@ -1274,6 +1275,9 @@ const ArcadeArt = (() => {
     // DIP HOP's front door: the basement club across the street
     alloc('beatDoor', 128, 192, pBeatDoor);
     alloc('beatSign', 192, 96, pBeatSign);
+    // STORM DRAIN's front door: the grate in the gutter (+ the DPW barricade)
+    alloc('drainGrate', 96, 64, pDrainGrate);
+    alloc('drainSign', 128, 64, pDrainSign);
     const SW2 = {
       iron: '#3a4256', wood: '#6d5426', woodDark: '#42320e', red: '#e8412c',
       amber: '#ffb020', curb: '#3c3c46', black: '#0a0a12', white: '#f4f0e6',
@@ -1447,6 +1451,65 @@ const ArcadeArt = (() => {
     g.shadowColor = '#ff2fa0'; g.shadowBlur = 8;
     g.beginPath(); g.moveTo(w * 0.72, h * 0.42); g.lineTo(w * 0.72, h * 0.52); g.stroke();
     g.shadowBlur = 0;
+  }
+
+  // The grate in the gutter. Iron slats, wet from the rain, and something
+  // GOLD between them that has no business being lit from below. (The actual
+  // shimmer is glow sprites orbiting under it in arcade.js — kind 'swirl'.)
+  function pDrainGrate(g, w, h) {
+    g.fillStyle = '#14161c';                 // the gutter apron
+    g.fillRect(0, 0, w, h);
+    // the gold down there, bleeding up through the slots
+    const gl = g.createRadialGradient(w / 2, h / 2, 2, w / 2, h / 2, w * 0.42);
+    gl.addColorStop(0, 'rgba(255,210,58,0.85)');
+    gl.addColorStop(0.6, 'rgba(255,176,32,0.30)');
+    gl.addColorStop(1, 'rgba(255,176,32,0)');
+    g.fillStyle = gl;
+    g.fillRect(0, 0, w, h);
+    // the frame
+    g.strokeStyle = '#2c313c';
+    g.lineWidth = 6;
+    g.strokeRect(4, 4, w - 8, h - 8);
+    // slats (the dark bars OVER the glow — the light only wins in the gaps)
+    g.fillStyle = '#22262e';
+    const slats = 7;
+    for (let i = 0; i < slats; i++) {
+      const sx = 8 + i * ((w - 16) / slats) + 1;
+      g.fillRect(sx, 8, (w - 16) / slats - 4, h - 16);
+    }
+    // rain sheen on the frame + bars
+    g.fillStyle = 'rgba(170,205,255,0.10)';
+    g.fillRect(6, 6, w - 12, 3);
+    speckle(g, w, h, 26, '#0a0c10', 0.5, 2);
+  }
+
+  // The Department of Public Works would like a word. The word is NO.
+  function pDrainSign(g, w, h) {
+    // sawhorse board: hazard stripes up top, stencilled plea below
+    g.fillStyle = '#1a1206';
+    g.fillRect(0, 0, w, h);
+    g.save();
+    g.beginPath(); g.rect(4, 4, w - 8, h * 0.36); g.clip();
+    g.fillStyle = '#ffb020';
+    g.fillRect(4, 4, w - 8, h * 0.36);
+    g.fillStyle = '#0a0a12';
+    for (let x = -h; x < w + h; x += 18) {
+      g.beginPath();
+      g.moveTo(x, 4); g.lineTo(x + 9, 4);
+      g.lineTo(x + 9 - h * 0.36, 4 + h * 0.36); g.lineTo(x - h * 0.36, 4 + h * 0.36);
+      g.fill();
+    }
+    g.restore();
+    g.strokeStyle = '#42320e';
+    g.lineWidth = 3;
+    g.strokeRect(2, 2, w - 4, h - 4);
+    g.textAlign = 'center';
+    g.fillStyle = '#f4f0e6';
+    g.font = '900 11px Consolas, monospace';
+    g.fillText('NUGGETOWN D.P.W.', w / 2, h * 0.62);
+    g.fillStyle = '#ffd23a';
+    g.font = '900 10px Consolas, monospace';
+    g.fillText('DO NOT DIVE', w / 2, h * 0.86);
   }
 
   // Soft radial sprite used (tinted) for every glow halo, dust mote, and raindrop.

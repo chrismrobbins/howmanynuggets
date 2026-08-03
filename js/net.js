@@ -56,6 +56,15 @@
     },
 
     _open(token) {
+      // One live socket, ever. Joining room B while room A's socket is up used
+      // to leave both feeding _handle (interleaved snapshots from two worlds),
+      // and the old one's onclose would even spin up a THIRD via _reconnect.
+      if (this.ws) {
+        const old = this.ws;
+        this.ws = null;
+        old.onclose = old.onmessage = old.onerror = null;
+        try { old.close(); } catch { /* already dead */ }
+      }
       const url = wsBase + '/room/' + encodeURIComponent(this.code) +
         '?token=' + encodeURIComponent(token);
       let ws;

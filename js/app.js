@@ -92,7 +92,9 @@ function update() {
     return;
   }
 
-  const nuggets = Math.floor(dollars / pricePerNugget);
+  // Integer-safe: dollars/(price/6) rounds DOWN through float dust at exact
+  // box multiples ($16.47 at $5.49 is 18 nuggets, not 17.999…→17).
+  const nuggets = Math.floor((dollars * 6) / est.price + 1e-9);
   const sixPieces = Math.floor(nuggets / 6);
   const remainder = nuggets % 6;
 

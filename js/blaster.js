@@ -126,6 +126,7 @@ function syncBlaster() {
     blaster.firing = false;
     clearBolts(); clearDrops(); clearEnemies(); clearCity(); killBoss();
     expirePower();
+    hideBlasterOver(); // else "NUGGETOWN HAS FALLEN" outlives the game it fell in
     if (blaster.bossBar) blaster.bossBar.classList.remove('on');
   }
 }
@@ -156,6 +157,7 @@ function openBlasterTier() {
 function startBlaster() {
   blaster.phase = 'playing';
   blaster.wave = 0;
+  lastStreakLevel = 0; // fresh session, fresh KILLING SPREE announcements
   blaster.streak = ArcadeKit.makeFever({ perLevel: 6, maxLevel: 4, step: 0.4, timeout: 0 });
   expirePower();
   buildCity();

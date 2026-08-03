@@ -868,14 +868,18 @@ void main() {
         const droveOut = typeof gtaSawStorm === 'function' && gtaSawStorm();
         const remixed = typeof beatEncoreDone === 'function' && beatEncoreDone();
         const dropped = (H.best && H.best.beat > 0) || remixed;
+        const dove = typeof drainSawStorm === 'function' && drainSawStorm();
         return {
         root: {
-          line: dropped
+          line: dove
+            ? '*the hooded nugget takes one slow step back from you* you went DOWN there. under the town. and it went past you like you were furniture. *long pause* R&D is over, friend. everything I age in the barrel from now on is about YOU.'
+            : dropped
             ? '*the hooded nugget does a very small, very smug two-step* the garage. the pier. and now the BASEMENT. three. for. three. I am not a nugget in a hood, friend — I am the morning paper.'
             : sawStorm
               ? '*the hooded nugget is uncharacteristically quiet* …you went to the pier. at midnight. and it LOOKED at you. I can tell. you walk different now.'
               : '*the hooded nugget stands by the OPEN garage bay, radiating smug* you hear that engine? that\'s the sound of me being right. TWICE, now that the pier gate\'s open.',
           opts: [
+            { t: 'the gutter grate across the road… it\'s GLOWING.', next: 'drainGrate' },
             { t: 'there\'s a CLUB across the street now.', next: 'beatClub' },
             { t: 'somebody left a car out front. hazards on.', next: 'gtaCar' },
             { t: 'the shutter… it\'s open!', next: 'garage' },
@@ -884,6 +888,17 @@ void main() {
             { t: "you're just a weird nugget in a hood.", next: 'weird' },
           ],
         },
+        drainGrate: {
+          line: dove
+            ? 'you already KNOW what\'s under that grate. you kicked past the clogs and the water went still and something the size of a WEATHER SYSTEM used the mains like a bus lane. *taps hood, shakily* fourth rumor. cashed. by you. again.'
+            : 'fresh out the barrel, friend — rumor number FOUR: after it rains, the gutters under this town HUM. the DPW put a sign up. a sign, friend. for water. *leans in* water does not need a sign unless it\'s going somewhere.',
+          opts: [
+            { t: 'where would it be going?', next: 'drainWhere' },
+            { t: 'I\'m not diving into a storm drain.', next: 'drainNope' },
+          ],
+        },
+        drainWhere: { line: 'every pipe in nuggetown runs downhill to ONE place. *nods at the east gate* the harbor. the pier. the case. all of it is the same water, friend. it always was.', opts: [] },
+        drainNope: { line: '*the hood tilts to exactly the angle of someone checking a watch* that\'s what the last three said. the garage. the pier. the basement. see you down there.', opts: [] },
         beatClub: {
           line: remixed
             ? 'and you heard the ENCORE. *leans in under the neon* that bassline, friend — that\'s not a synth. he held a recorder over the pier rail at midnight and the harbor answered ON BEAT. my rumors have rumors now.'
@@ -928,7 +943,7 @@ void main() {
         tips: { line: "brake INTO the hairpin, chili OUT of it. the tankers ride low and slow — pass 'em clean, it pays. and when a billboard asks about a storm… keep driving.", opts: [] },
         rumors: {
           line: dropped
-            ? 'rumors? friend, you CLOSED my slate. the garage, the pier, the basement — three for three, all cashed. I\'m in R&D now. good rumors need time in the barrel.'
+            ? 'rumors? friend, you CLOSED my slate — so I went back to R&D, and R&D delivered. *leans in* the gutter grate across the road. after rain. LOOK at it. rumor number four is live.'
             : sawStorm
               ? "rumors? friend, you OUTRANK my rumors now. you hooked the thing the harbor nugs only whisper about. …fine. one left: a cup with turntables, asking around for a rhythm section."
               : fished
@@ -1020,6 +1035,7 @@ void main() {
         const ranPier = typeof runReachedPier === 'function' && runReachedPier();
         const sawSimStorm = typeof simSawStorm === 'function' && simSawStorm();
         const servedSecret = typeof dunkSecretServed === 'function' && dunkSecretServed();
+        const dove = typeof drainSawStorm === 'function' && drainSawStorm();
         const caseNotes = flewStorm || heldCity || ranPier || sawSimStorm || servedSecret;
         return {
         root: {
@@ -1029,6 +1045,7 @@ void main() {
               ? { t: 'detective. I hooked the storm. at the pier.', next: 'sawIt' }
               : { t: 'what happened in there?', next: 'what' },
             rap > 0 ? { t: 'so… how\'s the crime wave treating you?', next: 'gtaRap' } : null,
+            dove ? { t: 'detective. pull the DPW maps. I saw it IN THE PIPES.', next: 'drainSaw' } : null,
             clubbed ? { t: 'been down to the club across the street?', next: 'beatNoise' } : null,
             caseNotes ? { t: 'about my… extracurriculars, detective.', next: 'caseNotes' } : null,
             { t: 'got any suspects?', next: 'suspects' },
@@ -1061,6 +1078,15 @@ void main() {
           ],
         },
         beatNoise2: { line: '*writes "CAN I?" in the notepad. underlines it twice.*', opts: [] },
+        drainSaw: {
+          line: '*stops writing entirely* …the storm drains. of course. the pier isn\'t its HOME, kid — it\'s its front door. it\'s been using the mains to move under my ENTIRE crime scene. *slowly turns the notepad sideways to draw pipes* the case just grew a basement.',
+          opts: [
+            { t: 'so dredge the pipes.', next: 'drainSaw2' },
+            { t: 'the DPW sign says DO NOT DIVE.', next: 'drainSaw3' },
+          ],
+        },
+        drainSaw2: { line: 'dredge WHAT, kid? it IS the water. *writes "jurisdiction: the municipal plumbing" and stares at it* I became a detective for parking fraud.', opts: [] },
+        drainSaw3: { line: 'that sign predates the Incident by nine years. *flat stare* the DPW knew something. the DPW always knows something. they just file it under "flow".', opts: [] },
         gtaRap: {
           line: droveOut
             ? '*flips WAY back in the notepad* eleven syndicate contracts. boosted cruisers. a BATTER VAN bonfire outside my own HQ. and one civilian — at the END of my pier, at midnight, DURING a raid — who watched the evidence surface and drove home. *closes notepad slowly* I know it\'s you, kid. I can\'t prove it\'s you. it\'s the worst thing that\'s ever happened to me.'
@@ -1377,6 +1403,43 @@ void main() {
           H.lastCab = null;
           H.lastSpot = { stand: [dmx, 12.3], look: [dmx, 1.2, 13.9] };
           launchGame('beat');
+        },
+      });
+    }
+
+    // ---- STORM DRAIN's front door -----------------------------------------------
+    // A grate in the gutter by the far curb, east of the club. It glows GOLD
+    // from underneath after the rain — kind 'swirl' glows orbiting under the
+    // slats, the pier trick at street scale — and the DPW barricade next to it
+    // says DO NOT DIVE, which every citizen of Nuggetown reads as instructions.
+    // Game 14, the fourth street game (js/drain.js).
+    {
+      const gx0 = 8.1, gx1 = 9.5, gz0 = 12.55, gz1 = 13.35;
+      const gmx = (gx0 + gx1) / 2, gmz = (gz0 + gz1) / 2;
+      // the grate, flush with the road (planeY like the compact's roof)
+      planeY(ST, 0.012, gx0, gx1, gz0, gz1, suv.drainGrate, 1, false, { e: 0.22 });
+      // what's down there, circling (small, gold, patient)
+      for (let i = 0; i < 3; i++)
+        H.glows.push({ p: [gmx, 0.06, gmz], c: [1, 0.78, 0.25], s: 0.5, a: 0.14, k: 'swirl', ph: i * 2.1, r: 0.3 + i * 0.14 });
+      // the DPW barricade: two legs and a striped board, work-light blinking
+      const bx0 = 9.95, bx1 = 11.25, bz = 12.9;
+      ST.quad([bx1, 0.52, bz], [bx0, 0.52, bz], [bx0, 1.16, bz], [bx1, 1.16, bz], suv.drainSign, { e: 0.14 }); // faces the street (-z)
+      ST.quad([bx0, 0.52, bz + 0.03], [bx1, 0.52, bz + 0.03], [bx1, 1.16, bz + 0.03], [bx0, 1.16, bz + 0.03], suv.drainSign, { e: 0.06 }); // and the wall
+      for (const lx of [bx0 + 0.09, bx1 - 0.09]) {
+        ST.quad([lx + 0.04, 0, bz - 0.05], [lx - 0.04, 0, bz - 0.05], [lx - 0.04, 1.2, bz + 0.015], [lx + 0.04, 1.2, bz + 0.015], suv.sw_iron, { tint: 0.8 });
+      }
+      H.glows.push({ p: [bx0 + 0.62, 1.24, bz - 0.06], c: [1, 0.7, 0.15], s: 0.7, a: 0.26, k: 'hazard' });
+      H.propBoxes.push({ min: [bx0 - 0.06, 0, bz - 0.14], max: [bx1 + 0.06, 1.25, bz + 0.1] });
+      H.hotspots.push({
+        kind: 'drain',
+        x: gmx, z: gmz, r: 2.6,
+        min: [gx0 - 0.12, 0, gz0 - 0.12], max: [gx1 + 0.12, 0.55, gz1 + 0.12],
+        stand: [gmx, EYE, 11.4],
+        label: '🕳️ STORM DRAIN — DIVE IN',
+        act: () => {
+          H.lastCab = null;
+          H.lastSpot = { stand: [gmx, 11.4], look: [gmx, 0.1, gmz] };
+          launchGame('drain');
         },
       });
     }
@@ -2179,7 +2242,7 @@ void main() {
     const ids = {
       catch: 'myCatch', blaster: 'myBlaster', flappy: 'myFlappy', dunk: 'myDunk',
       sim: 'mySim', run: 'myRun', knight: 'myKnight', brawl: 'myBrawl', ranch: 'myRanch',
-      kart: 'myKart', reel: 'myReel', gta: 'myGta', beat: 'myBeat',
+      kart: 'myKart', reel: 'myReel', gta: 'myGta', beat: 'myBeat', drain: 'myDrain',
     };
     for (const [mode, id] of Object.entries(ids)) {
       const el = document.getElementById(id);
@@ -2660,7 +2723,7 @@ void main() {
       if (H.t - H.lastChime > 3) { H.lastChime = H.t; sfxChime(); }
       if (!H.wentOutside) {
         H.wentOutside = true;
-        toast('🌧️ NUGGETOWN AFTER DARK — the regulars will talk. the bus stop goes home. somebody left their hazards on. and the basement across the street is THUMPING.', 5);
+        toast('🌧️ NUGGETOWN AFTER DARK — the regulars will talk. the bus stop goes home. somebody left their hazards on. the basement across the street is THUMPING. and the gutter grate is… glowing?', 5);
       }
     }
     if (!H.wentPier && H.cam.x > 21.3 && H.state !== 'intro') {

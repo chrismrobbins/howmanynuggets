@@ -560,10 +560,10 @@ function crashRun() {
   run.hearts--;
   runRivalLunge();
   ArcadeKit.kick(13, 340);
-  const [px, py] = [RUN_X, RUN_GROUND - run.y - 60];
-  const sx = px * (window.innerWidth / 1600 > window.innerHeight / 900
-    ? window.innerWidth / 1600 : window.innerHeight / 900);
-  spawnPopLabel(Math.min(sx, window.innerWidth - 80), Math.max(60, py * 0.7), '💥 faceplant');
+  // Project through runToScreen like everything else — the old inline math
+  // dropped the horizontal centering term, so the label drifted on non-16:9.
+  const [sx, sy] = runToScreen(RUN_X, RUN_GROUND - run.y - 60);
+  spawnPopLabel(Math.min(sx, window.innerWidth - 80), Math.max(60, sy), '💥 faceplant');
   // Limbs become physics particles relative to the runner group.
   run.parts = [run.refs.footF, run.refs.footB, run.refs.handF, run.refs.handB].map((el) => ({
     el,

@@ -488,6 +488,10 @@ function beatAnalyzeBuffer(buf, name) {
     spec: {
       name: title, sub: 'your crate · charted live', custom: true,
       bpm, bars: Math.max(1, Math.ceil(buf.duration / (spb * 4))), pal,
+      // FEVER stabs read spec.root — without one, beatStab() set an oscillator
+      // to NaN Hz and threw ~29 PERFECTs into a BYOB track. A 110 Hz A works
+      // over any crate.
+      root: 110, scale: [0, 3, 5, 7, 10],
     },
     bpm, spb, countin, events, notes,
     dur: buf.duration + 0.5,

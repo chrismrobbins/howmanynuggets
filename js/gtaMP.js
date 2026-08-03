@@ -230,8 +230,10 @@
   });
   net.on('started', () => { if (net.game === 'gta') launch(); });
   net.on('gameover', () => { if (net.game === 'gta') teardown(); });
-  net.on('left', () => teardown());
-  net.on('gaveup', () => teardown());
+  // Filter by game like every sibling above — leaving a BLASTER lobby must not
+  // tear down (and stopStorm) a single-player GTN run that happens to be live.
+  net.on('left', () => { if (net.game === 'gta') teardown(); });
+  net.on('gaveup', () => { if (net.game === 'gta') teardown(); });
 
   // ---- entry point (host / join) --------------------------------------------------
   function bindEntry() {

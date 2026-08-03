@@ -47,14 +47,15 @@ const MODE_HINTS = {
   reel:    'the pier at midnight — HOLD to cast (deep = better) · press on the ❗ · reel easy, rest the runs · land every species',
   gta:     'hold where you want to GO (T = classic steering) · E in/out + answer 📞 · SPACE brake/punch · F fire · Q weapons · R radio · M map',
   beat:    'the beat drops — drop with it! D F J K (or ← ↓ ↑ →) dunk on the beat · PERFECT dips build HYPE',
+  drain:   'dive the pipes under Nuggetown — ← → steer · HOLD space/↑ to kick · 🫧 is life · thread THE CLOGS · listen for what passes',
 };
-const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘', run: '🏃', knight: '⚔️', brawl: '🥊', ranch: '🐔', kart: '🏎️', reel: '🎣', gta: '🚗', beat: '🎧' };
+const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘', run: '🏃', knight: '⚔️', brawl: '🥊', ranch: '🐔', kart: '🏎️', reel: '🎣', gta: '🚗', beat: '🎧', drain: '🕳️' };
 
 // Free-roam games draw their own rich in-game HUD, so the storm card backs
 // off to a slim translucent pill — hover it (or tap the game badge on touch)
 // to bring back the hint + mode switch. See .storm-hud.compact in storm.css.
 const MODE_COMPACT_HUD = new Set(['gta', 'beat']);
-const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated', run: 'ran', knight: 'vanquished', brawl: 'sauced', ranch: 'harvested', kart: 'delivered', reel: 'reeled in', gta: 'boosted', beat: 'dropped' };
+const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated', run: 'ran', knight: 'vanquished', brawl: 'sauced', ranch: 'harvested', kart: 'delivered', reel: 'reeled in', gta: 'boosted', beat: 'dropped', drain: 'plumbed' };
 
 // Self-contained minigames run their own entities and pause the storm's own
 // falling-nugget spawner + auto-complete (like Flappy). Catch and Blaster both
@@ -63,7 +64,8 @@ function pausesStorm() {
   return storm.mode === 'flappy' || storm.mode === 'dunk' || storm.mode === 'sim' ||
          storm.mode === 'run' || storm.mode === 'knight' || storm.mode === 'brawl' ||
          storm.mode === 'ranch' || storm.mode === 'kart' || storm.mode === 'reel' ||
-         storm.mode === 'gta' || storm.mode === 'beat' || storm.mode === 'blaster';
+         storm.mode === 'gta' || storm.mode === 'beat' || storm.mode === 'blaster' ||
+         storm.mode === 'drain';
 }
 
 const storm = {
@@ -94,6 +96,13 @@ function computePerFlyer(total, cat) {
 }
 
 function setStormMode(mode) {
+  // Switching games mid-storm banks the old game's score first — otherwise the
+  // whole session total submits under whatever mode you STOPPED in, and a
+  // Ranch grind becomes a Flappy leaderboard entry.
+  if (storm.running && mode !== storm.mode && storm.caught > 0) {
+    if (typeof window.onArcadeScore === 'function') window.onArcadeScore(storm.mode, storm.caught);
+    storm.caught = 0;
+  }
   storm.mode = mode;
   stormHud.classList.toggle('compact', MODE_COMPACT_HUD.has(mode));
   stormHud.classList.remove('expanded');
@@ -112,6 +121,7 @@ function setStormMode(mode) {
   syncReel();
   syncGta();
   syncBeat();
+  syncDrain();
   updateStormHud();
 }
 
@@ -225,6 +235,9 @@ function updateStormHud() {
   } else if (storm.mode === 'beat') {
     stormLabel.textContent = '🎧 Dip Hop';
     stormTally.textContent = beatTally();
+  } else if (storm.mode === 'drain') {
+    stormLabel.textContent = '🕳️ Storm Drain';
+    stormTally.textContent = drainTally();
   } else if (storm.mode === 'flappy') {
     stormLabel.textContent = '🐤 Flappy Nug';
     stormTally.textContent = flappyTally();
@@ -312,6 +325,7 @@ function stepStorm(ts) {
   else if (storm.mode === 'reel') stepReel(dt, w, h);
   else if (storm.mode === 'gta') stepGta(dt, w, h);
   else if (storm.mode === 'beat') stepBeat(dt, w, h);
+  else if (storm.mode === 'drain') stepDrain(dt, w, h);
 
   updateStormHud();
 
@@ -410,6 +424,7 @@ function stopStorm(completed = false) {
   syncReel();
   syncGta();
   syncBeat();
+  syncDrain();
   if (completed) {
     // Leave a short victory-lap summary in the HUD, then tuck it away.
     stormLabel.textContent = '✅ Storm complete';

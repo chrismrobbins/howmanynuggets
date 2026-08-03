@@ -26,8 +26,9 @@
   // ---- Conversion -----------------------------------------------------------
 
   function noteText(dollars) {
-    const perNug = est.price / 6;
-    const nugs = Math.floor(dollars / perNug);
+    // Integer-safe, matching js/app.js: dollars/(price/6) rounds down through
+    // float dust at exact box multiples ($16.47 at $5.49 = 18, not 17.999…).
+    const nugs = Math.floor((dollars * 6) / est.price + 1e-9);
     if (dollars > ROAST_MIN) return '🛑 not nug-payable';
     if (settings.unit === 'boxes' || (settings.unit === 'auto' && nugs >= 1200)) {
       if (dollars >= STORM_MIN && settings.unit === 'auto') {

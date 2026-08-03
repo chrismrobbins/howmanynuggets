@@ -38,6 +38,29 @@ already bitten someone.
 > game (no cabinet): entry = the double-parked compact near the bus stop.
 > Campaign flags other code can read: `gtaProgress()` (0-11 contracts done)
 > and `gtaSawStorm()` (localStorage `nugGtaProg` / `nugGtaSawStorm`).
+> **2026-08-02 — night shift:** game 14 shipped — 🕳️ **STORM DRAIN** (mode
+> `drain`, js/drain.js), the FOURTH street game: a one-more-dive descender
+> through the flooded mains (air management + THE CLOGS; THE PASSING below
+> 400m sets `nugDrainStorm` / `drainSawStorm()` — Hood's slate reopened
+> four-for-four, Dill's case "grew a basement"). Entry = the glowing gutter
+> grate + DPW barricade by the far curb (textures `drainGrate`/`drainSign`
+> on the STREET atlas; gold `'swirl'` glows under the slats). Canon ledger
+> now lives in `docs/casefile.md` — keep it current. Same night, a bug
+> sweep landed: **`spawnNugget` was declared in BOTH storm.js and dunk.js**
+> (dunk's clobbered the storm spawner — catch mode froze on frame 1; dunk's
+> is now `dunkSpawnNugget`, knight's bare `spawnEnemy` renamed
+> `knightSpawnEnemy` for the same reason — SERIOUSLY, prefix your globals);
+> `setStormMode` now BANKS the outgoing game's score before switching
+> (leaderboards used to credit the whole session to the final mode) and the
+> worker rate-limits per (user, game) to match; the $-to-nugget floor is
+> float-dust-safe (`$16.47 ÷ $5.49-region` = 18, not 17); offline page load
+> no longer signs you out (only a real 401 clears the token); flappy touch
+> no longer double-flaps; blaster's game-over card clears on exit; MP fixes
+> (blaster results snapshot so co-op scores actually persist, net.js single
+> socket, gtaMP left/gaveup game filter, lobby Start gates on 2+ all-ready).
+> Google-sign-in-adjacent findings left for Chris (see the night report):
+> account linking by email, JWKS rotation refetch, login rate limiting,
+> bootstrap-admin name now reserved at register.
 > **2026-07-21 — THE OVEN RELIGHT:** the first five games got deep upgrades
 > (build log in `UPGRADE_SPRINTS.md`). 🐤 Flappy (biomes + finale), 🥣 Dunk
 > (multi-sauce shifts), 🔫 Blaster (wave defense + Batter Bomber boss; now

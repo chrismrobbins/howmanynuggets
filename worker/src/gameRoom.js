@@ -124,7 +124,10 @@ export class GameRoom extends DurableObject {
   }
 
   startMatch() {
-    if (this.phase === 'playing') return;
+    // Lobby only — 'over' is a real phase for the length of endMatch's awaited
+    // persist, and a host 'start' landing in that window used to install a
+    // fresh interval that endMatch's continuation immediately orphaned.
+    if (this.phase !== 'lobby') return;
     const Mod = GAME_MODULES[this.game];
     if (!Mod) return;
     this.mod = new Mod(this.roomApi());

@@ -20,7 +20,7 @@ few surprises for the big spenders.
   represents a batch so even a $10M storm wraps up in about a minute. Too
   broke for a storm (under 100 nuggets)? The house comps you a
   1,000,000-nug session.
-- **Twelve arcade games** — switch from the HUD, or walk into the 3D hall
+- **Fourteen arcade games** — switch from the HUD, or walk into the 3D hall
   (see below) and play them on the cabinets:
   - 🧺 **Catch** — click nuggets out of the air; rare golden nugs are worth 10×.
   - 🔫 **Blaster** — Missile Command, fry-station edition: nuggets rain onto a
@@ -88,6 +88,16 @@ few surprises for the big spenders.
     R, and a pause map on M. Enter from the HUD — or boost the double-parked
     compact outside the 3D arcade. Its hazards are blinking. The keys are in
     it.
+  - 🕳️ **STORM DRAIN** — the Department of Public Works put up a sign that
+    says DO NOT DIVE, which is how everyone in Nuggetown learned you could.
+    A one-more-dive descender through the flooded mains under the city:
+    steer, kick against the sink (kicking burns air — and air is the whole
+    game), catch bubbles, dodge grease blobs and spinning sporks and batter
+    eels, and thread the one gap in every CLOG. Below 400 meters the water
+    goes still, the walls light up gold, and something the size of a
+    weather system passes through the pipes, heading for the harbor. It
+    does not stop. Enter from the HUD — or dive the glowing gutter grate
+    outside the 3D arcade.
 - **🕹️ The Nugget Arcade** — a walkable first-person 3D arcade hall
   (hand-rolled WebGL, every texture painted procedurally): ten playable
   cabinets with live attract screens, a real high-scores board, FPS controls
@@ -153,6 +163,8 @@ promotions, and tax. This project is **not affiliated with or endorsed by McDona
 | `css/reel.css` | Fishing layer, catch banners |
 | `js/gta.js` | 🚔 Grand Theft Nugget (open-world Nuggetown: missions, heat, radio) |
 | `css/gta.css` | GTN layer + banner styles |
+| `js/drain.js` | 🕳️ Storm Drain (dive the flooded mains; mind the air, mind what passes) |
+| `css/drain.css` | Drain layer + banner styles |
 | `js/arcade-art.js` | Procedural texture atlases + per-game attract screens |
 | `js/arcade.js` | 🕹️ The Nugget Arcade (walkable 3D hall + the street) |
 | `css/arcade.css` | Hall overlay chrome (prompts, hints, fades) |

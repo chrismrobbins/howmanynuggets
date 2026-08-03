@@ -46,6 +46,11 @@ export class BlasterGame {
   }
 
   onStart(players) {
+    // Keep our own roster of everyone who played (live player objects, so
+    // scores stay current). results() used to read room.players(), but the
+    // room deletes a player on disconnect BEFORE ending the match — the
+    // normal way co-op ends — so finished matches persisted nothing.
+    this.participants = players.slice();
     this.buildCity();
     const n = players.length;
     players.forEach((p, i) => {
@@ -56,6 +61,7 @@ export class BlasterGame {
 
   onPlayerJoin(pid, player) {
     if (this.cannons.has(pid)) return;
+    if (this.participants && !this.participants.some((p) => p.id === pid)) this.participants.push(player);
     this.cannons.set(pid, { x: WORLD_W * (0.2 + 0.6 * this.room.rand()), name: player.name, cd: 0, power: null });
   }
 
@@ -198,9 +204,10 @@ export class BlasterGame {
   isOver() { return false; } // endless-with-rebuild; room ends the match when empty
 
   results() {
+    const roster = this.participants || this.room.players();
     return {
       waves: this.waves,
-      players: this.room.players().map((p) => ({ userId: p.userId, score: p.score })),
+      players: roster.map((p) => ({ userId: p.userId, score: p.score })),
     };
   }
 }

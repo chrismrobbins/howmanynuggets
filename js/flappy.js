@@ -538,7 +538,11 @@ window.addEventListener('touchstart', (e) => {
   if (!flappyActive()) return;
   if (e.target.closest('.storm-hud') || e.target.closest('.ak-tier')) return;
   flap();
-}, { passive: true });
+  // Swallow the synthetic mousedown that follows every tap (run.js school) —
+  // passive:true let it through, so each tap double-flapped and game-over
+  // restarts launched themselves instantly.
+  e.preventDefault();
+}, { passive: false });
 
 // Test/debug hook for the smoke harness.
 window.flappyDebug = function (opts) {
