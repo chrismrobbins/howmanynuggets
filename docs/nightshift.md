@@ -137,16 +137,30 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 
 ### 7. File the report — the last thing you do
 
-Beau does not watch this repo at 1 AM. **Email him the shift report** at
-`beau@caf2code.com` using the Microsoft 365 / Outlook connector attached
-to this routine (`outlook_send_mail`). Send it whether the night went well
-or badly — **one format for both.** No email is itself a signal that
-something went wrong, so do not skip it, and do not "wait to send until
-things look better."
+Beau is asleep at 1 AM and does not watch this repo. **Cut a GitHub
+release** — that is how he finds out what you did, and GitHub does the
+notifying:
 
-Subject: `NIGHT SHIFT <MM-DD> — <N> shipped, <main|BRANCH ONLY>`
+```bash
+gh release create nightshift-$(date +%F) \
+  --title "NIGHT SHIFT <MM-DD> — <N> shipped, <main|BRANCH ONLY>" \
+  --notes-file report.md
+```
 
-Body, plain text, in this order:
+Do it whether the night went well or badly — **one format for both.** A
+missing release is itself the signal that something broke, so do not skip
+it, and do not "wait to publish until things look better."
+
+> **Do not try to email.** Beau's Outlook send tool is blocked by
+> enterprise policy — this was tried and confirmed dead on 2026-08-05.
+> There is no mail connector on this routine and adding one will not help.
+> The release is the channel. If you cannot cut a release, say so as
+> loudly as you can in your final message and leave the ledger entry
+> pushed regardless.
+
+Title: `NIGHT SHIFT <MM-DD> — <N> shipped, <main|BRANCH ONLY>`
+
+Body (Markdown), in this order:
 
 1. **Outcome line first.** Where the code went, the short SHA, the
    diffstat, the verified count as `passed/total`, framerate, and whether
@@ -163,27 +177,12 @@ Body, plain text, in this order:
    and https://howmanynuggets.com if you pushed `main`.
 
 Keep it tight enough to read on a phone. The ledger entry below is the
-long version; the email is the briefing.
+long version; the release is the briefing.
 
-**Then post the same report as a GitHub release** — tag
-`nightshift-<YYYY-MM-DD>`, title = the email subject, body = the email
-body in Markdown:
-
-```bash
-gh release create nightshift-$(date +%F) --title "..." --notes-file report.md
-```
-
-This is deliberate redundancy, not busywork. The Outlook send tool's
-availability inside this sandbox was **never successfully verified** when
-the shift was set up (it was blocked in the authoring session, and the
-routine's `permitted_tools` grant is untested). The release is the channel
-that only needs the git credentials you already have.
-
-So: **attempt the email, always cut the release.** If the email tool is
-unavailable or errors, cut the release anyway and put the words
-`EMAIL FAILED: <the error>` at the top of the release body and in your
-final message. Never let a broken notification channel be the reason a
-shipped night goes unreported.
+`gh` is authenticated with the same credentials you push with, so this
+needs nothing extra. Verify it landed (`gh release view nightshift-$(date
++%F)`) before you call the night done — an unpublished report is an
+unreported night.
 
 ---
 
@@ -193,8 +192,10 @@ Newest last. One entry per run: what shipped, what verified, where it
 went, and what the next shift should know.
 
 ### 2026-08-05 — shift established
-Protocol written, then amended the same day: every run now **emails the
-report to beau@caf2code.com** (order 7). The tree was carrying two nights of unpushed work
+Protocol written. Reporting went through two revisions the same day and
+landed on **a GitHub release per run** (order 7): email was the ask, but
+Beau's Outlook send tool is blocked by enterprise policy, so the mail
+connector was removed rather than left to fail nightly. The tree was carrying two nights of unpushed work
 (🎂 Founder's Day + 🏙️ GTN Season 2, S2.2–S2.8, verified 44/44); it shipped
 as `e178830` so the series starts from a clean `main`. Seven runs armed
 for 08-06 → 08-18. Open threads the next shift could pull on: S2.10 still
