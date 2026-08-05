@@ -118,3 +118,36 @@ body.gta-mode #gtaWorld { display: block; }
   background: rgba(158, 163, 199, 0.1);
   color: #9aa3c7;
 }
+
+/* ---- THE MOD SHOP (Season 2.2) — same chassis, more clipboard ---- */
+.gta-mod-ui .card { min-width: 260px; max-width: 320px; gap: 0.42rem; }
+.gta-mod-ui .bal {
+  font: 900 0.85rem/1 Consolas, monospace;
+  color: #ffe23a;
+  text-align: right;
+}
+.gta-mod-ui .row.mod {
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.7rem;
+}
+.gta-mod-ui .row.mod span {
+  font: 800 0.7rem/1.2 Consolas, monospace;
+  color: #eef2ff;
+  letter-spacing: 0.03em;
+}
+.gta-mod-ui .row.mod button { flex: 0 0 auto; min-width: 9.5rem; }
+.gta-mod-ui .row.mod button:disabled { cursor: default; opacity: 0.75; }
+.gta-mod-ui .row.paint { flex-wrap: wrap; gap: 0.35rem; }
+.gta-mod-ui button.sw {
+  flex: 0 0 auto;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(238, 242, 255, 0.25);
+}
+.gta-mod-ui button.sw.on {
+  border-color: #ffe23a;
+  box-shadow: 0 0 0 2px rgba(255, 226, 58, 0.35);
+}

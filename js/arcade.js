@@ -768,16 +768,30 @@ void main() {
       id: 'crumb', name: 'BIG CRUMB', icon: '🕶️',
       x: 2.5, z: 1.2, h: 1.0, sdx: 0, sdz: 1.25,
       baseYaw: 0.35, curYaw: 0.35, bobSpd: 1.6, bobAmp: 0.008, phase: 0, yBase: 0,
-      nodes: () => ({
+      nodes: () => {
+        const party = typeof nugFoundersDay === 'function' && nugFoundersDay();
+        return {
         root: {
-          line: "evening. hall's open all night. no outside sauce — house rule.",
+          line: party
+            ? "evening. big night. cake security detail. no outside sauce — ESPECIALLY tonight."
+            : "evening. hall's open all night. no outside sauce — house rule.",
           opts: [
+            party ? { t: "big night, Crumb. what IS founder's day?", next: 'founders' } : null,
             { t: "what's good in there tonight?", next: 'games' },
             { t: 'any secrets I should know about?', next: 'secrets' },
             { t: "what's with the police tape?", next: 'incident' },
             { t: 'just getting some air.', next: 'air' },
+          ].filter(Boolean),
+        },
+        founders: {
+          line: 'one night a year. banner goes up, the hen bakes, and the whole street sings at a cake in the rain. my job is CAKE SECURITY. *adjusts sunglasses* nobody has ever tried anything. that is how good I am.',
+          opts: [
+            { t: 'what was founded, exactly?', next: 'foundersWhat' },
+            { t: "who's the founder?", next: 'foundersWho' },
           ],
         },
+        foundersWhat: { line: 'the town? the hall? the recipe? *shrugs like a tectonic event* paperwork burned in the fryer fire of aught-six. we kept the party.', opts: [] },
+        foundersWho: { line: "above my pay grade. the pickle asks every year. the cake never talks. *stares straight ahead* …make your wish before the rain gets the candle.", opts: [] },
         games: {
           line: 'the KNIGHT cab gets a line on weekends. three oaths — folks say the third one changes you.',
           opts: [
@@ -809,7 +823,8 @@ void main() {
         crumbJob: { line: 'watch it. I said I heard nothing, not that I DID nothing. the pressure gauge on that cabinet was redlining for weeks. I filed a report. nobody reads reports.', opts: [] },
         crumbDill: { line: 'detective dill. green fella out front, smells like brine, writes everything down. tell him what you know. or don\'t. *adjusts sunglasses*', opts: [] },
         air: { line: "yeah. rain does the neon good. take your time — I'll hold your high scores.", opts: [] },
-      }),
+        };
+      },
     },
     {
       id: 'gravy', name: 'GRAVY JONES', icon: '🥣',
@@ -819,10 +834,12 @@ void main() {
         const cleared = typeof brawlBest === 'function' &&
           ((brawlBest().spicy || {}).clears > 0 || (brawlBest().hell || {}).clears > 0);
         const clubbed = H.best && H.best.beat > 0;
+        const party = typeof nugFoundersDay === 'function' && nugFoundersDay();
         return {
           root: {
             line: '*rain taps his lid* …I used to run with the mustard crowd, y\'know. penthouse security.',
             opts: [
+              party ? { t: "happy founder's day, Gravy.", next: 'founders' } : null,
               { t: 'you worked for DIJON?', next: 'dijon' },
               { t: 'why sit out in the rain?', next: 'rain' },
               { t: 'any theories about the missing storm?', next: 'incident' },
@@ -833,6 +850,15 @@ void main() {
             ].filter(Boolean),
           },
           drip: { line: '*the lid tilts one very small degree* …my sister\'s kid. we don\'t talk. he went into MUSIC. *a long, wet silence* …tell him his uncle says the 2am bass is… *quieter* …not bad.', opts: [] },
+          founders: {
+            line: '*he raises the lid a full centimeter — for him, a salute* …kid, I\'ve seen forty of these. the town didn\'t get FOUNDED. it CONGEALED. one day there was a fryer. then a line. then a town. the cake is how we apologize to the calendar.',
+            opts: [
+              { t: 'did YOU ever make a wish?', next: 'foundersWish' },
+              { t: "that's… almost beautiful.", next: 'foundersBeaut' },
+            ],
+          },
+          foundersWish: { line: 'once. *the rain fills a long silence* …it came true. that\'s all you get.', opts: [] },
+          foundersBeaut: { line: 'everything is, kid, if you sit in the rain long enough.', opts: [] },
           dijon: {
             line: 'artisanal contract. no overtime. then some nugget in red gloves came up the stairs and, well. you seen the penthouse lately?',
             opts: [
@@ -869,6 +895,10 @@ void main() {
         const remixed = typeof beatEncoreDone === 'function' && beatEncoreDone();
         const dropped = (H.best && H.best.beat > 0) || remixed;
         const dove = typeof drainSawStorm === 'function' && drainSawStorm();
+        const party = typeof nugFoundersDay === 'function' && nugFoundersDay();
+        // Season 2: the street-racing ladder is rumor-adjacent commerce
+        const races = typeof gtaRacesWon === 'function' ? gtaRacesWon() : 0;
+        const gpDone = typeof gtaGpWon === 'function' && gtaGpWon();
         return {
         root: {
           line: dove
@@ -879,15 +909,26 @@ void main() {
               ? '*the hooded nugget is uncharacteristically quiet* …you went to the pier. at midnight. and it LOOKED at you. I can tell. you walk different now.'
               : '*the hooded nugget stands by the OPEN garage bay, radiating smug* you hear that engine? that\'s the sound of me being right. TWICE, now that the pier gate\'s open.',
           opts: [
+            party ? { t: "founder's day, Hood. got a rumor for THE big one?", next: 'founders' } : null,
             { t: 'the gutter grate across the road… it\'s GLOWING.', next: 'drainGrate' },
+            { t: 'somebody\'s been painting checkers on the roads.', next: 'races' },
             { t: 'there\'s a CLUB across the street now.', next: 'beatClub' },
             { t: 'somebody left a car out front. hazards on.', next: 'gtaCar' },
             { t: 'the shutter… it\'s open!', next: 'garage' },
             { t: 'heard any rumors?', next: 'rumors' },
             { t: 'tell me about the night the storm vanished.', next: 'incident' },
             { t: "you're just a weird nugget in a hood.", next: 'weird' },
+          ].filter(Boolean),
+        },
+        founders: {
+          line: '*the hood turns, slowly, toward the cake by the doors* one candle. every year. ONE. a town this old? do the math, friend. either nobody\'s counting… or somebody is counting on nobody counting.',
+          opts: [
+            { t: 'meaning… what?', next: 'founders2' },
+            { t: "it's just a cake, Hood.", next: 'founders3' },
           ],
         },
+        founders2: { line: 'meaning the founder never LEFT, friend. you don\'t keep lighting one candle for somebody who\'s gone. *taps hood* free rumor. founder\'s day special. tell your friends where rumors come from.', opts: [] },
+        founders3: { line: '*a very long pause* that\'s what the last town said. …enjoy the party, friend. genuinely. even I take one night off. *does a small, private two-step under the hood*', opts: [] },
         drainGrate: {
           line: dove
             ? 'you already KNOW what\'s under that grate. you kicked past the clogs and the water went still and something the size of a WEATHER SYSTEM used the mains like a bus lane. *taps hood, shakily* fourth rumor. cashed. by you. again.'
@@ -897,6 +938,19 @@ void main() {
             { t: 'I\'m not diving into a storm drain.', next: 'drainNope' },
           ],
         },
+        races: {
+          line: gpDone
+            ? '*the hood bows. actually bows.* six pads, six flags, and then the GOLD one — and now there\'s a paint in the booth that money can\'t mix. the GOLDEN NUG GP, friend. I don\'t start rumors about you anymore. I QUOTE you.'
+            : races >= 6
+              ? 'six for six, friend. every checkered pad in town knows your tires by name. *leans in* and now a GOLD pad outside the arcade. the GP. rumor says the paint alone is worth the entry.'
+              : races > 0
+                ? races + ' flag' + (races > 1 ? 's' : '') + ' already? the pads remember, friend. six events. three rivals. one of them signs autographs as "the colonel\'s nephew" — beat him twice, it means more.'
+                : 'checkered paint, friend, is an INVITATION with better grip. six of them, all districts. roll a car onto one and wait for the count. *taps hood* the garage sponsors the nitro. draw your own diagram.',
+          opts: [
+            { t: 'who runs it?', next: 'races2' },
+          ],
+        },
+        races2: { line: 'nobody runs it. that\'s the beauty. the pads were just THERE one morning, painted clean, like the rain did it. *long pause* the rain does a lot in this town, friend.', opts: [] },
         drainWhere: { line: 'every pipe in nuggetown runs downhill to ONE place. *nods at the east gate* the harbor. the pier. the case. all of it is the same water, friend. it always was.', opts: [] },
         drainNope: { line: '*the hood tilts to exactly the angle of someone checking a watch* that\'s what the last three said. the garage. the pier. the basement. see you down there.', opts: [] },
         beatClub: {
@@ -984,16 +1038,29 @@ void main() {
       baseYaw: -1.1, curYaw: -1.1, bobSpd: 5.5, bobAmp: 0.011, phase: 1.3, yBase: 0,
       nodes: () => {
         const saidIt = typeof brawlHellUnlocked === 'function' && brawlHellUnlocked();
+        const party = typeof nugFoundersDay === 'function' && nugFoundersDay();
         return {
           root: {
-            line: 'bwok. …what? never seen a hen outside an arcade before?',
+            line: party
+              ? 'bwok. yes, I baked it. no, you cannot have the recipe. yes, you may make a wish. CLEAN blows only.'
+              : 'bwok. …what? never seen a hen outside an arcade before?',
             opts: [
+              party ? { t: 'the cake out front… your work?', next: 'founders' } : null,
               { t: 'any relation to… the Mother Clucker?', next: 'clucker' },
               { t: 'what do you think of the ranch game?', next: 'ranch' },
               { t: 'where were YOU the night the storm vanished?', next: 'incident' },
               { t: 'nice night, huh?', next: 'night' },
+            ].filter(Boolean),
+          },
+          founders: {
+            line: 'bwok — you NOTICED. three hundred eggs. none of them mine — I ASKED AROUND, it is called ETHICS. two tiers. honey-mustard filling. and the frosting is… *looks left, looks right* …secret.',
+            opts: [
+              { t: 'the SECRET sauce??', next: 'foundersSauce' },
+              { t: "it's beautiful work, Henrietta.", next: 'foundersNice' },
             ],
           },
+          foundersSauce: { line: '*every feather goes perfectly still* …it is a FROSTING. drop it. bwok.', opts: [] },
+          foundersNice: { line: 'thank you. blow the candle out CLEAN — a spitty wish is a wasted wish. bwok.', opts: [] },
           clucker: {
             line: saidIt
               ? "we are ESTRANGED. she went corporate. …word on the street is some nugget walked into her coop and said SEE YOU IN HELL. *slow clap with wings* bwok."
@@ -1037,14 +1104,23 @@ void main() {
         const servedSecret = typeof dunkSecretServed === 'function' && dunkSecretServed();
         const dove = typeof drainSawStorm === 'function' && drainSawStorm();
         const caseNotes = flewStorm || heldCity || ranPier || sawSimStorm || servedSecret;
+        const party = typeof nugFoundersDay === 'function' && nugFoundersDay();
+        // Season 2 (NUGGETOWN NIGHTS): the case board + Dill's own chain
+        const evid = typeof gtaEvidence === 'function' ? gtaEvidence() : 0;
+        const dillDone = typeof gtaDillDone === 'function' && gtaDillDone();
         return {
         root: {
-          line: '*flat voice* detective dill, NPD. this street is a crime scene. technically the whole street. don\'t touch the tape.',
+          line: party
+            ? '*flat voice* detective dill, NPD. the street is still a crime scene. tonight it is a crime scene with BALLOONS. …don\'t touch the tape. cake\'s fine.'
+            : '*flat voice* detective dill, NPD. this street is a crime scene. technically the whole street. don\'t touch the tape.',
           opts: [
+            party ? { t: "happy founder's day, detective.", next: 'founders' } : null,
             sawStorm
               ? { t: 'detective. I hooked the storm. at the pier.', next: 'sawIt' }
               : { t: 'what happened in there?', next: 'what' },
             rap > 0 ? { t: 'so… how\'s the crime wave treating you?', next: 'gtaRap' } : null,
+            dillDone ? { t: 'the books burned, detective.', next: 'dillWrap' }
+              : evid > 0 ? { t: 'been picking things up around town. evidence things.', next: 'evid' } : null,
             dove ? { t: 'detective. pull the DPW maps. I saw it IN THE PIPES.', next: 'drainSaw' } : null,
             clubbed ? { t: 'been down to the club across the street?', next: 'beatNoise' } : null,
             caseNotes ? { t: 'about my… extracurriculars, detective.', next: 'caseNotes' } : null,
@@ -1053,6 +1129,35 @@ void main() {
             { t: 'stay salty, detective.', next: 'bye' },
           ].filter(Boolean),
         },
+        evid: {
+          line: evid >= 12
+            ? '*he goes very still* twelve. you pinned all TWELVE. a weigh slip, a rhyming napkin, a gnome. kid, I have detectives who can\'t find their own cruiser. *lowers voice* stay near a phone booth. one of them is about to ring in a color you haven\'t heard.'
+            : evid >= 6
+              ? '*flips through the notepad, fast* ' + evid + ' pieces. the weigh slip alone puts the tankers a million nuggets heavy on paper and light on the scale. keep collecting, kid. the board wants what the board wants.'
+              : '*raises an eyebrow exactly one millimeter* ' + evid + ' so far. that\'s ' + evid + ' more than the department found in a year. the town HIDES things — sidewalks, parks, pier planks. walk more. drive less. …who am I kidding. drive carefully.',
+          opts: [
+            { t: 'what am I even looking for?', next: 'evid2' },
+          ],
+        },
+        evid2: { line: 'anything with batter on it that can\'t explain itself. *taps the notepad* the board tab is in your map, kid. red string included. the string matters. the string is the THEORY.', opts: [] },
+        dillWrap: {
+          line: '*he actually closes the notepad. entirely.* four jobs. a stakeout, a delivery, a tail, and one very loud meeting that never happened. the syndicate\'s books are ash, their buyers don\'t exist, and the case — *tips tiny hat* — remains OPEN. forever. as designed.',
+          opts: [
+            { t: 'we make a decent team, detective.', next: 'dillWrap2' },
+            { t: 'so what now?', next: 'dillWrap3' },
+          ],
+        },
+        dillWrap2: { line: '*long pause* the NPD does not confirm or deny the existence of a team. *longer pause* …good work, kid. that\'s off the record. everything good is.', opts: [] },
+        dillWrap3: { line: 'now? the storm keeps circling, the phones keep ringing, and I keep the tape up. *glances at the harbor* everything in this town is the weather. somebody\'s got to take its statement.', opts: [] },
+        founders: {
+          line: '*he almost smiles. the rain flinches.* one night a year, this whole town stands in the weather and sings at a cake. no thefts. no complaints. even the harbor sits quiet. *closes the notepad* it\'s the only night I don\'t write anything down.',
+          opts: [
+            { t: 'you? off duty?', next: 'foundersOff' },
+            { t: 'making a wish this year?', next: 'foundersWish' },
+          ],
+        },
+        foundersOff: { line: 'the tape stays up. I stay under it. but the pen stays in the coat. *pats the pocket* that\'s as off as duty gets.', opts: [] },
+        foundersWish: { line: 'same one every year: "fewer open cases." *glances at the taped cabinet, then the harbor* …and every year the cake does what it can. one candle only has so much jurisdiction.', opts: [] },
         caseNotes: {
           line: '*flips to a thick new section of the notepad marked "THE CRISPY IRREGULAR"* let\'s review, because you have been BUSY. every cabinet in that hall, and somehow every one of them leads back to my storm.',
           opts: [
@@ -1654,6 +1759,67 @@ void main() {
       });
     }
 
+    // ---- 🎂 FOUNDER'S DAY (August 3rd, one night a year) -------------------------
+    // The whole street dresses up: a banner over the arcade doors, balloons on
+    // the lamp posts, and THE FOUNDER'S CAKE on a cloth-draped table out front —
+    // one candle, every year, exactly one (ask the Hood). Blowing it out banks a
+    // wish in localStorage `nugFoundersWish` (the year, so it re-lights annually).
+    // Geometry only exists while nugFoundersDay() says so; the atlas regions are
+    // allocated year-round so nothing about packing changes with the calendar.
+    if (typeof nugFoundersDay === 'function' && nugFoundersDay()) {
+      // the banner, strung ACROSS THE STREET between the two lamps nearest the
+      // doors (the arcade face is marquee territory — it hid there once and
+      // nobody saw it). Both faces drawn: you read it walking out AND walking home.
+      ST.quad([-4.2, 3.05, 7.0], [4.2, 3.05, 7.0], [4.2, 4.05, 7.0], [-4.2, 4.05, 7.0], suv.foundersBanner, { e: 0.3 });  // faces +z (the road)
+      ST.quad([4.2, 3.05, 6.98], [-4.2, 3.05, 6.98], [-4.2, 4.05, 6.98], [4.2, 4.05, 6.98], suv.foundersBanner, { e: 0.3 }); // faces -z (the doors)
+      // guy-lines out to the lamp posts so it isn't floating on pure civic pride
+      ST.quad([-5.43, 3.1, 7.29], [-4.2, 3.55, 7.0], [-4.2, 3.57, 7.0], [-5.43, 3.12, 7.29], suv.sw_iron, { tint: 0.7 });
+      ST.quad([-4.2, 3.55, 6.99], [-5.43, 3.1, 7.28], [-5.43, 3.12, 7.28], [-4.2, 3.57, 6.99], suv.sw_iron, { tint: 0.7 });
+      ST.quad([4.2, 3.55, 7.0], [4.93, 3.1, 7.29], [4.93, 3.12, 7.29], [4.2, 3.57, 7.0], suv.sw_iron, { tint: 0.7 });
+      ST.quad([4.93, 3.1, 7.28], [4.2, 3.55, 6.99], [4.2, 3.57, 6.99], [4.93, 3.12, 7.28], suv.sw_iron, { tint: 0.7 });
+      // fairground bulbs under it — kind 'party' chases in the sprite pass
+      const PARTY_C = [[1, 0.31, 0.64], [0.22, 0.82, 1], [1, 0.82, 0.4], [0.49, 1, 0.54]];
+      for (let i = 0; i < 7; i++) {
+        const bx = -3.6 + i * 1.2;
+        H.glows.push({ p: [bx, 2.95, 6.99], c: PARTY_C[i % 4], s: 0.55, a: 0.22, k: 'party', ph: i * 0.9 });
+      }
+      // balloon clusters on the two lamps nearest the doors (they don't bob —
+      // it rained all night and they're a little tired, like everyone at a party)
+      for (const [lx, seed] of [[-5.5, 1], [5, 4]]) {
+        const lz = 7.3;
+        const B = [[lx - 0.22, 2.62, lz + 0.16, 'sw_party1'], [lx + 0.24, 2.72, lz + 0.1, 'sw_party2'], [lx + 0.02, 2.5, lz + 0.3, 'sw_party3']];
+        for (let i = 0; i < 3; i++) {
+          const [bx2, by2, bz2, swn] = B[i];
+          blob3(ST, bx2, by2, bz2, 0.13, 0.16, 0.13, seed + i * 3, suv[swn], { e: 0.22 }, 5, 8);
+          // string down to the lamp arm
+          ST.quad([bx2 - 0.006, by2 - 0.14, bz2], [bx2 + 0.006, by2 - 0.14, bz2], [lx + 0.006, 2.2, lz + 0.02], [lx - 0.006, 2.2, lz + 0.02], suv.sw_white, { tint: 0.6 });
+          ST.quad([bx2 + 0.006, by2 - 0.14, bz2 - 0.01], [bx2 - 0.006, by2 - 0.14, bz2 - 0.01], [lx - 0.006, 2.2, lz + 0.01], [lx + 0.006, 2.2, lz + 0.01], suv.sw_white, { tint: 0.6 });
+        }
+      }
+      // THE FOUNDER'S CAKE: table, cloth, two frosted tiers, one candle
+      {
+        const cxm = 5.72, czm = 1.15;
+        box3(ST, cxm - 0.5, 0, czm - 0.42, cxm + 0.5, 0.64, czm + 0.42, suv.sw_white, { tint: 0.82 }); // the cloth
+        box3(ST, cxm - 0.3, 0.64, czm - 0.28, cxm + 0.3, 0.92, czm + 0.28, suv.cakeSide, {});          // tier one
+        planeY(ST, 0.925, cxm - 0.3, cxm + 0.3, czm - 0.28, czm + 0.28, suv.sw_frosting, 1, false, {});
+        box3(ST, cxm - 0.16, 0.92, czm - 0.15, cxm + 0.16, 1.14, czm + 0.15, suv.cakeSide, {});        // tier two
+        planeY(ST, 1.145, cxm - 0.16, cxm + 0.16, czm - 0.15, czm + 0.15, suv.sw_frosting, 1, false, {});
+        box3(ST, cxm - 0.018, 1.14, czm - 0.018, cxm + 0.018, 1.32, czm + 0.018, suv.sw_party1, {});   // the candle
+        // the flame (kind 'candle': flickers, and goes dark once this year's wish is in)
+        H.glows.push({ p: [cxm, 1.38, czm], c: [1, 0.76, 0.32], s: 0.5, a: 0.3, k: 'candle' });
+        H.glows.push({ p: [cxm, 1.4, czm], c: [1, 0.45, 0.15], s: 1.1, a: 0.1, k: 'candle' });
+        H.propBoxes.push({ min: [cxm - 0.55, 0, czm - 0.47], max: [cxm + 0.55, 1.35, czm + 0.47] });
+        H.hotspots.push({
+          kind: 'cake',
+          x: cxm, z: czm, r: 2.4,
+          min: [cxm - 0.55, 0, czm - 0.47], max: [cxm + 0.55, 1.4, czm + 0.47],
+          stand: [cxm, EYE, czm + 1.5],
+          get label() { return H.cakeWished ? "🎂 THE FOUNDER'S CAKE — WISH BANKED" : "🎂 THE FOUNDER'S CAKE — MAKE A WISH"; },
+          act: () => cakeWish(cxm, 1.3, czm),
+        });
+      }
+    }
+
     // ---- THE CATCH INCIDENT: police tape seals the catch cabinet ----------------
     {
       const cab = H.cabinets.find((c2) => c2.game.mode === 'catch');
@@ -1691,6 +1857,31 @@ void main() {
 
   function toast(text, secs) {
     H.toast = { text, until: H.t + secs };
+  }
+
+  // 🎂 Blow out the candle on THE FOUNDER'S CAKE. One wish per town per year —
+  // the flag stores the year so next August 3rd the flame is back.
+  function cakeWish(x, y, z) {
+    if (H.cakeWished) {
+      sfxChime();
+      toast('🎂 the wish is banked. it counts all year — the candle knows.', 2.8);
+      return;
+    }
+    H.cakeWished = true;
+    try { localStorage.setItem('nugFoundersWish', String(new Date().getFullYear())); } catch (e) { /* the wish still counts */ }
+    // confetti in the party colors (the sparks pass tints per-particle via s.c)
+    const CONF = [[1, 0.31, 0.64], [0.22, 0.82, 1], [1, 0.82, 0.4], [0.49, 1, 0.54]];
+    for (let i = 0; i < 70; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 0.5 + Math.random() * 1.6;
+      H.sparks.push({
+        x: x + (Math.random() - 0.5) * 0.2, y: y + Math.random() * 0.15, z: z + (Math.random() - 0.5) * 0.2,
+        vx: Math.cos(a) * sp, vy: 1.4 + Math.random() * 2.2, vz: Math.sin(a) * sp,
+        life: 1.1 + Math.random() * 0.9, max: 2.0,
+        c: CONF[i % 4],
+      });
+    }
+    sfxFanfare();
+    toast('🎂 *fwooo* — the candle goes out, the street cheers in the rain. HAPPY FOUNDER\'S DAY, NUGGETOWN. wish banked.', 4.5);
   }
 
   // Pull real top-5s for the scoreboard. Signed-out and offline both fine —
@@ -2103,6 +2294,8 @@ void main() {
     H.wentOutside = false;
     H.wentPier = false;
     H.lastSpot = null;
+    // Founder's Day: the candle re-lights every year until this year's wish is in
+    try { H.cakeWished = localStorage.getItem('nugFoundersWish') === String(new Date().getFullYear()); } catch (e) { H.cakeWished = false; }
     if (H.dlg) H.dlg.classList.remove('on');
     H.sparks = [];
     H.stepAcc = 0;
@@ -2656,6 +2849,13 @@ void main() {
       } else if (gsp.k === 'juke') {
         // the jukebox lights ride the actual track; dim idle glow when it's off
         a = gsp.a * (0.35 + 0.65 * jukeBeatLevel());
+      } else if (gsp.k === 'party') {
+        // Founder's Day banner bulbs: a slow chase, like a fairground that's
+        // been up since morning and intends to stay lit till the rain stops
+        a = gsp.a * (0.25 + 0.75 * Math.max(0, Math.sin(H.t * 2.4 - gsp.ph)));
+      } else if (gsp.k === 'candle') {
+        if (H.cakeWished) continue; // the wish took it
+        a = gsp.a * (0.62 + 0.28 * Math.sin(H.t * 11 + gsp.p[1] * 40) + 0.1 * Math.sin(H.t * 27));
       }
       pushSprite(arr, gx, gsp.p[1], gz, gsp.s, gsp.s, gsp.c[0], gsp.c[1], gsp.c[2], a, right, up);
     }
@@ -2676,10 +2876,12 @@ void main() {
       pushSprite(arr, Math.cos(ang) * rad, 0.03, -2.6 + Math.sin(ang) * rad * 0.8,
         0.34, 0.34, c[0], c[1], c[2], 0.05, [1, 0, 0], [0, 0, 1]);
     }
-    // golden-nug celebration sparks
+    // celebration sparks: golden-nug glitter by default, Founder's confetti
+    // brings its own colors (s.c)
     for (const s of H.sparks) {
       const a = 0.55 * Math.min(1, s.life / 0.4);
-      pushSprite(arr, s.x, s.y, s.z, 0.05, 0.05, 1, 0.85, 0.35, a, right, up);
+      const c = s.c || [1, 0.85, 0.35];
+      pushSprite(arr, s.x, s.y, s.z, 0.05, 0.05, c[0], c[1], c[2], a, right, up);
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, H.sprVbo);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.DYNAMIC_DRAW);
@@ -2723,7 +2925,9 @@ void main() {
       if (H.t - H.lastChime > 3) { H.lastChime = H.t; sfxChime(); }
       if (!H.wentOutside) {
         H.wentOutside = true;
-        toast('🌧️ NUGGETOWN AFTER DARK — the regulars will talk. the bus stop goes home. somebody left their hazards on. the basement across the street is THUMPING. and the gutter grate is… glowing?', 5);
+        toast(typeof nugFoundersDay === 'function' && nugFoundersDay()
+          ? "🎂 FOUNDER'S DAY IN NUGGETOWN — one night a year. banner's up, balloons are up, the regulars are in a MOOD, and the cake by the doors has ONE candle. make a wish."
+          : '🌧️ NUGGETOWN AFTER DARK — the regulars will talk. the bus stop goes home. somebody left their hazards on. the basement across the street is THUMPING. and the gutter grate is… glowing?', 5);
       }
     }
     if (!H.wentPier && H.cam.x > 21.3 && H.state !== 'intro') {
@@ -2904,12 +3108,20 @@ void main() {
         kick: 'x..x..x...x..x..', hat: 'x.x.x.xxx.x.x.x.', bass: '0.0...3...2.2...', lead: '..4.....2..4....' },
       { name: 'INSERT COIN', bpm: 126, root: 123, leadType: 'square', scale: [0, 4, 7, 12],
         kick: 'x...x...x...x...', hat: 'x.x.x.x.x.x.x.x.', bass: '0...1...2...3...', lead: '0.2.3.2.0.2.3.2.' },
+      // the seasonal single: pressed once, played one night a year (Aug 3).
+      // jukeTrackCount() keeps it out of the rotation the other 364 nights.
+      { name: "ONE CANDLE (FOUNDER'S DAY)", bpm: 118, root: 131, leadType: 'triangle', scale: [0, 2, 4, 7, 9, 12],
+        kick: 'x...x...x...x.xx', hat: '..x...x...x...xx', bass: '0...2...3...2...', lead: '0.2.4...5.4.2.4.' },
     ],
   };
-  try { JUKE.cur = Math.min(3, Math.max(0, +(localStorage.getItem('nugJukebox') || 0) || 0)); } catch (e) { /* fresh ears */ }
+
+  function jukeTrackCount() {
+    return typeof nugFoundersDay === 'function' && nugFoundersDay() ? 5 : 4;
+  }
+  try { JUKE.cur = Math.min(jukeTrackCount() - 1, Math.max(0, +(localStorage.getItem('nugJukebox') || 0) || 0)); } catch (e) { /* fresh ears */ }
 
   function jukeCycle() {
-    JUKE.cur = (JUKE.cur + 1) % 4;
+    JUKE.cur = (JUKE.cur + 1) % jukeTrackCount();
     try { localStorage.setItem('nugJukebox', String(JUKE.cur)); } catch (e) { /* ok */ }
     JUKE.nextT = 0;
     JUKE.step = 0;

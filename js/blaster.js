@@ -170,6 +170,7 @@ function buildCity() {
   cityEl.innerHTML = '';
   blaster.city = [];
   const w = window.innerWidth;
+  blaster.cityW = w; // remembered so a resize can re-map the skyline (see below)
   const slot = w / CITY_NAMES.length;
   for (let i = 0; i < CITY_NAMES.length; i++) {
     const bw = slot * (0.52 + Math.random() * 0.28);
@@ -185,6 +186,25 @@ function buildCity() {
   }
 }
 function clearCity() { cityEl.innerHTML = ''; blaster.city = []; }
+
+// The skyline was built for one window width; if the window changes mid-defense,
+// stretch the buildings (data AND divs) to the new width so divers still hit the
+// hitboxes they appear to hit. Cannon gets re-clamped for shrinks.
+window.addEventListener('resize', () => {
+  if (!blaster.on || !blaster.city.length || !blaster.cityW) return;
+  const w = window.innerWidth;
+  if (Math.abs(w - blaster.cityW) < 1) return;
+  const k = w / blaster.cityW;
+  blaster.cityW = w;
+  for (const b of blaster.city) {
+    b.x *= k;
+    b.w *= k;
+    b.el.style.left = b.x + 'px';
+    b.el.style.width = b.w + 'px';
+  }
+  blaster.x = clampCannonX(blaster.x);
+  positionCannon();
+});
 
 function damageBuilding(b, x, y) {
   b.hp--;

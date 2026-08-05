@@ -164,3 +164,17 @@ function formatAmount() {
   update();
 }
 input.addEventListener('input', formatAmount);
+
+// 🎂 FOUNDER'S DAY (Aug 3): the calculator wears a party hat for one day a year.
+// nugFoundersDay() lives in util.js (localStorage nugFoundersDayForce overrides).
+if (typeof nugFoundersDay === 'function' && nugFoundersDay()) {
+  const fk = document.querySelector('main.card > .kicker');
+  if (fk) fk.textContent = "The Fry Station · 🎂 FOUNDER'S DAY";
+  document.title += " — 🎂 FOUNDER'S DAY";
+  const ribbon = document.createElement('div');
+  ribbon.className = 'founders-ribbon';
+  ribbon.id = 'foundersRibbon';
+  ribbon.innerHTML = "🎂 <strong>FOUNDER'S DAY</strong> — one night a year. the arcade street is decorated, the jukebox has the single, and the cake is out. go make a wish.";
+  const fCard = document.querySelector('main.card');
+  if (fCard) fCard.insertBefore(ribbon, fCard.firstChild);
+}

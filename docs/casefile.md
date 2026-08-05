@@ -63,6 +63,36 @@ conversation and reads them via these globals:
 | `nugBeatEncore` | `beatEncoreDone()` | earning THE STORM REMIX encore in Dip Hop |
 | `nugDrainStorm` | `drainSawStorm()` | meeting THE PASSING below 400m in Storm Drain |
 | (OVEN RELIGHT marks) | `flappyStormFlown()` `dunkSecretServed()` `blasterHeld()` `runReachedPier()` `simSawStorm()` | the relit classics' storm-adjacent feats |
+| `nugGtaEvidence` | `gtaEvidence()` (count 0–12) | pinning evidence to the CASE BOARD (GTN Season 2) |
+| `nugGtaDill` | `gtaDillDone()` | finishing all four jobs of DILL'S CHAIN |
+| `nugGtaRaces` / `nugGtaGpWin` | `gtaRacesWon()` / `gtaGpWon()` | the street-race ladder / the GOLDEN NUG GP |
+
+8. **NEW — the paperwork.** A civilian assembled the department's first
+   complete evidence board: twelve exhibits, one red string (GRAND THEFT
+   NUGGET Season 2 — the CASE BOARD, `nugGtaEvidence`). The detective then
+   ran four off-book jobs with said civilian (DILL'S CHAIN, `nugGtaDill`):
+   a stakeout, an evidence run, a tail on the syndicate's accountant — who
+   *waves at the Grease Garage shutter on his way home, noted, underlined
+   twice* — and a sting in which the syndicate's books burned themselves.
+   Outcome: buyers who never existed, ash that can't testify, and the case
+   **exactly as open as before**. That is not failure. That is job security.
+
+## SEASONAL ADDENDUM — 🎂 FOUNDER'S DAY (filed Aug 3, 2026)
+
+Once a year, on **August 3rd**, the street decorates itself (`nugFoundersDay()`
+in js/util.js; `localStorage.nugFoundersDayForce` `'1'`/`'0'` overrides for
+testing): banner over the road, balloons on the lamps, THE FOUNDER'S CAKE by
+the doors — **one candle, every year, exactly one** (the Hood has a theory;
+the detective declines to file it). Blowing out the candle stores the year in
+`nugFoundersWish`; the flame re-lights the following August 3rd. The jukebox
+gains a fifth stop that night only ("ONE CANDLE"). All five regulars have
+Founder's Day dialogue.
+
+Officer's note, for the record: on Founder's night there are **no thefts, no
+noise complaints, and the harbor sits quiet.** One candle only has so much
+jurisdiction, and yet. Nobody knows what was founded — the paperwork burned in
+the fryer fire of aught-six. We kept the party. *(No storm evidence was added
+or resolved. The case remains open, as required.)*
 
 **Canon rules for future games:**
 - The storm is never caught, freed, or killed. Glimpses only. It always goes

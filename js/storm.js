@@ -45,7 +45,7 @@ const MODE_HINTS = {
   ranch:   'raise the flock! 🌾 feed to keep birds alive · 🏭 ship grown hens for nuggets',
   kart:    'deliver the order hot! ← → steer · ↓ brake · SPACE nitro 🌶️ · make the checkpoints',
   reel:    'the pier at midnight — HOLD to cast (deep = better) · press on the ❗ · reel easy, rest the runs · land every species',
-  gta:     'hold where you want to GO (T = classic steering) · E in/out + answer 📞 · SPACE brake/punch · F fire · Q weapons · R radio · M map',
+  gta:     'hold where you want to GO (T = classic steering) · E in/out + 📞 + 🏁 pads · SPACE brake/punch · F fire · Q weapons · R radio · M map (C = case board) · B mods · P photo',
   beat:    'the beat drops — drop with it! D F J K (or ← ↓ ↑ →) dunk on the beat · PERFECT dips build HYPE',
   drain:   'dive the pipes under Nuggetown — ← → steer · HOLD space/↑ to kick · 🫧 is life · thread THE CLOGS · listen for what passes',
 };

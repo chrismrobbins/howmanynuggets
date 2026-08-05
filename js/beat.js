@@ -198,6 +198,7 @@ function syncBeat() {
     // orphan any scheduled audio: old nodes hang on the old master, which we
     // drop here — resuming later gets a fresh silent-to-start graph
     if (beat.master) { try { beat.master.disconnect(); } catch (e) { /* fine */ } beat.master = null; }
+    if (beat.envs) beat.envs.length = 0; // their master is gone; drop the handles too
     if (beat.ctx && beat.ctx.state === 'running') beat.ctx.suspend();
   }
 }
@@ -241,7 +242,22 @@ function beatEnvGain(t, peak, decay) {
   g.gain.setValueAtTime(peak, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + decay);
   g.connect(beat.master);
+  // a gain stays wired to master (and gets mixed every quantum) until someone
+  // disconnects it — a full set is thousands of hits, so beatSweepEnvs() prunes
+  // these once their envelope is spent
+  (beat.envs || (beat.envs = [])).push({ g, until: t + decay + 0.1 });
   return g;
+}
+
+function beatSweepEnvs() {
+  if (!beat.envs || !beat.envs.length || !beat.ctx) return;
+  const now = beat.ctx.currentTime;
+  for (let i = beat.envs.length - 1; i >= 0; i--) {
+    if (beat.envs[i].until < now) {
+      try { beat.envs[i].g.disconnect(); } catch (e) { /* already gone */ }
+      beat.envs.splice(i, 1);
+    }
+  }
 }
 
 function beatKick(t) {
@@ -699,6 +715,7 @@ function stepBeat(dt, w, h) {
   if (!beat.on) return;
   if (beat.cv.width !== Math.ceil(w / beat.scale) || beat.cv.height !== Math.ceil(h / beat.scale)) beatLayout();
   beat.t += dt;
+  beatSweepEnvs();
   if (beat.byob) beat.byob.classList.toggle('show', beat.phase === 'title' && !beat.analyzing);
   if (beat.feverT > 0) beat.feverT -= dt;
   for (let l = 0; l < 4; l++) {

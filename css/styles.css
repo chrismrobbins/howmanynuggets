@@ -281,3 +281,23 @@ input[type=number] { -moz-appearance: textfield; }
   from { transform: scale(0.85); opacity: 0; }
   to   { transform: scale(1); opacity: 1; }
 }
+
+/* 🎂 FOUNDER'S DAY (Aug 3) — the one-day ribbon at the top of the card */
+.founders-ribbon {
+  margin: 0 0 1rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  text-align: center;
+  color: #fff0f7;
+  background:
+    linear-gradient(90deg, rgba(255, 79, 163, 0.18), rgba(57, 208, 255, 0.14), rgba(255, 209, 102, 0.18));
+  border: 1px solid rgba(255, 158, 203, 0.45);
+  animation: foundersGlow 2.6s ease-in-out infinite alternate;
+}
+.founders-ribbon strong { color: #ffd166; letter-spacing: 0.04em; }
+@keyframes foundersGlow {
+  from { box-shadow: 0 0 6px rgba(255, 79, 163, 0.25); }
+  to   { box-shadow: 0 0 16px rgba(255, 209, 102, 0.4); }
+}

@@ -804,7 +804,7 @@ zero pageerrors/warnings.
 
 ---
 
-# 🏙️ SEASON 2 — NUGGETOWN NIGHTS (the next 10 sprints, NOT STARTED)
+# 🏙️ SEASON 2 — NUGGETOWN NIGHTS (S2.1–S2.9 SHIPPED · only S2.10 remains)
 
 Season 1 shipped the game. Season 2 makes Nuggetown a place you LIVE.
 Same working agreement as season 1 (pull first, verify per AGENTS.md,
@@ -1168,3 +1168,107 @@ Spend REP via `gta.rep` −= and gtaGarageSave. The plate press UI
 (.gta-plate-ui) is the pattern for any garage menu. NOTE for S2.10: the
 snapshot `n` field still carries the display NAME; the custom plate now
 EXISTS (slot.plate) — decide there whether ghosts show name or plate.
+
+## S2.2–S2.8 — THE SINGLE-PLAYER SEASON (2026-08-04, Beau's Claude, one night)
+
+Beau said "pick a top ten and cook." Seven sprints came out of the fryer in
+one sitting — everything left in Season 2 that doesn't need Chris's MP stack.
+Verified per AGENTS.md at the end of the night; S2.10 (online activities +
+season wrap) is now the only thing left on the board.
+
+### S2.2 — THE MOD SHOP
+- **B while idling a garage car in the lot** opens a DOM card (plate-press
+  school: `.gta-plate-ui.gta-mod-ui`, stopPropagation on mousedown so the
+  buttons don't steer the car). REP spends via `gtaSpendRep` (floor 0, saves).
+- Tiers eng/grip/armor Ⅰ–Ⅲ (`GTA_MOD_TIERS`), 🌶 nitro 220, paint 25/coat,
+  pearl 90. Mods live on the SLOT (`slot.mods`, gtaGarageSave) and ride the
+  car object (`car.mods`) through enter/park/store/retrieve/reload.
+- Physics: `gtaModK()` multipliers apply in gtaStepPlayerCar only; armor
+  raises `car.hpMax` (`gtaHpMax()`), HUD + respray honor it. NITRO: SHIFT,
+  charge `gta.nitro` 100, drain 30/s regen 11/s, +18% top +120% accel, flames
+  out the tail. Pearl paint = `gtaPearl(col, a)` — returns HEX (gtaShade
+  downstream demands #rrggbb; the 10.8 lesson pays rent again).
+- Touch has no B (same gap as the plate press — noted, not fixed).
+
+### S2.3 — STREET RACES
+- `GTA_RACES`: six events + the 🏆 GP (unlocks when `nugGtaRaces` mask == 63;
+  GP win → `nugGtaGpWin` + the GOLDEN NUG paint appears in the booth, free).
+- Checkpoints are deterministic: `gtaLmCurb`/`gtaShorePoint`/`gtaRoadPoint`
+  (new helper: nearest road-pair intersection center to a tile address — NO
+  rnd(), everyone races the same city).
+- **Flat gate-counter model** (learn from my off-by-one: no lap/cp tuple):
+  `race.g` vs `gTotal = spr ? N-1 : laps*N`; rivals run `o.rg`. Sprints
+  (`spr`) end at the last gate, circuits end back on the pad.
+- Rivals: 3 `raceAI` cars (`GTA_RIVAL_RIGS`), steer-at-gate + wall probes
+  (chaser school), rubber-band ±(0.14/-0.08) on gate delta, `mis:true` so
+  doors lock, despawn-proof, removed by `gtaRaceCleanup`. E-priority while
+  driving: **race pad first**, then booth/garage/jack.
+- Countdown freezes the grid (velocities zeroed each frame). Wasted/busted/
+  on-foot = DNF. Repeat wins pay 40%. Race gate rides the shared marker
+  plumbing (world ring + radar + map + GPS arrow).
+
+### S2.4 — THE CASE BOARD
+- 12 evidence pickups (`GTA_EVIDENCE`, per-district quotas 3/3/2/2/2) seeded
+  APPEND-ONLY in gtaBuildCity (after the paparazzi cameras, before doors) on
+  WALK/GRASS tiles. Bitmask `nugGtaEvidence`; `gtaEvidence()` is the street
+  accessor. Pickup: +4 REP, banner n/12, flavor toast.
+- The board: **C while the pause map is open** (`gta.caseOpen`) — corkboard,
+  12 polaroids (missing ones show "LAST SEEN: <district>"), red string
+  through finds in find-order (quadratic sag, obviously).
+- All 12 → Dill's phone line opens (S2.5). Not drawn on the minimap — hidden
+  means hidden.
+
+### S2.5 — DILL'S CHAIN
+- `GTA_DILL_MISSIONS` (4 defs, `chain:'dill'`): THE STAKEOUT (watch step,
+  parameterized `warnText`), THE EVIDENCE RUN (timed cargo), THE ACCOUNTANT
+  (tail; he waves at the garage shutter — thread left dangling ON PURPOSE),
+  THE STING (kill×2 hostile + escape; the books burn, case stays open).
+- Engine generalization, the important part: `gtaMissionComplete` branches
+  on `def.chain` ('dill' → nugGtaDill, 'story' → daily tally, else prog++);
+  `gtaAnswerBooth` routes Dill (when `gtaDillPending()`) > campaign > STORIES.
+  The `watch` step only drives `stormRise` when the def sets `rise:true` —
+  the harbor job got the flag; stakeouts don't summon the storm.
+- Booths ring CYAN on Dill's line. `gtaDillDone()` for the street.
+
+### S2.6 — NUGGETOWN STORIES
+- `gtaStoryDef()`: 5 templates (deliver/boost/wreck/tail/racket) × landmark
+  parts × title word-banks, seeded `gtaHash(dateStamp, n*13+7)` — the slate
+  reshuffles daily (`nugGtaStories` = {d, n}). Tiers REP-gated at 0/400/1500
+  with scaling rewards. Defs run through the S7 engine untouched.
+- Post-campaign the phones simply never stop ringing. "— THE DESK".
+
+### S2.7 — NIGHT WEATHER
+- `gta.wx` state machine (drizzle↔downpour/fog/clear, weighted `GTA_WX_NEXT`,
+  45–95s, 3s crossfade `k`). `gtaWxK(state)` is the feel-weight everywhere.
+- Downpour: grip × 0.78 (`gtaWxGrip()` in the player physics), 110 drops,
+  longer/harder streaks. Fog: NPD sight × 0.5 (convert + copNear), heat
+  decays +0.05/s hidden, veil = radial gradient centered on the PLAYER
+  (clear at your feet, 0.44 at the edges), headlights reach further and
+  brighter. Clear: no rain, golden pickups pay ×2 ('✨✨').
+- Radio DJs call changes (per-state `dj` lines) when the dial's on; plain
+  toasts otherwise. Rain pool is 110 drops now; the draw takes `dropN`.
+
+### S2.8 — PHOTO MODE + PAPARAZZI
+- P (play, not interior/map) freezes the sim (`stepGta` gate) into a free
+  cam: arrows pan (clamped to the city), **Z zooms by scaling the backing
+  store** (integer — `gtaLayout` multiplies `gta.scale`; pixels stay honest),
+  X cycles NONE/NOIR/CRISPY/NUG-CAM (NOIR uses composite `saturation` — the
+  one blend mode worth the compat risk), C exports a 3× nearest-neighbor PNG
+  (capture fires in gtaDrawPhoto BEFORE the viewfinder chrome draws, so the
+  UI never ships in the shot). Engine audio ducks (photo joins `busy`).
+- PAPARAZZI: two 📸 pickups (append-only, 120s respawn) start gig 'papz':
+  marks are tinted sedans on the felon spawn machinery minus the felon flag;
+  P inside 90px = keeper (+REP); sitting inside 42px for 1.6s = MADE (mark
+  bolts felon-speed, no photo); 3 keepers = FRONT PAGE. While the gig runs,
+  P snaps instead of opening photo mode.
+
+**Gotchas for S2.10 / whoever's next:**
+- The race pads draw + hint every frame from `def.cps()` — those call
+  gtaLmCurb/gtaRoadPoint per frame. Fine at 61fps headless; if a profile
+  ever complains, cache per-def after gen.
+- `gta.nitroOn` is only maintained while driving; nothing else may read it
+  without checking `!gta.onFoot`.
+- Weather/photo/case state all resets or reloads in syncGta — new session
+  state goes THERE or it leaks across launches (the S1 lesson, still true).
+- STORIES uses `new Date()` for the day stamp (game code may; workflow
+  scripts may not — different rulebooks).

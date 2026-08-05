@@ -61,6 +61,49 @@ already bitten someone.
 > Google-sign-in-adjacent findings left for Chris (see the night report):
 > account linking by email, JWKS rotation refetch, login rate limiting,
 > bootstrap-admin name now reserved at register.
+> **2026-08-03 — 🎂 FOUNDER'S DAY:** the street now celebrates every August
+> 3rd (`nugFoundersDay()` in js/util.js; force with localStorage
+> `nugFoundersDayForce` = '1'/'0' for testing). One night a year: a banner
+> strung between the two lamps nearest the doors (double-faced — the arcade
+> face is marquee territory, a banner hid behind it once), balloon clusters
+> on those lamps, chase bulbs (glow kind `'party'`), and THE FOUNDER'S CAKE
+> hotspot by the doors — one candle (glow kind `'candle'`, flickers, goes
+> dark once wished), blow-out = confetti (H.sparks now take per-spark color
+> `c`) + `nugFoundersWish` = the year, so it re-lights annually. All five
+> NPCs have `founders` branches; the jukebox gets a 5th stop that night only
+> ("ONE CANDLE" — `jukeTrackCount()` gates it); the calculator wears a
+> ribbon (app.js/styles.css). Street-atlas regions `foundersBanner`/
+> `cakeSide` + party swatches are allocated YEAR-ROUND so packing never
+> shifts with the calendar — only geometry is date-gated (in buildStreet).
+> Same day, the last night-shift stragglers were fixed: beat.js now sweeps
+> its spent envelope gains (`beatSweepEnvs` — they used to pile up on master
+> all set long), blaster re-maps the skyline hitboxes on window resize, and
+> kart rain falls on dt instead of a hardcoded 0.016.
+> **2026-08-04 — 🏙️ GTN SEASON 2, THE SINGLE-PLAYER SEASON (S2.2–S2.8 in one
+> night):** the MOD SHOP (B while idling a garage car in the lot — REP buys
+> engine/grip/armor tiers, 🌶 chili nitro on SHIFT, the paint booth + pearl
+> flip-flop; mods live on the garage SLOT, `gtaHpMax()` raises the bodywork
+> ceiling); STREET RACES (six checkered pads + the 🏆 GOLDEN NUG GP once all
+> six are won — flat gate-counter model, `spr` = point-to-point; rivals are
+> `raceAI` cars with `mis:true` so doors lock; wins in `nugGtaRaces`, GP paint
+> unlock in `nugGtaGpWin`); THE CASE BOARD (12 evidence pickups seeded
+> APPEND-ONLY per district, bitmask `nugGtaEvidence`, C on the pause map =
+> the corkboard tab); DILL'S CHAIN (4 missions via the same engine — defs
+> carry `chain:'dill'`, booths ring CYAN when the board is full, progress
+> `nugGtaDill`, the books burn, the case stays OPEN); NUGGETOWN STORIES
+> (post-campaign procedural contracts, `chain:'story'`, 5 templates × daily
+> date-seed, REP-gated tiers — the phones never go quiet again); NIGHT
+> WEATHER (drizzle/downpour/fog/clear crossfade in `gta.wx` — downpour cuts
+> grip via `gtaWxGrip()`, fog halves NPD sight + speeds heat decay, clear
+> nights double golden pickups; radio DJs call the changes); PHOTO MODE
+> (P = frozen free-cam, Z integer zoom via `gta.scale`, X filters, C exports
+> a 3× PNG) + PAPARAZZI gigs (📸 pickups; P snaps the mark inside 90px,
+> crowding under 42px spooks them). ENGINE NOTES: `gtaMissionComplete`
+> branches on `def.chain`; the `watch` step only drives `stormRise` when the
+> def sets `rise:true` (the harbor job does); new E-priority while driving is
+> race pad FIRST, then booth/garage/jack. Dill + Hood street dialogue react
+> (`gtaEvidence()/gtaDillDone()/gtaRacesWon()/gtaGpWon()`). S2.10 (online
+> activities) remains, on Chris's MP stack.
 > **2026-07-21 — THE OVEN RELIGHT:** the first five games got deep upgrades
 > (build log in `UPGRADE_SPRINTS.md`). 🐤 Flappy (biomes + finale), 🥣 Dunk
 > (multi-sauce shifts), 🔫 Blaster (wave defense + Batter Bomber boss; now

@@ -279,6 +279,12 @@ function stepKart(dt, w, h) {
     kart.pos = (kart.pos + kart.speed * dt) % KART_TRACK_N;
   }
 
+  // rain falls on the CLOCK, not the refresh rate (drawing it is kartDraw's job)
+  for (const r of kart.rain) {
+    r.y += r.v * dt; r.x -= 8 * dt;
+    if (r.y > kart.Hh) { r.y = -4; r.x = Math.random() * kart.W; }
+  }
+
   kartDraw();
 }
 
@@ -392,13 +398,11 @@ function kartDraw() {
     else kartDrawGold(g, x, y, inv);
   }
 
-  // rain
+  // rain (positions advance in stepKart — dt lives there, not here)
   g.strokeStyle = 'rgba(160,190,240,0.16)';
   g.lineWidth = 1;
   g.beginPath();
   for (const r of kart.rain) {
-    r.y += r.v * 0.016; r.x -= 8 * 0.016;
-    if (r.y > Hh) { r.y = -4; r.x = Math.random() * W; }
     g.moveTo(r.x, r.y); g.lineTo(r.x - 1, r.y + 5);
   }
   g.stroke();

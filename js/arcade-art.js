@@ -1278,10 +1278,16 @@ const ArcadeArt = (() => {
     // STORM DRAIN's front door: the grate in the gutter (+ the DPW barricade)
     alloc('drainGrate', 96, 64, pDrainGrate);
     alloc('drainSign', 128, 64, pDrainSign);
+    // 🎂 FOUNDER'S DAY (one night a year — geometry only built when it's on,
+    // but the regions are allocated unconditionally so the packing never shifts)
+    alloc('foundersBanner', 256, 96, pFoundersBanner);
+    alloc('cakeSide', 96, 64, pCakeSide);
     const SW2 = {
       iron: '#3a4256', wood: '#6d5426', woodDark: '#42320e', red: '#e8412c',
       amber: '#ffb020', curb: '#3c3c46', black: '#0a0a12', white: '#f4f0e6',
       badge: '#ffd166', comb: '#d32f2f', beak: '#e8a020', carRed: '#a82c20',
+      // party balloons + frosting (Founder's Day)
+      party1: '#ff4fa3', party2: '#39d0ff', party3: '#7dff8a', frosting: '#fff3e8',
     };
     for (const [name, color] of Object.entries(SW2)) {
       alloc('sw_' + name, 24, 24, (gg, w, h) => { gg.fillStyle = color; gg.fillRect(0, 0, w, h); });
@@ -1510,6 +1516,66 @@ const ArcadeArt = (() => {
     g.fillStyle = '#ffd23a';
     g.font = '900 10px Consolas, monospace';
     g.fillText('DO NOT DIVE', w / 2, h * 0.86);
+  }
+
+  // 🎂 FOUNDER'S DAY (Aug 3): the banner the town strings over the arcade doors
+  // one night a year. Painted dark like the pier sign so it can sit unlit on the
+  // solid street buffer (no alpha pass) and still read under the party glows.
+  function pFoundersBanner(g, w, h) {
+    g.fillStyle = '#170b1e';
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#ffd166';
+    g.lineWidth = 3;
+    g.strokeRect(2, 2, w - 4, h - 4);
+    // pennant string across the top, in the party colors
+    const cols = ['#ff4fa3', '#39d0ff', '#ffd166', '#7dff8a'];
+    g.strokeStyle = '#c9b26a';
+    g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(6, 12); g.quadraticCurveTo(w / 2, 20, w - 6, 12); g.stroke();
+    for (let i = 0; i < 10; i++) {
+      const t = (i + 0.5) / 10;
+      const px = 6 + t * (w - 12), py = 12 + Math.sin(t * Math.PI) * 7;
+      g.fillStyle = cols[i % 4];
+      g.beginPath();
+      g.moveTo(px - 6, py); g.lineTo(px + 6, py); g.lineTo(px, py + 12);
+      g.fill();
+    }
+    g.textAlign = 'center';
+    g.fillStyle = '#ffd166';
+    g.font = '900 22px Georgia, serif';
+    g.fillText("FOUNDER'S DAY", w / 2, h * 0.62);
+    g.fillStyle = '#ff9ecb';
+    g.font = '700 11px Consolas, monospace';
+    g.fillText('AUG 3 · ONE NIGHT ONLY · CAKE ON THE HOUSE', w / 2, h * 0.85);
+  }
+
+  // The Founder's Cake, in profile: two frosted tiers and a drip line. Wrapped
+  // around box faces in buildStreet, so it tiles sideways without seams.
+  function pCakeSide(g, w, h) {
+    g.fillStyle = '#f6d7e6'; // strawberry sponge
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#a8552f'; // a honey-mustard filling stripe (this is Nuggetown)
+    g.fillRect(0, h * 0.52, w, h * 0.12);
+    // frosting drips off the top edge
+    g.fillStyle = '#fff3e8';
+    g.fillRect(0, 0, w, h * 0.2);
+    for (let x = 4; x < w; x += 11) {
+      const dh = h * (0.22 + ((x * 7) % 10) / 34);
+      g.beginPath();
+      g.arc(x, dh, 5, 0, Math.PI);
+      g.rect(x - 5, h * 0.18, 10, dh - h * 0.18);
+      g.fill();
+    }
+    // sprinkles
+    const cols = ['#ff4fa3', '#39d0ff', '#ffd166', '#7dff8a'];
+    for (let i = 0; i < 26; i++) {
+      g.fillStyle = cols[i % 4];
+      g.save();
+      g.translate((i * 37) % w, h * 0.68 + ((i * 13) % (h * 0.26)));
+      g.rotate(i);
+      g.fillRect(-2.5, -1, 5, 2);
+      g.restore();
+    }
   }
 
   // Soft radial sprite used (tinted) for every glow halo, dust mote, and raindrop.
