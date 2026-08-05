@@ -179,10 +179,25 @@ Body (Markdown), in this order:
 Keep it tight enough to read on a phone. The ledger entry below is the
 long version; the release is the briefing.
 
-`gh` is authenticated with the same credentials you push with, so this
-needs nothing extra. Verify it landed (`gh release view nightshift-$(date
-+%F)`) before you call the night done — an unpublished report is an
-unreported night.
+**Credential note, read this before you trust the release step.** The
+release was never test-published when the shift was set up: in the
+authoring session `gh` held a pull-only token on this repo (`push: false`)
+even though `git push` worked through a different credential, and the test
+release was blocked. Cutting a release needs `contents: write` — the same
+access as pushing — so if your `git push` succeeded, the release *should*
+work. Should is not does.
+
+Therefore, in order of certainty:
+
+1. **The ledger entry is the guaranteed report.** Push it first, always,
+   before you try anything else. If you got code onto the remote at all,
+   you can get the ledger there too — so this channel cannot fail
+   independently of the work itself.
+2. **Then cut the release.** Verify it landed with
+   `gh release view nightshift-$(date +%F)`.
+3. **Say which of those worked** in your final message, explicitly. If the
+   release failed, quote the exact error — that tells Beau to fix the
+   channel, and a channel nobody knows is broken is worse than no channel.
 
 ---
 
