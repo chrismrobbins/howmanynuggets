@@ -165,6 +165,26 @@ Body, plain text, in this order:
 Keep it tight enough to read on a phone. The ledger entry below is the
 long version; the email is the briefing.
 
+**Then post the same report as a GitHub release** — tag
+`nightshift-<YYYY-MM-DD>`, title = the email subject, body = the email
+body in Markdown:
+
+```bash
+gh release create nightshift-$(date +%F) --title "..." --notes-file report.md
+```
+
+This is deliberate redundancy, not busywork. The Outlook send tool's
+availability inside this sandbox was **never successfully verified** when
+the shift was set up (it was blocked in the authoring session, and the
+routine's `permitted_tools` grant is untested). The release is the channel
+that only needs the git credentials you already have.
+
+So: **attempt the email, always cut the release.** If the email tool is
+unavailable or errors, cut the release anyway and put the words
+`EMAIL FAILED: <the error>` at the top of the release body and in your
+final message. Never let a broken notification channel be the reason a
+shipped night goes unreported.
+
 ---
 
 ## The ledger
