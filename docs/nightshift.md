@@ -135,6 +135,36 @@ proud. End with:
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 ```
 
+### 7. File the report — the last thing you do
+
+Beau does not watch this repo at 1 AM. **Email him the shift report** at
+`beau@caf2code.com` using the Microsoft 365 / Outlook connector attached
+to this routine (`outlook_send_mail`). Send it whether the night went well
+or badly — **one format for both.** No email is itself a signal that
+something went wrong, so do not skip it, and do not "wait to send until
+things look better."
+
+Subject: `NIGHT SHIFT <MM-DD> — <N> shipped, <main|BRANCH ONLY>`
+
+Body, plain text, in this order:
+
+1. **Outcome line first.** Where the code went, the short SHA, the
+   diffstat, the verified count as `passed/total`, framerate, and whether
+   there were any page errors or atlas warnings. If the gate failed, say
+   `GATE FAILED` in the first line and name the branch.
+2. **What shipped** — numbered, one line each, in plain language a human
+   can skim. Say what the player can now *do*, not which function you
+   added. Lead each with its emoji if it has one.
+3. **What did not** — anything you started and abandoned, anything that
+   failed verification, anything you deliberately skipped and why.
+4. **Next shift should pick up** — the same note you leave in the ledger.
+5. **Links** — the compare URL
+   (`https://github.com/chrismrobbins/howmanynuggets/compare/<prev>...<new>`)
+   and https://howmanynuggets.com if you pushed `main`.
+
+Keep it tight enough to read on a phone. The ledger entry below is the
+long version; the email is the briefing.
+
 ---
 
 ## The ledger
@@ -143,7 +173,8 @@ Newest last. One entry per run: what shipped, what verified, where it
 went, and what the next shift should know.
 
 ### 2026-08-05 — shift established
-Protocol written. The tree was carrying two nights of unpushed work
+Protocol written, then amended the same day: every run now **emails the
+report to beau@caf2code.com** (order 7). The tree was carrying two nights of unpushed work
 (🎂 Founder's Day + 🏙️ GTN Season 2, S2.2–S2.8, verified 44/44); it shipped
 as `e178830` so the series starts from a clean `main`. Seven runs armed
 for 08-06 → 08-18. Open threads the next shift could pull on: S2.10 still
