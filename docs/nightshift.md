@@ -22,7 +22,7 @@ Read in this order, every run, no skipping:
 | File | Why |
 |---|---|
 | `AGENTS.md` | The add-a-game checklist and the hall gotchas. Every rule in it exists because it already bit someone. |
-| `CLAUDE.md` | Layout, script load order, the arcade↔backend seam. |
+| ~~`CLAUDE.md`~~ | **Not in the repo — it is gitignored** (`.gitignore` line 5) and exists only on Beau's machine. If you are running in a cloud container it will be absent, and that is expected, not a broken checkout. Do not go looking for it and do not recreate it. `AGENTS.md` carries everything a shift needs. |
 | `docs/casefile.md` | Det. Dill's **canon** case file for the storm-theft storyline. Your features must not contradict it. |
 | `GTA_SPRINTS.md` | Grand Theft Nugget build log + the Season 2 plan. |
 | **The ledger at the bottom of this file** | What the previous runs in this series already built. Do not duplicate or collide with them. |
@@ -179,25 +179,61 @@ Body (Markdown), in this order:
 Keep it tight enough to read on a phone. The ledger entry below is the
 long version; the release is the briefing.
 
-**Credential note, read this before you trust the release step.** The
-release was never test-published when the shift was set up: in the
-authoring session `gh` held a pull-only token on this repo (`push: false`)
-even though `git push` worked through a different credential, and the test
-release was blocked. Cutting a release needs `contents: write` — the same
-access as pushing — so if your `git push` succeeded, the release *should*
-work. Should is not does.
+### 8. When you cannot push at all — the 08-06 lesson
 
-Therefore, in order of certainty:
+**Read this before you assume `git push` will work.** On the first run of
+this series (2026-08-06) the shift built seven features, verified them
+47/47 in a real browser, committed `42ac049`… and could not push a single
+byte. The container had **no write path to GitHub whatsoever**:
 
-1. **The ledger entry is the guaranteed report.** Push it first, always,
-   before you try anything else. If you got code onto the remote at all,
-   you can get the ledger there too — so this channel cannot fail
-   independently of the work itself.
-2. **Then cut the release.** Verify it landed with
+```
+git-upload-pack   → 200   (reads fine)
+git-receive-pack  → 403   (writes refused at the gateway)
+GitHub MCP        → 403 Resource not accessible by integration
+REST api.github.com → 403
+```
+
+The 403 came *before any ref was named*, so pushing to a
+`nightshift/<date>` branch was refused too — the fallback in order 5 was
+not available, and the "guaranteed" ledger commit was not guaranteed
+either. Every assumption in this file about delivery failed at once.
+
+**So: prove the channel BEFORE you spend the night building.** First thing
+after `git pull`, push an empty commit to a scratch branch:
+
+```bash
+git commit --allow-empty -m "probe" && \
+  git push origin HEAD:refs/heads/nightshift-probe && \
+  git push origin --delete nightshift-probe
+```
+
+If that fails, you already know tonight cannot ship. Say so immediately,
+then decide whether to build anyway — and if you do, **the container is
+ephemeral, so unpushed work dies with it.** Get it out:
+
+1. `git bundle create nightshift-<date>.bundle main` — a bundle carries
+   real history and can be fetched into a fresh clone.
+2. `git format-patch` as a second copy.
+3. Send the bundle, the patch, **and** the full report to the session as
+   files, and put the recovery command in your final message:
+   `git fetch <bundle> && git merge FETCH_HEAD`.
+4. State the exact 403s verbatim. Do not retry a policy denial in a loop —
+   the proxy README is explicit that these are not transient.
+
+The 08-06 shift did all of this unprompted and correctly. That is the bar.
+
+**Report channels, in order of certainty — and none of them are free:**
+
+1. **The ledger commit** — only "guaranteed" if pushing works. It didn't
+   on 08-06. Push it first anyway.
+2. **The GitHub release** — needs `contents: write`, same as pushing, and
+   `gh` may not even be installed in the container. Verify with
    `gh release view nightshift-$(date +%F)`.
-3. **Say which of those worked** in your final message, explicitly. If the
-   release failed, quote the exact error — that tells Beau to fix the
-   channel, and a channel nobody knows is broken is worse than no channel.
+3. **Files sent to the session + your final message** — the only channel
+   that survived 08-06. Always use it, even when the others worked.
+
+Say explicitly which channels worked and which failed. A channel nobody
+knows is broken is worse than no channel at all.
 
 ---
 
@@ -215,5 +251,33 @@ connector was removed rather than left to fail nightly. The tree was carrying tw
 as `e178830` so the series starts from a clean `main`. Seven runs armed
 for 08-06 → 08-18. Open threads the next shift could pull on: S2.10 still
 waits on Chris's MP stack; the Hooded Nug's rumor slate is **reopened** at
+four-for-four; and Dill's case is open forever by canon — the storm is
+alive in the harbor.
+
+### 2026-08-06 — run 1: built, verified, could not ship
+Seven features, **verified 47/47** in headless Chromium, zero page errors,
+zero atlas warnings, framerate at parity with `506f8b4`. Committed
+`42ac049` (16 files, +1002/−26) — 🗂️ THE N.P.D. CASE BOARD (14 exhibits on
+the sidewalk, all of them still reading OPEN. FOREVER. DO NOT ARCHIVE),
+⭐ THE HOUSE SPECIAL (one game on nightly special, date-seeded, 1.5× with a
+carrying streak), 🏷️ THE DPW SALVAGE TAGS (eight brass tags at fixed depths
+in Storm Drain — one is a bus transfer punched at 3:04 AM when the last bus
+is 1:15; one is a key cut for the taped-off cabinet), 🌩 THE BATTER SQUALL
+(a fifth GTN weather state: worst grip in the game, best cover in the
+game), 🍾 THE SYNDICATE MANIFEST (an 11th Keeping It Reel catch, deep
+bottom only — the other half of tag 049), 🎧 DIP HOP side D "THE NIGHT
+SHIFT", and a fourth jukebox loop of the same title at 72bpm for after the
+last player leaves. Its own tests caught two bugs eyeballing missed: side D
+never used lane 1 across 57 notes, and the manifest flag was being
+swallowed by the NEW-SPECIES branch on the one catch that matters.
+
+**None of it reached GitHub** — writes are refused at the container gateway
+(see order 8). The commit existed only in an ephemeral container; the shift
+routed around it with a bundle, a patch, and a full report sent as session
+files. **The write path must be fixed before another night runs**, or each
+one repeats this exactly. Threads it left: the case board is a frame with
+room in it (a 15th exhibit is now the cheapest way to make a feature
+canon), the house special is a hook with nothing hanging off it, and the
+Hood ends his board branch asking what Dill left off it.
 four-for-four; and Dill's case is open forever by canon — the storm is
 alive in the harbor.
