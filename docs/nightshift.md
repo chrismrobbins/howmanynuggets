@@ -121,6 +121,31 @@ than debug a live site.
 Never force-push. Never rewrite published history. If `git push` is
 rejected, `git pull --rebase`, re-verify, and try once more.
 
+**PUSHING IS NOT SHIPPING.** A push that returns zero has published
+nothing until the Pages build succeeds, and that build can fail for
+reasons that have nothing to do with you. On 2026-08-06 `34c3e27` pushed
+cleanly and then the build died in *Set up job* — `Failed to resolve
+action download info: Service Unavailable` — during a GitHub Actions
+outage. It never read a single file in the repo. `main` was correct and
+the site served two-commit-old content for hours.
+
+So after every push, confirm the deploy:
+
+```bash
+gh run list --limit 3          # find the pages build for your SHA
+gh run watch <run-id>          # wait for it
+curl -sI https://howmanynuggets.com/<a-file-you-added> | head -1
+```
+
+That last line is the only real proof. A 200 on something that did not
+exist before your commit means it shipped; anything else means it did
+not, whatever git told you. If the build failed for infrastructure
+reasons, say so plainly and distinguish it from a failure of the work —
+they need completely different responses, and conflating them either
+panics a human or lets a dead deploy pass as green. Note that
+`gh run rerun` requires **admin** on this repo, which the night shift does
+not have; a fresh push is the only retry available to you.
+
 ### 6. Leave the paperwork
 
 Every run updates: `AGENTS.md` (the status block), `CLAUDE.md` (if the
@@ -360,3 +385,12 @@ And S2.10 still waits on Chris.
 runs, or every remaining run repeats this exactly — build, verify, and die with
 the container. Order 8 now makes each shift probe the channel *before* it
 builds, so a still-blocked night costs seconds instead of a night's work.
+
+**Second postscript — the night that refused to ship.** The recovered commit
+`34c3e27` pushed to `main` cleanly and then did not deploy: GitHub had an
+Actions partial outage (15:22 UTC) and a Pages incident (15:03 UTC), and the
+build failed in *Set up job* before reading the repo. Three separate delivery
+mechanisms failed for this one night's work — the container gateway, then the
+notification channel, then GitHub's own build. The work was fine every time;
+the pipes were not. Hence "PUSHING IS NOT SHIPPING" in order 5. Verify the
+deploy, not the push.
