@@ -10,3 +10,10 @@ nugget.jpeg
 # OS / editor cruft
 .DS_Store
 *.log
+
+# Verification scaffolding only. The SITE has no dependencies and no build
+# step — it is plain <script> tags and runs from disk. `npm i playwright` is
+# how the night shift drives a headless browser; none of it ships.
+node_modules/
+package.json
+package-lock.json

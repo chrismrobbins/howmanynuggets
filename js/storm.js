@@ -19,6 +19,7 @@ const stormCaught = document.getElementById('stormCaught');
 const stormHint   = document.getElementById('stormHint');
 const stormStop   = document.getElementById('stormStop');
 const modeSwitch  = document.getElementById('modeSwitch');
+const dailyChip   = document.getElementById('dailyChip');
 
 // Ordered high → low so the first match wins.
 const STORM_CATEGORIES = [
@@ -60,6 +61,120 @@ const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk
 // Self-contained minigames run their own entities and pause the storm's own
 // falling-nugget spawner + auto-complete (like Flappy). Catch and Blaster both
 // use the storm particles, so they are NOT in this set.
+// ---- ⭐ THE HOUSE SPECIAL -----------------------------------------------------
+// Every diner in the world puts one thing on the board and charges different
+// for it. So does this one. A single game is ON SPECIAL each night, the same
+// game for everybody (the pick is seeded off the calendar date, not off you),
+// and anything you bank in that game tonight pays a house-special rate.
+//
+// Play the special on back-to-back nights and the streak carries — that's the
+// whole hook, and it's why the board is worth reading before you pick a mode.
+// Globals are nug*-prefixed on purpose: this file shares one scope with every
+// game in the hall (see AGENTS.md — `spawnNugget` has collided twice).
+//
+// Testing: localStorage `nugDailyForce` = 'YYYY-MM-DD' pins the calendar,
+// exactly the way nugFoundersDayForce pins Founder's Day.
+const NUG_DAILY_MULT = 1.5;
+const NUG_DAILY_GAMES = Object.keys(MODE_BADGE);
+
+function nugDailyStamp() {
+  try {
+    const f = localStorage.getItem('nugDailyForce');
+    if (f && /^\d{4}-\d{2}-\d{2}$/.test(f)) return f;
+  } catch (e) { /* private mode runs on the real calendar */ }
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+
+// Tiny string hash — same stamp in, same game out, on every machine.
+function nugDailyHash(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0);
+}
+
+function nugDailyGame() {
+  return NUG_DAILY_GAMES[nugDailyHash(nugDailyStamp()) % NUG_DAILY_GAMES.length];
+}
+
+function nugDailyRead() {
+  try {
+    const r = JSON.parse(localStorage.getItem('nugDaily') || 'null');
+    if (r && typeof r.d === 'string' && typeof r.n === 'number') return r;
+  } catch (e) { /* ok */ }
+  return { d: '', n: 0 };
+}
+
+// The day before a stamp, as a stamp. Streaks live or die on this one function.
+function nugDailyPrev(stamp) {
+  const d = new Date(stamp + 'T12:00:00'); // noon: no DST cliff either side
+  d.setDate(d.getDate() - 1);
+  const p = (n) => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+
+// Nights in a row, counting tonight if you've already cleared it. Yesterday's
+// streak is still ALIVE until midnight — you just haven't extended it yet.
+function nugDailyStreak() {
+  const r = nugDailyRead();
+  const today = nugDailyStamp();
+  if (r.d === today || r.d === nugDailyPrev(today)) return r.n;
+  return 0;
+}
+
+function nugDailyDoneToday() { return nugDailyRead().d === nugDailyStamp(); }
+
+// Called once per night, the first time you bank anything in the special.
+function nugDailyMark() {
+  const today = nugDailyStamp();
+  const r = nugDailyRead();
+  if (r.d === today) return r.n;
+  const n = r.d === nugDailyPrev(today) ? r.n + 1 : 1;
+  try { localStorage.setItem('nugDaily', JSON.stringify({ d: today, n })); } catch (e) { /* ok */ }
+  return n;
+}
+
+// Bank a game's score. The ONLY path from storm.caught to the leaderboards —
+// both callers (mode switch, stop) go through here so the house special can't
+// be dodged by quitting a different way.
+function nugStormBank(mode, amount) {
+  if (!(amount > 0)) return 0;
+  let paid = amount;
+  if (mode === nugDailyGame()) {
+    paid = Math.round(amount * NUG_DAILY_MULT);
+    const n = nugDailyMark();
+    spawnPopLabel(window.innerWidth / 2, window.innerHeight * 0.34,
+      '⭐ HOUSE SPECIAL ×' + NUG_DAILY_MULT + (n > 1 ? ' · ' + n + ' NIGHTS RUNNING' : ''), 'golden');
+  }
+  if (typeof window.onArcadeScore === 'function') window.onArcadeScore(mode, paid);
+  return paid;
+}
+
+// The board itself: what the HUD chip says.
+function nugDailyChipText() {
+  const g = nugDailyGame();
+  const streak = nugDailyStreak();
+  const tail = streak > 0 ? ' · 🔥' + streak : '';
+  if (storm.mode === g) {
+    return '⭐ TONIGHT\'S SPECIAL ×' + NUG_DAILY_MULT + (nugDailyDoneToday() ? ' · banked' : '') + tail;
+  }
+  return '⭐ tonight: ' + MODE_BADGE[g] + tail;
+}
+
+// Star the special's button in the mode switch, so the board is where you pick.
+function nugDailyMarkSwitch() {
+  const g = nugDailyGame();
+  modeSwitch.querySelectorAll('button').forEach((b) => {
+    const on = b.dataset.mode === g;
+    b.classList.toggle('daily', on);
+    if (on && !/⭐/.test(b.title)) b.title = '⭐ TONIGHT\'S HOUSE SPECIAL — ' + b.title;
+  });
+}
+
 function pausesStorm() {
   return storm.mode === 'flappy' || storm.mode === 'dunk' || storm.mode === 'sim' ||
          storm.mode === 'run' || storm.mode === 'knight' || storm.mode === 'brawl' ||
@@ -100,7 +215,7 @@ function setStormMode(mode) {
   // whole session total submits under whatever mode you STOPPED in, and a
   // Ranch grind becomes a Flappy leaderboard entry.
   if (storm.running && mode !== storm.mode && storm.caught > 0) {
-    if (typeof window.onArcadeScore === 'function') window.onArcadeScore(storm.mode, storm.caught);
+    nugStormBank(storm.mode, storm.caught);
     storm.caught = 0;
   }
   storm.mode = mode;
@@ -122,6 +237,7 @@ function setStormMode(mode) {
   syncGta();
   syncBeat();
   syncDrain();
+  nugDailyMarkSwitch();
   updateStormHud();
 }
 
@@ -254,6 +370,10 @@ function updateStormHud() {
       ' <span class="total">/ ' + fmt.format(storm.total) + ' nugs</span>';
   }
   stormCaught.textContent = MODE_BADGE[storm.mode] + ' ' + fmt.format(storm.caught);
+  if (dailyChip) {
+    dailyChip.textContent = nugDailyChipText();
+    dailyChip.classList.toggle('on', storm.mode === nugDailyGame());
+  }
 }
 
 function stepStorm(ts) {
@@ -399,9 +519,7 @@ function stopStorm(completed = false) {
 
   // Report this session's score for high-score tracking. No-op when signed out
   // or when the API isn't reachable (see js/account.js → onArcadeScore).
-  if (storm.caught > 0 && typeof window.onArcadeScore === 'function') {
-    window.onArcadeScore(storm.mode, storm.caught);
-  }
+  nugStormBank(storm.mode, storm.caught);
 
   if (storm.rafId) cancelAnimationFrame(storm.rafId);
   storm.rafId = null;

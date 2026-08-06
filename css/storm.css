@@ -94,6 +94,21 @@ body.storm-active input {
   font-variant-numeric: tabular-nums;
 }
 .storm-hud .power-chip.active { display: inline; }
+
+/* ⭐ THE HOUSE SPECIAL — the board. Quiet amber when you're playing something
+   else ("tonight: 🕳️"), lit when you're standing in the special itself. */
+.storm-hud .daily-chip {
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  color: rgba(251, 191, 36, 0.6);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.storm-hud .daily-chip.on {
+  color: #fbbf24;
+  text-shadow: 0 0 12px rgba(251, 191, 36, 0.55);
+}
 .storm-hud button {
   pointer-events: auto;
   background: #f43f5e;
@@ -192,6 +207,13 @@ body.storm-shake .card { animation: stormShake 0.25s infinite; }
   background: var(--accent);
   opacity: 1;
 }
+/* tonight's house special wears a ring in the switch, so the board is right
+   where you make the choice (it stacks with .on — you can be playing it) */
+.mode-switch button.daily {
+  box-shadow: inset 0 0 0 1.5px rgba(251, 191, 36, 0.85);
+  opacity: 0.8;
+}
+.mode-switch button.daily:hover { opacity: 1; }
 
 /* ---- THE CATCH INCIDENT: no cabinet-hopping inside the hall ----
    In the 3D hall you pick a game by walking up to its cabinet; you don't swap

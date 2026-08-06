@@ -37,6 +37,15 @@ body.drain-mode #drainWorld { display: block; }
 }
 .drain-banner.go { color: #26e0ff; text-shadow: 3px 3px 0 #03141c, 0 0 24px rgba(38, 224, 255, 0.5); }
 .drain-banner.over { color: #ff5252; text-shadow: 3px 3px 0 #3a0808, 0 0 24px rgba(255, 82, 82, 0.6); }
+/* 🏷️ a salvage tag reads like a filed exhibit, not a firework — brass, and
+   small enough that the whole found-object note actually fits on one screen */
+.drain-banner.tag {
+  color: #f0d9a0;
+  font-size: clamp(0.75rem, 1.9vw, 1.1rem);
+  letter-spacing: 0.06em;
+  text-shadow: 2px 2px 0 #201603, 0 0 18px rgba(200, 160, 74, 0.65);
+  max-width: min(46rem, 88vw);
+}
 .drain-banner.storm {
   color: #ffd23a;
   text-shadow: 3px 3px 0 #2a1a30, 0 0 18px rgba(255, 210, 58, 0.8), 0 0 44px rgba(57, 255, 122, 0.6);

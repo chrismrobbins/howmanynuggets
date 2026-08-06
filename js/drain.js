@@ -47,6 +47,48 @@ const DRAIN_TIERS = [
     lockNote: 'meet what lives down there' },
 ];
 
+// ---- 🏷️ THE DPW SALVAGE TAGS -----------------------------------------------------
+// Eight brass tags wired to eight things the pipes swallowed and never gave
+// back. Every one sits at a fixed depth — the deep ones are a real ask — and
+// once you've cut one loose it stays cut loose (bitmask `nugDrainTags`). They
+// are not treasure. They're PAPERWORK, which is worse, and Det. Dill will want
+// every last one. All eight = drainSalvageDone(), a canon flag the noticeboard
+// outside the arcade reads. (Canon-safe: tags are evidence, never resolution.)
+const DRAIN_TAGS = [
+  { m: 60,  name: 'TAG 001 · A HALL TOKEN',
+    note: 'arcade brass. worn smooth. somebody played a LOT of catch.' },
+  { m: 140, name: 'TAG 014 · A BUS TRANSFER',
+    note: 'punched 3:04 AM. the last bus is 1:15. so that was not a bus.' },
+  { m: 230, name: 'TAG 027 · A TANKER GASKET',
+    note: 'rated for slurry. syndicate part number. riding low will do that.' },
+  { m: 330, name: 'TAG 038 · A DPW WORK ORDER',
+    note: '"MAIN 12 — DO NOT DIVE." signed. countersigned. never actioned.' },
+  { m: 440, name: 'TAG 049 · HALF A MANIFEST PAGE',
+    note: 'a column of weights, no destination. the other half went in the bay.' },
+  { m: 560, name: 'TAG 055 · A CATCH-CABINET KEY',
+    note: 'cut for the taped-off cabinet. down here. eleven pipes from the hall.' },
+  { m: 700, name: 'TAG 068 · A PRESSURE CHART',
+    note: 'the gauge Big Crumb filed about. it redlines, then it flatlines.' },
+  { m: 860, name: 'TAG 077 · A HANDWRITTEN NOTE',
+    note: '"it likes the pipes better than the bay. leave it a door." unsigned.' },
+];
+
+function drainTagMask() {
+  try { return +(localStorage.getItem('nugDrainTags') || 0) || 0; } catch (e) { return 0; }
+}
+function drainHasTag(i) { return (drainTagMask() & (1 << i)) !== 0; }
+function drainSaveTag(i) {
+  try { localStorage.setItem('nugDrainTags', String(drainTagMask() | (1 << i))); } catch (e) { /* ok */ }
+}
+function drainTagCount() {
+  const m = drainTagMask();
+  let n = 0;
+  for (let i = 0; i < DRAIN_TAGS.length; i++) if (m & (1 << i)) n++;
+  return n;
+}
+// Every tag pulled out of the mains. Street NPCs + the NPD noticeboard react.
+function drainSalvageDone() { return drainTagCount() >= DRAIN_TAGS.length; }
+
 const drain = {
   on: false,
   cv: null, g: null, banner: null, bannerT: null,
@@ -72,6 +114,8 @@ const drain = {
   storm: null,       // { t, dur, paid } while the gold thing is in the pipes
   nextStormM: DRAIN_STORM_FIRST_M,
   sawThisRun: false,
+  tagSpawned: [],    // 🏷️ salvage tags already dropped into THIS dive's shaft
+  tagsThisRun: 0,
   // milestones + session ledger
   nextSubIdx: 0,
   payFrac: 0,        // fractional meters banked toward the next payout
@@ -99,8 +143,10 @@ function drainTally() {
   if (drain.phase === 'tier') return '🕳️ how deep does it go…';
   if (drain.phase === 'out') return '🫧 surfaced · deepest ' + Math.round(drain.deepest) + 'm';
   const m = Math.round(drain.depth / DRAIN_PXM);
+  const tags = drainTagCount();
   return '🕳️ ' + m + 'm · 🫧 ' + Math.max(0, Math.round(drain.air)) + '%' +
     (drain.combo >= 2 ? ' · 🔥x' + drain.combo : '') +
+    (tags > 0 ? ' · 🏷️ ' + tags + '/' + DRAIN_TAGS.length : '') +
     (drain.sawThisRun ? ' · 🌪️ IT PASSED' : '');
 }
 
@@ -153,10 +199,14 @@ function openDrainTier() {
   drain.phase = 'tier';
   const tiers = DRAIN_TIERS.map((t) =>
     t.key === 'undertow' && !drainSawStorm() ? { ...t, locked: true } : t);
+  const tags = drainTagCount();
   drain.tierPick = ArcadeKit.tierSelect({
     storeKey: 'drain',
     title: '🕳️ How deep?',
-    note: drainSawStorm() ? 'the undertow remembers you · 1 · 2 · 3' : '← → steer · HOLD space/↑ to kick · mind the 🫧',
+    note: tags > 0 && !drainSalvageDone()
+      ? '🏷️ DPW SALVAGE ' + tags + '/' + DRAIN_TAGS.length + ' — the rest are deeper'
+      : (drainSalvageDone() ? '🏷️ every tag pulled · the undertow remembers you · 1 · 2 · 3'
+        : (drainSawStorm() ? 'the undertow remembers you · 1 · 2 · 3' : '← → steer · HOLD space/↑ to kick · mind the 🫧')),
     tiers,
     onPick: (key, t) => { drain.tierPick = null; drainApplyTier(key, t); },
   });
@@ -187,6 +237,8 @@ function drainNewDive() {
   drain.nextStormM = DRAIN_STORM_FIRST_M;
   drain.storm = null;
   drain.sawThisRun = false;
+  drain.tagSpawned = [];
+  drain.tagsThisRun = 0;
   drain.combo = 0;
   drain.dives++;
 }
@@ -276,6 +328,16 @@ function drainSpawnAhead() {
     }
     const meterSquish = Math.min(meters / 700, 1) * 22;
     drain.nextSpawnD += 55 + Math.random() * (110 - meterSquish) - meterSquish;
+  }
+  // 🏷️ salvage tags sit at FIXED depths — the pipes filed them there, and the
+  // pipes do not reshuffle. One per dive per tag, and only ones you still owe.
+  for (let ti = 0; ti < DRAIN_TAGS.length; ti++) {
+    if (drain.tagSpawned[ti] || drainHasTag(ti)) continue;
+    const td = DRAIN_TAGS[ti].m * DRAIN_PXM;
+    if (td > horizon || td < drain.depth) continue;
+    drain.tagSpawned[ti] = true;
+    const L = drainWallL(td) + 12, R = drainWallR(td) - 12;
+    drain.ents.push({ kind: 'tag', idx: ti, x: (L + R) / 2 + (Math.random() - 0.5) * (R - L) * 0.5, d: td, bob: Math.random() * 7 });
   }
   while (drain.nextClogD < horizon) {
     const d = drain.nextClogD;
@@ -427,6 +489,20 @@ function stepDrain(dt, w, h) {
       drainPay(60, '✨🍗', true);
       ArcadeKit.burst(drain.x * drain.scale, drain.Hh * 0.32 * drain.scale, { n: 14, color: '#ffd23a', size: 7 });
       drain.ents.splice(i, 1);
+    } else if (e.kind === 'tag' && rr2 < 15) {
+      // a tag is a milestone, so the hitbox is forgiving and the pay is loud
+      const T = DRAIN_TAGS[e.idx];
+      drain.combo++;
+      drainSaveTag(e.idx);
+      drain.tagsThisRun++;
+      drainPay(140, '🏷️', true);
+      ArcadeKit.burst(drain.x * drain.scale, drain.Hh * 0.32 * drain.scale, { n: 16, color: '#c8a04a', size: 6 });
+      drainBanner('🏷️ ' + T.name + ' — ' + T.note, 'tag', 3.4);
+      if (drainSalvageDone()) {
+        drainBanner('🗂️ ALL EIGHT TAGS — the DPW never filed one of these. call 555-DILL.', 'storm', 4.2);
+        ArcadeKit.burst(window.innerWidth / 2, window.innerHeight * 0.45, { n: 24, emoji: '🏷️', size: 18, speed: 320 });
+      }
+      drain.ents.splice(i, 1);
     } else if (e.kind === 'bubble' && rr2 < 12) {
       drain.air = Math.min(DRAIN_AIR_MAX, drain.air + DRAIN_BUBBLE_AIR);
       drainPay(2, '🫧', false);
@@ -468,7 +544,8 @@ function stepDrain(dt, w, h) {
     const m = Math.round(newM);
     const md = ArcadeKit.medal(m, [150, 350, 650]);
     ArcadeKit.saveBest('drain', drain.cfg.key, m);
-    drainBanner('🫧 OUT OF AIR — ' + m + 'm' + (md.emoji ? ' · ' + md.emoji + ' ' + md.label : ''), 'over', 3.2);
+    drainBanner('🫧 OUT OF AIR — ' + m + 'm' + (md.emoji ? ' · ' + md.emoji + ' ' + md.label : '') +
+      (drain.tagsThisRun ? ' · 🏷️ ' + drain.tagsThisRun + ' salvaged' : ''), 'over', 3.2);
     ArcadeKit.kick(10, 380);
   }
 
@@ -617,6 +694,19 @@ function drainDraw() {
       g.beginPath(); g.arc(e.x, bobY, 4.5, 0, 7); g.fill();
       g.fillStyle = e.kind === 'golden' ? '#fff3c0' : '#ffd166';
       g.fillRect(e.x - 2, bobY - 2, 2, 1); g.fillRect(e.x + 1, bobY + 1, 1, 1);
+    } else if (e.kind === 'tag') {
+      // brass rectangle on a bit of wire, turning slowly in the current
+      const bobY = y + Math.sin(drain.t * 1.6 + e.bob) * 2;
+      const sw = Math.abs(Math.cos(drain.t * 1.1 + e.bob));  // it turns edge-on and back
+      g.fillStyle = 'rgba(200,160,74,' + (0.18 + Math.sin(drain.t * 4) * 0.08) + ')';
+      g.beginPath(); g.arc(e.x, bobY, 12, 0, 7); g.fill();
+      g.strokeStyle = '#8a7a5a';
+      g.lineWidth = 1;
+      g.beginPath(); g.arc(e.x, bobY - 6, 2.5, 0, 7); g.stroke();   // the wire loop
+      g.fillStyle = '#c8a04a';
+      g.fillRect(e.x - 3.5 * sw - 0.5, bobY - 4, 7 * sw + 1, 9);
+      g.fillStyle = '#f0d9a0';
+      if (sw > 0.5) { g.fillRect(e.x - 2, bobY - 2, 4, 1); g.fillRect(e.x - 2, bobY + 1, 3, 1); }
     } else if (e.kind === 'bubble') {
       g.strokeStyle = 'rgba(190,240,255,0.85)';
       g.lineWidth = 1;

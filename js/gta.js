@@ -4258,13 +4258,22 @@ const GTA_WX = {
     line: '🌫 A FOG BANK ROLLS IN OFF THE BAY', dj: '"visibility: rumor. drive by feel."' },
   clear:    { name: 'CLEAR NIGHT', drops: 0, clear: true,
     line: '✨ A RARE CLEAR NIGHT — GOLD PAYS DOUBLE', dj: '"no weather tonight. which, here, IS weather."' },
+  // 🌩 THE BATTER SQUALL — the Sauce Works vents into a cold front and what
+  // comes down is not rain. Half-frozen batter pellets, pea-sized, off every
+  // roof in the district. Worst grip in the game AND the best cover in the
+  // game: nobody's windshield works, least of all the NPD's. Canon-safe —
+  // all water in Nuggetown is the same water, and this batch went up first.
+  squall:   { name: 'BATTER SQUALL', drops: 70, grip: 0.7, hail: 1, blind: 0.62,
+    line: '🌩 A BATTER SQUALL — IT IS HAILING BATTER, DRIVE ACCORDINGLY',
+    dj: '"that\'s not hail, nuggetown. check your paint in the morning."' },
 };
 // from-state → weighted next states (the drizzle is home base)
 const GTA_WX_NEXT = {
   drizzle: [['downpour', 3], ['fog', 2], ['clear', 1], ['drizzle', 2]],
-  downpour: [['drizzle', 4], ['fog', 1]],
+  downpour: [['drizzle', 3], ['fog', 1], ['squall', 2]], // a squall grows out of a downpour
   fog: [['drizzle', 3], ['clear', 1]],
   clear: [['drizzle', 4], ['fog', 1]],
+  squall: [['downpour', 2], ['drizzle', 3]],             // and blows itself out
 };
 
 function gtaStepWeather(dt) {
@@ -4302,13 +4311,20 @@ function gtaWxK(state) {
   return 0;
 }
 
-function gtaWxGrip() { // downpour: grease on grease
-  const k = gtaWxK('downpour');
-  return 1 - (1 - (GTA_WX.downpour.grip || 1)) * k;
+function gtaWxGrip() { // downpour: grease on grease. squall: grease on ball bearings.
+  const k = gtaWxK('downpour'), s = gtaWxK('squall');
+  const loss = (1 - (GTA_WX.downpour.grip || 1)) * k + (1 - (GTA_WX.squall.grip || 1)) * s;
+  return Math.max(0.5, 1 - loss);
 }
 
 function gtaWxFog() { return gtaWxK('fog'); }
 function gtaWxClear() { return gtaWxK('clear'); }
+function gtaWxSquall() { return gtaWxK('squall'); }
+// How much of what the NPD can see is currently gone. The fog bank is the
+// worst of it; a squall is nearly as bad, for a completely different reason.
+function gtaWxBlind() {
+  return Math.min(1, gtaWxFog() + gtaWxSquall() * (GTA_WX.squall.blind || 0));
+}
 
 // ---- PHOTO MODE + PAPARAZZI (Season 2.8) ---------------------------------------------------
 // P freezes Nuggetown into a free camera: arrows pan, Z zooms (integer, the
@@ -5055,7 +5071,9 @@ function gtaStepWorld(dt) {
   // ---- NPD dispatch -------------------------------------------------------
   const stars = gtaStars();
   const busy = gta.wastedT > 0 || gta.bustedT > 0;
-  const fogK = gtaWxFog(); // S2.7: the fog halves what the NPD can see
+  // S2.7: the fog halves what the NPD can see. S2.11: so does a batter squall,
+  // by packing every windshield in the district with half-frozen batter.
+  const fogK = gtaWxBlind();
   const copSight = 330 * (1 - 0.5 * fogK);
   if (stars >= 1 && !busy) {
     // patrols in earshot join the pursuit
@@ -5858,7 +5876,7 @@ function gtaDraw() {
   // Headlights before the car so the beams sit under the body. In the fog
   // they're most of what you've got (S2.7).
   if (gta.phase === 'play' && gta.wastedT <= 0 && !gta.onFoot) {
-    gtaDrawBeams(g, gta.car.x - ox, gta.car.y - oy, gta.car.a, 34 + 10 * gtaWxFog(), 0.10 + 0.09 * gtaWxFog());
+    gtaDrawBeams(g, gta.car.x - ox, gta.car.y - oy, gta.car.a, 34 + 10 * gtaWxBlind(), 0.10 + 0.09 * gtaWxBlind());
   }
   for (const o of gta.cars) {
     const px = o.x - ox, py = o.y - oy;
@@ -6009,6 +6027,26 @@ function gtaDraw() {
     g.moveTo(r.x, r.y); g.lineTo(r.x - 1.5 - pourK, r.y + 6 + 4 * pourK);
   }
   g.stroke();
+
+  // 🌩 THE BATTER SQUALL: pellets, not streaks. They fall short and fast, then
+  // BOUNCE — the bounce is the whole read, because a bouncing sky is how you
+  // know the road under you stopped being a road. Reuses the rain pool (no new
+  // particle budget); the flash is a screen-wide pale wash on a stutter clock.
+  const sqK = gtaWxSquall();
+  if (sqK > 0.02) {
+    g.fillStyle = 'rgba(236,226,198,' + (0.5 * sqK).toFixed(2) + ')';
+    for (let ri = 0; ri < gta.rain.length; ri++) {
+      const r = gta.rain[ri];
+      // bounce height from a cheap sawtooth on the drop's own y — pellets that
+      // "land" pop back up a few pixels instead of streaking past the curb
+      const hop = Math.abs(Math.sin((r.y + ri * 37) * 0.06)) * 4 * sqK;
+      g.fillRect(r.x, r.y - hop, 2, 2);
+    }
+    if (Math.sin(gta.t * 11) > 0.986) { // the odd sheet-lightning stutter
+      g.fillStyle = 'rgba(226,232,240,' + (0.10 * sqK).toFixed(3) + ')';
+      g.fillRect(0, 0, W, Hh);
+    }
+  }
 
   // The fog bank: a veil that thins around you — headlight country (S2.7).
   const fogKd = gtaWxFog();

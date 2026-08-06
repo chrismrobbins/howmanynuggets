@@ -1278,6 +1278,8 @@ const ArcadeArt = (() => {
     // STORM DRAIN's front door: the grate in the gutter (+ the DPW barricade)
     alloc('drainGrate', 96, 64, pDrainGrate);
     alloc('drainSign', 128, 64, pDrainSign);
+    // 🗂️ THE EVIDENCE LOCKER: the NPD's public case board on the sidewalk
+    alloc('npdBoard', 192, 128, pNpdBoard);
     // 🎂 FOUNDER'S DAY (one night a year — geometry only built when it's on,
     // but the regions are allocated unconditionally so the packing never shifts)
     alloc('foundersBanner', 256, 96, pFoundersBanner);
@@ -1516,6 +1518,69 @@ const ArcadeArt = (() => {
     g.fillStyle = '#ffd23a';
     g.font = '900 10px Consolas, monospace';
     g.fillText('DO NOT DIVE', w / 2, h * 0.86);
+  }
+
+  // 🗂️ THE NPD NOTICEBOARD — the department's public case board, bolted to the
+  // sidewalk outside the arcade because Det. Dill got tired of people saying
+  // they'd have come forward if only they'd known. Cork behind glass, a header
+  // plate, and pinned paper: the shapes read as EXHIBITS at street distance,
+  // and the actual list lives in the overlay you get when you walk up to it.
+  function pNpdBoard(g, w, h) {
+    g.fillStyle = '#2a2418';
+    g.fillRect(0, 0, w, h);
+    // header plate: NPD green, stencilled
+    g.fillStyle = '#12301f';
+    g.fillRect(0, 0, w, h * 0.2);
+    g.strokeStyle = '#39ff7a';
+    g.lineWidth = 1.5;
+    g.strokeRect(2, 2, w - 4, h * 0.2 - 4);
+    g.textAlign = 'center';
+    g.fillStyle = '#bff0cf';
+    g.font = '900 12px Consolas, monospace';
+    g.fillText('N.P.D. CASE BOARD', w / 2, h * 0.145);
+    // cork
+    g.fillStyle = '#6b4a24';
+    g.fillRect(3, h * 0.21, w - 6, h * 0.79 - 3);
+    for (let i = 0; i < 240; i++) { // cork speckle
+      g.fillStyle = 'rgba(0,0,0,' + (0.05 + Math.random() * 0.12).toFixed(2) + ')';
+      g.fillRect(3 + Math.random() * (w - 8), h * 0.21 + Math.random() * (h * 0.77), 2, 2);
+    }
+    // pinned exhibits: paper rectangles at small angles, a red pin on each
+    const notes = [[0.08, 0.28, 0.26, 0.3, -0.06], [0.39, 0.26, 0.24, 0.34, 0.05],
+      [0.68, 0.29, 0.25, 0.28, -0.03], [0.11, 0.63, 0.23, 0.28, 0.04],
+      [0.4, 0.65, 0.26, 0.26, -0.05], [0.7, 0.62, 0.22, 0.3, 0.06]];
+    for (const [nx, ny, nw, nh, rot] of notes) {
+      g.save();
+      g.translate((nx + nw / 2) * w, (ny + nh / 2) * h);
+      g.rotate(rot);
+      g.fillStyle = 'rgba(0,0,0,0.35)';
+      g.fillRect(-nw * w / 2 + 1.5, -nh * h / 2 + 1.5, nw * w, nh * h);
+      g.fillStyle = '#e8e2cc';
+      g.fillRect(-nw * w / 2, -nh * h / 2, nw * w, nh * h);
+      g.fillStyle = '#6a6250';
+      for (let ly = -nh * h / 2 + 5; ly < nh * h / 2 - 2; ly += 4)
+        g.fillRect(-nw * w / 2 + 3, ly, nw * w - 6 - Math.random() * 6, 1);
+      g.fillStyle = '#e8412c';
+      g.beginPath(); g.arc(0, -nh * h / 2 + 3, 2, 0, 7); g.fill();
+      g.restore();
+    }
+    // red string between two of them, because of course
+    g.strokeStyle = 'rgba(232,65,44,0.75)';
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.moveTo(0.2 * w, 0.32 * h); g.lineTo(0.52 * w, 0.44 * h); g.lineTo(0.8 * w, 0.33 * h);
+    g.lineTo(0.5 * w, 0.68 * h); g.lineTo(0.22 * w, 0.66 * h);
+    g.stroke();
+    // glass sheen + frame
+    const sheen = g.createLinearGradient(0, 0, w, h);
+    sheen.addColorStop(0, 'rgba(255,255,255,0.1)');
+    sheen.addColorStop(0.45, 'rgba(255,255,255,0.02)');
+    sheen.addColorStop(1, 'rgba(255,255,255,0.07)');
+    g.fillStyle = sheen;
+    g.fillRect(0, h * 0.2, w, h * 0.8);
+    g.strokeStyle = '#3a4256';
+    g.lineWidth = 3;
+    g.strokeRect(1.5, 1.5, w - 3, h - 3);
   }
 
   // 🎂 FOUNDER'S DAY (Aug 3): the banner the town strings over the arcade doors

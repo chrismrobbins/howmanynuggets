@@ -22,7 +22,7 @@ Read in this order, every run, no skipping:
 | File | Why |
 |---|---|
 | `AGENTS.md` | The add-a-game checklist and the hall gotchas. Every rule in it exists because it already bit someone. |
-| ~~`CLAUDE.md`~~ | **Not in the repo — it is gitignored** (`.gitignore` line 5) and exists only on Beau's machine. If you are running in a cloud container it will be absent, and that is expected, not a broken checkout. Do not go looking for it and do not recreate it. `AGENTS.md` carries everything a shift needs. |
+| ~~`CLAUDE.md`~~ | **Not in the repo.** It is untracked and lives only on Beau's machine; `.gitignore` line 5 names a different file (`Claude.md`), which masks it on case-insensitive filesystems but not in a Linux container. Either way you will not have it, and that is expected — not a broken checkout. Do not hunt for it and do not recreate it. `AGENTS.md` carries everything a shift needs. |
 | `docs/casefile.md` | Det. Dill's **canon** case file for the storm-theft storyline. Your features must not contradict it. |
 | `GTA_SPRINTS.md` | Grand Theft Nugget build log + the Season 2 plan. |
 | **The ledger at the bottom of this file** | What the previous runs in this series already built. Do not duplicate or collide with them. |
@@ -254,30 +254,109 @@ waits on Chris's MP stack; the Hooded Nug's rumor slate is **reopened** at
 four-for-four; and Dill's case is open forever by canon — the storm is
 alive in the harbor.
 
-### 2026-08-06 — run 1: built, verified, could not ship
-Seven features, **verified 47/47** in headless Chromium, zero page errors,
-zero atlas warnings, framerate at parity with `506f8b4`. Committed
-`42ac049` (16 files, +1002/−26) — 🗂️ THE N.P.D. CASE BOARD (14 exhibits on
-the sidewalk, all of them still reading OPEN. FOREVER. DO NOT ARCHIVE),
-⭐ THE HOUSE SPECIAL (one game on nightly special, date-seeded, 1.5× with a
-carrying streak), 🏷️ THE DPW SALVAGE TAGS (eight brass tags at fixed depths
-in Storm Drain — one is a bus transfer punched at 3:04 AM when the last bus
-is 1:15; one is a key cut for the taped-off cabinet), 🌩 THE BATTER SQUALL
-(a fifth GTN weather state: worst grip in the game, best cover in the
-game), 🍾 THE SYNDICATE MANIFEST (an 11th Keeping It Reel catch, deep
-bottom only — the other half of tag 049), 🎧 DIP HOP side D "THE NIGHT
-SHIFT", and a fourth jukebox loop of the same title at 72bpm for after the
-last player leaves. Its own tests caught two bugs eyeballing missed: side D
-never used lane 1 across 57 notes, and the manifest flag was being
-swallowed by the NEW-SPECIES branch on the one catch that matters.
+### 2026-08-06 — run 1 of 7 — 7 shipped, verified 47/47, delivered by bundle
 
-**None of it reached GitHub** — writes are refused at the container gateway
-(see order 8). The commit existed only in an ephemeral container; the shift
-routed around it with a bundle, a patch, and a full report sent as session
-files. **The write path must be fixed before another night runs**, or each
-one repeats this exactly. Threads it left: the case board is a frame with
-room in it (a 15th exhibit is now the cheapest way to make a feature
-canon), the house special is a hook with nothing hanging off it, and the
-Hood ends his board branch asking what Dill left off it.
-four-for-four; and Dill's case is open forever by canon — the storm is
-alive in the harbor.
+**Where it went:** `main` in the end — but *not* from the container, and not
+that night. All 47 checks green in a real headless Chromium, no page errors,
+no atlas-overflow warnings, framerate at parity with `506f8b4`. Then the push
+was refused at the gateway: `403` on `git-receive-pack`, before any ref was
+named, so the branch fallback was dead too (see order 8). `42ac049` existed
+only inside an ephemeral container.
+
+The shift carried it out by hand — `git bundle` + `git format-patch` + the
+full report, sent as session files with the recovery command. Beau downloaded
+the bundle; it verified clean, fetched to `42ac049` exactly, and was rebased
+onto `main` later the same day. **Nothing was lost: the tree that landed is
+the tree that passed 47/47.** The only conflict was this ledger — two authors
+writing the same entry from opposite sides of a broken channel.
+
+**What shipped**
+
+1. **🗂️ THE N.P.D. CASE BOARD** *(js/arcade.js, js/arcade-art.js,
+   css/locker.css, index.html)* — a glass case on two legs on the sidewalk
+   between the hydrant and Det. Dill (x −6.5..−4.9, z 1.15). E opens the case
+   file: 14 exhibits, one per game plus the crime itself, each FILED or OPEN,
+   and each OPEN one names the game that produces it. Built from the same
+   cross-game flag readers the street NPCs already use. Dill's reasoning, in
+   character: *"the only people a secret case file keeps in the dark are the
+   ones who might help me."* **A full board still reads OPEN. FOREVER.**
+2. **⭐ THE HOUSE SPECIAL** *(js/storm.js, index.html, css/storm.css)* — one
+   date-seeded game per night pays ×1.5, and clearing it on back-to-back nights
+   builds a streak. Same pick for everybody; the HUD names it and the mode
+   switch rings its button.
+3. **🏷️ THE DPW SALVAGE TAGS** *(js/drain.js, css/drain.css)* — eight brass tags
+   wired into Storm Drain at fixed depths (60m → 860m), bitmask-persistent, each
+   one a found object with a line of lore. All eight is a new canon flag.
+4. **🌩 THE BATTER SQUALL** *(js/gta.js)* — a fifth GTN weather state. Worst grip
+   in the game (0.70) and the best cover in the game. See S2.11 in
+   GTA_SPRINTS.md.
+5. **🍾 THE SYNDICATE MANIFEST** *(js/reel.js)* — an 11th Keeping It Reel catch: a
+   corked bottle off the DEEP bottom, on THE MIDNIGHT only. The other half of
+   salvage tag 049.
+6. **🎧 DIP HOP side D — "THE NIGHT SHIFT"** *(js/beat.js)* — a fourth track,
+   138bpm, half-time kick under fast hats. 2 AM, nobody left to impress.
+7. **🎶 A FOURTH JUKEBOX LOOP** *(js/arcade.js)* — also THE NIGHT SHIFT: 72bpm,
+   minor, almost no lead. What the box plays when the last player leaves.
+
+Plus: Dill gained `board` / `salvage` / `manifest` branches, and the Hooded Nug
+reviews the case board as a competing rumor format — *"that is MY format. he
+even used the string."*
+
+**Engineering notes the next shift needs**
+
+- **All score banking now goes through `nugStormBank(mode, amount)`** in
+  storm.js — the single path from `storm.caught` to `onArcadeScore`, called by
+  both `setStormMode` and `stopStorm`. Any future score modifier belongs THERE,
+  or it can be dodged by quitting the other way.
+- **`gtaWxBlind()`** (fog + squall×0.62) is now the read for "how much the NPD
+  can't see" — `copSight`, the heat-decay radius, and headlight reach all use
+  it. `gtaWxFog()` still drives the fog VEIL specifically; don't swap that one.
+- **In `beatGenTrack`, a lead pattern's digits ARE the note lanes.** Side D's
+  first draft never used lane 1 in 57 notes, because both of its snare steps sat
+  under lead notes and none of its lead digits were ≡1 mod 4. A charted track
+  needs a `1` (or `5`) in the lead line. Caught by test 5c, not by eye.
+- The reel junk-snag table now filters on `spec.zone` and `spec.min` instead of
+  grabbing any spd-0 spec near the bottom — that's what makes the bottle
+  deep-only, and it also stopped boots snagging out past the swirl.
+- New STREET-atlas region `npdBoard` (192×128). The street page still has room;
+  the main 2048² page was not touched.
+- `.gitignore` now covers `node_modules/`, `package.json`, `package-lock.json`.
+  `npm i playwright` creates all three; none of them ship. The site is still
+  plain `<script>` tags with no build step.
+
+**Verification — 47/47**, one or more explicit tests per feature plus a hall
+regression pass. Four things that cost time tonight, so they don't cost it again:
+
+- `npx playwright install chromium` **fails in this container** (download
+  blocked, exit 1). Chromium 1194 is already at `/opt/pw-browsers/chromium` —
+  launch with `executablePath: '/opt/pw-browsers/chromium'` and it just works.
+- **Don't assert an absolute framerate floor.** Headless SwiftShader renders
+  this hall at 2–6 fps no matter what you do. The only meaningful check is A/B:
+  serve pristine HEAD from a `git worktree` on a second port and compare.
+  Tonight measured at parity with `506f8b4` at three camera positions.
+- `H.toast` is drawn IN-CANVAS (`{text, until}`), not in the DOM. Read
+  `NuggetArcade._H.toast.text`; there is no toast element to query.
+- Watch exact flag contracts when seeding localStorage: `gtaDillDone()` wants
+  `nugGtaDill` **>= 4**, not `'1'`.
+
+**What did NOT happen:** `worker/**` untouched (no deploy of the production
+API). Nugget Catch left taped off. S2.10 / online untouched. And **`CLAUDE.md`
+does not exist in this repo** — standing order 1 listed it as required reading,
+but the tree only has `AGENTS.md`; `.gitignore` excludes a *different* file
+(`Claude.md`, "internal design spec"), which masks it on case-insensitive
+filesystems but not in a Linux container. Tonight it was simply skipped and
+nothing appeared to be missing. **Resolved:** order 1 now says so outright, so
+no future shift wastes time hunting for it.
+
+**Next shift should pick up:** the case board is a frame with room in it — a
+15th exhibit is now the cheapest way to make any new feature land in canon (add
+a reader row to the table in `docs/casefile.md` AND a row to `LOCKER_EXHIBITS`
+in js/arcade.js). The house special is a hook with nothing hanging off it yet:
+a streak currently buys pride and nothing else. The Hood ends his case-board
+branch by asking what Dill left OFF the board — a deliberately dangling thread.
+And S2.10 still waits on Chris.
+
+**Postscript, added on recovery:** fix the write channel before another night
+runs, or every remaining run repeats this exactly — build, verify, and die with
+the container. Order 8 now makes each shift probe the channel *before* it
+builds, so a still-blocked night costs seconds instead of a night's work.

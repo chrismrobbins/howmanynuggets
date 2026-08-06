@@ -1272,3 +1272,36 @@ season wrap) is now the only thing left on the board.
   state goes THERE or it leaks across launches (the S1 lesson, still true).
 - STORIES uses `new Date()` for the day stamp (game code may; workflow
   scripts may not — different rulebooks).
+
+---
+
+## S2.11 — 🌩 THE BATTER SQUALL (night shift, 2026-08-06)
+
+A fifth state on the S2.7 weather machine. The Sauce Works vents into a cold
+front and what comes down is not rain: half-frozen batter pellets, pea-sized,
+off every roof in the district.
+
+- `GTA_WX.squall` — `grip: 0.7` (worse than the downpour's 0.78), `drops: 70`,
+  `blind: 0.62`, `hail: 1`. It grows out of a DOWNPOUR (weight 2) and blows
+  itself out back to downpour/drizzle — it is never the state you start in.
+- **`gtaWxGrip()` now sums both losses** (downpour k + squall k) and floors at
+  0.5, so a crossfade between the two can't multiply into an unsteerable car.
+- **New: `gtaWxBlind()` = `gtaWxFog() + gtaWxSquall() × 0.62`, clamped to 1.**
+  This is the read for "how much of what the NPD can see is gone", and it is
+  now what `copSight`, the `nearR` heat-decay radius, and the player headlight
+  reach all use. `gtaWxFog()` is still the read for the FOG VEIL specifically
+  (the radial gradient) — do not swap that one; a squall is not a fog bank and
+  should not paint like one. If you add a sixth state that hides you, add it to
+  `gtaWxBlind()`, not to a new parallel call.
+- Risk/reward, on purpose: the squall is the worst grip in the game and the
+  best cover in the game. Losing the NPD in one is a real option and it costs
+  you the corner you're taking to do it.
+- Draw: the hail **reuses the existing `gta.rain` pool** (no new particle
+  budget) — pellets, not streaks, with a cheap sawtooth bounce off `r.y` so the
+  sky reads as BOUNCING. Plus a stutter sheet-lightning wash on `gta.t`.
+- Radio DJs call it like every other change: *"that's not hail, nuggetown.
+  check your paint in the morning."*
+
+**Gotcha for whoever's next:** the squall is reachable ONLY from a downpour, so
+a test that pins `gta.wx.cur` directly is the sane way to exercise it — don't
+sit and wait for the state machine.

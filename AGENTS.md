@@ -104,6 +104,37 @@ already bitten someone.
 > race pad FIRST, then booth/garage/jack. Dill + Hood street dialogue react
 > (`gtaEvidence()/gtaDillDone()/gtaRacesWon()/gtaGpWon()`). S2.10 (online
 > activities) remains, on Chris's MP stack.
+> **2026-08-06 — night shift #1 of 7 (7 features, verified 47/47):** the street
+> grew a **🗂️ N.P.D. CASE BOARD** (`openLocker()` in js/arcade.js, `css/locker.css`,
+> street-atlas region `npdBoard`) — a glass case on two legs at x −6.5..−4.9,
+> z 1.15, between the hydrant and Det. Dill. E opens a 14-exhibit overlay built
+> from the SAME cross-game flag readers the NPCs use; FILED/OPEN, and every OPEN
+> one names the game that produces it. It rides `.modal-overlay.active` so
+> `modalOpen()` makes the hall stand down, and it handles its own ESC (one ESC
+> closes the board, it does NOT also leave the hall). **Canon-safe: a full board
+> still reads OPEN. FOREVER.** — filing all 14 resolves nothing, by design.
+> Two NEW canon flags feed it: **`nugDrainTags`** (`drainTagCount()` /
+> `drainSalvageDone()` — 🏷️ eight DPW SALVAGE TAGS wired into Storm Drain at
+> FIXED depths 60/140/230/330/440/560/700/860m, bitmask-persistent, one dive
+> per tag) and **`nugReelManifest`** (`reelManifestFound()` — 🍾 an 11th
+> Keeping It Reel species, a corked bottle snagged only off the DEEP bottom;
+> the reel junk-snag table now respects `spec.zone`/`spec.min` instead of
+> picking any spd-0 spec in the shallows). Dill has `board`/`salvage`/`manifest`
+> branches; the Hood reviews the board as a competing rumor format.
+> Cross-cutting: **⭐ THE HOUSE SPECIAL** (js/storm.js) — one date-seeded game
+> per night pays ×1.5 and builds a night-to-night streak (`nugDaily`, force the
+> calendar with `nugDailyForce`='YYYY-MM-DD'). **All banking now goes through
+> `nugStormBank(mode, amount)`** — the single path from `storm.caught` to
+> `onArcadeScore`, called by both `setStormMode` and `stopStorm`; put any future
+> score modifier THERE or it can be dodged by quitting the other way.
+> Also: 🌩 **THE BATTER SQUALL**, a fifth GTN weather state (grip 0.70 — worse
+> than the downpour — plus `gtaWxBlind()` = fog + squall×0.62, which is now what
+> NPD sight/heat-decay/headlights read instead of bare `gtaWxFog()`); 🎧 DIP HOP
+> **side D "THE NIGHT SHIFT"** (138bpm, 2AM — note the lead digits ARE the lanes
+> in `beatGenTrack`, so a track with no `1` in its lead line can leave a whole
+> cup empty); and a fourth jukebox loop, also THE NIGHT SHIFT (`jukeTrackCount()`
+> is 5 now, 6 on Founder's Day — the seasonal single stays LAST in the array so
+> the everyday count is a prefix).
 > **2026-07-21 — THE OVEN RELIGHT:** the first five games got deep upgrades
 > (build log in `UPGRADE_SPRINTS.md`). 🐤 Flappy (biomes + finale), 🥣 Dunk
 > (multi-sauce shifts), 🔫 Blaster (wave defense + Batter Bomber boss; now

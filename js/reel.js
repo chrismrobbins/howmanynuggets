@@ -38,8 +38,12 @@ const REEL_FISH = [
   { kind: 'eel',     name: 'BATTER EEL',      mult: 30,  zone: [0.50, 1.00], w: 34, spd: 40, pull: 22, run: 0.55, reel: 64, tens: 0.5,  rare: 0, min: 1 },
   { kind: 'shark',   name: 'BATTER SHARK',    mult: 45,  zone: [0.60, 1.00], w: 44, spd: 44, pull: 30, run: 0.65, reel: 60, tens: 0.5,  rare: 1, min: 1 },
   { kind: 'golden',  name: 'GOLDEN NUG-FISH', mult: 80,  zone: [0.72, 1.00], w: 18, spd: 52, pull: 28, run: 0.7,  reel: 62, tens: 0.55, rare: 1, min: 1 },
+  // 🍾 Not a fish. A bottle, corked, with a page rolled up inside it — snagged
+  // off the deep bottom, never in the shallows. Doesn't fight; it just comes up
+  // heavy, the way paperwork does. First one ever sets nugReelManifest.
+  { kind: 'manifest', name: 'THE SYNDICATE MANIFEST', mult: 35, zone: [0.68, 1.00], w: 14, spd: 0, pull: 9, run: 0, reel: 88, tens: 0.3, rare: 1, min: 1 },
 ];
-const REEL_SPECIES = REEL_FISH.map((f) => f.kind);   // bestiary roster (10)
+const REEL_SPECIES = REEL_FISH.map((f) => f.kind);   // bestiary roster (11, incl. the bottle)
 
 // Depth tiers (ArcadeKit oath). mult scales pay, tens scales the tension gain,
 // storm = landings before the whirlpool circles. THE MIDNIGHT opens once you've
@@ -51,6 +55,10 @@ const REEL_TIERS = [
     lockNote: 'land THE STORM once' },
 ];
 function reelMidnightUnlocked() { return reelStormLanded(); }
+// Did the pier ever give up the manifest? The NPD noticeboard + Dill read this.
+function reelManifestFound() {
+  try { return localStorage.getItem('nugReelManifest') === '1'; } catch (e) { return false; }
+}
 function reelLogSeen() { try { return new Set(JSON.parse(localStorage.getItem('nugReelLog') || '[]')); } catch (e) { return new Set(); } }
 function reelSaveLog(s) { try { localStorage.setItem('nugReelLog', JSON.stringify([...s])); } catch (e) { /* ok */ } }
 
@@ -354,13 +362,26 @@ function reelLand() {
     reelPay(h.spec.mult, (golden ? '✨ ' : '') + reelFishEmoji(h.spec.kind), golden);
     ArcadeKit.kick(Math.min(14, 4 + h.spec.mult * 0.12), 260);
     ArcadeKit.burst(sx, sy, { n: golden ? 16 : 9, color: golden ? '#ffd23a' : (h.spec.kind === 'shark' ? '#9fb0c0' : '#7fd4ff'), speed: 240, life: 0.55 });
+    // 🍾 THE MANIFEST is evidence before it is a species: the flag goes down
+    // whatever else this landing was, so the banner branch can't swallow it.
+    const isManifest = h.spec.kind === 'manifest';
+    const firstManifest = isManifest && !reelManifestFound();
+    if (isManifest) {
+      try { localStorage.setItem('nugReelManifest', '1'); } catch (e) { /* private mode */ }
+    }
     // the bestiary: the first-ever catch of a species is a moment
     if (reel.log && !reel.log.has(h.spec.kind)) {
       reel.log.add(h.spec.kind); reelSaveLog(reel.log); reel.newThisRun++;
-      reelBanner('🆕 NEW SPECIES · ' + reelFishEmoji(h.spec.kind) + ' ' + h.spec.name +
+      reelBanner((isManifest ? '🆕 NOT A FISH · ' : '🆕 NEW SPECIES · ') + reelFishEmoji(h.spec.kind) + ' ' + h.spec.name +
         '  (' + reel.log.size + '/' + REEL_SPECIES.length + ')', 'gold', 2.4);
-      ArcadeKit.burst(sx, sy, { n: 18, emoji: '⭐', speed: 300, life: 0.9 });
+      ArcadeKit.burst(sx, sy, { n: 18, emoji: isManifest ? '📄' : '⭐', speed: 300, life: 0.9 });
       if (reel.log.size >= REEL_SPECIES.length) reelBanner('🏆 THE PIER HOLDS NO SECRETS FROM YOU — bestiary complete!', 'storm', 4);
+    } else if (isManifest) {
+      // The other half of TAG 049: weights, a route, and a column of buyers who
+      // do not exist. It names nobody. It proves the shipment. Case stays OPEN.
+      reelBanner(firstManifest
+        ? '🍾 A BOTTLE, CORKED — inside: a shipping manifest. weights, a route, and buyers who never existed.'
+        : '🍾 another page of the manifest — same route, same nobody', 'gold', firstManifest ? 4.2 : 2);
     } else if (junk) {
       reelBanner(h.spec.kind === 'boot' ? '🥾 EVIDENCE? …no. it\'s a boot.' : '🥫 TIP-LINE CAN — every bit helps', '', 1.6);
     } else {
@@ -404,7 +425,7 @@ function reelSnap() {
 
 function reelFishEmoji(kind) {
   return { boot: '🥾', can: '🥫', shrimp: '🦐', cod: '🐟', crab: '🦀', snapper: '🐠',
-    puffer: '🐡', eel: '🐍', shark: '🦈', golden: '✨🐟' }[kind] || '🐟';
+    puffer: '🐡', eel: '🐍', shark: '🦈', golden: '✨🐟', manifest: '🍾' }[kind] || '🐟';
 }
 
 // ---- update ----------------------------------------------------------------------------
@@ -536,14 +557,21 @@ function stepReelWait(dt) {
         f.nibbleT = 0.5 + Math.random() * 0.5;
       }
     }
-    // junk: a long-idle lure near the bottom snags a boot/can eventually
-    if (L.y > bot - 14 && reelZoneAt(L.x) < 0.55 && Math.random() < dt * 0.06) {
-      const junkSpecs = REEL_FISH.filter((s) => s.spd === 0);
-      const spec = junkSpecs[(Math.random() * junkSpecs.length) | 0];
-      const junkFish = { spec, x: L.x, y: L.y, dir: 1, wob: 0, state: 'hooked', junk: true, nibbleT: 0, nibbles: 0 };
-      reel.fish.push(junkFish); // so it draws on the line coming up
-      reel.biter = junkFish;
-      reel.biteT = REEL_BITE_WINDOW * 2; // junk is patient
+    // Snags: a long-idle lure resting on the bottom eventually hooks something
+    // that was never swimming. WHICH something depends on where you're resting —
+    // boots and cans lie in the shallows, the manifest only in the deep water,
+    // and only on a tier that reaches it (spec.min, same contract as the fish).
+    const zoneNow = reelZoneAt(L.x);
+    if (L.y > bot - 14 && Math.random() < dt * 0.06) {
+      const junkSpecs = REEL_FISH.filter((s) => s.spd === 0 &&
+        (s.min || 0) <= reel.tierIdx && zoneNow >= s.zone[0] && zoneNow <= s.zone[1]);
+      if (junkSpecs.length) {
+        const spec = junkSpecs[(Math.random() * junkSpecs.length) | 0];
+        const junkFish = { spec, x: L.x, y: L.y, dir: 1, wob: 0, state: 'hooked', junk: true, nibbleT: 0, nibbles: 0 };
+        reel.fish.push(junkFish); // so it draws on the line coming up
+        reel.biter = junkFish;
+        reel.biteT = REEL_BITE_WINDOW * 2; // junk is patient
+      }
     }
     // nibbling fish count down to the true bite
     for (const f of reel.fish) {
@@ -948,6 +976,22 @@ function reelDrawFish(g, f) {
     g.fillRect(-w / 2, -5, w, 2);
     g.fillStyle = '#39ff7a';
     g.fillRect(-w / 2 + 2, -2, w - 4, 4);        // faded NPD TIP LINE label
+    g.restore();
+    return;
+  } else if (s.kind === 'manifest') {
+    // a corked bottle lying on its side, a rolled page visible through the glass
+    g.fillStyle = 'rgba(120,190,170,0.55)';
+    g.fillRect(-w / 2, -4, w, 8);
+    g.fillRect(w / 2, -2.5, 3, 5);               // the neck
+    g.fillStyle = '#8a6a30';
+    g.fillRect(w / 2 + 3, -2.5, 2, 5);           // the cork
+    g.fillStyle = '#e8e2cc';
+    g.fillRect(-w / 2 + 2, -2.5, w - 6, 5);      // the page inside
+    g.fillStyle = '#6a6250';
+    g.fillRect(-w / 2 + 3, -1.5, w - 9, 1);
+    g.fillRect(-w / 2 + 3, 0.5, w - 11, 1);      // a column of figures, unreadable
+    g.fillStyle = 'rgba(255,255,255,0.5)';
+    g.fillRect(-w / 2 + 1, -3.5, w - 4, 1);      // glass highlight
     g.restore();
     return;
   } else if (s.kind === 'shrimp') {

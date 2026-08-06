@@ -911,6 +911,7 @@ void main() {
           opts: [
             party ? { t: "founder's day, Hood. got a rumor for THE big one?", next: 'founders' } : null,
             { t: 'the gutter grate across the road… it\'s GLOWING.', next: 'drainGrate' },
+            { t: 'the pickle put his case file in a glass box.', next: 'hoodBoard' },
             { t: 'somebody\'s been painting checkers on the roads.', next: 'races' },
             { t: 'there\'s a CLUB across the street now.', next: 'beatClub' },
             { t: 'somebody left a car out front. hazards on.', next: 'gtaCar' },
@@ -952,6 +953,16 @@ void main() {
         },
         races2: { line: 'nobody runs it. that\'s the beauty. the pads were just THERE one morning, painted clean, like the rain did it. *long pause* the rain does a lot in this town, friend.', opts: [] },
         drainWhere: { line: 'every pipe in nuggetown runs downhill to ONE place. *nods at the east gate* the harbor. the pier. the case. all of it is the same water, friend. it always was.', opts: [] },
+        // 🗂️ the noticeboard, reviewed by a professional
+        hoodBoard: {
+          line: '*the hood swivels toward the case, then back, very slowly* he put the CASE on the SIDEWALK. under glass. with a little lamp. *a long, wounded silence* friend, that is a rumor board. that is MY format. he even used the string.',
+          opts: [
+            { t: 'you should be flattered.', next: 'hoodBoard2' },
+            { t: 'is he right about any of it?', next: 'hoodBoard3' },
+          ],
+        },
+        hoodBoard2: { line: '*sniffs* I age mine in a barrel. he laminates. we are not the same. *pause* …it IS a good board though. the layout breathes.', opts: [] },
+        hoodBoard3: { line: 'every word, friend, which is the problem. a rumor you can VERIFY is just news, and nobody stands in the rain for news. *taps hood* go read it anyway. and then come back and tell me what he left OFF.', opts: [] },
         drainNope: { line: '*the hood tilts to exactly the angle of someone checking a watch* that\'s what the last three said. the garage. the pier. the basement. see you down there.', opts: [] },
         beatClub: {
           line: remixed
@@ -1108,6 +1119,10 @@ void main() {
         // Season 2 (NUGGETOWN NIGHTS): the case board + Dill's own chain
         const evid = typeof gtaEvidence === 'function' ? gtaEvidence() : 0;
         const dillDone = typeof gtaDillDone === 'function' && gtaDillDone();
+        // 🗂️ tonight's two new exhibits: the pipes' paperwork and the bottle
+        const tags = typeof drainTagCount === 'function' ? drainTagCount() : 0;
+        const salvage = typeof drainSalvageDone === 'function' && drainSalvageDone();
+        const manifest = typeof reelManifestFound === 'function' && reelManifestFound();
         return {
         root: {
           line: party
@@ -1122,6 +1137,10 @@ void main() {
             dillDone ? { t: 'the books burned, detective.', next: 'dillWrap' }
               : evid > 0 ? { t: 'been picking things up around town. evidence things.', next: 'evid' } : null,
             dove ? { t: 'detective. pull the DPW maps. I saw it IN THE PIPES.', next: 'drainSaw' } : null,
+            salvage ? { t: 'I pulled all eight DPW tags out of the mains.', next: 'salvage' }
+              : tags > 0 ? { t: "there's brass wired into those pipes, detective.", next: 'salvage' } : null,
+            manifest ? { t: 'I fished a bottle out of the deep. paperwork inside.', next: 'manifest' } : null,
+            { t: "what's the board out here for?", next: 'board' },
             clubbed ? { t: 'been down to the club across the street?', next: 'beatNoise' } : null,
             caseNotes ? { t: 'about my… extracurriculars, detective.', next: 'caseNotes' } : null,
             { t: 'got any suspects?', next: 'suspects' },
@@ -1192,6 +1211,37 @@ void main() {
         },
         drainSaw2: { line: 'dredge WHAT, kid? it IS the water. *writes "jurisdiction: the municipal plumbing" and stares at it* I became a detective for parking fraud.', opts: [] },
         drainSaw3: { line: 'that sign predates the Incident by nine years. *flat stare* the DPW knew something. the DPW always knows something. they just file it under "flow".', opts: [] },
+        // 🗂️ the noticeboard on the sidewalk + the two new exhibits it can hold
+        board: {
+          line: '*jerks a thumb at the case behind him without looking* the board. I got tired of people telling me they\'d have come forward if only somebody had TOLD them what we were looking for. so now it\'s in a glass case on a public sidewalk, in the rain, where every lead I have is legible to anyone who stops walking. ' +
+            (typeof lockerFiledCount === 'function' ? '*checks* ' + lockerFiledCount() + ' of ' + LOCKER_EXHIBITS.length + ' exhibits filed.' : ''),
+          opts: [
+            { t: "doesn't that tip off the syndicate too?", next: 'board2' },
+            { t: 'what happens when it\'s full?', next: 'board3' },
+          ],
+        },
+        board2: { line: 'they already know what they did, kid. the only people a secret case file keeps in the dark are the ones who might help me. *clicks pen* transparency: cheapest deputy the department ever hired.', opts: [] },
+        board3: { line: '*doesn\'t even pause* nothing. it stays open. a full board isn\'t a closed case, it\'s a case somebody finally BELIEVES. those are different words and I need you to hear both of them.', opts: [] },
+        salvage: {
+          line: salvage
+            ? '*takes each tag, reads it, and does not say anything for a while* a hall token. a bus transfer punched at 3:04 in the morning when the last bus is 1:15. a tanker gasket. a work order that says DO NOT DIVE, signed and countersigned and never actioned. a key cut for MY taped cabinet, eleven pipes from the hall. *very quietly* eight pieces of paperwork the DPW never filed. that\'s the whole night, kid. that\'s the whole night in brass.'
+            : '*already writing* brass tags. wired in at depth. the DPW tags anything they pull and files nothing they tag — that is not sloppiness, that is a SYSTEM. ' + tags + ' of eight, was it? bring me the rest. the deep ones especially.',
+          opts: salvage ? [
+            { t: 'so the DPW was in on it.', next: 'salvage2' },
+            { t: 'the last one wasn\'t a DPW tag.', next: 'salvage3' },
+          ] : [],
+        },
+        salvage2: { line: '*shakes head slowly* "in on it" needs a person. what I\'ve got is a department that wrote it all down and put it underwater. …which, granted, is what I\'d do. *stops* forget I said that.', opts: [] },
+        salvage3: { line: '"it likes the pipes better than the bay. leave it a door." *turns the tag over twice* unsigned. handwriting is careful. whoever wrote that wasn\'t hiding it from ME, kid — they were leaving it FOR somebody. and somebody left the grate unlocked. *stares at the gutter across the road*', opts: [] },
+        manifest: {
+          line: '*unrolls it under the streetlight with two fingers, the way you handle a thing you can\'t re-wet* weights. a route. a column of buyers. …and not one of those buyers exists, kid, I\'ve run all four. so the shipment is REAL, the destination is REAL, and the recipients are a creative writing exercise. *rolls it back up* this is the other half of tag 049. I have the top of this page in an evidence bag.',
+          opts: [
+            { t: "doesn't that prove the theft?", next: 'manifest2' },
+            { t: 'who wrote it?', next: 'manifest3' },
+          ],
+        },
+        manifest2: { line: 'it proves a SHIPMENT. it proves weight leaving town at an hour when nothing leaves town. it does not prove whose. *pins it anyway* every case is built out of things that almost prove it. you just need enough almosts.', opts: [] },
+        manifest3: { line: 'accountant\'s hand. tidy. the same tidy hand that waves at the Grease Garage shutter on his way home. *underlines something twice* …I like him for a lot of things, kid. liking is not charging.', opts: [] },
         gtaRap: {
           line: droveOut
             ? '*flips WAY back in the notepad* eleven syndicate contracts. boosted cruisers. a BATTER VAN bonfire outside my own HQ. and one civilian — at the END of my pier, at midnight, DURING a raid — who watched the evidence surface and drove home. *closes notepad slowly* I know it\'s you, kid. I can\'t prove it\'s you. it\'s the worst thing that\'s ever happened to me.'
@@ -1243,6 +1293,141 @@ void main() {
   ];
 
   // ---- dialogue engine (DOM panel; movement freezes while it's open) ----------------
+
+  // ---- 🗂️ THE EVIDENCE LOCKER ---------------------------------------------------
+  // The case file, made public and kept honest. Every exhibit in this list is
+  // something one of the fourteen games can actually produce, read through the
+  // same cross-game flag readers the street NPCs use (docs/casefile.md holds the
+  // canon table). FILED means you proved it. OPEN is not a failure — it is a
+  // LEAD, so every open exhibit says where to go get it.
+  //
+  // Canon rule, load-bearing: filing all fourteen does NOT close the case. The
+  // storm is never caught, freed, or killed. The board just gets fuller.
+  const LOCKER_EXHIBITS = [
+    { i: '🧺', t: 'THE EMPTY CABINET', src: 'THE HALL',
+      got: () => true,
+      filed: 'A million-plus nuggets, gone overnight. No prints, no witnesses, no crumbs. There are always crumbs.',
+      open: '' },
+    { i: '🎯', t: 'THE LINE HELD', src: 'NUGGETOWN DEFENSE',
+      got: () => typeof blasterHeld === 'function' && blasterHeld(),
+      filed: 'The skyline stood through the bomber. Whoever runs the batter runs it by AIR too — noted.',
+      open: 'Survive the waves and the 🛢️ BATTER BOMBER at the cannon.' },
+    { i: '🐤', t: 'THE FLYOVER', src: 'FLAPPY NUG',
+      got: () => typeof flappyStormFlown === 'function' && flappyStormFlown(),
+      filed: 'Aerial sighting: the storm, from above, holding formation. Storms do not hold formation.',
+      open: 'Fly the towers all the way out to THE STORM.' },
+    { i: '🥣', t: 'THE SECRET SAUCE', src: 'SAUCE DUNK',
+      got: () => typeof dunkSecretServed === 'function' && dunkSecretServed(),
+      filed: 'A sauce nobody ordered, served off-menu. The recipe traces back to the Works.',
+      open: 'Work a clean shift until the off-menu cup comes up.' },
+    { i: '🏃', t: 'THE PIER RUN', src: 'NUGGET RUN',
+      got: () => typeof runReachedPier === 'function' && runReachedPier(),
+      filed: 'Someone ran the whole town end to end and stopped at the pier. Everything stops at the pier.',
+      open: 'Run until the boards go wooden — reach THE PIER.' },
+    { i: '🧘', t: 'THE WITNESS', src: 'NUGGET SIMULATOR',
+      got: () => typeof simSawStorm === 'function' && simSawStorm(),
+      filed: 'Sat still long enough to see it go past. Best witness on the file. Declines to make a statement.',
+      open: 'Sit. Watch the seasons turn. Witness every Sight.' },
+    { i: '🎣', t: 'THE DUMP SITE', src: 'KEEPING IT REEL',
+      got: () => typeof reelStormLanded === 'function' && reelStormLanded(),
+      filed: 'Landed off the pier at midnight. It did not drown. It MOVED IN. Larceny became habitat.',
+      open: 'Fish the deep water off the pier until something golden circles.' },
+    { i: '🍾', t: 'THE MANIFEST', src: 'KEEPING IT REEL',
+      got: () => typeof reelManifestFound === 'function' && reelManifestFound(),
+      filed: 'A corked bottle off the deep bottom: weights, a route, and a column of buyers who never existed.',
+      open: 'Rest a line on the deep bottom, out past the swirl, on THE MIDNIGHT.' },
+    { i: '🚔', t: 'THE HARBOR JOB', src: 'GRAND THEFT NUGGET',
+      got: () => typeof gtaSawStorm === 'function' && gtaSawStorm(),
+      filed: 'Midnight, end of the north pier: the bay STOOD UP, and went back under. Never freed. Never killed.',
+      open: 'Work the syndicate contracts through to THE HARBOR JOB.' },
+    { i: '🗂️', t: 'THE CORKBOARD', src: 'GRAND THEFT NUGGET',
+      got: () => typeof gtaEvidence === 'function' && gtaEvidence() >= 12,
+      filed: 'Twelve exhibits, one red string, first complete board this department has ever had.',
+      open: 'Twelve pieces of evidence are seeded across the districts. Find them all.' },
+    { i: '🥒', t: "DILL'S CHAIN", src: 'GRAND THEFT NUGGET',
+      got: () => typeof gtaDillDone === 'function' && gtaDillDone(),
+      filed: 'Four off-book jobs with a civilian. The books burned themselves. Ash cannot testify.',
+      open: 'Fill the case board and the detective will call the car himself.' },
+    { i: '🎧', t: 'THE SAMPLE', src: 'DIP HOP',
+      got: () => typeof beatEncoreDone === 'function' && beatEncoreDone(),
+      filed: 'A recorder held over the pier rail at midnight. The harbor answered ON BEAT. Nothing moved.',
+      open: 'Play the set clean enough that DJ DRIP breaks out the encore.' },
+    { i: '🕳️', t: 'THE PASSING', src: 'STORM DRAIN',
+      got: () => typeof drainSawStorm === 'function' && drainSawStorm(),
+      filed: 'Below 400m the water went still and something weather-sized used the mains as a bus lane.',
+      open: 'Dive the pipes past 400 metres and listen for what passes.' },
+    { i: '🏷️', t: 'THE DPW SALVAGE', src: 'STORM DRAIN',
+      got: () => typeof drainSalvageDone === 'function' && drainSalvageDone(),
+      filed: 'All eight tags pulled out of the mains: a hall token, a 3AM transfer, a tanker gasket, a cabinet key.',
+      open: () => 'Eight brass tags are wired into the pipes, deeper and deeper. ' +
+        (typeof drainTagCount === 'function' ? drainTagCount() : 0) + '/8 pulled.' },
+  ];
+
+  function lockerFiledCount() {
+    let n = 0;
+    for (const e of LOCKER_EXHIBITS) { try { if (e.got()) n++; } catch (err) { /* a game that isn't loaded is just unfiled */ } }
+    return n;
+  }
+
+  let lockerOv = null;
+
+  function openLocker() {
+    if (lockerOv) return;
+    if (H.plock) document.exitPointerLock(); // the board wants a cursor
+    const filed = lockerFiledCount(), total = LOCKER_EXHIBITS.length;
+    const all = filed >= total;
+    const ov = document.createElement('div');
+    // .modal-overlay.active makes the hall's own key/mouse handlers stand down
+    // (modalOpen() in this file) — the board owns the keyboard while it's up
+    ov.className = 'modal-overlay active npd-locker';
+    const rows = LOCKER_EXHIBITS.map((e) => {
+      let got = false;
+      try { got = !!e.got(); } catch (err) { got = false; }
+      const note = got ? e.filed : (typeof e.open === 'function' ? e.open() : e.open);
+      return '<div class="npd-ex ' + (got ? 'filed' : 'open') + '">' +
+        '<span class="npd-ex-i">' + e.i + '</span>' +
+        '<span class="npd-ex-b"><span class="npd-ex-t">' + e.t + '</span>' +
+        '<span class="npd-ex-src">' + e.src + '</span>' +
+        '<span class="npd-ex-n">' + note + '</span></span>' +
+        '<span class="npd-ex-s">' + (got ? 'FILED' : 'OPEN') + '</span></div>';
+    }).join('');
+    ov.innerHTML =
+      '<div class="npd-panel">' +
+        '<div class="npd-head">' +
+          '<span class="npd-title"><span class="npd-no">N.P.D. CASE FILE № 000-001</span>' +
+          '<span class="npd-name">THE CATCH INCIDENT</span></span>' +
+          '<button type="button" class="npd-close" aria-label="Close">✕</button>' +
+        '</div>' +
+        '<div class="npd-status"><span class="npd-open">STATUS: OPEN. FOREVER. DO NOT ARCHIVE.</span>' +
+        '<span class="npd-count">EXHIBITS FILED <b>' + filed + '</b> / ' + total + '</span></div>' +
+        '<div class="npd-grid">' + rows + '</div>' +
+        '<div class="npd-foot">' + (all
+          ? '<b>DET. DILL:</b> every exhibit on the board and not one of them closes it. Good. A closed file is a file nobody reads. Keep the light on it. <i>— everything in this town is the weather.</i>'
+          : '<b>DET. DILL:</b> an OPEN exhibit is not a hole in the case, it\'s a place to go tonight. Bring me something and I\'ll pin it.') +
+        '</div>' +
+      '</div>';
+    function close() {
+      window.removeEventListener('keydown', onKey, true);
+      ov.remove();
+      lockerOv = null;
+    }
+    function onKey(e) {
+      if (e.code === 'Escape' || e.code === 'KeyQ' || e.code === 'KeyE' || e.code === 'Enter') {
+        e.preventDefault(); e.stopPropagation();
+        close();
+      }
+    }
+    ov.addEventListener('click', (e) => {
+      if (e.target === ov || e.target.closest('.npd-close')) close();
+    });
+    window.addEventListener('keydown', onKey, true);
+    ov._close = close;   // so leaving the hall can't strand the board on screen
+    document.body.appendChild(ov);
+    lockerOv = ov;
+    sfxBoop(520);
+  }
+
+  function closeLocker() { if (lockerOv && lockerOv._close) lockerOv._close(); }
 
   function openDialog(npc) {
     if (H.dialog) return;
@@ -1426,6 +1611,44 @@ void main() {
         stand: [sx, EYE, sz - 1.2],
         label: 'CALL IT A NIGHT — BACK TO THE CALCULATOR',
         act: () => exit(),
+      });
+    }
+
+    // ---- 🗂️ THE EVIDENCE LOCKER (the NPD noticeboard) ---------------------------
+    // Two legs and a glass case on the sidewalk between the hydrant and the
+    // detective, angled to face anyone coming up off the road. It is the case
+    // file MADE PUBLIC: every exhibit any game in this arcade has ever produced,
+    // filed or open, with Dill's note underneath. Walk up, press E.
+    // Nothing here resolves anything — canon says the case is open forever
+    // (docs/casefile.md) — but the board is where you find out what you've
+    // proved and what the department is still waiting on.
+    {
+      const nx0 = -6.5, nx1 = -4.9, nmx = (nx0 + nx1) / 2, nz = 1.15;
+      const ny0 = 0.95, ny1 = 2.02;
+      // the case face (faces +z, into the street: wind x ascending)
+      ST.quad([nx0, ny0, nz], [nx1, ny0, nz], [nx1, ny1, nz], [nx0, ny1, nz], suv.npdBoard, { e: 0.24 });
+      // the back (faces -z: wind x descending) — plain department steel
+      ST.quad([nx1, ny0, nz - 0.05], [nx0, ny0, nz - 0.05], [nx0, ny1, nz - 0.05], [nx1, ny1, nz - 0.05], suv.sw_iron, { tint: 0.7 });
+      // the two side edges, so it reads as a case and not a decal
+      ST.quad([nx0, ny0, nz - 0.05], [nx0, ny0, nz], [nx0, ny1, nz], [nx0, ny1, nz - 0.05], suv.sw_iron, { tint: 0.6 });
+      ST.quad([nx1, ny0, nz], [nx1, ny0, nz - 0.05], [nx1, ny1, nz - 0.05], [nx1, ny1, nz], suv.sw_iron, { tint: 0.6 });
+      // legs
+      for (const lx of [nx0 + 0.18, nx1 - 0.18]) {
+        ST.quad([lx - 0.04, 0, nz], [lx + 0.04, 0, nz], [lx + 0.04, ny0 + 0.04, nz], [lx - 0.04, ny0 + 0.04, nz], suv.sw_iron, { tint: 0.75 });
+        ST.quad([lx + 0.04, 0, nz - 0.05], [lx - 0.04, 0, nz - 0.05], [lx - 0.04, ny0 + 0.04, nz - 0.05], [lx + 0.04, ny0 + 0.04, nz - 0.05], suv.sw_iron, { tint: 0.6 });
+      }
+      // a little hooded lamp over the glass, because nobody reads a dark board
+      ST.quad([nmx - 0.22, ny1 + 0.1, nz + 0.06], [nmx + 0.22, ny1 + 0.1, nz + 0.06], [nmx + 0.18, ny1 + 0.2, nz - 0.01], [nmx - 0.18, ny1 + 0.2, nz - 0.01], suv.sw_iron, { tint: 0.7 });
+      H.glows.push({ p: [nmx, ny1 + 0.02, nz + 0.16], c: [0.6, 1, 0.72], s: 1.25, a: 0.16, k: 'sign' });
+      H.glows.push({ p: [nmx, (ny0 + ny1) / 2, nz + 0.3], c: [0.22, 1, 0.48], s: 1.5, a: 0.07, k: 'neon' });
+      H.propBoxes.push({ min: [nx0 - 0.06, 0, nz - 0.16], max: [nx1 + 0.06, ny1 + 0.25, nz + 0.08] });
+      H.hotspots.push({
+        kind: 'locker',
+        x: nmx, z: nz, r: 2.6,
+        min: [nx0 - 0.1, ny0 - 0.1, nz - 0.1], max: [nx1 + 0.1, ny1 + 0.28, nz + 0.14],
+        stand: [nmx, EYE, nz + 1.35],
+        label: '🗂️ N.P.D. CASE BOARD — READ IT',
+        act: () => openLocker(),
       });
     }
 
@@ -2417,6 +2640,7 @@ void main() {
     H.state = 'idle';
     H.dialog = null;
     if (H.dlg) H.dlg.classList.remove('on');
+    closeLocker();
     const teardown = () => {
       H.root.classList.remove('active');
       document.body.classList.remove('hall-open', 'hall-session');
@@ -3108,15 +3332,20 @@ void main() {
         kick: 'x..x..x...x..x..', hat: 'x.x.x.xxx.x.x.x.', bass: '0.0...3...2.2...', lead: '..4.....2..4....' },
       { name: 'INSERT COIN', bpm: 126, root: 123, leadType: 'square', scale: [0, 4, 7, 12],
         kick: 'x...x...x...x...', hat: 'x.x.x.x.x.x.x.x.', bass: '0...1...2...3...', lead: '0.2.3.2.0.2.3.2.' },
+      // the fourth stop: what the box plays when the last player leaves and
+      // the machines are talking to each other. Minor, patient, almost no lead.
+      { name: 'THE NIGHT SHIFT', bpm: 72, root: 87, leadType: 'triangle', scale: [0, 2, 3, 7, 10],
+        kick: 'x.......x.......', hat: '....x.......x...', bass: '0.......3.....4.', lead: '......2.......1.' },
       // the seasonal single: pressed once, played one night a year (Aug 3).
-      // jukeTrackCount() keeps it out of the rotation the other 364 nights.
+      // jukeTrackCount() keeps it out of the rotation the other 364 nights —
+      // it stays LAST in this list so the everyday count is just a prefix.
       { name: "ONE CANDLE (FOUNDER'S DAY)", bpm: 118, root: 131, leadType: 'triangle', scale: [0, 2, 4, 7, 9, 12],
         kick: 'x...x...x...x.xx', hat: '..x...x...x...xx', bass: '0...2...3...2...', lead: '0.2.4...5.4.2.4.' },
     ],
   };
 
   function jukeTrackCount() {
-    return typeof nugFoundersDay === 'function' && nugFoundersDay() ? 5 : 4;
+    return typeof nugFoundersDay === 'function' && nugFoundersDay() ? 6 : 5;
   }
   try { JUKE.cur = Math.min(jukeTrackCount() - 1, Math.max(0, +(localStorage.getItem('nugJukebox') || 0) || 0)); } catch (e) { /* fresh ears */ }
 

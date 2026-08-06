@@ -41,6 +41,34 @@ game. Do not "fix" it. (`startZoom` guard in js/arcade.js.)
    it is its **front door**. The pipes run under the ENTIRE crime scene.
    The case just grew a basement.
 
+9. **NEW — the paperwork, part two.** (Filed after fact 8, which is logged with
+   the technical appendix below.) The pipes kept receipts. Eight brass
+   **DPW SALVAGE TAGS** came up out of the flooded mains (STORM DRAIN,
+   `nugDrainTags`): a hall token worn smooth, a bus transfer punched at 3:04 AM
+   when the last bus is 1:15, a tanker gasket rated for slurry, a work order
+   reading DO NOT DIVE — signed, countersigned, never actioned — a key cut for
+   the taped-off cabinet found eleven pipes from the hall, a pressure chart that
+   redlines then flatlines, half a manifest page, and an unsigned note in a
+   careful hand: *"it likes the pipes better than the bay. leave it a door."*
+   The other half of that manifest page came up off the pier in a corked bottle
+   (KEEPING IT REEL, `nugReelManifest`): weights, a route, and a column of
+   buyers, none of whom exist. Conclusion: the shipment is real, the hour is
+   wrong, the recipients are fiction, and the DPW wrote every bit of it down and
+   put it underwater. **No resolution added.** The department now has proof of a
+   shipment and still cannot name a hand.
+
+## THE BOARD (filed publicly, 2026-08-06)
+
+The case file is on the sidewalk now. Det. Dill mounted a glass case outside the
+arcade doors (the **N.P.D. CASE BOARD**, `openLocker()` in js/arcade.js) holding
+all fourteen exhibits this arcade can produce, each marked FILED or OPEN, each
+OPEN one naming where to go get it. His stated reasoning: *"the only people a
+secret case file keeps in the dark are the ones who might help me."*
+
+**Canon rule, load-bearing for every future game: a FULL board does not close
+the case.** Fourteen of fourteen still reads OPEN. FOREVER. DO NOT ARCHIVE. A
+new game may add a fifteenth exhibit; it may never add an ending.
+
 ## WITNESS LEDGER (street regulars, js/arcade.js `NPCS`)
 
 | Witness | Statement quality | Knows about |
@@ -66,6 +94,12 @@ conversation and reads them via these globals:
 | `nugGtaEvidence` | `gtaEvidence()` (count 0–12) | pinning evidence to the CASE BOARD (GTN Season 2) |
 | `nugGtaDill` | `gtaDillDone()` | finishing all four jobs of DILL'S CHAIN |
 | `nugGtaRaces` / `nugGtaGpWin` | `gtaRacesWon()` / `gtaGpWon()` | the street-race ladder / the GOLDEN NUG GP |
+| `nugDrainTags` | `drainTagCount()` (0–8) / `drainSalvageDone()` | pulling the 🏷️ DPW SALVAGE TAGS out of the mains |
+| `nugReelManifest` | `reelManifestFound()` | snagging 🍾 THE SYNDICATE MANIFEST off the deep bottom |
+
+**Adding an exhibit?** Put its reader in this table AND add a row to
+`LOCKER_EXHIBITS` in js/arcade.js, or it exists but nobody can see it. Every
+entry needs a FILED line (what it proves) and an OPEN line (where to go get it).
 
 8. **NEW — the paperwork.** A civilian assembled the department's first
    complete evidence board: twelve exhibits, one red string (GRAND THEFT

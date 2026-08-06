@@ -73,6 +73,24 @@ const BEAT_TRACKS = [
     density: 0.85,
     pal: { bg: '#1c060a', wall: '#320a12', beam1: '#ff4136', beam2: '#7c4dff', led: ['#ff4136', '#ff8a3d', '#7c4dff'] },
   },
+  {
+    // 2 AM. The room thins out to the people who close the place — the fryer
+    // crew off shift, the night bus drivers, one detective who says he's "just
+    // passing." Fast hats over a half-time kick: it sounds tired and refuses
+    // to stop, which is the whole job.
+    id: 'nightshift', name: 'THE NIGHT SHIFT', sub: 'side D · 2 AM, nobody left to impress',
+    bpm: 138, bars: 14, root: 87, scale: [0, 2, 3, 7, 10],
+    kick:  'x.......x.....x.',
+    snare: '....x.......x...',
+    hat:   'xxx.xx.xxxx.xx.x',
+    bass:  '0.......0..3..4.',
+    // the lead digits are also the LANES (beatGenTrack), and both snare steps
+    // here sit under a lead note — so without a `1` in this line the second cup
+    // never gets a single note all track. Keep one.
+    lead:  '..1.3..2....4...',
+    density: 0.78,
+    pal: { bg: '#0b1018', wall: '#141d2c', beam1: '#ffb020', beam2: '#4a7cff', led: ['#ffb020', '#4a7cff', '#e8e2d2'] },
+  },
 ];
 // The earned encore. He held the recorder over the rail. It rumbled BACK.
 const BEAT_ENCORE = {
