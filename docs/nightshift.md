@@ -223,6 +223,25 @@ The 403 came *before any ref was named*, so pushing to a
 not available, and the "guaranteed" ledger commit was not guaranteed
 either. Every assumption in this file about delivery failed at once.
 
+**As of 2026-08-07 this is still broken in the cloud environment, and it is
+not a repo-permissions problem.** A re-probe after the owner changed
+repo-level App permissions still returned `CAN PUSH: no`. Two independent
+layers, neither fixable by the repo owner:
+
+- The session's GitHub identity is Beau's **work** account
+  (`mcp__github__get_me` → `beau_caf2code`), and GitHub refuses it directly:
+  `Permission to chrismrobbins/howmanynuggets.git denied to beau_caf2code`.
+  Cloud sessions never hold a git credential — a proxy attaches the token —
+  so this cannot be repointed from inside a session or via the routine config.
+- The proxy refuses API writes regardless of credential: *"GitHub access is
+  not enabled for this session. An org admin must connect the Claude GitHub
+  App for this organization."*
+
+Also note `gh` is **not installed** in that container (`which gh` → NO GH)
+and REST is blocked, so the release channel in order 7 is unavailable there
+no matter what. Until an org admin resolves the above, a cloud shift can
+build and verify but cannot deliver — so the probe below is not optional.
+
 **So: prove the channel BEFORE you spend the night building.** First thing
 after `git pull`, push an empty commit to a scratch branch:
 
