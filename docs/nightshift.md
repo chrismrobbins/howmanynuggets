@@ -394,3 +394,24 @@ mechanisms failed for this one night's work — the container gateway, then the
 notification channel, then GitHub's own build. The work was fine every time;
 the pipes were not. Hence "PUSHING IS NOT SHIPPING" in order 5. Verify the
 deploy, not the push.
+
+It got worse before it got better. A retry pushed during the *partial* outage
+was a misjudgement: it escalated to `major_outage`, and that build sat in a
+dead queue for 15 minutes before both jobs were cancelled with **"The job was
+not acquired by Runner of type hosted even after multiple attempts."** Two
+failed builds, two different symptoms, one cause. The outage ran roughly nine
+hours — 15:22 UTC on the 6th to about 00:15 UTC on the 7th — and the fix was
+patience, not cleverness.
+
+**The operational lesson for future shifts:** when the platform is degraded,
+*wait for `operational` before spending a retry.* `githubstatus.com/api/v2/components.json`
+is a two-second check and it is authoritative:
+
+```bash
+curl -s https://www.githubstatus.com/api/v2/components.json \
+  | python -c "import sys,json; d=json.load(sys.stdin); \
+print({x['name']:x['status'] for x in d['components']}['Actions'])"
+```
+
+Retrying into a constrained runner pool does not get you a runner. It gets you
+another cancelled job, another failure email, and a longer queue for everyone.
