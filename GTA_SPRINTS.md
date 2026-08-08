@@ -1305,3 +1305,62 @@ off every roof in the district.
 **Gotcha for whoever's next:** the squall is reachable ONLY from a downpour, so
 a test that pins `gta.wx.cur` directly is the sane way to exercise it — don't
 sit and wait for the state machine.
+
+---
+
+## S2.12 — 🎨 FRESH PAINT (2026-08-08, the Blender night)
+
+The syndicate got a 3D printer. Every sprite in Nuggetown — the fleet, the
+citizens, the ground itself — is now a REAL 3D MODEL, built and lit in
+Blender and rendered top-down at 8× supersample, exactly the way DMA made
+GTA 1's car sprites in 1997. The city plays identically; it just stopped
+being made of rectangles.
+
+**The pipeline (all checked in under `blender/`):**
+- `nugrig.py` — the parametric factory: `make_car(cls)` for all 7 classes,
+  `make_nug(pose)` for 6 citizen poses + the NPD cap, `make_tile(kind)` for
+  the ground set, `make_prop(name)` for the street furniture. 1 Blender
+  unit = 1 game pixel; vehicles/peds face +Y; `PAINT_*` materials mean
+  "tint me at runtime".
+- Three passes per vehicle: BODY (paint rendered white), MASK (paint
+  regions as white emission — becomes the runtime tint stencil), WRECK
+  (paint→burnt, glass/lights→gutted, chrome→rust).
+- `pack_atlas.py` — premultiplied-LANCZOS downscale ÷8, grades every ground
+  tile so its mean color lands EXACTLY on the old procedural palette
+  (minimap/fog/headlight math never noticed), packs one 160×189 atlas
+  (22.7KB), and writes `js/gtaArt.js` with the PNG as a base64 data URI.
+  **nugget.png is still the repo's only binary art asset**, and the data
+  URI keeps photo mode's `toDataURL` untainted even from file://.
+- `gta_vehicles/peds/tiles/props.blend` — the editable source, one
+  collection per asset, `nugrig.export_gltf()` = the Unreal on-ramp.
+
+**Engine seam (`js/gtaArt.js`, loads before gta.js):** `GtaArt.on()`,
+`GtaArt.draw(g, name, cx, cy)`, `GtaArt.tinted(body, color)` (mask-multiply,
+cached per color — pearl's 13 quantized shades cache fine), and
+`GtaArt.tintedAll(name, color)` (roof gravel tinted per district block, the
+cop cap per outfit). EVERY call site keeps its full fillRect rig as the
+`!sprOk` fallback — if the atlas ever fails to decode, Nuggetown quietly
+reverts to rectangles rather than going invisible.
+
+**What stayed procedural ON TOP of the sprites, on purpose:** lane dashes,
+crosswalks, the wet-night sheen, neon + signs + doors, NPD livery/lightbar
+(painted over the white-tinted cruiser exactly as before), damage crumple +
+cracked glass, brake glow, headlight cones, all weather, all interiors, and
+every text glyph. The city's bones are still code.
+
+**Verified headless (61fps, zero pageerrors, canvas CLEAN):** downtown
+drive, harbor boardwalk + bay water + the storm glow, Little Batter park
+with both tree cultivars, on-foot citizens, a burnt-out wreck on its scorch
+mark, 1★ heat. Screenshots eyeballed at every stop.
+
+**Gotchas for whoever's next:**
+- The tile sprites' mean color IS the palette contract. If you re-render,
+  `pack_atlas.py` re-grades to `TILE_TARGETS` — change those hexes only in
+  lockstep with the minimap colors in gtaDrawMap.
+- Sprite pivots are canvas centers; vehicles' sprite canvas is (Wd+4)×(L+4)
+  so wheels/mirrors survive the crop. If you resize a class in GTA_CLASSES,
+  re-render or the overlay rects (livery, damage) drift off the body.
+- `GtaArt.tinted` caches per (region, color) — fine for palettes and
+  quantized pearl, but do NOT feed it a continuously-varying color string.
+- Interiors (10.8) still draw their own art; FRESH PAINT deliberately
+  stops at the door.

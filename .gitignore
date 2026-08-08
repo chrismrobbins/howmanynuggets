@@ -17,3 +17,8 @@ nugget.jpeg
 node_modules/
 package.json
 package-lock.json
+
+# Blender art-department droppings (blender/*.blend ARE tracked — they're source)
+__pycache__/
+blender/renders/
+blender/glb/

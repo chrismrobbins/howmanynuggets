@@ -176,6 +176,19 @@ already bitten someone.
 > (tier/clearRoom/boon/showBoons/pickBoon/floor/room/warp/hearts/hit —
 > `hit` clears i-frames first, a sexton-adjacent test flake taught us why).
 > Verified 25/25 headless ×3.
+> **2026-08-08 (the Blender night) — 🎨 FRESH PAINT (GTN S2.12):** every GTN
+> sprite is now a real 3D model — built parametrically in Blender
+> (`blender/nugrig.py`), rendered top-down at 8× like DMA did for GTA 1,
+> graded to the exact night palette, and shipped as ONE 22.7KB atlas
+> embedded as a data URI in `js/gtaArt.js` (loads before gta.js;
+> **nugget.png is still the only binary art asset**, and photo mode's
+> toDataURL stays untainted). Fleet/wrecks/tint-masks, 6 citizen poses +
+> the NPD cap, ground tiles (manholes!), cart/booth/crate/goldnug/trees.
+> Livery, damage, lane paint, neon, weather stay procedural ON TOP. Every
+> call site falls back to its old fillRect rig if the atlas fails — the
+> city degrades to rectangles, never to invisible. The .blend sources +
+> regen recipe live in `blender/` (README has the Unreal export path).
+> Verified headless: 61fps, zero pageerrors. Sprint note: GTA_SPRINTS S2.12.
 > **2026-07-21 — THE OVEN RELIGHT:** the first five games got deep upgrades
 > (build log in `UPGRADE_SPRINTS.md`). 🐤 Flappy (biomes + finale), 🥣 Dunk
 > (multi-sauce shifts), 🔫 Blaster (wave defense + Batter Bomber boss; now

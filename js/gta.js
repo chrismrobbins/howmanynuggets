@@ -5463,11 +5463,21 @@ function gtaDrawBuildings(g, ox, oy, c0, c1, r0, r1) {
         const pTR = [x1 - ox + (x1 - ax) * k, y0 - oy + (y0 - ay) * k];
         const pBL = [x0 - ox + (x0 - ax) * k, y1 - oy + (y1 - ay) * k];
         const pBR = [x1 - ox + (x1 - ax) * k, y1 - oy + (y1 - ay) * k];
-        g.fillStyle = gtaRoofCol(tc, tr);
-        g.beginPath();
-        g.moveTo(pTL[0], pTL[1]); g.lineTo(pTR[0], pTR[1]);
-        g.lineTo(pBR[0], pBR[1]); g.lineTo(pBL[0], pBL[1]);
-        g.closePath(); g.fill();
+        // FRESH PAINT: gravel rendered gray in Blender, tinted this block's
+        // color — the roof quad is an axis-aligned rect (offsets are linear),
+        // so a scaled blit covers it exactly.
+        const roofC = gtaRoofCol(tc, tr);
+        const roofCv = (typeof GtaArt !== 'undefined' && GtaArt.on())
+          ? GtaArt.tintedAll(((tc + tr) & 1) ? 'tile_roof_a' : 'tile_roof_b', roofC) : null;
+        if (roofCv) {
+          g.drawImage(roofCv, pTL[0], pTL[1], pTR[0] - pTL[0], pBL[1] - pTL[1]);
+        } else {
+          g.fillStyle = roofC;
+          g.beginPath();
+          g.moveTo(pTL[0], pTL[1]); g.lineTo(pTR[0], pTR[1]);
+          g.lineTo(pBR[0], pBR[1]); g.lineTo(pBL[0], pBL[1]);
+          g.closePath(); g.fill();
+        }
         // parapet: light catch on camera-facing exposed edges, shadow away
         g.lineWidth = 1;
         const edge = (e0, e1, light) => {
@@ -5492,6 +5502,7 @@ function gtaDrawBuildings(g, ox, oy, c0, c1, r0, r1) {
 function gtaDraw() {
   if (gta.interior && gta.phase === 'play') { gtaDrawInterior(); return; }
   const g = gta.g, W = gta.W, Hh = gta.Hh, T = GTA_TILE;
+  const artOn = typeof GtaArt !== 'undefined' && GtaArt.on(); // FRESH PAINT atlas in?
   let ox = Math.round(gta.cam.x - W / 2), oy = Math.round(gta.cam.y - Hh / 2);
   if (gta.shake > 0) {
     ox += Math.round((Math.random() - 0.5) * gta.shake * 8);
@@ -5507,12 +5518,17 @@ function gtaDraw() {
       const k = gtaTile(tc, tr);
       const hsh = gtaHash(tc, tr);
       if (k === GT_ROAD) {
-        g.fillStyle = ((tc + tr) & 1) ? '#232330' : '#26262e';
-        g.fillRect(x, y, T, T);
+        const crossing = gta.vRoad[tc] && gta.hRoad[tr];
+        // FRESH PAINT: Blender asphalt, with the odd manhole where the hash wills it
+        const roadSpr = !crossing && hsh % 29 === 0 ? 'tile_road_manhole'
+          : ((tc + tr) & 1) ? 'tile_road_a' : 'tile_road_b';
+        if (!(artOn && GtaArt.draw(g, roadSpr, x + T / 2, y + T / 2))) {
+          g.fillStyle = ((tc + tr) & 1) ? '#232330' : '#26262e';
+          g.fillRect(x, y, T, T);
+        }
         // wet-night sheen streak
         if (hsh % 9 === 0) { g.fillStyle = 'rgba(120,160,220,0.05)'; g.fillRect(x, y + 4, T, 6); }
         // lane dashes down the middle of each 2-wide road (not at crossings)
-        const crossing = gta.vRoad[tc] && gta.hRoad[tr];
         if (!crossing) {
           // zebra crosswalks on every leg flanking an intersection
           if (gta.vRoad[tc] && (gta.hRoad[tr - 1] || gta.hRoad[tr + 1])) {
@@ -5530,19 +5546,23 @@ function gtaDraw() {
       } else if (k === GT_WALK) {
         if (tc >= GTA_W - 14) {
           // harbor boardwalk + piers: planks over the bay
-          g.fillStyle = ((tc + tr) & 1) ? '#3a2c1c' : '#342818';
-          g.fillRect(x, y, T, T);
-          g.fillStyle = 'rgba(0,0,0,0.3)';
-          for (let py = 0; py < T; py += 6) g.fillRect(x, y + py, T, 1);
-        } else {
+          if (!(artOn && GtaArt.draw(g, ((tc + tr) & 1) ? 'tile_board_a' : 'tile_board_b', x + T / 2, y + T / 2))) {
+            g.fillStyle = ((tc + tr) & 1) ? '#3a2c1c' : '#342818';
+            g.fillRect(x, y, T, T);
+            g.fillStyle = 'rgba(0,0,0,0.3)';
+            for (let py = 0; py < T; py += 6) g.fillRect(x, y + py, T, 1);
+          }
+        } else if (!(artOn && GtaArt.draw(g, ((tc + tr) & 1) ? 'tile_walk_a' : 'tile_walk_b', x + T / 2, y + T / 2))) {
           g.fillStyle = ((tc + tr) & 1) ? '#33333e' : '#303039';
           g.fillRect(x, y, T, T);
           g.fillStyle = 'rgba(0,0,0,0.25)';
           g.fillRect(x, y, T, 1); g.fillRect(x, y, 1, T); // pavement seams
         }
       } else if (k === GT_WATER) {
-        g.fillStyle = ((tc + tr) & 1) ? '#0d2438' : '#0b2032';
-        g.fillRect(x, y, T, T);
+        if (!(artOn && GtaArt.draw(g, ((tc + tr) & 1) ? 'tile_water_a' : 'tile_water_b', x + T / 2, y + T / 2))) {
+          g.fillStyle = ((tc + tr) & 1) ? '#0d2438' : '#0b2032';
+          g.fillRect(x, y, T, T);
+        }
         // drifting glints — the bay is never quite still
         if ((hsh + Math.floor(gta.t * 2.5)) % 9 === 0) {
           g.fillStyle = 'rgba(140,190,240,0.10)';
@@ -5554,8 +5574,10 @@ function gtaDraw() {
         if (gtaTile(tc, tr - 1) !== GT_WATER) g.fillRect(x, y, T, 2);
         if (gtaTile(tc, tr + 1) !== GT_WATER) g.fillRect(x, y + T - 2, T, 2);
       } else if (k === GT_GRASS) {
-        g.fillStyle = ((tc + tr) & 1) ? '#122016' : '#101c14';
-        g.fillRect(x, y, T, T);
+        if (!(artOn && GtaArt.draw(g, ((tc + tr) & 1) ? 'tile_grass_a' : 'tile_grass_b', x + T / 2, y + T / 2))) {
+          g.fillStyle = ((tc + tr) & 1) ? '#122016' : '#101c14';
+          g.fillRect(x, y, T, T);
+        }
         if (hsh % 5 === 0) { // a tree, standing slightly taller than the night
           const tx2 = x + T / 2, ty2 = y + T / 2;
           const tox = (tc * T + T / 2 - (ox + W / 2)) * GTA_RISE * 0.8;
@@ -5564,10 +5586,13 @@ function gtaDraw() {
           g.beginPath(); g.arc(tx2, ty2, 8, 0, Math.PI * 2); g.fill();
           g.fillStyle = '#2a1c10'; // trunk
           g.fillRect(tx2 - 1, ty2 - 1, 2, 3);
-          g.fillStyle = '#122718'; // canopy drifts with the parallax
-          g.beginPath(); g.arc(tx2 + tox, ty2 + toy, 7, 0, Math.PI * 2); g.fill();
-          g.fillStyle = '#1a3524';
-          g.beginPath(); g.arc(tx2 + tox - 2, ty2 + toy - 2, 4, 0, Math.PI * 2); g.fill();
+          // canopy drifts with the parallax (grown in Blender, two cultivars)
+          if (!(artOn && GtaArt.draw(g, hsh % 2 ? 'prop_tree_a' : 'prop_tree_b', tx2 + tox, ty2 + toy))) {
+            g.fillStyle = '#122718';
+            g.beginPath(); g.arc(tx2 + tox, ty2 + toy, 7, 0, Math.PI * 2); g.fill();
+            g.fillStyle = '#1a3524';
+            g.beginPath(); g.arc(tx2 + tox - 2, ty2 + toy - 2, 4, 0, Math.PI * 2); g.fill();
+          }
         }
       } else {
         // building FOOTPRINT only — the roof floats overhead in the
@@ -5671,7 +5696,8 @@ function gtaDraw() {
       grad.addColorStop(0, '#fff3b0'); grad.addColorStop(0.6, '#ffd23a'); grad.addColorStop(1, 'rgba(198,138,18,0)');
       g.fillStyle = grad;
       g.beginPath(); g.arc(px, py, r + 3, 0, Math.PI * 2); g.fill();
-    } else {
+      if (artOn) GtaArt.draw(g, 'prop_goldnug', px, py); // the nug itself, in the glow
+    } else if (!(artOn && GtaArt.draw(g, 'prop_crate', px, py))) {
       g.fillStyle = '#6b4a26';
       g.fillRect(px - 5, py - 5, 10, 10);
       g.fillStyle = '#8a6236';
@@ -5706,17 +5732,19 @@ function gtaDraw() {
     if (px < -T || px > W + T || py < -T || py > Hh + T) continue;
     g.fillStyle = 'rgba(0,0,0,0.35)';
     g.fillRect(px + 3, py + 6, 18, 13);
-    g.fillStyle = '#6b4226';
-    g.fillRect(px + 4, py + 8, 16, 10);
-    g.fillStyle = '#ffd23a';
-    g.fillRect(px + 4, py + 8, 16, 2); // counter glow
-    for (let i = 0; i < 4; i++) { // striped awning
-      g.fillStyle = (i & 1) ? '#ff2fa0' : '#eef2ff';
-      g.fillRect(px + 2 + i * 5, py + 3, 5, 4);
+    if (!(artOn && GtaArt.draw(g, 'prop_cart', px + 12, py + 12))) {
+      g.fillStyle = '#6b4226';
+      g.fillRect(px + 4, py + 8, 16, 10);
+      g.fillStyle = '#ffd23a';
+      g.fillRect(px + 4, py + 8, 16, 2); // counter glow
+      for (let i = 0; i < 4; i++) { // striped awning
+        g.fillStyle = (i & 1) ? '#ff2fa0' : '#eef2ff';
+        g.fillRect(px + 2 + i * 5, py + 3, 5, 4);
+      }
+      g.fillStyle = '#0c0c12'; // awning poles
+      g.fillRect(px + 3, py + 7, 1, 11);
+      g.fillRect(px + 20, py + 7, 1, 11);
     }
-    g.fillStyle = '#0c0c12'; // awning poles
-    g.fillRect(px + 3, py + 7, 1, 11);
-    g.fillRect(px + 20, py + 7, 1, 11);
     // bowl sign, wobbling like it's hot
     if (Math.sin(gta.t * 2.4 + c.c) > -0.4) {
       g.font = '900 7px Consolas, monospace';
@@ -5732,16 +5760,18 @@ function gtaDraw() {
     if (px < -T * 2 || px > W + T || py < -T * 2 || py > Hh + T) continue;
     g.fillStyle = 'rgba(0,0,0,0.35)';
     g.fillRect(px + 6, py + 3, 13, 19);
-    g.fillStyle = '#123a5e'; // the shell
-    g.fillRect(px + 7, py + 4, 11, 17);
-    g.fillStyle = '#0a2038';
-    g.fillRect(px + 8, py + 9, 9, 11);
-    g.globalAlpha = 0.55; // glass
-    g.fillStyle = '#7ac8ff';
-    g.fillRect(px + 9, py + 10, 7, 8);
-    g.globalAlpha = 1;
-    g.fillStyle = '#ffe23a'; // lit PHONE sign
-    g.fillRect(px + 8, py + 5, 9, 3);
+    if (!(artOn && GtaArt.draw(g, 'prop_booth', px + 12.5, py + 12.5))) {
+      g.fillStyle = '#123a5e'; // the shell
+      g.fillRect(px + 7, py + 4, 11, 17);
+      g.fillStyle = '#0a2038';
+      g.fillRect(px + 8, py + 9, 9, 11);
+      g.globalAlpha = 0.55; // glass
+      g.fillStyle = '#7ac8ff';
+      g.fillRect(px + 9, py + 10, 7, 8);
+      g.globalAlpha = 1;
+      g.fillStyle = '#ffe23a'; // lit PHONE sign
+      g.fillRect(px + 8, py + 5, 9, 3);
+    }
     if (gta.boothRing) {
       const dill = gtaDillPending(); // S2.5: the detective's line rings cyan
       const rr2 = (gta.t * 26) % 16;
@@ -6129,6 +6159,19 @@ function gtaDrawVehicle(g, ox, oy, v, isPlayer) {
   // shadow
   g.fillStyle = 'rgba(0,0,0,0.45)';
   g.fillRect(-hw - 1, -hl - 1, C.Wd + 2, C.L + 3);
+  // FRESH PAINT: the Blender fleet — pre-rendered body, tinted this car's
+  // color through the paint mask. The fillRect rig below is the fallback
+  // whenever the atlas is missing or still decoding.
+  let sprOk = false;
+  if (typeof GtaArt !== 'undefined' && GtaArt.on()) {
+    if (v.wreck) {
+      if (GtaArt.draw(g, 'car_' + v.cls + '_wreck', 0, 0)) { g.restore(); return; }
+    } else {
+      const bodyCv = GtaArt.tinted('car_' + v.cls, base);
+      if (bodyCv) { g.drawImage(bodyCv, -bodyCv.width / 2, -bodyCv.height / 2); sprOk = true; }
+    }
+  }
+  if (!sprOk) {
   // wheels (long classes get a middle axle)
   g.fillStyle = '#0c0c12';
   g.fillRect(-hw - 1, -hl + 1, 2, 4); g.fillRect(hw - 1, -hl + 1, 2, 4);
@@ -6206,6 +6249,7 @@ function gtaDrawVehicle(g, ox, oy, v, isPlayer) {
       g.fillRect(-1, -hl + 1, 2, C.L - 2);
     }
   }
+  } // end of the fillRect fallback rig
   // NPD livery: black-and-whites get the black, everyone gets the light bar
   if (v.cop) {
     if (v.cls === 'cruiser') {
@@ -6245,13 +6289,17 @@ function gtaDrawVehicle(g, ox, oy, v, isPlayer) {
       g.fillRect(-2, -hl + 6, 3, 1);
     }
   }
-  // headlights
-  g.fillStyle = '#fff2c0';
-  g.fillRect(-hw + 2, -hl, 2, 1); g.fillRect(hw - 4, -hl, 2, 1);
-  // taillights (the player's glow under braking/handbrake)
+  // lights are baked into the sprites; the fallback rig still paints its
+  // own, and the player's taillights stay bright under braking either way
   const braking = isPlayer && (gta.keys.down || gta.handbrake);
-  g.fillStyle = braking ? '#ff5252' : '#7a1d1d';
-  g.fillRect(-hw + 2, hl - 1, 2, 1); g.fillRect(hw - 4, hl - 1, 2, 1);
+  if (!sprOk) {
+    g.fillStyle = '#fff2c0';
+    g.fillRect(-hw + 2, -hl, 2, 1); g.fillRect(hw - 4, -hl, 2, 1);
+  }
+  if (!sprOk || braking) {
+    g.fillStyle = braking ? '#ff5252' : '#7a1d1d';
+    g.fillRect(-hw + 2, hl - 1, 2, 1); g.fillRect(hw - 4, hl - 1, 2, 1);
+  }
   if (braking) { // brake glow on the wet tarmac
     g.fillStyle = 'rgba(255,60,60,0.16)';
     g.fillRect(-hw + 1, hl, C.Wd - 2, 3);
@@ -6273,6 +6321,40 @@ function gtaDrawPed(g, px, py, p, isPlayer) {
   // shadow
   g.fillStyle = 'rgba(0,0,0,0.35)';
   g.beginPath(); g.ellipse(0, 0.5, 4.2, 3.4, 0, 0, Math.PI * 2); g.fill();
+  // FRESH PAINT: the Blender nug — pose frame picked off the same clocks the
+  // fillRect rig used; jacket + arms tint through the paint mask. Falls
+  // through to the fillRect rig below when the atlas isn't in yet.
+  if (typeof GtaArt !== 'undefined' && GtaArt.on()) {
+    let pose;
+    if (p.daze > 0) pose = 'ped_daze';
+    else {
+      const stepS = Math.sin(p.t * (p.flee > 0 ? 22 : 11));
+      pose = p.flee > 0 ? (stepS > 0 ? 'ped_flee0' : 'ped_flee1')
+        : stepS > 0.35 ? 'ped_walk0' : stepS < -0.35 ? 'ped_walk1' : 'ped_idle';
+    }
+    const cv2 = GtaArt.tinted(pose, outfit);
+    if (cv2) {
+      g.drawImage(cv2, -cv2.width / 2, -cv2.height / 2);
+      if (p.hat && p.daze <= 0) { // some nugs wear a cap (all cops do)
+        const cap = GtaArt.tintedAll('ped_cap', gtaShade(outfit, 0.62));
+        if (cap) g.drawImage(cap, -cap.width / 2, -cap.height / 2);
+      }
+      if (hurt) { // damage blink reddens the breading, sprite or not
+        g.fillStyle = '#ff5252';
+        g.beginPath(); g.arc(0, -0.8, 2.4, 0, Math.PI * 2); g.fill();
+      }
+      if (p.daze > 0 && Math.floor(gta.t * 5) % 2 === 0) { // seeing little nuggets
+        g.fillStyle = '#ffe23a';
+        g.fillRect(-4, -5, 1, 1); g.fillRect(3, -4, 1, 1);
+      }
+      if (isPlayer && gta.punchAnim > 0) { // the people's fist
+        g.fillStyle = '#eef2ff';
+        g.fillRect(-0.5, -8.5, 2.4, 4.5);
+      }
+      g.restore();
+      return;
+    }
+  }
   if (p.daze > 0) {
     // freshly carjacked: flat on the road, limbs everywhere, dignity gone
     g.fillStyle = gtaShade(outfit, 0.8);
