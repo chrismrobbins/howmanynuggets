@@ -1,0 +1,58 @@
+/* ---- THE UNDERCROFT (roguelite crawl beneath Fort Nugget, js/croft.js) ---- */
+#croftWorld {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  display: none;
+  background: #030308;
+}
+body.croft-mode #croftWorld { display: block; }
+
+#croftWorld canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* floor plates / relic picks / THE DOOR / the end of a run */
+.croft-banner {
+  position: absolute;
+  left: 50%;
+  top: 28%;
+  transform: translate(-50%, -50%) scale(0.6);
+  font: 900 clamp(1.2rem, 4vw, 2.4rem)/1.2 Consolas, 'Courier New', monospace;
+  letter-spacing: 0.1em;
+  text-align: center;
+  color: #e8d9b0;
+  text-shadow: 3px 3px 0 #141008, 0 0 24px rgba(232, 217, 176, 0.4);
+  opacity: 0;
+  pointer-events: none;
+  max-width: 90vw;
+}
+.croft-banner.show {
+  animation: croft-banner-pop 0.35s ease-out forwards;
+}
+.croft-banner.go { color: #ffd23a; text-shadow: 3px 3px 0 #201603, 0 0 24px rgba(255, 210, 58, 0.5); }
+.croft-banner.over { color: #ff5252; text-shadow: 3px 3px 0 #3a0808, 0 0 24px rgba(255, 82, 82, 0.6); }
+/* lore reads like a plaque in candlelight, small enough to fit the whole line */
+.croft-banner.lore {
+  color: #ffd23a;
+  font-size: clamp(0.85rem, 2.2vw, 1.3rem);
+  letter-spacing: 0.06em;
+  text-shadow: 2px 2px 0 #201603, 0 0 18px rgba(255, 210, 58, 0.7), 0 0 44px rgba(124, 77, 237, 0.4);
+  max-width: min(44rem, 88vw);
+  animation: croft-banner-pop 0.35s ease-out forwards, croft-door-throb 1.2s ease-in-out 0.35s infinite;
+}
+
+@keyframes croft-banner-pop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  60% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes croft-door-throb {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -50%) scale(1.04); }
+}

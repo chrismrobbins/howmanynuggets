@@ -895,13 +895,16 @@ void main() {
         const remixed = typeof beatEncoreDone === 'function' && beatEncoreDone();
         const dropped = (H.best && H.best.beat > 0) || remixed;
         const dove = typeof drainSawStorm === 'function' && drainSawStorm();
+        const delved = typeof croftFoundDoor === 'function' && croftFoundDoor();
         const party = typeof nugFoundersDay === 'function' && nugFoundersDay();
         // Season 2: the street-racing ladder is rumor-adjacent commerce
         const races = typeof gtaRacesWon === 'function' ? gtaRacesWon() : 0;
         const gpDone = typeof gtaGpWon === 'function' && gtaGpWon();
         return {
         root: {
-          line: dove
+          line: delved
+            ? '*the hooded nugget adjusts the hood with both hands, ceremonially* five. for. five. the garage, the pier, the basement, the drains — and now a DOOR under the fort that the fort never built. *quietly* I\'m retiring the barrel, friend. I\'m buying a BIGGER barrel.'
+            : dove
             ? '*the hooded nugget takes one slow step back from you* you went DOWN there. under the town. and it went past you like you were furniture. *long pause* R&D is over, friend. everything I age in the barrel from now on is about YOU.'
             : dropped
             ? '*the hooded nugget does a very small, very smug two-step* the garage. the pier. and now the BASEMENT. three. for. three. I am not a nugget in a hood, friend — I am the morning paper.'
@@ -910,6 +913,7 @@ void main() {
               : '*the hooded nugget stands by the OPEN garage bay, radiating smug* you hear that engine? that\'s the sound of me being right. TWICE, now that the pier gate\'s open.',
           opts: [
             party ? { t: "founder's day, Hood. got a rumor for THE big one?", next: 'founders' } : null,
+            { t: 'there are cellar doors on the arcade\'s east wall. lit from inside.', next: 'croftDoors' },
             { t: 'the gutter grate across the road… it\'s GLOWING.', next: 'drainGrate' },
             { t: 'the pickle put his case file in a glass box.', next: 'hoodBoard' },
             { t: 'somebody\'s been painting checkers on the roads.', next: 'races' },
@@ -964,6 +968,18 @@ void main() {
         hoodBoard2: { line: '*sniffs* I age mine in a barrel. he laminates. we are not the same. *pause* …it IS a good board though. the layout breathes.', opts: [] },
         hoodBoard3: { line: 'every word, friend, which is the problem. a rumor you can VERIFY is just news, and nobody stands in the rain for news. *taps hood* go read it anyway. and then come back and tell me what he left OFF.', opts: [] },
         drainNope: { line: '*the hood tilts to exactly the angle of someone checking a watch* that\'s what the last three said. the garage. the pier. the basement. see you down there.', opts: [] },
+        // 🕯️ rumor five: the cellar doors (THE UNDERCROFT)
+        croftDoors: {
+          line: delved
+            ? '*the hood is very still* you went down. past the rooms. past the SEXTON. and at the bottom of a fort with ONE cellar floor on its drawings, there was a DOOR. *whisper* rumor five, cashed. the slate is clean and I have never felt so alive.'
+            : 'rumor number FIVE, aged in oak: those doors predate the arcade. they predate the STREET. the fort\'s own drawings show a wall there — no stairs, no cellar, nothing to keep shut. *leans all the way in* and somebody repaints that sign every spring. the paint is always FRESH.',
+          opts: [
+            { t: 'what\'s down there?', next: 'croftWhat' },
+            { t: 'who leaves the candles burning?', next: 'croftWho' },
+          ],
+        },
+        croftWhat: { line: 'rooms, friend. rooms and rooms and rooms going DOWN, and the fort only ever admitted to one floor of them. *taps hood* take a lantern. take a spare. take a THIRD.', opts: [] },
+        croftWho: { line: '*the longest pause you have ever stood through* nobody leaves candles burning in a room they visit, friend. you leave candles burning in a room you intend to COME BACK to. *steps back into the lamplight* ask the pickle about doors. specifically about tag seventy-seven.', opts: [] },
         beatClub: {
           line: remixed
             ? 'and you heard the ENCORE. *leans in under the neon* that bassline, friend — that\'s not a synth. he held a recorder over the pier rail at midnight and the harbor answered ON BEAT. my rumors have rumors now.'
@@ -1114,6 +1130,7 @@ void main() {
         const sawSimStorm = typeof simSawStorm === 'function' && simSawStorm();
         const servedSecret = typeof dunkSecretServed === 'function' && dunkSecretServed();
         const dove = typeof drainSawStorm === 'function' && drainSawStorm();
+        const delved = typeof croftFoundDoor === 'function' && croftFoundDoor();
         const caseNotes = flewStorm || heldCity || ranPier || sawSimStorm || servedSecret;
         const party = typeof nugFoundersDay === 'function' && nugFoundersDay();
         // Season 2 (NUGGETOWN NIGHTS): the case board + Dill's own chain
@@ -1137,6 +1154,7 @@ void main() {
             dillDone ? { t: 'the books burned, detective.', next: 'dillWrap' }
               : evid > 0 ? { t: 'been picking things up around town. evidence things.', next: 'evid' } : null,
             dove ? { t: 'detective. pull the DPW maps. I saw it IN THE PIPES.', next: 'drainSaw' } : null,
+            delved ? { t: 'there\'s a door under the fort. it isn\'t on the plans.', next: 'croftDoor' } : null,
             salvage ? { t: 'I pulled all eight DPW tags out of the mains.', next: 'salvage' }
               : tags > 0 ? { t: "there's brass wired into those pipes, detective.", next: 'salvage' } : null,
             manifest ? { t: 'I fished a bottle out of the deep. paperwork inside.', next: 'manifest' } : null,
@@ -1211,6 +1229,16 @@ void main() {
         },
         drainSaw2: { line: 'dredge WHAT, kid? it IS the water. *writes "jurisdiction: the municipal plumbing" and stares at it* I became a detective for parking fraud.', opts: [] },
         drainSaw3: { line: 'that sign predates the Incident by nine years. *flat stare* the DPW knew something. the DPW always knows something. they just file it under "flow".', opts: [] },
+        // 🚪 THE DOOR (THE UNDERCROFT) — tag seventy-seven finally parses
+        croftDoor: {
+          line: '*he does not reach for the notepad. that\'s how you know it\'s bad.* say it again. slowly. …a vault door. UNDER the fort. gold in the seam, water on the far side, moving harbor-way. *now he opens the notepad — straight to the salvage section, tag seventy-seven* "it likes the pipes better than the bay. LEAVE IT A DOOR." unsigned. *looks up, and for once the rain waits* somebody didn\'t just leave it a door, kid. somebody BUILT it one.',
+          opts: [
+            { t: 'so who built it?', next: 'croftDoor2' },
+            { t: 'should we open it?', next: 'croftDoor3' },
+          ],
+        },
+        croftDoor2: { line: 'the fort\'s drawings show ONE cellar floor. the fort\'s foundations disagree by — *checks your face* — several. and the mason\'s guild records burned, because every useful record in this town burns. it\'s practically a municipal service. *writes "WHO POURS A FOUNDATION AROUND A DOOR"* that\'s the whole case, kid. right there.', opts: [] },
+        croftDoor3: { line: '*the flattest stare ever issued by the department* the sign says KEEP SHUT. the note says LEAVE IT A DOOR. for the first time in this entire case, every piece of paper agrees. *closes the notepad* it stays shut. the case stays open. some doors are both.', opts: [] },
         // 🗂️ the noticeboard on the sidewalk + the two new exhibits it can hold
         board: {
           line: '*jerks a thumb at the case behind him without looking* the board. I got tired of people telling me they\'d have come forward if only somebody had TOLD them what we were looking for. so now it\'s in a glass case on a public sidewalk, in the rain, where every lead I have is legible to anyone who stops walking. ' +
@@ -1301,7 +1329,7 @@ void main() {
   // canon table). FILED means you proved it. OPEN is not a failure — it is a
   // LEAD, so every open exhibit says where to go get it.
   //
-  // Canon rule, load-bearing: filing all fourteen does NOT close the case. The
+  // Canon rule, load-bearing: filing all fifteen does NOT close the case. The
   // storm is never caught, freed, or killed. The board just gets fuller.
   const LOCKER_EXHIBITS = [
     { i: '🧺', t: 'THE EMPTY CABINET', src: 'THE HALL',
@@ -1361,6 +1389,10 @@ void main() {
       filed: 'All eight tags pulled out of the mains: a hall token, a 3AM transfer, a tanker gasket, a cabinet key.',
       open: () => 'Eight brass tags are wired into the pipes, deeper and deeper. ' +
         (typeof drainTagCount === 'function' ? drainTagCount() : 0) + '/8 pulled.' },
+    { i: '🚪', t: 'THE DOOR', src: 'THE UNDERCROFT',
+      got: () => typeof croftFoundDoor === 'function' && croftFoundDoor(),
+      filed: 'Floors under the fort no drawing admits to, ending at a vault door: gold in the seam, water behind it, moving harbor-way. Tag 077 said "leave it a door." Somebody built it one.',
+      open: 'Delve beneath Fort Nugget until the stairs land somewhere that isn\'t on the plans.' },
   ];
 
   function lockerFiledCount() {
@@ -1768,6 +1800,47 @@ void main() {
           H.lastCab = null;
           H.lastSpot = { stand: [gmx, 11.4], look: [gmx, 0.1, gmz] };
           launchGame('drain');
+        },
+      });
+    }
+
+    // ---- THE UNDERCROFT's front door ----------------------------------------------
+    // Slanted storm-cellar doors in the forgotten corner east of the NOODLE
+    // NUG, by the pier gate — oak, iron bands, and CANDLELIGHT in the seam
+    // (glow kind 'votive': steadier than the cake's candle, because whatever
+    // is burning down there has been burning a while). The painted board says
+    // KEEP SHUT, which every citizen of Nuggetown reads at the same volume as
+    // DO NOT DIVE. Game 15, the fifth street game (js/croft.js).
+    // (Placement note: the noodle shopfront spans x 12.1–17.1 — the first
+    // draft of these doors sat square in its window. Clear brick starts 17.3.)
+    {
+      const cx0 = 18.7, cx1 = 20.3, cmx2 = (cx0 + cx1) / 2;
+      const czTop = 0.18, czBot = 1.05, cyTop = 0.95, cyBot = 0.03;
+      // the slanted hatch top — emitted BOTH ways so the winding rules can't
+      // back-face it into invisibility (it happened to a scoreboard once)
+      ST.quad([cx0, cyBot, czBot], [cx1, cyBot, czBot], [cx1, cyTop, czTop], [cx0, cyTop, czTop], suv.croftDoor, { e: 0.16 });
+      ST.quad([cx1, cyBot, czBot], [cx0, cyBot, czBot], [cx0, cyTop, czTop], [cx1, cyTop, czTop], suv.croftDoor, { e: 0.16 });
+      // stone cheeks either side of the hatch
+      ST.quad([cx0 - 0.12, 0, czBot], [cx0, 0, czBot], [cx0, cyTop, czTop], [cx0 - 0.12, cyTop, czTop], suv.sw_iron, { tint: 0.5 });
+      ST.quad([cx1, 0, czBot], [cx1 + 0.12, 0, czBot], [cx1 + 0.12, cyTop, czTop], [cx1, cyTop, czTop], suv.sw_iron, { tint: 0.5 });
+      // the painted board on the wall above (front + back so it reads regardless)
+      ST.quad([cx0 + 0.1, 1.2, 0.16], [cx1 - 0.1, 1.2, 0.16], [cx1 - 0.1, 1.9, 0.16], [cx0 + 0.1, 1.9, 0.16], suv.croftSign, { e: 0.12 });
+      ST.quad([cx1 - 0.1, 1.2, 0.13], [cx0 + 0.1, 1.2, 0.13], [cx0 + 0.1, 1.9, 0.13], [cx1 - 0.1, 1.9, 0.13], suv.croftSign, { e: 0.05 });
+      // candlelight in the seam, three votives' worth, breathing out of phase
+      H.glows.push({ p: [cmx2, 0.78, 0.32], c: [1, 0.78, 0.25], s: 0.55, a: 0.18, k: 'votive', ph: 0 });
+      H.glows.push({ p: [cmx2, 0.48, 0.62], c: [1, 0.72, 0.2], s: 0.7, a: 0.14, k: 'votive', ph: 2.1 });
+      H.glows.push({ p: [cmx2, 0.14, 0.95], c: [1, 0.78, 0.25], s: 0.5, a: 0.2, k: 'votive', ph: 4.4 });
+      H.propBoxes.push({ min: [cx0 - 0.14, 0, 0.1], max: [cx1 + 0.14, cyTop, czBot + 0.06] });
+      H.hotspots.push({
+        kind: 'croft',
+        x: cmx2, z: 0.8, r: 2.6,
+        min: [cx0 - 0.15, 0, 0.1], max: [cx1 + 0.15, 1.95, czBot + 0.12],
+        stand: [cmx2, EYE, 2.5],
+        label: '🕯️ THE UNDERCROFT — GO DOWN',
+        act: () => {
+          H.lastCab = null;
+          H.lastSpot = { stand: [cmx2, 2.5], look: [cmx2, 0.4, 0.6] };
+          launchGame('croft');
         },
       });
     }
@@ -2660,6 +2733,7 @@ void main() {
       catch: 'myCatch', blaster: 'myBlaster', flappy: 'myFlappy', dunk: 'myDunk',
       sim: 'mySim', run: 'myRun', knight: 'myKnight', brawl: 'myBrawl', ranch: 'myRanch',
       kart: 'myKart', reel: 'myReel', gta: 'myGta', beat: 'myBeat', drain: 'myDrain',
+      croft: 'myCroft',
     };
     for (const [mode, id] of Object.entries(ids)) {
       const el = document.getElementById(id);
@@ -3080,6 +3154,10 @@ void main() {
       } else if (gsp.k === 'candle') {
         if (H.cakeWished) continue; // the wish took it
         a = gsp.a * (0.62 + 0.28 * Math.sin(H.t * 11 + gsp.p[1] * 40) + 0.1 * Math.sin(H.t * 27));
+      } else if (gsp.k === 'votive') {
+        // the cellar seam: candlelight nobody admits to leaving. steadier than
+        // the cake's candle — whatever burns down there has been at it a while.
+        a = gsp.a * (0.72 + 0.18 * Math.sin(H.t * 7 + (gsp.ph || 0)) + 0.1 * Math.sin(H.t * 19 + (gsp.ph || 0) * 3));
       }
       pushSprite(arr, gx, gsp.p[1], gz, gsp.s, gsp.s, gsp.c[0], gsp.c[1], gsp.c[2], a, right, up);
     }

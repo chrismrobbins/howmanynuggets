@@ -30,6 +30,7 @@ const ArcadeArt = (() => {
     { mode: 'gta',  title: 'GRAND THEFT NUGGET', icon: '🚔', c1: '#ffd23a', c2: '#3ad4ff', tag: 'WELCOME TO NUGGETOWN' },
     { mode: 'beat', title: 'DIP HOP', icon: '🎧', c1: '#ff2fa0', c2: '#7c4dff', tag: 'SAUCE SESSIONS · NIGHTLY' },
     { mode: 'drain', title: 'STORM DRAIN', icon: '🕳️', c1: '#39ff7a', c2: '#ffd23a', tag: 'ALL PIPES LEAD TO THE HARBOR' },
+    { mode: 'croft', title: 'THE UNDERCROFT', icon: '🕯️', c1: '#ffb020', c2: '#7c4ded', tag: 'WHAT THE FORT FORGOT' },
   ];
 
   const NEON = ['#ff2fa0', '#26e0ff', '#ffe23a', '#7c4dff', '#39ff7a'];
@@ -1230,22 +1231,27 @@ const ArcadeArt = (() => {
   }
 
   function makeStreetAtlas() {
-    const S = 1024;
-    const c = cv(S, S);
+    // 1024×2048 since game 15: THE UNDERCROFT's doors were the two regions
+    // that finally overflowed the original 1024² page (cakeSide fell off the
+    // bottom — the exact black-texture bug the hall atlas notes warn about).
+    // Height doubled; both axes stay power-of-two because the hall
+    // generateMipmaps this texture (WebGL1 NPOT would silently break it).
+    const SW = 1024, SH = 2048;
+    const c = cv(SW, SH);
     const g = c.getContext('2d');
     // transparent page: NPC cutouts need alpha; solid regions paint their own bg
     const uv = {};
     let cx = 0, cy = 0, rowH = 0;
     const PAD = 8;
     function alloc(name, w, h, painter) {
-      if (cx + w + PAD > S) { cx = 0; cy += rowH + PAD; rowH = 0; }
-      if (cy + h > S) console.warn('ArcadeArt street atlas overflow at', name);
+      if (cx + w + PAD > SW) { cx = 0; cy += rowH + PAD; rowH = 0; }
+      if (cy + h > SH) console.warn('ArcadeArt street atlas overflow at', name);
       g.save();
       g.translate(cx, cy);
       g.beginPath(); g.rect(0, 0, w, h); g.clip();
       painter(g, w, h);
       g.restore();
-      uv[name] = [(cx + 1.5) / S, (cy + 1.5) / S, (cx + w - 1.5) / S, (cy + h - 1.5) / S];
+      uv[name] = [(cx + 1.5) / SW, (cy + 1.5) / SH, (cx + w - 1.5) / SW, (cy + h - 1.5) / SH];
       cx += w + PAD;
       rowH = Math.max(rowH, h);
     }
@@ -1278,6 +1284,9 @@ const ArcadeArt = (() => {
     // STORM DRAIN's front door: the grate in the gutter (+ the DPW barricade)
     alloc('drainGrate', 96, 64, pDrainGrate);
     alloc('drainSign', 128, 64, pDrainSign);
+    // THE UNDERCROFT's front door: slanted cellar doors against the east wall
+    alloc('croftDoor', 96, 96, pCroftDoor);
+    alloc('croftSign', 128, 64, pCroftSign);
     // 🗂️ THE EVIDENCE LOCKER: the NPD's public case board on the sidewalk
     alloc('npdBoard', 192, 128, pNpdBoard);
     // 🎂 FOUNDER'S DAY (one night a year — geometry only built when it's on,
@@ -1489,6 +1498,96 @@ const ArcadeArt = (() => {
     g.fillStyle = 'rgba(170,205,255,0.10)';
     g.fillRect(6, 6, w - 12, 3);
     speckle(g, w, h, 26, '#0a0c10', 0.5, 2);
+  }
+
+  // Storm-cellar doors that predate the arcade, the street, and possibly the
+  // fort: two oak leaves, iron banding, and warm candlelight in the crack that
+  // nobody will admit to leaving burning down there.
+  function pCroftDoor(g, w, h) {
+    g.fillStyle = '#181209';                 // the stone lip around the doors
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#2a2214';
+    g.lineWidth = 5;
+    g.strokeRect(2, 2, w - 4, h - 4);
+    // the gold in the seam FIRST — the planks close over it
+    const gl = g.createLinearGradient(0, 0, 0, h);
+    gl.addColorStop(0, 'rgba(255,210,58,0.9)');
+    gl.addColorStop(1, 'rgba(255,176,32,0.35)');
+    g.fillStyle = gl;
+    g.fillRect(w / 2 - 4, 6, 8, h - 12);
+    // two door leaves, planked
+    for (const [x0, x1] of [[6, w / 2 - 2], [w / 2 + 2, w - 6]]) {
+      const grad = g.createLinearGradient(x0, 0, x1, 0);
+      grad.addColorStop(0, '#4a3416');
+      grad.addColorStop(0.5, '#5c4420');
+      grad.addColorStop(1, '#3a2810');
+      g.fillStyle = grad;
+      g.fillRect(x0, 6, x1 - x0, h - 12);
+      g.strokeStyle = 'rgba(0,0,0,0.5)';
+      g.lineWidth = 1.5;
+      const planks = 4;
+      for (let i = 1; i < planks; i++) {
+        const px = x0 + (x1 - x0) * (i / planks);
+        g.beginPath(); g.moveTo(px, 7); g.lineTo(px, h - 7); g.stroke();
+      }
+      // wood grain ticks
+      g.strokeStyle = 'rgba(0,0,0,0.25)';
+      for (let i = 0; i < 8; i++) {
+        const gx = x0 + 3 + Math.random() * (x1 - x0 - 6), gy = 10 + Math.random() * (h - 22);
+        g.beginPath(); g.moveTo(gx, gy); g.lineTo(gx + 1, gy + 4 + Math.random() * 5); g.stroke();
+      }
+    }
+    // iron bands across both leaves
+    g.fillStyle = '#2c313c';
+    g.fillRect(4, h * 0.24, w - 8, 7);
+    g.fillRect(4, h * 0.68, w - 8, 7);
+    g.fillStyle = '#4a5266';
+    for (let i = 0; i < 6; i++) {
+      g.fillRect(8 + i * (w - 20) / 5, h * 0.24 + 2, 3, 3);
+      g.fillRect(8 + i * (w - 20) / 5, h * 0.68 + 2, 3, 3);
+    }
+    // the light leaking through the seam and under the bands
+    g.fillStyle = 'rgba(255,210,58,0.8)';
+    g.fillRect(w / 2 - 1, 8, 2, h - 16);
+    g.fillStyle = 'rgba(255,210,58,0.25)';
+    g.fillRect(w / 2 - 5, h * 0.24 + 7, 10, 2);
+    g.fillRect(w / 2 - 5, h * 0.68 + 7, 10, 2);
+    // ring pulls
+    g.strokeStyle = '#8a7448';
+    g.lineWidth = 2.5;
+    g.beginPath(); g.arc(w * 0.32, h * 0.5, 5, 0.4, 5.9); g.stroke();
+    g.beginPath(); g.arc(w * 0.68, h * 0.5, 5, 0.4, 5.9); g.stroke();
+    speckle(g, w, h, 20, '#0a0805', 0.4, 2);
+  }
+
+  // Somebody painted the name on a board and nailed it up. Somebody ELSE
+  // painted the advice underneath. Neither of them signed it.
+  function pCroftSign(g, w, h) {
+    g.fillStyle = '#241a0a';
+    g.fillRect(0, 0, w, h);
+    const grad = g.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#4a3416');
+    grad.addColorStop(1, '#32220c');
+    g.fillStyle = grad;
+    g.fillRect(3, 3, w - 6, h - 6);
+    g.strokeStyle = '#181008';
+    g.lineWidth = 2.5;
+    g.strokeRect(3, 3, w - 6, h - 6);
+    // nail heads
+    g.fillStyle = '#8a94a6';
+    for (const [nx, ny] of [[8, 8], [w - 8, 8], [8, h - 8], [w - 8, h - 8]]) {
+      g.beginPath(); g.arc(nx, ny, 2, 0, 7); g.fill();
+    }
+    g.textAlign = 'center';
+    g.fillStyle = '#ffd23a';
+    g.font = '900 12px Georgia, serif';
+    g.fillText('THE UNDERCROFT', w / 2, h * 0.42);
+    g.fillStyle = 'rgba(232,217,176,0.75)';
+    g.font = '700 9px Consolas, monospace';
+    g.fillText('FORT NUGGET CELLARS', w / 2, h * 0.66);
+    g.fillStyle = 'rgba(255,120,90,0.85)';
+    g.font = '900 9px Consolas, monospace';
+    g.fillText('KEEP SHUT', w / 2, h * 0.88);
   }
 
   // The Department of Public Works would like a word. The word is NO.

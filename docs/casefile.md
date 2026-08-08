@@ -57,24 +57,36 @@ game. Do not "fix" it. (`startZoom` guard in js/arcade.js.)
    put it underwater. **No resolution added.** The department now has proof of a
    shipment and still cannot name a hand.
 
+10. **NEW — the door.** The fort's own cellars go DOWN (THE UNDERCROFT,
+    game 15, js/croft.js) — floors of rooms no drawing admits to, and at the
+    bottom of a delve, once a run, a **vault door that is not on the plans**:
+    iron, gold light in the seam, water on the far side, moving harbor-way
+    (`nugCroftDoor`). Cross-reference TAG 077, the unsigned note out of the
+    mains: *"it likes the pipes better than the bay. leave it a door."*
+    Conclusion: somebody didn't just leave it a door — somebody **built** it
+    one, and poured a fort on top. The cellar hatch on the street says KEEP
+    SHUT; the note says LEAVE IT A DOOR; for the first time in this entire
+    case, every piece of paper agrees. It stays shut. It does not open. It is
+    not going to open. **No resolution added.**
+
 ## THE BOARD (filed publicly, 2026-08-06)
 
 The case file is on the sidewalk now. Det. Dill mounted a glass case outside the
 arcade doors (the **N.P.D. CASE BOARD**, `openLocker()` in js/arcade.js) holding
-all fourteen exhibits this arcade can produce, each marked FILED or OPEN, each
+all fifteen exhibits this arcade can produce, each marked FILED or OPEN, each
 OPEN one naming where to go get it. His stated reasoning: *"the only people a
 secret case file keeps in the dark are the ones who might help me."*
 
 **Canon rule, load-bearing for every future game: a FULL board does not close
-the case.** Fourteen of fourteen still reads OPEN. FOREVER. DO NOT ARCHIVE. A
-new game may add a fifteenth exhibit; it may never add an ending.
+the case.** Fifteen of fifteen still reads OPEN. FOREVER. DO NOT ARCHIVE. A
+new game may add a sixteenth exhibit; it may never add an ending.
 
 ## WITNESS LEDGER (street regulars, js/arcade.js `NPCS`)
 
 | Witness | Statement quality | Knows about |
 |---|---|---|
 | **Big Crumb** (door) | reliable, heard *nothing* — which he finds suspicious | the redlining pressure gauge; filed a report nobody read |
-| **The Hooded Nug** | infuriatingly accurate | ALL FOUR rumors: garage, pier, basement club, the humming gutters |
+| **The Hooded Nug** | infuriatingly accurate | ALL FIVE rumors: garage, pier, basement club, the humming gutters, the cellar doors |
 | **Gravy Jones** (bench) | damp, slow, credible | mustard-crowd history; DJ DRIP is his estranged nephew |
 | **Henrietta** | bwok | more than she lets on |
 | **Det. Dill** | it's his case | everything above, written down, underlined twice |
@@ -96,6 +108,7 @@ conversation and reads them via these globals:
 | `nugGtaRaces` / `nugGtaGpWin` | `gtaRacesWon()` / `gtaGpWon()` | the street-race ladder / the GOLDEN NUG GP |
 | `nugDrainTags` | `drainTagCount()` (0–8) / `drainSalvageDone()` | pulling the 🏷️ DPW SALVAGE TAGS out of the mains |
 | `nugReelManifest` | `reelManifestFound()` | snagging 🍾 THE SYNDICATE MANIFEST off the deep bottom |
+| `nugCroftDoor` | `croftFoundDoor()` | finding 🚪 THE DOOR beneath Fort Nugget (The Undercroft, the B4+ stairs; also unlocks THE DARK BELOW oath) |
 
 **Adding an exhibit?** Put its reader in this table AND add a row to
 `LOCKER_EXHIBITS` in js/arcade.js, or it exists but nobody can see it. Every

@@ -151,6 +151,31 @@ already bitten someone.
 > is NEW (tier/depth/air/gear/offerGear/pickGear — depth teleports keep the spawn
 > clocks and sublevel counter in step so a jump doesn't back-spawn a screenful).
 > Verified 29/29 headless (natural triggers, pacing, freeze, per-dive reset).
+> **2026-08-08 (later the same night) — 🕯️ THE UNDERCROFT (game 15, mode
+> `croft`, js/croft.js):** the FIFTH street game, and the first built AROUND
+> the pick-1-of-3 deal — a roguelite crawl under Fort Nugget: single-screen
+> rooms, clear one → ⛧ THE RELIQUARY deals 3 of 16 relics (boonSelect), then
+> descend; relics die with the run. Three oaths where LIGHT is the difficulty
+> (TAPER / LANTERN / 🌑 THE DARK BELOW, earned); every 3rd floor 🔔 THE SEXTON
+> (he SNUFFS your lantern up close + carries his own dark). The graphics
+> flagship: a real-time 2D lighting engine on the low-res canvas — darkness is
+> an offscreen canvas ERASED by radial lights (held lantern, wall torches,
+> wisp foes that are their own lamps, embers, THE DOOR's seam), plus an
+> additive hot-core pass; light radii scale with ROOM height, not pixels.
+> Rooms pre-render to a base canvas; kills stamp decals into it. CANON: the
+> B4+ stairs land once a run at 🚪 THE DOOR THAT ISN'T ON THE PLANS
+> (`nugCroftDoor` / `croftFoundDoor()` — TAG 077's "leave it a door" finally
+> parses; Dill + Hood react, 15th case-board exhibit; the door NEVER opens).
+> Street entry: slanted cellar doors + KEEP SHUT board in the corner EAST of
+> the noodle shop (x 18.7–20.3 — the shopfront spans 12.1–17.1, don't put
+> things in its window), glow kind `'votive'`. ⚠️ the STREET ATLAS grew to
+> **1024×2048** (croftDoor/croftSign overflowed the old 1024² page — cakeSide
+> went black; both axes must stay power-of-two, the hall generateMipmaps).
+> `croft` is in MODE_COMPACT_HUD (in-canvas HUD; the vault door lives where
+> the full storm card used to sit). Test seam: `window.croftDebug`
+> (tier/clearRoom/boon/showBoons/pickBoon/floor/room/warp/hearts/hit —
+> `hit` clears i-frames first, a sexton-adjacent test flake taught us why).
+> Verified 25/25 headless ×3.
 > **2026-07-21 — THE OVEN RELIGHT:** the first five games got deep upgrades
 > (build log in `UPGRADE_SPRINTS.md`). 🐤 Flappy (biomes + finale), 🥣 Dunk
 > (multi-sauce shifts), 🔫 Blaster (wave defense + Batter Bomber boss; now
@@ -252,8 +277,9 @@ already bitten someone.
   geometry now (blob3/box3/tube3 helpers in buildStreet, one buffer each,
   idle bob + they turn to face the player mid-dialog via `n.curYaw`).
   Street textures come from a SECOND atlas (`ArcadeArt.makeStreetAtlas`,
-  1024²) with its own overflow warning — never add street art to the main
-  2048² page.
+  1024×2048 since game 15 — keep both axes power-of-two, the hall
+  generateMipmaps it) with its own overflow warning — never add street art
+  to the main 2048² page.
   While `H.dialog` is set, movement/prompt/tap input is owned by the
   dialogue panel; ESC closes the dialog before it can exit the hall.
   The walkable street is x ∈ (−21.1, 21.1), z ∈ (0.1, 13.5) in `posValid`,
