@@ -19,6 +19,8 @@
 // Low-res pixel canvas scaled up (reel/brawl school). Scoring mirrors the other
 // games: every meter and every pickup pays perFlyer-scaled points into
 // storm.caught; golden nugs are the 10× tier; the passing storm is the jackpot.
+// At every 150m sublevel line: 🧰 a DPW SUPPLY CACHE — pick 1 of 3 pieces of
+// dive gear (DRAIN_GEAR via ArcadeKit.boonSelect; gear resets every dive).
 
 const drainWorld = document.getElementById('drainWorld');
 
@@ -89,6 +91,27 @@ function drainTagCount() {
 // Every tag pulled out of the mains. Street NPCs + the NPD noticeboard react.
 function drainSalvageDone() { return drainTagCount() >= DRAIN_TAGS.length; }
 
+// ---- 🧰 DPW SUPPLY CACHES ---------------------------------------------------------
+// The knight's boon system, 150 meters down: at every sublevel line the DPW
+// left a crate bolted to the wall — pick ONE of three pieces of gear (dealt via
+// ArcadeKit.boonSelect; the water holds still while you shop). Gear lasts THIS
+// dive only — surface and it's back on the shelf — so every dive is a fresh
+// build. That's the loop: one more dive, but THIS time take the fins.
+const DRAIN_GEAR = [
+  { key: 'tanks',  emoji: '🫧', name: 'Double Tanks',       desc: '+25 max air, topped off',       ok: (g) => g.airMax < 175, apply: (g) => { g.airMax += 25; drain.air = g.airMax; } },
+  { key: 'fins',   emoji: '🐸', name: 'Long Fins',          desc: 'Kick 25% harder',               ok: (g) => g.kick < 1.9,   apply: (g) => { g.kick *= 1.25; } },
+  { key: 'reg',    emoji: '⏳', name: 'Pressure Regulator', desc: 'Air burns 12% slower',          ok: (g) => g.burn > 0.68,  apply: (g) => { g.burn *= 0.88; } },
+  { key: 'wax',    emoji: '🧈', name: 'Grease-Proof Wax',   desc: 'Hits cost half the air',        ok: (g) => !g.wax,         apply: (g) => { g.wax = 1; } },
+  { key: 'magnet', emoji: '🧲', name: 'Brass Magnet',       desc: 'Pickups reach 40% further',     ok: (g) => g.mag < 1.9,    apply: (g) => { g.mag *= 1.4; } },
+  { key: 'prints', emoji: '📐', name: 'DPW Blueprints',     desc: 'The clog gaps run wider',       ok: (g) => g.gap < 16,     apply: (g) => { g.gap += 8; } },
+  { key: 'steady', emoji: '🧤', name: 'Steady Hands',       desc: 'Hits no longer break the combo', ok: (g) => !g.steady,     apply: (g) => { g.steady = 1; } },
+  { key: 'boots',  emoji: '🥾', name: 'Lead Boots',         desc: 'Sink 15% faster — brave',       ok: (g) => g.sink < 1.5,   apply: (g) => { g.sink *= 1.15; } },
+  { key: 'can',    emoji: '🍶', name: 'Spare Canister',     desc: '+40 air, right now',            ok: () => true,            apply: (g) => { drain.air = Math.min(g.airMax, drain.air + 40); } },
+];
+function drainFreshGear() {
+  return { airMax: DRAIN_AIR_MAX, kick: 1, burn: 1, wax: 0, mag: 1, gap: 0, steady: 0, sink: 1, picks: 0 };
+}
+
 const drain = {
   on: false,
   cv: null, g: null, banner: null, bannerT: null,
@@ -116,6 +139,10 @@ const drain = {
   sawThisRun: false,
   tagSpawned: [],    // 🏷️ salvage tags already dropped into THIS dive's shaft
   tagsThisRun: 0,
+  // 🧰 supply caches (pick 1 of 3 at every sublevel line; reset per dive)
+  gear: drainFreshGear(),
+  gearPick: null,    // the open ArcadeKit.boonSelect, if any
+  choosing: false,   // gear cards on screen; the dive is frozen
   // milestones + session ledger
   nextSubIdx: 0,
   payFrac: 0,        // fractional meters banked toward the next payout
@@ -141,6 +168,7 @@ function drainSawStorm() {
 
 function drainTally() {
   if (drain.phase === 'tier') return '🕳️ how deep does it go…';
+  if (drain.choosing) return '🧰 the DPW left a cache…';
   if (drain.phase === 'out') return '🫧 surfaced · deepest ' + Math.round(drain.deepest) + 'm';
   const m = Math.round(drain.depth / DRAIN_PXM);
   const tags = drainTagCount();
@@ -191,6 +219,8 @@ function syncDrain() {
     openDrainTier();
   } else {
     if (drain.tierPick) { drain.tierPick.close(); drain.tierPick = null; }
+    if (drain.gearPick) { drain.gearPick.close(); drain.gearPick = null; }
+    drain.choosing = false;
     drain.banner && drain.banner.classList.remove('show');
   }
 }
@@ -227,7 +257,9 @@ function drainNewDive() {
   drain.x = drain.W / 2;
   drain.vx = 0; drain.vy = 0;
   drain.depth = 0;
-  drain.air = DRAIN_AIR_MAX;
+  drain.gear = drainFreshGear(); // gear goes back on the shelf between dives
+  drain.choosing = false;
+  drain.air = drain.gear.airMax;
   drain.iframes = 0;
   drain.ents = [];
   drain.trail = [];
@@ -354,8 +386,8 @@ function drainSpawnAhead() {
 function drainHit(label) {
   if (drain.iframes > 0 || drain.storm) return; // the passing stills the water
   drain.iframes = 1.15;
-  drain.combo = 0;
-  drain.air = Math.max(0, drain.air - DRAIN_HIT_AIR);
+  if (!drain.gear.steady) drain.combo = 0;
+  drain.air = Math.max(0, drain.air - DRAIN_HIT_AIR * (drain.gear.wax ? 0.5 : 1));
   ArcadeKit.kick(7, 240);
   ArcadeKit.hitStop(70);
   if (label) {
@@ -375,6 +407,8 @@ function stepDrain(dt, w, h) {
     return;
   }
 
+  if (drain.choosing) { drainDraw(); return; } // the cache is open; the pipes hold their breath
+
   const cfg = drain.cfg;
   const stormCalm = drain.storm ? 0.35 : 1;
 
@@ -393,8 +427,8 @@ function stepDrain(dt, w, h) {
 
   // ---- the sink ----
   const meters = drain.depth / DRAIN_PXM;
-  const sinkBase = (34 + Math.min(meters * 0.03, 26)) * cfg.speed * stormCalm;
-  const target = drain.kicking ? -40 * stormCalm : sinkBase;
+  const sinkBase = (34 + Math.min(meters * 0.03, 26)) * cfg.speed * stormCalm * drain.gear.sink;
+  const target = drain.kicking ? -40 * stormCalm * drain.gear.kick : sinkBase;
   drain.vy += (target - drain.vy) * 3.4 * dt;
   drain.depth = Math.max(0, drain.depth + drain.vy * dt);
   drain.x += drain.vx * dt;
@@ -406,7 +440,7 @@ function stepDrain(dt, w, h) {
 
   // ---- air ----
   if (drain.t > DRAIN_GRACE) {
-    const burn = 3.0 * cfg.burn * (drain.kicking ? 1.5 : 1) * stormCalm;
+    const burn = 3.0 * cfg.burn * drain.gear.burn * (drain.kicking ? 1.5 : 1) * stormCalm;
     drain.air -= burn * dt;
   }
   drain.iframes = Math.max(0, drain.iframes - dt);
@@ -415,12 +449,13 @@ function stepDrain(dt, w, h) {
   if (drain.vy > 0) drainPayDepth((drain.vy * dt) / DRAIN_PXM);
   if (newM > drain.deepest) drain.deepest = newM;
 
-  // ---- sublevels ----
+  // ---- sublevels (each line has a 🧰 supply cache waiting) ----
   const subDepth = (drain.nextSubIdx + 1) * 150;
   if (newM >= subDepth) {
     const name = DRAIN_SUBLEVELS[Math.min(drain.nextSubIdx, DRAIN_SUBLEVELS.length - 1)];
     drainBanner('▼ ' + subDepth + 'm — ' + name, '', 1.8);
     drain.nextSubIdx++;
+    drainOfferGear(subDepth);
   }
 
   // ---- THE PASSING ----
@@ -469,7 +504,8 @@ function stepDrain(dt, w, h) {
     if (e.kind === 'clog') {
       if (!e.crossed && drain.depth + drain.vy * dt >= e.d && drain.depth < e.d + 4) {
         e.crossed = true;
-        if (drain.x > e.gx && drain.x < e.gx + e.gw) {
+        const gp = drain.gear.gap / 2; // DPW Blueprints widen the way through
+        if (drain.x > e.gx - gp && drain.x < e.gx + e.gw + gp) {
           drain.combo++;
           drainPay(12, '🕳️ THREADED', false);
         } else {
@@ -480,16 +516,17 @@ function stepDrain(dt, w, h) {
     }
     const dx = e.x - drain.x;
     const rr2 = Math.hypot(dx, dy);
-    if (e.kind === 'nug' && rr2 < 11) {
+    const mag = drain.gear.mag; // the Brass Magnet only pulls the GOOD things
+    if (e.kind === 'nug' && rr2 < 11 * mag) {
       drain.combo++; drain.nugs++;
       drainPay(6, '🍗', false);
       drain.ents.splice(i, 1);
-    } else if (e.kind === 'golden' && rr2 < 12) {
+    } else if (e.kind === 'golden' && rr2 < 12 * mag) {
       drain.combo++; drain.nugs++;
       drainPay(60, '✨🍗', true);
       ArcadeKit.burst(drain.x * drain.scale, drain.Hh * 0.32 * drain.scale, { n: 14, color: '#ffd23a', size: 7 });
       drain.ents.splice(i, 1);
-    } else if (e.kind === 'tag' && rr2 < 15) {
+    } else if (e.kind === 'tag' && rr2 < 15 * mag) {
       // a tag is a milestone, so the hitbox is forgiving and the pay is loud
       const T = DRAIN_TAGS[e.idx];
       drain.combo++;
@@ -503,8 +540,8 @@ function stepDrain(dt, w, h) {
         ArcadeKit.burst(window.innerWidth / 2, window.innerHeight * 0.45, { n: 24, emoji: '🏷️', size: 18, speed: 320 });
       }
       drain.ents.splice(i, 1);
-    } else if (e.kind === 'bubble' && rr2 < 12) {
-      drain.air = Math.min(DRAIN_AIR_MAX, drain.air + DRAIN_BUBBLE_AIR);
+    } else if (e.kind === 'bubble' && rr2 < 12 * mag) {
+      drain.air = Math.min(drain.gear.airMax, drain.air + DRAIN_BUBBLE_AIR);
       drainPay(2, '🫧', false);
       drain.ents.splice(i, 1);
     } else if (e.kind === 'grease' && rr2 < e.r + 5) {
@@ -550,6 +587,32 @@ function stepDrain(dt, w, h) {
   }
 
   drainDraw();
+}
+
+// ---- the supply caches (pick 1 of 3) ---------------------------------------------------
+
+function drainOfferGear(atM) {
+  const pool = DRAIN_GEAR.filter((u) => u.ok(drain.gear));
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const deal = pool.slice(0, 3);
+  if (!deal.length) return; // the DPW ran out of everything (can't happen — the canister is bottomless)
+  drain.choosing = true;
+  drain.kicking = false;
+  drain.gearPick = ArcadeKit.boonSelect({
+    title: '🧰 A DPW SUPPLY CACHE — ' + atM + 'm',
+    note: 'take ONE · the water waits · 1 · 2 · 3',
+    boons: deal,
+    onPick: (i, u) => {
+      drain.gearPick = null;
+      u.apply(drain.gear);
+      drain.gear.picks++;
+      drain.choosing = false;
+      drainBanner(u.emoji + ' ' + u.name + ' — ' + u.desc.toLowerCase(), 'go', 1.8);
+    },
+  });
 }
 
 // Any press while surfaced starts the next dive.
@@ -818,9 +881,9 @@ function drainDraw() {
     g.fillStyle = 'rgba(191,232,220,0.55)';
     g.fillText('best ' + Math.round(drain.deepest) + 'm', 6, 21);
   }
-  // air bar
+  // air bar (Double Tanks stretch the scale, not the bar)
   const abW = Math.min(70, W * 0.3);
-  const airQ = Math.max(0, drain.air) / DRAIN_AIR_MAX;
+  const airQ = Math.max(0, drain.air) / drain.gear.airMax;
   g.fillStyle = 'rgba(0,0,0,0.45)';
   g.fillRect(W - abW - 8, 6, abW, 7);
   g.fillStyle = airQ > 0.25 ? '#26e0ff' : (Math.floor(drain.t * 6) % 2 ? '#ff5252' : '#ff9a52');
@@ -860,13 +923,15 @@ function drainDraw() {
 
 function drainDrawClog(g, e, y, W) {
   const th = 13;
+  // DPW Blueprints widen the way through — draw the gap the collision uses
+  const gx = e.gx - drain.gear.gap / 2, gw = e.gw + drain.gear.gap;
   g.fillStyle = '#3a2c14';
-  g.fillRect(-2, y - th / 2, e.gx + 2, th);
-  g.fillRect(e.gx + e.gw, y - th / 2, W - (e.gx + e.gw) + 2, th);
+  g.fillRect(-2, y - th / 2, gx + 2, th);
+  g.fillRect(gx + gw, y - th / 2, W - (gx + gw) + 2, th);
   // junk silhouettes packed into the clog, so it reads as garbage not geometry
   g.fillStyle = '#241a08';
   for (let x = 4; x < W - 6; x += 11) {
-    if (x > e.gx - 8 && x < e.gx + e.gw + 2) continue;
+    if (x > gx - 8 && x < gx + gw + 2) continue;
     const j = (x * 7 + e.junk * 13) % 4;
     if (j === 0) g.fillRect(x, y - 5, 7, 4);
     else if (j === 1) { g.beginPath(); g.arc(x + 3, y + 2, 3.5, 0, 7); g.fill(); }
@@ -875,8 +940,8 @@ function drainDrawClog(g, e, y, W) {
   }
   // the gap's edges glint — that's your way through
   g.fillStyle = 'rgba(57,255,122,0.5)';
-  g.fillRect(e.gx - 1, y - th / 2, 2, th);
-  g.fillRect(e.gx + e.gw - 1, y - th / 2, 2, th);
+  g.fillRect(gx - 1, y - th / 2, 2, th);
+  g.fillRect(gx + gw - 1, y - th / 2, 2, th);
 }
 
 // Poor man's color lerp for the depth/storm tinting (hex in, rgb() out).
@@ -891,7 +956,7 @@ function drainMix(a, b, q, gold) {
 // ---- input -----------------------------------------------------------------------------
 
 window.addEventListener('keydown', (e) => {
-  if (!drain.on || drain.phase === 'tier') return;
+  if (!drain.on || drain.phase === 'tier' || drain.choosing) return;
   if (e.code === 'ArrowLeft' || e.code === 'KeyA') { drain.keys.left = true; e.preventDefault(); }
   else if (e.code === 'ArrowRight' || e.code === 'KeyD') { drain.keys.right = true; e.preventDefault(); }
   else if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') { drainPress(); e.preventDefault(); }
@@ -903,7 +968,7 @@ window.addEventListener('keyup', (e) => {
   else if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') drainRelease();
 });
 window.addEventListener('mousedown', (e) => {
-  if (!drain.on || drain.phase === 'tier') return;
+  if (!drain.on || drain.phase === 'tier' || drain.choosing) return;
   if (e.target.closest('.storm-hud, .ak-tier, .modal-overlay')) return;
   drain.pointerX = e.clientX / drain.scale;
   drainPress();
@@ -918,7 +983,7 @@ window.addEventListener('mouseup', () => {
   drainRelease();
 });
 drainWorld.addEventListener('touchstart', (e) => {
-  if (drain.phase === 'tier') return;
+  if (drain.phase === 'tier' || drain.choosing) return;
   drain.pointerX = e.touches[0].clientX / drain.scale;
   drainPress();
   e.preventDefault();
@@ -934,3 +999,30 @@ window.addEventListener('touchend', () => {
   drainRelease();
 });
 window.addEventListener('resize', () => { if (drain.on) drainLayout(); });
+
+// Test/debug hook (blasterDebug school). Depth teleports keep the spawn clocks
+// and sublevel counter in step so a jump doesn't dump a screen of back-spawns
+// or fire every cache banner between here and there.
+window.drainDebug = function (opts) {
+  opts = opts || {};
+  if (opts.tier) {
+    const t = DRAIN_TIERS.find((x) => x.key === opts.tier);
+    if (t) {
+      if (drain.tierPick) { drain.tierPick.close(); drain.tierPick = null; }
+      drainApplyTier(t.key, t);
+    }
+  }
+  if (opts.depth != null) {
+    drain.depth = opts.depth * DRAIN_PXM;
+    drain.nextSpawnD = drain.depth + drain.Hh * 0.5;
+    drain.nextClogD = Math.max(drain.nextClogD, drain.depth + drain.Hh);
+    drain.nextSubIdx = Math.floor(opts.depth / 150);
+    if (drain.depth / DRAIN_PXM > drain.deepest) drain.deepest = drain.depth / DRAIN_PXM;
+  }
+  if (opts.air != null) drain.air = opts.air;
+  if (opts.gear) { const u = DRAIN_GEAR.find((x) => x.key === opts.gear); if (u && u.ok(drain.gear)) u.apply(drain.gear); }
+  if (opts.offerGear) drainOfferGear(Math.round(drain.depth / DRAIN_PXM));
+  if (opts.pickGear != null && drain.gearPick) drain.gearPick.choose(opts.pickGear);
+  return { phase: drain.phase, choosing: drain.choosing, m: Math.round(drain.depth / DRAIN_PXM),
+    air: Math.round(drain.air), gear: { ...drain.gear }, dives: drain.dives, combo: drain.combo };
+};

@@ -13,6 +13,7 @@
 //   • medal(score,cuts)           — 🥇🥈🥉 by threshold
 //   • bests/saveBest/lastTier/... — difficulty-ladder localStorage (oath/HEAT shape)
 //   • tierSelect(cfg)             — the pre-game difficulty overlay, reused by all
+//   • boonSelect(cfg)             — the pick-1-of-3 boon deal (knight.js school)
 //
 // See UPGRADE_SPRINTS.md for how each sprint leans on these.
 
@@ -229,13 +230,70 @@ const ArcadeKit = (() => {
     return { close };
   }
 
+  // ---- Boon-select overlay (the knight's pick-1-of-3, generalized) ------------
+  // The between-wave "choose thy boon" card deal any game can put up at a wave
+  // break or checkpoint. cfg: { title?, note?, boons:[{emoji,name,desc}],
+  // mount?, onPick(idx, boon) }. Deals exactly the cards it's given — the caller
+  // filters its own pool by ok() and shuffles — handles 1/2/3 + click/tap, then
+  // closes and calls onPick. Reuses the .ak-tier chrome on purpose: every game's
+  // input guards already treat .ak-tier as menu, not gameplay, so a boon deal
+  // can't be slashed/fired/kicked through. Returns { close, choose } (choose(i)
+  // is for tests). Freeze your own sim while it's up — the kit doesn't.
+  function boonSelect(cfg) {
+    const boons = cfg.boons || [];
+    const mount = cfg.mount || document.body;
+    const ov = document.createElement('div');
+    ov.className = 'ak-tier ak-boons';
+    ov.innerHTML =
+      `<div class="ak-tier-panel">` +
+      `<div class="ak-tier-title">${cfg.title || 'Choose your boon'}</div>` +
+      `<div class="ak-tier-cards"></div>` +
+      `<div class="ak-tier-note">${cfg.note || 'press 1 · 2 · 3 or click'}</div>` +
+      `</div>`;
+    const cards = ov.querySelector('.ak-tier-cards');
+    boons.forEach((b, i) => {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.dataset.idx = String(i);
+      card.className = 'ak-tier-card';
+      card.innerHTML =
+        `<span class="ak-tier-num">${i + 1}</span>` +
+        `<span class="ak-tier-emoji">${b.emoji || ''}</span>` +
+        `<span class="ak-tier-name">${b.name || ''}</span>` +
+        `<span class="ak-tier-blurb">${b.desc || ''}</span>`;
+      cards.appendChild(card);
+    });
+    let done = false;
+    function choose(idx) {
+      const b = boons[idx];
+      if (done || !b) return;
+      done = true;
+      close();
+      if (cfg.onPick) cfg.onPick(idx, b);
+    }
+    function onClick(e) {
+      const c = e.target.closest('.ak-tier-card');
+      if (c) choose(Number(c.dataset.idx));
+    }
+    function onKey(e) {
+      const idx = { Digit1: 0, Digit2: 1, Digit3: 2 }[e.code];
+      if (idx != null && boons[idx]) { choose(idx); e.preventDefault(); e.stopPropagation(); }
+    }
+    function close() { window.removeEventListener('keydown', onKey, true); ov.remove(); }
+    ov.addEventListener('click', onClick);
+    ov.addEventListener('mousedown', (e) => e.stopPropagation()); // no firing through the menu
+    window.addEventListener('keydown', onKey, true);
+    mount.appendChild(ov);
+    return { close, choose };
+  }
+
   return {
     reduceMotion,
     kick, shakeXY,
     hitStop, refreshTimeScale, get timeScale() { return tScale; },
     burst,
     makeFever, medal,
-    bests, saveBest, lastTier, setLastTier, tierSelect,
+    bests, saveBest, lastTier, setLastTier, tierSelect, boonSelect,
   };
 })();
 window.ArcadeKit = ArcadeKit;

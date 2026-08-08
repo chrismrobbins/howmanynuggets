@@ -7,6 +7,8 @@
 // drops payloads. Defend a named Nuggetown skyline (the arcade, the pier, the
 // club, the ranch, NPD HQ…); lose the whole block and the run ends (medal by wave).
 // Chained kills build a KILLSTREAK multiplier. Down the first Bomber → `nugBlasterHeld`.
+// Between waves: 📦 REQUISITION DROPS — pick 1 of 3 permanent run upgrades
+// (BLASTER_BOONS, dealt via ArcadeKit.boonSelect; cfg.boonEvery paces them).
 //
 // Difficulty is an ArcadeKit oath: PATROL / SIEGE / THE BATTER STORM 💥. Still DOM/CSS,
 // still banks into storm.caught (perFlyer parity). Multiplayer co-op (blasterMP.js)
@@ -54,11 +56,31 @@ const POWERUPS = [
 ];
 
 const BLASTER_TIERS = [
-  { key: 'patrol', emoji: '🚓', name: 'PATROL', mult: 1, speed: 0.85, density: 0.8, armor: 0, blurb: 'a quiet night watch' },
-  { key: 'siege',  emoji: '🎯', name: 'SIEGE',  mult: 2, speed: 1.0,  density: 1.0, armor: 0, blurb: 'they came for Nuggetown' },
-  { key: 'storm',  emoji: '💥', name: 'THE BATTER STORM', mult: 3, speed: 1.25, density: 1.3, armor: 1, blurb: 'the syndicate empties the sky',
+  { key: 'patrol', emoji: '🚓', name: 'PATROL', mult: 1, speed: 0.85, density: 0.8, armor: 0, boonEvery: 1, blurb: 'a quiet night watch' },
+  { key: 'siege',  emoji: '🎯', name: 'SIEGE',  mult: 2, speed: 1.0,  density: 1.0, armor: 0, boonEvery: 2, blurb: 'they came for Nuggetown' },
+  { key: 'storm',  emoji: '💥', name: 'THE BATTER STORM', mult: 3, speed: 1.25, density: 1.3, armor: 1, boonEvery: 3, blurb: 'the syndicate empties the sky',
     lockNote: 'reach Wave 5 on SIEGE' },
 ];
+
+// ---- 📦 Requisitions: pick 1 of 3 between waves (the knight's boon system,
+// drafted into city defense). These are PERMANENT for the run — the falling
+// crates stay the temporary buffs; this is the armory. Harder tiers resupply
+// slower (cfg.boonEvery, the oath idiom), so the deep waves starve your build
+// exactly when they get mean. Dealt via ArcadeKit.boonSelect.
+const BLASTER_BOONS = [
+  { key: 'coils',    emoji: '⚡', name: 'Overclocked Coils',    desc: 'Fire 15% faster',                 ok: (s) => s.fire > 0.55,  apply: (s) => { s.fire *= 0.85; } },
+  { key: 'twin',     emoji: '🔱', name: 'Twin Barrels',         desc: 'A second barrel, permanently',    ok: (s) => !s.twin,        apply: (s) => { s.twin = 1; } },
+  { key: 'rounds',   emoji: '💥', name: 'Hollow-Batter Rounds', desc: 'Bolts deal +1 damage',            ok: (s) => s.dmg < 3,      apply: (s) => { s.dmg++; } },
+  { key: 'rails',    emoji: '💨', name: 'Greased Rails',        desc: 'Cannon moves 20% faster',         ok: (s) => s.speed < 1.75, apply: (s) => { s.speed *= 1.2; } },
+  { key: 'scaffold', emoji: '🏗️', name: 'Scaffold Crew',        desc: 'Rebuild one fallen block',        ok: () => blaster.city.some((b) => b.hp <= 0), apply: () => rebuildBuilding() },
+  { key: 'brigade',  emoji: '❤️', name: 'Repair Brigade',       desc: 'Wave breaks patch an extra block', ok: (s) => s.patch < 3,   apply: (s) => { s.patch++; } },
+  { key: 'longburn', emoji: '⏳', name: 'Long Burn',            desc: 'Power-ups last 4s longer',        ok: (s) => s.power < 8,    apply: (s) => { s.power += 4; } },
+  { key: 'supply',   emoji: '📦', name: 'Supply Lines',         desc: 'Crates drop 30% more often',      ok: (s) => s.drops > 0.5,  apply: (s) => { s.drops *= 0.7; } },
+  { key: 'sirens',   emoji: '🛡️', name: 'Storm Sirens',         desc: 'The shield pops as each wave starts', ok: (s) => !s.sirens,  apply: (s) => { s.sirens = 1; } },
+];
+function freshBlasterStats() {
+  return { fire: 1, dmg: 1, speed: 1, twin: 0, patch: 1, power: 0, drops: 1, sirens: 0 };
+}
 const BOSS_EVERY = 5;
 function blasterStormUnlocked() {
   try { return localStorage.getItem('nugBlasterStorm') === '1'; } catch (e) { return false; }
@@ -70,8 +92,11 @@ function blasterHeld() {
 
 const blaster = {
   on: false,
-  phase: 'idle',        // 'idle' | 'tier' | 'playing' | 'intermission' | 'over'
+  phase: 'idle',        // 'idle' | 'tier' | 'playing' | 'intermission' | 'boon' | 'over'
   cfg: BLASTER_TIERS[1],
+  stats: freshBlasterStats(), // requisition multipliers, reset per run
+  boonPick: null,       // the open ArcadeKit.boonSelect, if any
+  wallT: 0,             // Storm Sirens: seconds of free shield left
   x: window.innerWidth / 2,
   keys: { left: false, right: false },
   firing: false,
@@ -96,6 +121,7 @@ function blasterActive() { return storm.mode === 'blaster' && storm.running; }
 
 function blasterTally() {
   if (blaster.phase === 'tier') return '🎯 to your cannon…';
+  if (blaster.phase === 'boon') return '📦 requisition drop inbound…';
   if (blaster.boss) return `🛢️ THE BATTER BOMBER · ${Math.max(0, Math.ceil(blaster.boss.hp))} hp`;
   const alive = blaster.city.filter((c) => c.hp > 0).length;
   const streak = blaster.streak && blaster.streak.active ? ` · 🔥×${blaster.streak.mult.toFixed(1)}` : '';
@@ -122,8 +148,10 @@ function syncBlaster() {
     openBlasterTier();
   } else {
     if (blaster.tierPick) { blaster.tierPick.close(); blaster.tierPick = null; }
+    if (blaster.boonPick) { blaster.boonPick.close(); blaster.boonPick = null; }
     blaster.phase = 'idle';
     blaster.firing = false;
+    blaster.wallT = 0;
     clearBolts(); clearDrops(); clearEnemies(); clearCity(); killBoss();
     expirePower();
     hideBlasterOver(); // else "NUGGETOWN HAS FALLEN" outlives the game it fell in
@@ -157,6 +185,8 @@ function openBlasterTier() {
 function startBlaster() {
   blaster.phase = 'playing';
   blaster.wave = 0;
+  blaster.stats = freshBlasterStats(); // the armory resets with the run
+  blaster.wallT = 0;
   lastStreakLevel = 0; // fresh session, fresh KILLING SPREE announcements
   blaster.streak = ArcadeKit.makeFever({ perLevel: 6, maxLevel: 4, step: 0.4, timeout: 0 });
   expirePower();
@@ -182,7 +212,7 @@ function buildCity() {
     el.style.width = bw + 'px';
     el.style.height = bh + 'px';
     cityEl.appendChild(el);
-    blaster.city.push({ el, x: bx, w: bw, h: bh, hp: BUILDING_HP, name: CITY_NAMES[i] });
+    blaster.city.push({ el, x: bx, w: bw, h: bh, h0: bh, hp: BUILDING_HP, name: CITY_NAMES[i] });
   }
 }
 function clearCity() { cityEl.innerHTML = ''; blaster.city = []; }
@@ -252,6 +282,7 @@ function nextWave() {
   }
   // unlock THE BATTER STORM by reaching wave 5 on SIEGE+
   if (w >= BOSS_EVERY && blaster.cfg.key !== 'patrol') { try { localStorage.setItem('nugBlasterStorm', '1'); } catch (e) { /* ok */ } }
+  if (blaster.stats.sirens) blaster.wallT = 3; // Storm Sirens: a free shield to open the wave
   blaster.spawnT = 0.6;
   blaster.phase = 'playing';
   updateStormHud();
@@ -273,10 +304,50 @@ function waveClear() {
 function startIntermission() {
   blaster.phase = 'intermission';
   blaster.interT = 2.0;
-  // reward: patch the most-damaged standing building
-  const hurt = blaster.city.filter((c) => c.hp > 0 && c.hp < BUILDING_HP).sort((a, b) => a.hp - b.hp)[0];
-  if (hurt) { hurt.hp++; hurt.el.classList.toggle('dmg1', hurt.hp === 2); hurt.el.classList.toggle('dmg2', hurt.hp === 1); }
+  // reward: patch the most-damaged standing building(s) — Repair Brigade adds more
+  for (let p = 0; p < blaster.stats.patch; p++) {
+    const hurt = blaster.city.filter((c) => c.hp > 0 && c.hp < BUILDING_HP).sort((a, b) => a.hp - b.hp)[0];
+    if (!hurt) break;
+    hurt.hp++; hurt.el.classList.toggle('dmg1', hurt.hp === 2); hurt.el.classList.toggle('dmg2', hurt.hp === 1);
+  }
   spawnPopLabel(window.innerWidth / 2, window.innerHeight * 0.34, `✅ WAVE ${blaster.wave} CLEARED`, 'big');
+}
+
+// ---- Requisitions (pick 1 of 3) --------------------------------------------------
+
+function showBlasterBoons() {
+  const pool = BLASTER_BOONS.filter((u) => u.ok(blaster.stats));
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const deal = pool.slice(0, 3);
+  if (!deal.length) { nextWave(); return; } // armory's bare — straight back to it
+  blaster.phase = 'boon';
+  blaster.firing = false;
+  blaster.boonPick = ArcadeKit.boonSelect({
+    title: '📦 REQUISITION DROP',
+    note: 'one crate per drop · 1 · 2 · 3',
+    boons: deal,
+    onPick: (i, u) => {
+      blaster.boonPick = null;
+      u.apply(blaster.stats);
+      spawnPopLabel(window.innerWidth / 2, window.innerHeight * 0.3, `${u.emoji} ${u.name}!`, 'golden');
+      nextWave();
+    },
+  });
+}
+
+function rebuildBuilding() {
+  const b = blaster.city.find((c) => c.hp <= 0);
+  if (!b) return;
+  b.hp = 1;
+  b.h = b.h0;
+  b.el.classList.remove('rubble', 'dmg1');
+  b.el.classList.add('dmg2');
+  b.el.style.height = b.h0 + 'px';
+  ArcadeKit.burst(b.x + b.w / 2, window.innerHeight - CITY_GROUND, { n: 12, emoji: '🏗️', speed: 240 });
+  updateStormHud();
 }
 
 // ---- Enemies -------------------------------------------------------------------
@@ -410,7 +481,7 @@ function spawnDrop(w) {
   el.style.transform = `translate(${x}px, -40px)`;
   document.body.appendChild(el);
   blaster.drops.push({ el, x, y: -40, def });
-  blaster.nextDropT = 9 + Math.random() * 7;
+  blaster.nextDropT = (9 + Math.random() * 7) * blaster.stats.drops;
 }
 function clearDrops() { blaster.drops.forEach((d) => d.el.remove()); blaster.drops = []; }
 
@@ -427,8 +498,8 @@ function activatePower(def, x, y) {
     ArcadeKit.burst(x, y, { n: 14, emoji: '❤️', speed: 220 });
     return;
   }
-  blaster.power = { def, t: POWER_SECS };
-  shieldEl.classList.toggle('active', def.key === 'shield');
+  blaster.power = { def, t: POWER_SECS + blaster.stats.power };
+  shieldEl.classList.toggle('active', def.key === 'shield' || blaster.wallT > 0);
   updatePowerChip();
 }
 function expirePower() { blaster.power = null; shieldEl.classList.remove('active'); updatePowerChip(); }
@@ -442,7 +513,9 @@ function updatePowerChip() {
 // ---- Shooting ------------------------------------------------------------------
 
 function fireBolt() {
-  const spread = blaster.power && blaster.power.def.key === 'triple' ? [-150, 0, 150] : [0];
+  const t3 = blaster.power && blaster.power.def.key === 'triple';
+  let spread = t3 ? [-150, 0, 150] : [0];
+  if (blaster.stats.twin) spread = t3 ? [-170, -60, 60, 170] : [-60, 60];
   const y = cannonEl.getBoundingClientRect().top - 12;
   for (const vx of spread) {
     const el = document.createElement('div');
@@ -452,30 +525,37 @@ function fireBolt() {
     blaster.bolts.push({ el, x: blaster.x, y, vx });
   }
   ArcadeKit.burst(blaster.x, y, { n: 3, color: '#fde047', speed: 120, life: 0.2, size: 4, gravity: 0 });
-  blaster.cooldown = (blaster.power && blaster.power.def.key === 'rapid') ? RAPID_COOLDOWN : FIRE_COOLDOWN;
+  blaster.cooldown = ((blaster.power && blaster.power.def.key === 'rapid') ? RAPID_COOLDOWN : FIRE_COOLDOWN) * blaster.stats.fire;
 }
 function clearBolts() { blaster.bolts.forEach((b) => b.el.remove()); blaster.bolts = []; }
 
 // ---- Per-frame -----------------------------------------------------------------
 
 function stepBlaster(dt, w, h) {
-  if (blaster.phase === 'tier') return;
+  if (blaster.phase === 'tier' || blaster.phase === 'boon') return; // menus freeze the sky
 
   // cannon movement (always responsive)
   const dir = (blaster.keys.right ? 1 : 0) - (blaster.keys.left ? 1 : 0);
-  if (dir) { blaster.x = clampCannonX(blaster.x + dir * CANNON_SPEED * dt); positionCannon(); }
+  if (dir) { blaster.x = clampCannonX(blaster.x + dir * CANNON_SPEED * blaster.stats.speed * dt); positionCannon(); }
 
   if (blaster.phase === 'over') { stepBolts(dt, w, h); return; }
 
   if (blaster.phase === 'intermission') {
     blaster.interT -= dt;
     stepBolts(dt, w, h);
-    if (blaster.interT <= 0) nextWave();
+    if (blaster.interT <= 0) {
+      // the oath idiom: harder tiers resupply slower
+      if (blaster.wave % blaster.cfg.boonEvery === 0) showBlasterBoons();
+      else nextWave();
+    }
     return;
   }
 
   // power timer
   if (blaster.power) { blaster.power.t -= dt; if (blaster.power.t <= 0) expirePower(); else updatePowerChip(); }
+  if (blaster.wallT > 0) blaster.wallT -= dt;
+  shieldEl.classList.toggle('active',
+    !!(blaster.power && blaster.power.def.key === 'shield') || blaster.wallT > 0);
   if (blaster.streak) blaster.streak.tick();
 
   // crates
@@ -521,7 +601,7 @@ function stepBolts(dt, w, h) {
 
     // boss?
     if (blaster.boss && Math.abs(b.x - blaster.boss.x) < 60 && Math.abs(b.y - blaster.boss.y) < 34) {
-      blaster.boss.hp -= 1; updateBossBar();
+      blaster.boss.hp -= blaster.stats.dmg; updateBossBar();
       ArcadeKit.burst(b.x, b.y, { n: 4, color: '#fb7185', speed: 180, life: 0.3, size: 5 });
       b.el.remove(); blaster.bolts.splice(i, 1);
       if (blaster.boss.hp <= 0) bossDefeated();
@@ -536,7 +616,7 @@ function stepBolts(dt, w, h) {
     }
     if (hit !== -1) {
       const e = blaster.enemies[hit];
-      e.hp -= 1;
+      e.hp -= blaster.stats.dmg;
       if (e.hp <= 0) destroyEnemy(hit, true);
       else { e.el.classList.add('hurt'); setTimeout(() => e.el && e.el.classList.remove('hurt'), 90); ArcadeKit.burst(b.x, b.y, { n: 3, color: '#cbd5e1', speed: 150, life: 0.25, size: 4 }); }
       b.el.remove(); blaster.bolts.splice(i, 1);
@@ -545,7 +625,7 @@ function stepBolts(dt, w, h) {
 }
 
 function stepEnemies(dt, w, h) {
-  const shieldOn = blaster.power && blaster.power.def.key === 'shield';
+  const shieldOn = (blaster.power && blaster.power.def.key === 'shield') || blaster.wallT > 0;
   const shieldY = h - CITY_GROUND + 12;
   const groundY = h - CITY_GROUND;
   for (let i = blaster.enemies.length - 1; i >= 0; i--) {
@@ -614,26 +694,26 @@ function restartBlaster() {
 
 // ---- Input ---------------------------------------------------------------------
 
-window.addEventListener('mousemove', (e) => { if (!blasterActive() || blaster.phase === 'tier') return; blaster.x = clampCannonX(e.clientX); positionCannon(); });
+window.addEventListener('mousemove', (e) => { if (!blasterActive() || blaster.phase === 'tier' || blaster.phase === 'boon') return; blaster.x = clampCannonX(e.clientX); positionCannon(); });
 window.addEventListener('mousedown', (e) => {
-  if (!blasterActive() || blaster.phase === 'tier') return;
+  if (!blasterActive() || blaster.phase === 'tier' || blaster.phase === 'boon') return;
   if (e.target.closest('.storm-hud') || e.target.closest('.ak-tier')) return;
   if (blaster.phase === 'over') { restartBlaster(); return; }
   blaster.firing = true; if (blaster.cooldown <= 0) fireBolt();
 });
 window.addEventListener('mouseup', () => { blaster.firing = false; });
 window.addEventListener('touchstart', (e) => {
-  if (!blasterActive() || blaster.phase === 'tier') return;
+  if (!blasterActive() || blaster.phase === 'tier' || blaster.phase === 'boon') return;
   if (e.target.closest('.storm-hud') || e.target.closest('.ak-tier')) return;
   if (blaster.phase === 'over') { restartBlaster(); e.preventDefault(); return; }
   blaster.x = clampCannonX(e.touches[0].clientX); positionCannon();
   blaster.firing = true; if (blaster.cooldown <= 0) fireBolt();
   e.preventDefault();
 }, { passive: false });
-window.addEventListener('touchmove', (e) => { if (!blasterActive() || blaster.phase === 'tier') return; blaster.x = clampCannonX(e.touches[0].clientX); positionCannon(); e.preventDefault(); }, { passive: false });
+window.addEventListener('touchmove', (e) => { if (!blasterActive() || blaster.phase === 'tier' || blaster.phase === 'boon') return; blaster.x = clampCannonX(e.touches[0].clientX); positionCannon(); e.preventDefault(); }, { passive: false });
 window.addEventListener('touchend', (e) => { if (e.touches.length === 0) blaster.firing = false; });
 window.addEventListener('keydown', (e) => {
-  if (!blasterActive() || blaster.phase === 'tier') return;
+  if (!blasterActive() || blaster.phase === 'tier' || blaster.phase === 'boon') return;
   if (e.target && e.target.tagName === 'INPUT') return;
   if (e.code === 'ArrowLeft') { blaster.keys.left = true; e.preventDefault(); }
   else if (e.code === 'ArrowRight') { blaster.keys.right = true; e.preventDefault(); }
@@ -658,9 +738,13 @@ window.blasterDebug = function (opts) {
   if (opts.killAll) { for (let i = blaster.enemies.length - 1; i >= 0; i--) destroyEnemy(i, true); }
   if (opts.bossHit && blaster.boss) { blaster.boss.hp -= (opts.bossHit === true ? 999 : opts.bossHit); updateBossBar(); if (blaster.boss.hp <= 0) bossDefeated(); }
   if (opts.cityDown) { blaster.city.forEach((b) => { b.hp = 0; b.el.classList.add('rubble'); }); cityDown(); }
+  if (opts.boon) { const u = BLASTER_BOONS.find((x) => x.key === opts.boon); if (u && u.ok(blaster.stats)) u.apply(blaster.stats); }
+  if (opts.showBoons) showBlasterBoons();
+  if (opts.clearWave) { blaster.toSpawn = []; for (let i = blaster.enemies.length - 1; i >= 0; i--) destroyEnemy(i, true); }
   return { phase: blaster.phase, wave: blaster.wave, enemies: blaster.enemies.length,
     boss: blaster.boss ? blaster.boss.hp : null, city: blaster.city.filter((c) => c.hp > 0).length,
-    streak: blaster.streak ? blaster.streak.level : 0, held: blasterHeld() };
+    streak: blaster.streak ? blaster.streak.level : 0, held: blasterHeld(),
+    stats: { ...blaster.stats }, wallT: blaster.wallT };
 };
 
 // ---- exports: only the seams storm.js / arcade.js / tests reach for --------------

@@ -135,6 +135,22 @@ already bitten someone.
 > cup empty); and a fourth jukebox loop, also THE NIGHT SHIFT (`jukeTrackCount()`
 > is 5 now, 6 on Founder's Day — the seasonal single stays LAST in the array so
 > the everyday count is a prefix).
+> **2026-08-08 — THE ARMORY OPENS:** the knight's pick-1-of-3 boon deal is now a
+> SHARED kit primitive — `ArcadeKit.boonSelect(cfg)` (js/arcadeKit.js; it reuses
+> the `.ak-tier` chrome ON PURPOSE so every game's existing input guards already
+> treat it as menu-not-gameplay — zero new CSS; callers filter/shuffle their own
+> pool and freeze their own sim). Two games drafted it: 🔫 Blaster's 📦
+> **REQUISITION DROPS** (`BLASTER_BOONS` — 9 permanent run upgrades dealt between
+> waves; `cfg.boonEvery` paces them by tier, PATROL 1 / SIEGE 2 / BATTER STORM 3
+> — the oath idiom: the hard tiers starve your build as the sky fills) and 🕳️
+> STORM DRAIN's 🧰 **DPW SUPPLY CACHES** (`DRAIN_GEAR` — 9 gear picks at every
+> 150m sublevel line; gear resets EVERY DIVE so each dive is a fresh build; the
+> dive freezes while the cards are up via `drain.choosing`, air included).
+> Knight keeps its own k-upgrade UI — untouched. New test seams: `blasterDebug`
+> grew `boon`/`showBoons`/`clearWave` + a stats snapshot, and `window.drainDebug`
+> is NEW (tier/depth/air/gear/offerGear/pickGear — depth teleports keep the spawn
+> clocks and sublevel counter in step so a jump doesn't back-spawn a screenful).
+> Verified 29/29 headless (natural triggers, pacing, freeze, per-dive reset).
 > **2026-07-21 — THE OVEN RELIGHT:** the first five games got deep upgrades
 > (build log in `UPGRADE_SPRINTS.md`). 🐤 Flappy (biomes + finale), 🥣 Dunk
 > (multi-sauce shifts), 🔫 Blaster (wave defense + Batter Bomber boss; now
