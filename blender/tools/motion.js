@@ -19,6 +19,20 @@ const CHANNELS = [
   ['camSway', 'H.camSway', 0.008],
   ['gaitAmt', 'H.gaitAmt', 0.5],
   ['breath', 'H.breath', 0.5],
+  // 🌫 the motion layer. A plume that never rises and a splash that never
+  // expands both photograph perfectly, which is exactly why they need a
+  // channel here rather than an eyeball.
+  ['steam.y', 'H.steam.length ? H.steam[0].y : 0', 0.05],
+  ['steam.size', 'H.steam.length ? H.steam[0].s : 0', 0.05],
+  ['splash', 'H.splash.length ? H.splash[0].life : 0', 0.05],
+  // Read off the renderer itself, not recomputed here — a duplicated formula
+  // would pass while the real one was stuck.
+  //
+  // 6 seconds, not the default 1.4: the tube is MOSTLY FINE and drops into a
+  // stutter for about half a second every five. A window shorter than its
+  // period samples only the healthy band and reports a dead channel, which is
+  // a measurement bug that looks exactly like a rendering bug.
+  ['failTube', 'H.failLevel || 0', 0.4, 6000],
 ];
 
 (async () => {
@@ -45,10 +59,11 @@ const CHANNELS = [
 
   console.log(`\n  ${'channel'.padEnd(12)}${'walking'.padStart(12)}${'standing'.padStart(12)}   verdict`);
   let bad = 0;
-  for (const [name, expr, minRange] of CHANNELS) {
-    const walk = await sample(expr, 1400, ['f']);
+  for (const [name, expr, minRange, ms] of CHANNELS) {
+    const win = ms || 1400;
+    const walk = await sample(expr, win, ['f']);
     await page.waitForTimeout(700);          // let the ramp settle
-    const still = await sample(expr, 1400, []);
+    const still = await sample(expr, win, []);
     const rng = (a) => Math.max(...a) - Math.min(...a);
     const rw = rng(walk), rs = rng(still);
     const ok = rw >= minRange;

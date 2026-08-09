@@ -60,6 +60,13 @@ const NuggetArcade = (() => {
     exposure: 1.0,
     sat: 1.10,
     puddle: PUDDLE_AMT,
+    // 🎨 THE COLOUR BALANCE. Ten machines in this room each throw their own
+    // game's palette, and the room still photographs as one lavender wash,
+    // because a flat ambient of 0.30 sits under all of it and a marquee only
+    // contributes 0.44 of its own colour. These two dials trade the wash
+    // against the machines; they move together or the room gets darker.
+    cabLight: 1.0,
+    ambDown: 1.0,
     // 🔭 THE LENS
     vignette: 0.42,     // corner exposure drop, applied BEFORE the tonemap
     aberration: 0.0035, // radial R/B split; ~1px at the corners of 1280x760
@@ -155,6 +162,11 @@ const NuggetArcade = (() => {
     best: {},
     screens: [], cabinets: [], glows: [], decalCount: 0,
     dust: [], rain: [],
+    // 🌫 THE MOTION LAYER. §0 asks which layer of the picture has never been
+    // upgraded — palette, lighting, geometry or MOTION. This is that one: the
+    // storm drain breathes and the rain lands, so the street stops being a
+    // photograph of a street. Both ride the existing additive sprite pass.
+    steam: [], splash: [],
     attractIdx: 0,
     isTouch: 'ontouchstart' in window,
     // iteration 2: interactive props
@@ -2140,6 +2152,17 @@ void main() {
         x: -20 + Math.random() * 56, y: Math.random() * 5, z: 0.3 + Math.random() * 13, // reaches the pier
         v: 7 + Math.random() * 4,
       });
+    // 🌫 STEAM out of the storm drain. Not a decoration picked at random: the
+    // grate at (8.8, 12.95) is STORM DRAIN's front door and there is a flooded
+    // main under it, so something warm coming up through the slats is the one
+    // piece of weather this street has actually earned. Pre-rolled at random
+    // ages so the plume is already going when the doors open instead of
+    // starting from nothing in front of the player.
+    for (let i = 0; i < 26; i++) H.steam.push(newSteam(Math.random()));
+    // 💦 and the rain LANDS. 190 drops have been falling through the pavement
+    // since the street was built. Now that the road holds water, a ring where
+    // one hits is the cheapest possible proof the two are the same street.
+    for (let i = 0; i < 30; i++) H.splash.push({ life: -Math.random() * 1.2 });
 
     return {
       static: B.upload(gl), floor: F.upload(gl), sign: SGN.upload(gl),
@@ -3747,6 +3770,28 @@ void main() {
             parseInt(h.slice(5, 7), 16) / 255];
   }
 
+  // 🌫 One puff of steam out of the storm-drain grate. `age0` pre-rolls it so
+  // a fresh plume is already mid-flight the moment the doors open — a vent
+  // that starts empty and fills in front of the player reads as a spawn.
+  //
+  // The two vents are the grate itself and the manhole further up the road,
+  // and the drift is a light easterly, the same one the rain leans into.
+  const STEAM_VENTS = [[8.8, 12.95, 1.0], [-3.4, 10.2, 0.62]];
+  function newSteam(age0) {
+    const v = STEAM_VENTS[(Math.random() * STEAM_VENTS.length) | 0];
+    const life = 3.4 + Math.random() * 2.6;
+    return {
+      x: v[0] + (Math.random() - 0.5) * 0.55,
+      y: 0.04 + Math.random() * 0.1,
+      z: v[1] + (Math.random() - 0.5) * 0.55,
+      vx: 0.10 + Math.random() * 0.16,
+      vz: (Math.random() - 0.5) * 0.09,
+      s0: 0.16 + Math.random() * 0.14,
+      grow: (0.85 + Math.random() * 0.75) * v[2],
+      s: 0.2, life, age: age0 * life,
+    };
+  }
+
   let emissiveLightsDone = false;
   function installEmissiveLights() {
     if (emissiveLightsDone) return;
@@ -3785,7 +3830,11 @@ void main() {
     // leaves the fixture.
     for (const tz of [-4, -9, -14, -17.7])
       for (const tx of [-2.1, 0, 2.1])
-        LIGHTS.push({ p: [tx, 3.94, tz], c: [0.62, 0.74, 1.10], k: 'tube' });
+        // 💡 the run over z = -9 is the one that is going. Not random: a
+        // failing fixture that moves around the room every session is a bug
+        // report, and this one is meant to be a place — you learn where it is.
+        LIGHTS.push({ p: [tx, 3.94, tz], c: [0.62, 0.74, 1.10],
+          k: tz === -9 ? 'fail' : 'tube' });
 
     // the neon trim: cyan down both side walls at y 3.3, magenta across the
     // back. Eighty metres of it that used to light nothing at all.
@@ -4957,7 +5006,8 @@ void main() {
     gl.uniformMatrix4fv(H.uni.uView, false, view);
     gl.uniform3f(H.uni.uCamPos, H.cam.x, H.cam.y, H.cam.z);
     gl.uniform3fv(H.uni.uAmbUp, AMB_UP);
-    gl.uniform3fv(H.uni.uAmbDown, AMB_DOWN);
+    gl.uniform3f(H.uni.uAmbDown, AMB_DOWN[0] * TUNE.ambDown,
+      AMB_DOWN[1] * TUNE.ambDown, AMB_DOWN[2] * TUNE.ambDown);
     gl.uniform3fv(H.uni.uFogColor, FOG);
     gl.uniform1f(H.uni.uFogDensity, FOG_DENSITY);
     gl.uniform1i(H.uni.uTex, 0);
@@ -5037,9 +5087,22 @@ void main() {
       else if (L.k === 'neon') f = 0.92 + 0.1 * Math.sin(H.t * 3 + i);
       else if (L.k === 'lamp') f = 0.96 + 0.04 * Math.sin(H.t * 1.7 + i * 1.3);
       else if (L.k === 'crt') f = 0.82 + 0.18 * Math.sin(H.t * 11 + i * 2.7);
+      // 💡 A FAILING TUBE. Every fixture in this building has worked perfectly
+      // for its whole life, which is the one thing no arcade's lighting has
+      // ever done. One of them is on its way out: mostly fine, occasionally
+      // dropping into a stutter for a second or so. It is a light and not a
+      // texture, so what stutters is the POOL under it.
+      else if (L.k === 'fail') {
+        const cyc = (H.t * 0.21 + i * 0.37) % 1.0;
+        f = cyc < 0.11
+          ? 0.18 + 0.82 * Math.pow(Math.max(0, Math.sin(H.t * 41 + i)), 2.0)
+          : 0.94 + 0.06 * Math.sin(H.t * 5.1 + i);
+        H.failLevel = f;   // harness seam: blender/tools/motion.js reads this
+      }
       else if (L.k === 'thump') f = 0.55 + 0.6 * Math.pow(Math.max(0, Math.sin(H.t * 5.6 + i)), 3);
       else if (L.k === 'swirl') f = 0.7 + 0.3 * Math.sin(H.t * 2.2 + i * 1.9);
       else if (L.k === 'across') f = 0.9 + 0.1 * Math.sin(H.t * 0.7 + i * 3.1);
+      if (L.k === 'marq' || L.k === 'crt') f *= TUNE.cabLight;
       lp.set(L.p, slot * 3);
       lc.set([L.c[0] * f, L.c[1] * f, L.c[2] * f], slot * 3);
     });
@@ -5186,6 +5249,23 @@ void main() {
       pushSprite(arr, gx, gsp.p[1], gz, gsp.sw || gsp.s, gsp.sh || gsp.s,
         gsp.c[0], gsp.c[1], gsp.c[2], a, rt, upv);
     }
+    // 🌫 steam, and 💦 the rings where the rain lands. Outside only — the
+    // camera is inside the hall most of the time and neither belongs in it.
+    if (H.cam.z > -1.5) {
+      for (const p of H.steam) {
+        if (p.age < 0) continue;
+        const k = p.age / p.life;
+        // in fast, out slow: a puff that fades symmetrically reads as a blink
+        const a = 0.085 * Math.min(1, k * 5.0) * (1.0 - k) * (1.0 - k);
+        pushSprite(arr, p.x, p.y, p.z, p.s, p.s, 0.52, 0.46, 0.44, a, right, up);
+      }
+      for (const sp of H.splash) {
+        if (sp.life <= 0) continue;
+        const k = 1.0 - sp.life / sp.max;
+        pushSprite(arr, sp.x, 0.015, sp.z, 0.05 + k * 0.30, 0.05 + k * 0.30,
+          0.55, 0.62, 0.78, 0.10 * (1.0 - k) * (1.0 - k), FLAT_RIGHT, FLAT_FWD);
+      }
+    }
     for (const m of H.dust) {
       const tw = 0.5 + 0.5 * Math.sin(H.t * 1.7 + m.ph);
       pushSprite(arr, m.x, m.y, m.z, m.s, m.s, 0.7, 0.75, 0.9, 0.05 + 0.04 * tw, right, up);
@@ -5289,6 +5369,30 @@ void main() {
       const gl = H.gl;
       useTex(H.boardTex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, H.boardCv);
+    }
+
+    // 🌫 the drain breathes: rise, spread, cool, fade. The upward speed falls
+    // off as the plume expands, which is the difference between steam and a
+    // smoke signal.
+    for (const p of H.steam) {
+      p.age += dt;
+      if (p.age > p.life) { Object.assign(p, newSteam(0)); continue; }
+      const k = p.age / p.life;
+      p.y += (0.62 * (1.0 - k * 0.62)) * dt;
+      p.x += p.vx * dt;
+      p.z += p.vz * dt;
+      p.s = p.s0 + k * p.grow;
+    }
+    // 💦 splashes: a short flat ring, then a new one somewhere else. Kept to a
+    // fixed pool so the count is a constant and never a per-frame allocation.
+    for (const sp of H.splash) {
+      sp.life -= dt;
+      if (sp.life <= 0) {
+        sp.life = 0.3 + Math.random() * 0.26;
+        sp.max = sp.life;
+        sp.x = -16 + Math.random() * 42;
+        sp.z = 6.5 + Math.random() * 8.5;
+      }
     }
 
     // ambient particles
