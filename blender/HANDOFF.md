@@ -729,3 +729,115 @@ number that was already the answer. Anything times 0.038 is nothing.
 5. The §7 model list minus the ceiling: vending/change/jukebox, the five street
    doors, a fire escape variant for `facadeBay`.
 6. The bump-grain normal graph (§10 ledger row 1) is still unbuilt.
+
+## 13. 🎞 THE LONG NIGHT (2026-08-09, later) — five acts, all shipped
+
+Beau's brief for this one was one sentence: *"lets be overly ambitious on what
+we accomplish this round... let's rethink what we can accomplish and go
+insane."* Five commits on prod: `4f3d61d` THE FLOAT BUFFER, `1ca1699` THE LENS,
+`94be87f` THE SKYLINE, `ea304a5` THE WET STREET, `a58207a` THE MOTION LAYER.
+
+### The number
+
+Sixteen fixed spots at 1280×760, every renderer feature on, same harness:
+
+| | dead (<8) | near-dead (<20) | blown (>246) | mean | chroma | fps |
+|---|---|---|---|---|---|---|
+| baseline (this session's own) | 0.63 | 16.33 | 0.00 | 53.34 | 50.80 | 60.0 |
+| THE FLOAT BUFFER | 0.50 | 14.39 | 0.01 | 55.00 | 52.02 | 60.0 |
+| THE LENS | **0.20** | **12.25** | 0.01 | 57.52 | **52.31** | 60.4 |
+| THE SKYLINE | 0.34 | 13.54 | 0.01 | 57.20 | 51.88 | 60.2 |
+| THE WET STREET | 0.34 | 13.93 | 0.01 | 57.12 | 52.00 | 60.4 |
+| THE MOTION LAYER (shipped) | 0.34 | **13.80** | **0.01** | **57.22** | 51.82 | 60.1 |
+
+**The spot table is NEW** (16 spots, built from the game's own hotspot `stand`
+values) so these are not comparable to §12's. Only same-harness deltas mean
+anything. `chroma` is new too — mean per-pixel saturation, added because §12's
+lesson was that a *brighter* frame can be a *worse* frame and nothing was
+measuring colour.
+
+`blown 0.01%` is the headline, not `0.00%`. See below.
+
+### The diagnosis that mattered, and again it was not lighting
+
+**The scene FBO was `RGBA8`.** The lit shader's brightest possible emissive was
+`tex.rgb * 1.45`, into a buffer that saturates at 1.0 — so a dim backlit panel
+at 0.72 and a neon tube at full tilt arrived at the bright pass **as the same
+pixel**. Every measured frame in this hall's history came back `blown 0.00%`,
+and three sessions read that as a win. It was the symptom: the room had no
+highlight range at all, which is why thirty fixtures and a full relight could
+only ever move the midtones, and why every light source read as a flat pastel
+rectangle instead of as a light.
+
+Same shape as §12's albedo finding. The number that looked like success was the
+ceiling.
+
+### The tools, and the two rules they now enforce
+
+**`blender/tools/` is CHECKED IN.** Three consecutive sessions built this kit in
+a scratchpad, shipped, lost it, and rebuilt it from prose in this file. It ships
+nothing. Read `blender/tools/README.md`.
+
+`shoot.js` · `crop.py` (sheet/ab/zoom/probe/tunesheet) · `tune.js` · `motion.js`
+· `fallbacks.js` · `probe.js` · `png.js` (PNG decode + stats + frame diff in
+node stdlib — no image dependency, on purpose).
+
+Two things it catches that summary statistics cannot:
+
+1. **A fallback that renders an identical frame is not a passing test, it is a
+   seam that never fired.** `fallbacks.js` diffs every degraded path against the
+   shipped one. On its first run it found three dead seams that the mean/dead
+   columns had reported as "ok".
+2. **Spots come from the game.** The first spot table here was invented, put
+   four cameras inside the facade row, and reported 48% dead black. It was a
+   brick wall.
+
+`tune.js` is the one that changed the working loop: it pokes
+`NuggetArcade._TUNE` between frames, so a 4-D box of interacting dials gets
+swept in one browser session instead of edit → reload → 16-spot run.
+
+### New ledger rows (§9) — each cost real time
+
+| Question | Answer | Why |
+|---|---|---|
+| `blown 0.00%` — good, right? | **No, it is the ceiling** | An 8-bit scene target clamps every emissive to 1.0 before the bloom pass sees it. Nothing in the room could be brighter than paper. |
+| Emissive gain 4.0, since there is headroom now? | **2.2** | Gain is a RANGE knob, not a brightness knob. At 4.0 the neon is glorious and the marquee lettering is an illegible bar. Sweep against surfaces with READING on them. |
+| Bloom threshold at 1.0 — principled? | **0.80** | The threshold secretly does a second job: a wide blur of everything above it is the only thing lifting the dim end. At 1.0 the drain wall went 0.3% → 30% black. |
+| ACES for the tonemap? | **Khronos PBR Neutral** | ACES rotates highlight hues hard enough to undo the S2.12 palette contract and THE RELIGHT's albedos. And delete its black-offset term — it cost `dead 0.63 → 8.45` in one run. |
+| Vignette as a CSS overlay? | **In the shader, pre-tonemap** | A black sheet over a finished frame costs the corners their contrast and colour. The same curve before the curve is an exposure change. |
+| Seed the grain off `H.t`? | **Per FRAME** | The harness pins `H.t` to hold the room still. Grain that freezes with the clock is a fixed pattern. |
+| Release rack focus in `stepZoom`? | **In the frame loop** | Returning from a game lands in `'return'`, not `'zoom'` — the hall gets stranded permanently soft. |
+| Bake the skyline as an RGB panorama? | **Never — bake DATA** | R haze / G window / B shade / A silhouette, palette mixed at runtime. A picture would freeze the city out of the one table the dome, fog, ambient and wet road all share. |
+| Point every tower at the origin? | **Random yaw** | From the origin you then only ever see ONE face, every visible normal is identical, the shade channel is constant, and the render comes back as flat cut-outs — i.e. as the hashed version it replaced. |
+| Equirect azimuth mapping? | **Measure it** | `skyline.py calibrate()` renders four markers at known bearings and reads their columns back. The answer is `u = 0.75 - az/2π` in Blender's frame. Guessing yaws the whole city against the street. |
+| Panorama V lookup? | **`1.0 - v`** | Nothing in this renderer sets `UNPACK_FLIP_Y_WEBGL`, so PNG row 0 — the highest latitude — lands at t=0. The city hung from the zenith by its roofs. |
+| Puddles as a specular change? | **DIFFUSE first** | The road's ORM already opts fully in, so `max(pbr, wet)` erased it and only a 12% roughness term survived. Water darkens what it sits on; that is what draws the shape. |
+| Linear remap for the puddle mask? | **Sharp `smoothstep`** | `skyFbm` piles its output within ~0.1 of the middle. A linear remap gave a mask whose mean value was 0.09 and whose effect was, correctly, invisible. Water has an EDGE. |
+| The hall is monochrome — rebalance the lights? | **No. Measured, twice.** | A 3×3 sweep of cabinet-light against ambient moved chroma <1 point, and raising the cabinet lights made the room brighter and *less* colourful. The hue is in the ALBEDO. Do not re-run this. |
+| A dead motion channel in `motion.js`? | **Check the window first** | The failing tube stutters every ~5s; a 1.4s sample sees only the healthy band. Per-channel sample windows. A measurement bug looks exactly like a rendering bug. |
+| Guard a seam with `window.HallArt &&`? | **`typeof X !== 'undefined'`** | They are top-level `const`s in classic scripts and are NOT on window. The guard short-circuits and the assignment silently never happens. §4 said this about reading them; it is just as true writing. |
+| A comment inside a template literal | **STILL no backticks** | Hit three more times tonight, all in GLSL comments. Run `node --check js/arcade.js` after every shader edit, every time. |
+
+### Still open, in value order
+
+1. **The street is the weak half now.** The hall's eight spots average
+   `near-dead 6.1`; the street's eight average `21.5`. `13-drain` (30.6) and
+   `10-busstop` (30.4) are the worst tiles in the build, and both are large flat
+   brick with one tone and no wear. That is an ART problem, not a lighting one —
+   grime, staining, a second brick variant, awnings and fire escapes to break
+   the wall up. This is where the next night should go.
+2. **Nothing dynamic casts a shadow.** Still true, still deliberate; the maps
+   bake once off the static buffers. NPCs and the regulars are excluded. A
+   second small dynamic map, or projected blobs, would finish it.
+3. **Screen-space reflections.** The floor mirrors by re-drawing the world
+   scaled (1,-1,1); the puddles now reflect the sky and the city, but nothing
+   reflects the *street itself* — the parked car does not appear in the water
+   under it.
+4. `hall_targets.json` is still a lit-world measurement everywhere
+   `ALBEDO_LUMA` does not override it. Re-measuring off the flat pass would let
+   that whole override table be deleted rather than layered on.
+5. The §7 model list minus the ceiling: vending/change/jukebox, the five street
+   doors, a fire escape variant for `facadeBay`, the bus shelter.
+6. The bump-grain normal graph (§10 ledger row 1) is still unbuilt.
+7. The skyline panorama is 4096×512. At 1280 wide with a 62° FOV, 1:1 would be
+   ~7400px around, so it is soft if you walk right up to the pier rail.

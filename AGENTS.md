@@ -509,3 +509,80 @@ the full ledger; the parts that will bite a future change:
   surface it sits. The hall's map is shot from y=3.9, *under* its own ceiling —
   a world-space top-down map finds the ceiling first and shadows the whole
   room. WebGL2 only; `H.shadows = false` is the seam. Nothing dynamic casts.
+
+## 🎞 THE LONG NIGHT — HDR, the lens, the skyline, the wet street, motion (2026-08-09)
+
+Five acts on top of THE FOUR MOVEMENTS, all on prod. What will bite you:
+
+- **The scene target is HALF-FLOAT now** (`RGBA16F` + `EXT_color_buffer_half_float`,
+  WebGL2 only). This is the change everything else sits on. It used to be
+  `RGBA8`, which meant the lit shader's brightest possible emissive —
+  `tex.rgb * 1.45` — **saturated at 1.0 on the way in**, so a dim panel at 0.72
+  and a neon tube at full tilt reached the bloom pass as the same pixel. Every
+  frame measured `blown 0.00%` and three sessions read that as a win. It was the
+  symptom. Probe the extension AND check the attachment: a driver can advertise
+  it and still refuse. `H.hdr = false` is the seam; without it the 8-bit chain
+  and `shoulder()` run verbatim.
+- **`EMIS_GAIN` is 2.2 and it is not a brightness knob, it is a RANGE knob.**
+  Swept against the two surfaces in this building with reading on them (the
+  entrance marquee, the scoreboard). At 4.0 the neon looks great and "NUGGET
+  ARCADE" is an illegible glowing bar — §12's marquee lesson from the opposite
+  direction.
+- **The bloom threshold does two jobs.** Obviously it picks what blooms. Less
+  obviously, a wide blur of everything above it is the only thing lifting the
+  dim end of this picture: set to a principled 1.0 ("brighter than white"), the
+  street lost its haze and the drain wall went from 0.3% black to 30% black.
+  It sits at 0.80, *under* where lit surfaces land.
+- **The tonemap is Khronos PBR Neutral, minus its black-offset term.** ACES
+  rotates highlight hues hard enough to undo two sessions of palette work. The
+  reference curve's black offset cost `dead 0.63% -> 8.45%` in one run; without
+  it everything below the compression point is bit-identical to what shipped.
+- **The vignette is in the SHADER, before the tonemap.** `.hall-vignette` is an
+  empty element now — it keeps the fade and the flash. If you put a gradient
+  back on it the corners get darkened twice.
+- **Grain is seeded per FRAME, not off `H.t`.** The harness pins the clock, and
+  grain that freezes with the clock is a fixed pattern.
+- **Rack focus is released in the frame loop, not in `stepZoom`.** Coming back
+  out of a game lands in `'return'`, so releasing it inside the zoom step
+  strands the hall permanently soft at the edges.
+- **`H.camSway` is CAMERA-space** and rotates into the world through the
+  camera's right vector; `H.camRoll` goes outermost, after pitch. The gait's
+  rise is at 2× the step rate and the sway at 1× — running only the vertical
+  term is why the old bob read as a lift and not as a walk.
+- **The skyline is a DATA panorama, not a picture** (`js/hallSky.js` +
+  `blender/skyline.py`). R = haze, G = lit-window mask, B = surface shade,
+  A = silhouette; the shader still mixes `SKY`. **Do not bake colour into it** —
+  the whole point is that retuning the palette retunes the city. `WRAP_S` is
+  `REPEAT` (u is a bearing), no mipmaps (a mip chain on an alpha silhouette
+  bleeds sky into every roofline), and the V lookup is `1.0 - v` because
+  nothing here sets `UNPACK_FLIP_Y_WEBGL`. The az→u mapping is **measured** by
+  `skyline.py calibrate()`, not guessed.
+- **`GLSL_CITY` is shared between an ES 1.00 and an ES 3.00 shader** via
+  `#define texture2D texture` in FS_LIT2. It is deliberately NOT in FS_LIT —
+  WebGL1 has no city and a sampler it never reads is a unit spent on nothing.
+- **Puddles are a DIFFUSE effect first.** Built as a specular change they moved
+  the picture 12%, because the road's ORM already opts fully into the material
+  shader and `max(pbr, wet)` erased the rest. Water darkens what it sits on;
+  that is what draws the shape. The mask uses a sharp `smoothstep`, not a ramp —
+  `skyFbm` piles its output near the middle, so a linear remap gave a field
+  whose average value was 0.09 and whose effect was correctly invisible.
+  `uPuddle` is clamped **before** it multiplies anything.
+- **One ceiling tube (the z = -9 run) is a `'fail'` light** that stutters every
+  ~5s. Fixed position on purpose. `H.failLevel` is a harness seam.
+- **Steam and splashes step unconditionally but DRAW only when `cam.z > -1.5`.**
+  Neither belongs inside the hall.
+- **THE COLOUR EXPERIMENT THAT MEASURED AS NOTHING — do not re-run it.** The
+  hall photographs as one lavender wash. It is not the light balance: a 3×3
+  sweep of cabinet-light against ambient moved chroma by less than one point,
+  and raising the cabinet lights made the room brighter and slightly LESS
+  colourful. The hue lives in the ALBEDO (S2.12's palette + THE RELIGHT's
+  reflectances). `TUNE.cabLight` / `TUNE.ambDown` exist, both default 1.0.
+
+**The verification kit is CHECKED IN at `blender/tools/`** — see its README.
+`shoot.js` (16 spots, darkness + chroma), `crop.py` (sheet/ab/zoom/probe/
+tunesheet), `tune.js` (sweep `NuggetArcade._TUNE` between frames), `motion.js`
+(does anything actually move), `fallbacks.js` (the whole degrade matrix),
+`probe.js`, `png.js`. Three sessions built this in a scratchpad and lost it.
+Two rules it enforces that nothing else can: **a fallback that renders an
+identical frame is a seam that never fired**, and **spots come from the game's
+own hotspot `stand` values**, never from imagination.
