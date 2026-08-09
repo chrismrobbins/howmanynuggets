@@ -2271,6 +2271,7 @@ void main() {
     const street = ArcadeArt.makeStreetAtlas();
     H.texStreet = makeTexture(gl, street.canvas);
     H.bufsStreet = buildStreet(gl, street.uv);
+    H.builtHallArt = typeof HallArt !== 'undefined' && HallArt.on();
 
     // live attract-mode screens: one canvas + texture per game
     H.screenTex = {};
@@ -2571,6 +2572,22 @@ void main() {
   function enter() {
     try {
       if (!build()) { fallbackLaunch(); return; }
+      // THE GRAND REOPENING: if the Blender sheet (js/hallArt.js) finished
+      // decoding after the atlases were baked, re-bake them once — the hall
+      // must never keep procedural paint just because it built too fast.
+      const hallArtUp = typeof HallArt !== 'undefined' && HallArt.on();
+      if (H.builtHallArt !== hallArtUp) {
+        const gl = H.gl;
+        const atlas = ArcadeArt.makeAtlas();
+        gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, atlas.canvas);
+        gl.generateMipmap(gl.TEXTURE_2D);
+        const street = ArcadeArt.makeStreetAtlas();
+        gl.bindTexture(gl.TEXTURE_2D, H.texStreet);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, street.canvas);
+        gl.generateMipmap(gl.TEXTURE_2D);
+        H.builtHallArt = hallArtUp;
+      }
     } catch (err) {
       console.error('Nugget Arcade hall failed to build:', err);
       fallbackLaunch();

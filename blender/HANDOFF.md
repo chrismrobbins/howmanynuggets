@@ -3,9 +3,11 @@
 Written 2026-08-09 after the two-sprint Blender night (GTN S2.12 FRESH
 PAINT + S2.13 THE ZONING VARIANCE, commits `ad9ce14`/`aff1b96`). This is
 the working knowledge a fresh session needs to do art at full speed.
-**The next mission is already chosen: a MASSIVE arcade-hall graphics
-upgrade — skip the incremental warm-up, Beau's orders.** Section 5 is your
-briefing.
+**UPDATE 2026-08-08: the Section-5 mission SHIPPED — THE GRAND REOPENING.**
+The whole hall + street + the five regulars are Blender-rendered now
+(`hallrig.py` -> `pack_hall.py` -> `js/hallArt.js`, 50 regions, one 337KB
+JPEG data URI). Read §5b for what that added to the law before painting
+anything new.
 
 ---
 
@@ -142,6 +144,30 @@ procedural canvas atlases built at hall-init by `js/arcade-art.js`:
   Knight wall, scoreboard, street (all five games' entries, NPCs, pier).
   A/B the same spots art-ON vs art-OFF. Watch for atlas-overflow warnings
   — they mean a region silently went black.
+
+## 5b. What THE GRAND REOPENING added to the law (2026-08-08)
+
+- **The street atlas is 1024x2048 — NON-SQUARE.** Anything converting its
+  uv rects to pixels must scale u by 1024 and v by 2048. The first target
+  measurement scaled both by 1024 and silently graded every street region
+  toward garbage (the white hen went charcoal).
+- **Measure targets with HallArt OFF.** Once the painters blit Blender art,
+  `makeAtlas()` measures YOUR OWN OUTPUT — set `HallArt.on = () => false`
+  in the harness before building atlases or the pipeline eats its tail.
+- **Emission clips hue before the packer sees it.** Strength ~1.1 keeps
+  neon colors saturated; 2.0 turns yellow/green white. Brightness comes
+  from the pack glow pass + highlight protection, not emission.
+- **Grading dims emissives** — mean-matching scales the confetti down with
+  the floor. `grade(..., protect=N)` keeps pixels that were hot in the raw
+  render. Carpet uses protect=100.
+- **Bevel modifiers run PRE-scale** (the half-size bug's cousin): `box()`
+  applies scale before beveling or a 4px bevel becomes a dodecagon.
+- Blitted regions are opaque JPEG — fine everywhere current, but a future
+  region needing ALPHA (like nugGold) must stay procedural or ship as a
+  separate PNG URI.
+- Runtime text positions are a CONTRACT with the Blender builds (vending
+  header y36, change header y26, shop sign strips, panel title 0.16h/0.9h,
+  across smudge y0.585h). Move geometry -> move the text in arcade-art.js.
 
 ## 6. Working with Beau (operating notes)
 

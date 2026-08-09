@@ -23,3 +23,6 @@ __pycache__/
 blender/renders/
 blender/glb/
 blender/*.blend1
+blender/render_hall/
+blender/contact.png
+blender/sheet_preview.jpg

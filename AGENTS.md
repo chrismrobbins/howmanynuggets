@@ -176,6 +176,30 @@ already bitten someone.
 > (tier/clearRoom/boon/showBoons/pickBoon/floor/room/warp/hearts/hit —
 > `hit` clears i-frames first, a sexton-adjacent test flake taught us why).
 > Verified 25/25 headless ×3.
+> **2026-08-08 (the Blender night, pt. 3) — 🏟 THE GRAND REOPENING:** the
+> ENTIRE arcade hall + street + the five NPC regulars are Blender-rendered
+> now. `blender/hallrig.py` (32 parametric texture builders — padded walls,
+> cosmic carpet w/ emissive confetti, drop ceiling, raked brick, cabinet
+> fronts w/ real coin doors, CRT bezels, 3D joystick control decks, backlit
+> marquee acrylic, neon tube signage w/ 3D text + gold nug, the three
+> shopfront dioramas, across-the-road block, road/pier/water, and the NPC
+> skins: crumb breading, hood twill, waxed GRAVY cup, shingled feathers,
+> warty dill) -> `blender/pack_hall.py` (grades to the measured procedural
+> palette in `blender/hall_targets.json`, tints 10 marquee + 10 panel
+> variants, bakes neon glow, packs ONE 337KB JPEG data URI) ->
+> `js/hallArt.js` (loads before arcade-art.js). Every painter in
+> arcade-art.js blits its region via `hallBlit()` and keeps its procedural
+> rig as fallback — the hall degrades to the old paint, never to black.
+> Identity text (marquee titles, shop neon, stickers, NUGCO badge) still
+> draws at RUNTIME on top, so it stays crisp and the text positions are a
+> contract with the Blender builds (see blender/HANDOFF.md §5b for the
+> gotchas: NON-SQUARE street atlas math, measure-with-HallArt-OFF,
+> emission-clips-hue, grade highlight protection). enter() re-bakes the
+> atlases once if the sheet decodes late. Verified headless A/B on all 18
+> zones: 60fps held, zero new console messages, art-OFF byte-parity with
+> baseline (worst mean delta 1.36), palette means on target, cabinet-wall
+> contrast +30% structured. Editable source: `blender/hall_textures.blend`
+> (one scene per texture).
 > **2026-08-08 (the Blender night) — 🎨 FRESH PAINT (GTN S2.12):** every GTN
 > sprite is now a real 3D model — built parametrically in Blender
 > (`blender/nugrig.py`), rendered top-down at 8× like DMA did for GTA 1,

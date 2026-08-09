@@ -17,6 +17,10 @@ we can keep updating, upgrading, and eventually walking them into Unreal.
 | `gta_peds.blend` | The citizen nug: idle/walk/flee/daze pose collections + the NPD cap |
 | `gta_tiles.blend` | Ground tiles: asphalt (+manhole), sidewalk pavers, boardwalk, grass, bay water, roof gravel |
 | `gta_props.blend` | Noodle cart, phone booth, nug crate, the golden nug, two tree cultivars |
+| `hall_textures.blend` | THE GRAND REOPENING — every hall/street/NPC texture as its own scene (camera + lights included): reopen any surface, art-direct, re-render |
+| `hallrig.py` | The HALL factory — 32 parametric texture builders (padded walls, cosmic carpet, neon signage with 3D tube text, the three shopfront dioramas, the five NPC skins). Renders 4x; scene-safe (works in a GUI session without touching your open file) |
+| `pack_hall.py` | Stage 2 for the hall: grade renders to the measured procedural palette (`hall_targets.json`), tint 10 marquee + 10 panel variants, bake neon glow, pack ONE JPEG sheet into `js/hallArt.js` |
+| `hall_targets.json` | The measured mean color of every procedural atlas region — the grading law's ground truth (regenerate via the measure-targets harness; mind the street atlas is 1024x2048, NON-square) |
 | `nugrig.py` | THE FACTORY — parametric builders for everything above, plus the render rig. The .blends are *built by* this script; edit either, but the script is the source of truth |
 | `pack_atlas.py` | Stage 2: downscale/grade/pack renders and regenerate `js/gtaArt.js` (plain Python; needs `pip install pillow numpy`) |
 
@@ -61,3 +65,17 @@ nugrig.export_gltf("blender/glb")   # one .glb per collection
 1 unit here = 1 game *pixel*, so set your import scale accordingly —
 a compact is 19 units long. `blender/renders/` and `blender/glb/` are
 gitignored; the .blends and scripts are the source.
+
+## Regenerating the hall art (THE GRAND REOPENING)
+
+```
+blender -b -P blender/hallrig.py -- render_all     # all 32 textures + masks
+blender -b -P blender/hallrig.py -- render_one carpet
+python blender/pack_hall.py                        # -> js/hallArt.js
+```
+
+The painters in `js/arcade-art.js` blit these regions and keep their
+procedural rigs as fallback; identity text (marquee titles, shop neon,
+stickers) draws at runtime ON TOP so it stays crisp. Emissive things must
+render SATURATED, not hot — emission strength above ~1.5 clips yellow and
+green to white before the packer ever sees them (the carpet lesson).

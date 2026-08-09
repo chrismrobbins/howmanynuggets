@@ -41,6 +41,13 @@ const ArcadeArt = (() => {
     return c;
   }
 
+  // THE GRAND REOPENING: painters blit their Blender-rendered region from
+  // js/hallArt.js when it's up, and fall through to their procedural rigs
+  // when it isn't — the hall degrades to the old paint, never to black.
+  function hallBlit(g, name, w, h) {
+    return typeof HallArt !== 'undefined' && HallArt.blit(g, name, w, h);
+  }
+
   function rr(g, x, y, w, h, r) {
     g.beginPath();
     g.moveTo(x + r, y);
@@ -136,6 +143,7 @@ const ArcadeArt = (() => {
 
   // Classic 90s "cosmic bowling" arcade carpet: near-black with neon confetti.
   function pCarpet(g, w, h) {
+    if (hallBlit(g, 'carpet', w, h)) return;
     const grad = g.createLinearGradient(0, 0, w, h);
     grad.addColorStop(0, '#0b0722');
     grad.addColorStop(1, '#0d092e');
@@ -186,6 +194,7 @@ const ArcadeArt = (() => {
 
   // Dark interior wall panel, tileable horizontally: subtle grooves + grime.
   function pWall(g, w, h) {
+    if (hallBlit(g, 'wall', w, h)) return;
     const grad = g.createLinearGradient(0, 0, 0, h);
     grad.addColorStop(0, '#1b1834');
     grad.addColorStop(1, '#110e22');
@@ -201,6 +210,7 @@ const ArcadeArt = (() => {
   }
 
   function pWainscot(g, w, h) {
+    if (hallBlit(g, 'wainscot', w, h)) return;
     const grad = g.createLinearGradient(0, 0, 0, h);
     grad.addColorStop(0, '#12101f');
     grad.addColorStop(1, '#0a0913');
@@ -220,6 +230,7 @@ const ArcadeArt = (() => {
   }
 
   function pCeiling(g, w, h) {
+    if (hallBlit(g, 'ceiling', w, h)) return;
     g.fillStyle = '#0a0913';
     g.fillRect(0, 0, w, h);
     speckle(g, w, h, 500, '#000', 0.4, 2);
@@ -229,6 +240,7 @@ const ArcadeArt = (() => {
   }
 
   function pBrick(g, w, h) {
+    if (hallBlit(g, 'brick', w, h)) return;
     g.fillStyle = '#191014';
     g.fillRect(0, 0, w, h);
     const bh = 32, bw = 64;
@@ -246,6 +258,7 @@ const ArcadeArt = (() => {
 
   // Rain-slick pavement for the intro exterior.
   function pSidewalk(g, w, h) {
+    if (hallBlit(g, 'sidewalk', w, h)) return;
     const grad = g.createLinearGradient(0, 0, w, h);
     grad.addColorStop(0, '#111319');
     grad.addColorStop(1, '#181b23');
@@ -259,6 +272,7 @@ const ArcadeArt = (() => {
   }
 
   function pDoor(g, w, h) {
+    if (hallBlit(g, 'door', w, h)) return;
     const grad = g.createLinearGradient(0, 0, w, 0);
     grad.addColorStop(0, '#232a44');
     grad.addColorStop(0.5, '#2d3554');
@@ -298,6 +312,7 @@ const ArcadeArt = (() => {
 
   // The exterior hero: NUGGET ARCADE in buzzing neon on a dark sign box.
   function pSign(g, w, h) {
+    if (hallBlit(g, 'sign', w, h)) return;
     g.fillStyle = '#07070f';
     g.fillRect(0, 0, w, h);
     rr(g, 10, 10, w - 20, h - 20, 26);
@@ -326,12 +341,14 @@ const ArcadeArt = (() => {
   }
 
   function pPhrase(g, w, h) {
+    if (hallBlit(g, 'phrase', w, h)) return;
     g.fillStyle = '#0a0816';
     g.fillRect(0, 0, w, h);
     neonText(g, 'HOW MANY NUGS?', w / 2, h / 2, 'italic 900 56px Georgia, serif', '#ff2fa0', 20);
   }
 
   function pHighScores(g, w, h) {
+    if (hallBlit(g, 'highscores', w, h)) return;
     g.fillStyle = '#0a0816';
     g.fillRect(0, 0, w, h);
     neonText(g, '★ HIGH SCORES ★', w / 2, h / 2, '900 52px Impact, "Arial Black", sans-serif', '#39ff7a', 18);
@@ -437,6 +454,7 @@ const ArcadeArt = (() => {
 
   // Generic cabinet lower front: coin door, vents, kick plate.
   function pCabFront(g, w, h) {
+    if (hallBlit(g, 'cabFront', w, h)) return;
     const grad = g.createLinearGradient(0, 0, 0, h);
     grad.addColorStop(0, '#1d1a2c');
     grad.addColorStop(1, '#121020');
@@ -472,6 +490,7 @@ const ArcadeArt = (() => {
   }
 
   function pMetal(g, w, h) {
+    if (hallBlit(g, 'metal', w, h)) return;
     const grad = g.createLinearGradient(0, 0, 0, h);
     grad.addColorStop(0, '#3c4260');
     grad.addColorStop(0.5, '#22263c');
@@ -487,6 +506,7 @@ const ArcadeArt = (() => {
   }
 
   function pDark(g, w, h) {
+    if (hallBlit(g, 'dark', w, h)) return;
     g.fillStyle = '#0e0c18';
     g.fillRect(0, 0, w, h);
     speckle(g, w, h, 200, '#000', 0.4, 2);
@@ -494,26 +514,28 @@ const ArcadeArt = (() => {
 
   // Bezel that surrounds a cabinet's screen: dark plastic + speaker grille.
   function pBezel(g, w, h) {
-    const grad = g.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, '#191725');
-    grad.addColorStop(1, '#0e0d17');
-    g.fillStyle = grad;
-    g.fillRect(0, 0, w, h);
-    g.fillStyle = '#000';
-    rr(g, w * 0.09, h * 0.08, w * 0.82, h * 0.76, 10);
-    g.fill();
-    g.strokeStyle = 'rgba(120,130,180,0.3)';
-    g.lineWidth = 3;
-    rr(g, w * 0.09, h * 0.08, w * 0.82, h * 0.76, 10);
-    g.stroke();
-    // speaker grille dots
-    g.fillStyle = '#05050a';
-    for (let i = 0; i < 8; i++)
-      for (let j = 0; j < 2; j++) {
-        g.beginPath();
-        g.arc(w * 0.3 + i * 12, h * 0.92 + j * 8, 2.5, 0, 7);
-        g.fill();
-      }
+    if (!hallBlit(g, 'bezel', w, h)) { // Blender CRT plastic; the badge stays runtime
+      const grad = g.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, '#191725');
+      grad.addColorStop(1, '#0e0d17');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = '#000';
+      rr(g, w * 0.09, h * 0.08, w * 0.82, h * 0.76, 10);
+      g.fill();
+      g.strokeStyle = 'rgba(120,130,180,0.3)';
+      g.lineWidth = 3;
+      rr(g, w * 0.09, h * 0.08, w * 0.82, h * 0.76, 10);
+      g.stroke();
+      // speaker grille dots
+      g.fillStyle = '#05050a';
+      for (let i = 0; i < 8; i++)
+        for (let j = 0; j < 2; j++) {
+          g.beginPath();
+          g.arc(w * 0.3 + i * 12, h * 0.92 + j * 8, 2.5, 0, 7);
+          g.fill();
+        }
+    }
     g.fillStyle = '#454c6e';
     g.font = '900 11px Consolas, monospace';
     g.textAlign = 'center';
@@ -521,16 +543,18 @@ const ArcadeArt = (() => {
   }
 
   function pMarquee(g, w, h, game) {
-    const grad = g.createLinearGradient(0, 0, w, h);
-    grad.addColorStop(0, shade(game.c2, 0.25));
-    grad.addColorStop(0.5, shade(game.c1, 0.45));
-    grad.addColorStop(1, shade(game.c2, 0.25));
-    g.fillStyle = grad;
-    g.fillRect(0, 0, w, h);
-    // dark frame
-    g.strokeStyle = '#05050c';
-    g.lineWidth = 12;
-    g.strokeRect(3, 3, w - 6, h - 6);
+    if (!hallBlit(g, 'marq_' + game.mode, w, h)) { // Blender backlit acrylic, tinted per game
+      const grad = g.createLinearGradient(0, 0, w, h);
+      grad.addColorStop(0, shade(game.c2, 0.25));
+      grad.addColorStop(0.5, shade(game.c1, 0.45));
+      grad.addColorStop(1, shade(game.c2, 0.25));
+      g.fillStyle = grad;
+      g.fillRect(0, 0, w, h);
+      // dark frame
+      g.strokeStyle = '#05050c';
+      g.lineWidth = 12;
+      g.strokeRect(3, 3, w - 6, h - 6);
+    }
     g.save();
     g.font = '52px sans-serif';
     g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -564,8 +588,10 @@ const ArcadeArt = (() => {
   }
 
   function pSideArt(g, w, h, game) {
-    g.fillStyle = '#0d0b18';
-    g.fillRect(0, 0, w, h);
+    if (!hallBlit(g, 'sideBase', w, h)) { // Blender laminate flank; vinyl stays runtime
+      g.fillStyle = '#0d0b18';
+      g.fillRect(0, 0, w, h);
+    }
     // sweeping diagonal palette bands
     const band = g.createLinearGradient(0, h, w, 0);
     band.addColorStop(0, shade(game.c2, 0.7));
@@ -603,30 +629,32 @@ const ArcadeArt = (() => {
   }
 
   function pPanel(g, w, h, game) {
-    pMetal(g, w, h);
-    g.fillStyle = 'rgba(0,0,0,0.35)';
-    g.fillRect(0, 0, w, h);
-    // joystick on the left
-    const jx = w * 0.24, jy = h * 0.52;
-    g.fillStyle = '#0a0a12';
-    g.beginPath(); g.arc(jx, jy, 26, 0, 7); g.fill();
-    g.strokeStyle = '#3a4160'; g.lineWidth = 3;
-    g.beginPath(); g.arc(jx, jy, 26, 0, 7); g.stroke();
-    g.strokeStyle = '#191d30'; g.lineWidth = 9;
-    g.beginPath(); g.moveTo(jx, jy); g.lineTo(jx + 10, jy - 26); g.stroke();
-    const ball = g.createRadialGradient(jx + 7, jy - 32, 2, jx + 10, jy - 28, 12);
-    ball.addColorStop(0, '#fff'); ball.addColorStop(0.3, game.c1); ball.addColorStop(1, shade(game.c1, 0.4));
-    g.fillStyle = ball;
-    g.beginPath(); g.arc(jx + 10, jy - 28, 11, 0, 7); g.fill();
-    // two buttons on the right
-    for (const [i, color] of [[0, game.c1], [1, game.c2]].map((v) => v)) {
-      const bx = w * 0.6 + i * w * 0.18, by = h * 0.5;
+    if (!hallBlit(g, 'panel_' + game.mode, w, h)) { // Blender deck: real joystick + domes
+      pMetal(g, w, h);
+      g.fillStyle = 'rgba(0,0,0,0.35)';
+      g.fillRect(0, 0, w, h);
+      // joystick on the left
+      const jx = w * 0.24, jy = h * 0.52;
       g.fillStyle = '#0a0a12';
-      g.beginPath(); g.arc(bx, by, 17, 0, 7); g.fill();
-      const dome = g.createRadialGradient(bx - 4, by - 5, 2, bx, by, 14);
-      dome.addColorStop(0, '#fff'); dome.addColorStop(0.25, color); dome.addColorStop(1, shade(color, 0.45));
-      g.fillStyle = dome;
-      g.beginPath(); g.arc(bx, by, 13, 0, 7); g.fill();
+      g.beginPath(); g.arc(jx, jy, 26, 0, 7); g.fill();
+      g.strokeStyle = '#3a4160'; g.lineWidth = 3;
+      g.beginPath(); g.arc(jx, jy, 26, 0, 7); g.stroke();
+      g.strokeStyle = '#191d30'; g.lineWidth = 9;
+      g.beginPath(); g.moveTo(jx, jy); g.lineTo(jx + 10, jy - 26); g.stroke();
+      const ball = g.createRadialGradient(jx + 7, jy - 32, 2, jx + 10, jy - 28, 12);
+      ball.addColorStop(0, '#fff'); ball.addColorStop(0.3, game.c1); ball.addColorStop(1, shade(game.c1, 0.4));
+      g.fillStyle = ball;
+      g.beginPath(); g.arc(jx + 10, jy - 28, 11, 0, 7); g.fill();
+      // two buttons on the right
+      for (const [i, color] of [[0, game.c1], [1, game.c2]].map((v) => v)) {
+        const bx = w * 0.6 + i * w * 0.18, by = h * 0.5;
+        g.fillStyle = '#0a0a12';
+        g.beginPath(); g.arc(bx, by, 17, 0, 7); g.fill();
+        const dome = g.createRadialGradient(bx - 4, by - 5, 2, bx, by, 14);
+        dome.addColorStop(0, '#fff'); dome.addColorStop(0.25, color); dome.addColorStop(1, shade(color, 0.45));
+        g.fillStyle = dome;
+        g.beginPath(); g.arc(bx, by, 13, 0, 7); g.fill();
+      }
     }
     g.fillStyle = 'rgba(255,255,255,0.8)';
     g.font = '900 13px Consolas, monospace';
@@ -706,6 +734,31 @@ const ArcadeArt = (() => {
 
   // SAUCE-O-MATIC vending machine front: glowing header, cups behind glass.
   function pVending(g, w, h) {
+    if (hallBlit(g, 'vending', w, h)) { // Blender machine; lettering stays runtime
+      g.save();
+      g.font = '900 26px Impact, "Arial Black", sans-serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.lineJoin = 'round';
+      g.strokeStyle = 'rgba(0,0,0,0.7)'; g.lineWidth = 5;
+      g.strokeText('SAUCE-O-MATIC', w / 2, 36);
+      g.shadowColor = '#ffe23a'; g.shadowBlur = 10;
+      g.fillStyle = '#ffe23a';
+      g.fillText('SAUCE-O-MATIC', w / 2, 36);
+      g.restore();
+      g.save();
+      g.fillStyle = '#8a93b8';
+      g.font = '700 9px Consolas, monospace';
+      g.textAlign = 'center';
+      g.translate(w - 46 + 17, 72 + 120);
+      g.rotate(-Math.PI / 2);
+      g.fillText('FREE TODAY', 0, 0);
+      g.restore();
+      g.fillStyle = '#667';
+      g.font = '700 11px Consolas, monospace';
+      g.textAlign = 'center';
+      g.fillText('DIP RESPONSIBLY', w / 2, h - 18);
+      return;
+    }
     const body = g.createLinearGradient(0, 0, w, 0);
     body.addColorStop(0, '#1c2340');
     body.addColorStop(0.5, '#242c50');
@@ -794,6 +847,27 @@ const ArcadeArt = (() => {
 
   // Change machine, permanently generous.
   function pChange(g, w, h) {
+    if (hallBlit(g, 'change', w, h)) { // Blender body; header + the sticker stay runtime
+      g.fillStyle = '#1a1206';
+      g.font = '900 20px Impact, "Arial Black", sans-serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText('CHANGE', w / 2, 26);
+      g.save();
+      g.translate(w / 2, h * 0.52);
+      g.rotate(-0.12);
+      g.fillStyle = '#f2ede0';
+      rr(g, -w * 0.42, -26, w * 0.84, 52, 6); g.fill();
+      g.strokeStyle = '#c33'; g.lineWidth = 2;
+      rr(g, -w * 0.42, -26, w * 0.84, 52, 6); g.stroke();
+      g.fillStyle = '#c22';
+      g.font = '900 17px Impact, "Arial Black", sans-serif';
+      g.fillText('FREE PLAY', 0, -8);
+      g.fillStyle = '#333';
+      g.font = '700 11px Consolas, monospace';
+      g.fillText('forever · no quarters', 0, 12);
+      g.restore();
+      return;
+    }
     pMetal(g, w, h);
     g.fillStyle = 'rgba(8,10,20,0.45)';
     g.fillRect(0, 0, w, h);
@@ -830,6 +904,7 @@ const ArcadeArt = (() => {
 
   // "OPEN 24/7" neon for the exterior window.
   function pOpen(g, w, h) {
+    if (hallBlit(g, 'open', w, h)) return;
     g.fillStyle = '#04060d';
     g.fillRect(0, 0, w, h);
     neonText(g, 'OPEN', w / 2, h * 0.36, '900 58px Impact, "Arial Black", sans-serif', '#ff2fa0', 18);
@@ -939,6 +1014,36 @@ const ArcadeArt = (() => {
   // full) main atlas never risks an overflow. Same shelf packer, same rules.
 
   function pStreetShop(g, w, h, kind) {
+    const shopArt = { noodle: 'shopNoodle', laundro: 'shopLaundro', garage: 'shopGarage' };
+    if (hallBlit(g, shopArt[kind], w, h)) { // Blender diorama; neon lettering stays runtime
+      g.textAlign = 'center';
+      if (kind === 'noodle') {
+        g.font = '900 26px Consolas, monospace';
+        g.shadowColor = '#ff2fa0'; g.shadowBlur = 14;
+        g.fillStyle = '#ff9ac8';
+        g.fillText('NOODLE NUG', w / 2, 46);
+        g.shadowBlur = 0;
+      } else if (kind === 'laundro') {
+        g.font = '900 24px Consolas, monospace';
+        g.shadowColor = '#26e0ff'; g.shadowBlur = 14;
+        g.fillStyle = '#9be8ff';
+        g.fillText('SUDS & SPUDS', w / 2, 46);
+        g.shadowBlur = 0;
+        g.font = '700 13px Consolas, monospace';
+        g.fillStyle = '#39465c';
+        g.fillText('wash · dry · fold · 24H', w / 2, 66);
+      } else {
+        g.font = '900 22px Consolas, monospace';
+        g.shadowColor = '#39ff7a'; g.shadowBlur = 14;
+        g.fillStyle = '#a8ffc8';
+        g.fillText('GREASE GARAGE', w / 2, 18);
+        g.shadowBlur = 0;
+        g.font = '700 12px Consolas, monospace';
+        g.fillStyle = '#39ff7a';
+        g.fillText('OPEN — home of FAST FOOD', w / 2, 216);
+      }
+      return;
+    }
     // shared brick shell
     g.fillStyle = '#231b20';
     g.fillRect(0, 0, w, h);
@@ -1063,6 +1168,15 @@ const ArcadeArt = (() => {
   }
 
   function pAcross(g, w, h) {
+    if (hallBlit(g, 'across', w, h)) { // Blender block; the smudge lettering rides its glow
+      g.font = '900 15px Consolas, monospace';
+      g.textAlign = 'center';
+      g.shadowColor = '#ff2fa0'; g.shadowBlur = 10;
+      g.fillStyle = 'rgba(255,140,190,0.6)';
+      g.fillText('NUGGETOWN', w * 0.82, h * 0.585); // sits on the baked glow bar
+      g.shadowBlur = 0;
+      return;
+    }
     // the far side of the street: rooftops against the rain haze
     const sky = g.createLinearGradient(0, 0, 0, h);
     sky.addColorStop(0, '#07091a');
@@ -1095,6 +1209,7 @@ const ArcadeArt = (() => {
   }
 
   function pRoad(g, w, h) {
+    if (hallBlit(g, 'road', w, h)) return;
     g.fillStyle = '#141419';
     g.fillRect(0, 0, w, h);
     g.fillStyle = '#1a1a21';
@@ -1133,6 +1248,7 @@ const ArcadeArt = (() => {
   // Surface textures for the 3D street regulars (bodies are real lit geometry
   // in arcade.js now — these wrap the meshes).
   function pNugSkin(g, w, h) {
+    if (hallBlit(g, 'nugSkin', w, h)) return;
     const grad = g.createLinearGradient(0, 0, w, h);
     grad.addColorStop(0, '#f0b954');
     grad.addColorStop(0.5, '#e8a83e');
@@ -1149,6 +1265,7 @@ const ArcadeArt = (() => {
     }
   }
   function pHoodCloth(g, w, h) {
+    if (hallBlit(g, 'hoodCloth', w, h)) return;
     g.fillStyle = '#232336';
     g.fillRect(0, 0, w, h);
     g.fillStyle = 'rgba(90,90,130,0.25)';
@@ -1158,6 +1275,14 @@ const ArcadeArt = (() => {
     for (let i = 0; i < 20; i++) g.fillRect((i * 29) % w, (i * 17) % h, 6, 2);
   }
   function pCupGravy(g, w, h) {
+    if (hallBlit(g, 'cupGravy', w, h)) { // Blender waxed paper; the label stays runtime
+      g.fillStyle = '#f4ecd4';
+      g.font = '900 15px Consolas, monospace';
+      g.textAlign = 'center';
+      g.fillText('GRAVY', w * 0.25, h * 0.62);
+      g.fillText('GRAVY', w * 0.75, h * 0.62);
+      return;
+    }
     // wraps a cylinder: u = around, v = top→bottom
     g.fillStyle = '#e8e2d0';
     g.fillRect(0, 0, w, h);
@@ -1176,6 +1301,7 @@ const ArcadeArt = (() => {
     g.beginPath(); g.arc(w * 0.5, h * 0.2, 8, 0, 7); g.stroke();
   }
   function pHenWhite(g, w, h) {
+    if (hallBlit(g, 'henWhite', w, h)) return;
     g.fillStyle = '#f4ecd4';
     g.fillRect(0, 0, w, h);
     g.strokeStyle = 'rgba(200,190,160,0.6)';
@@ -1189,6 +1315,7 @@ const ArcadeArt = (() => {
     }
   }
   function pPickle(g, w, h) {
+    if (hallBlit(g, 'pickle', w, h)) return;
     const grad = g.createLinearGradient(0, 0, 0, h);
     grad.addColorStop(0, '#4f7a2a');
     grad.addColorStop(1, '#33591a');
@@ -1342,6 +1469,7 @@ const ArcadeArt = (() => {
 
   // Weathered boardwalk planks, seen a thousand midnights.
   function pPierWood(g, w, h) {
+    if (hallBlit(g, 'pierWood', w, h)) return;
     g.fillStyle = '#241a08';
     g.fillRect(0, 0, w, h);
     const rowH = 16;
@@ -1372,6 +1500,7 @@ const ArcadeArt = (() => {
   // Harbor water after midnight: near-black teal with faint wave streaks.
   // (The moon shimmer and the golden swirl are live glow sprites in arcade.js.)
   function pWater(g, w, h) {
+    if (hallBlit(g, 'water', w, h)) return;
     const grad = g.createLinearGradient(0, 0, 0, h);
     grad.addColorStop(0, '#0a2438');
     grad.addColorStop(1, '#050f1a');
