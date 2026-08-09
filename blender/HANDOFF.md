@@ -536,3 +536,103 @@ still builds and renders.
 3. The rest of the §7 model list: vending/change/jukebox, coffered ceiling, the
    five street doors, fire escape, the hall's own vestibule.
 4. The bump-grain normal graph (row 1 of the table above).
+
+---
+
+## 11. 📋 THE NEXT SESSION — read this first, it is the whole brief
+
+Beau's verdict on THE POWER PLANT: *"this was a decent update but we've got a
+long ways to go."* He is right, and the gap is measurable.
+
+### The number this session exists to move
+
+Across the twenty verification shots taken at the end of the last session:
+
+| | dead black (luma < 8) | near-dead (luma < 20) |
+|---|---|---|
+| average frame | **13.8%** | **38.6%** |
+| street-lamps | 29.5% | **60.1%** |
+| street-facade | 25.0% | 58.4% |
+| hall-westwall | 19.5% | 48.8% |
+
+**Nearly two-fifths of every frame is nothing.** That is the single biggest
+reason this reads as a free game, and no amount of material work fixes it,
+because the problem is not how the lit parts look — it is how much of the
+picture is unlit parts. A real game fills its frame: sky glow, distant
+geometry, bounce light, atmosphere.
+
+**Target: near-dead under 20%, dead black under 5%, with the blown-pixel
+fraction NOT rising** (that last clause is the §5c lesson — it is trivial to
+fix darkness by blowing out the highlights, and it looks worse).
+
+Capture the baseline FIRST, with the same harness, before touching anything.
+
+### Why the last session could not fix it
+
+Two separate causes, and they need different work:
+
+**(a) Nothing is there.** The sky above the street is not dark — it is *absent*.
+The ceiling above the hall is a black plane with two white bars on it. No
+amount of lighting fills a space with no geometry in it.
+
+**(b) What is there receives no light.** A surface out of reach of a lamp gets
+`uAmbient` (0.22, 0.21, 0.29) times a pre-lit texture, and that is all. There
+is no bounce, no environment term, and emissive surfaces contribute NOTHING —
+a magenta neon sign does not tint the wall it is bolted to.
+
+Under (b) sits the structural blocker: **the albedo is still the pre-lit
+render**. hallrig bakes a 44° key into every texture, so diffuse response is
+frozen and raising the light count from 8 to 30 moved the mean by +4%. The
+material shader is built and correct; it is being fed the wrong fuel.
+
+### The four movements, in this order
+
+**1. THE SKY — biggest win per unit of risk, do it first.**
+Purely additive; nothing existing changes. A night sky dome with sodium glow at
+the horizon, a distant Nuggetown skyline in silhouette with lit windows (GTN
+already has the city's look — reuse it), a moon, drifting cloud, and rain that
+is visible *against* the glow instead of against nothing. Then feed the sky
+colour into the ambient term for upward-facing surfaces, which is free bounce.
+Sixty percent of the street's dead frame is directly above the horizon line.
+
+**2. THE RELIGHT — the headline, and the risky one. De-risk on ONE asset.**
+- `hallrig.render_albedo`: a flat base-colour pass. The machinery is already
+  proven — it is the same material-swap-to-emission trick `_orm_swap` uses, and
+  §10's traps (Raw view transform, no compositor) already apply.
+- **Re-render at 2× while in there.** Pages go 2048² → 4096², street to
+  2048×4096. One Blender batch buys both flat albedo and the texel density the
+  payload budget was lifted for. Check `MAX_TEXTURE_SIZE` and mipmaps.
+- Replace the flat `uAmbient` constant with a hemisphere term (sky colour above,
+  ground colour below, by normal.y) — this alone lifts every surface that
+  currently gets one number.
+- **Make emissive surfaces light the room.** Cheapest honest version: place a
+  light at every emissive quad cluster (the rig already has a world light list
+  and a nearest-N upload, so this is data, not architecture).
+- Turn the ORM blue channel to 1.0 for architecture as each region migrates.
+  That channel exists exactly so this can go one region at a time.
+- Expect the hall to go DARK at first. Re-tune light intensities in the same
+  step — they are currently tuned to ADD to a texture that was already lit.
+- `hall_targets.json` and pack_hall's grading were built for the lit look and
+  will need revisiting. Do not mean-grade a base-colour render to a target
+  measured off a lit one.
+
+**3. THE CEILING — the interior's sky.**
+Coffered/drop ceiling with real fixtures (bodies, not bright rectangles), ducts,
+cable trays, hanging signage, speakers. Plus the entry vestibule. This is the
+§7 model list, reordered by how much black it deletes.
+
+**4. SHADOWS — last, and cut this first if time runs out.**
+Nothing in the hall casts. Do it AFTER the relight raises the floor, because
+shadows remove light and would make the metric worse against today's baseline.
+A single shadow map per zone with PCF for the key sources, plus cheap contact
+shadows under props and NPCs.
+
+### Ground rules carried forward
+
+- Sections 0-10 still apply, especially §8's loop (recon once, de-risk the seam
+  on one throwaway asset, then BATCH, then one verification pass) and §1's
+  "open the crops, every time".
+- **Always push to prod when verified.** Beau has no local setup; prod is his
+  review environment and asking costs him a round trip. Do not ask.
+- The A/B harness pattern and the ten camera spots from the last session are
+  worth rebuilding first — they are what turns "looks better" into a number.
