@@ -22,3 +22,4 @@ package-lock.json
 __pycache__/
 blender/renders/
 blender/glb/
+blender/*.blend1
