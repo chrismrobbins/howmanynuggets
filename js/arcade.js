@@ -54,6 +54,10 @@ const NuggetArcade = (() => {
     bloomKnee: 0.55,
     exposure: 1.0,
     sat: 1.10,
+    // 🔭 THE LENS
+    vignette: 0.42,     // corner exposure drop, applied BEFORE the tonemap
+    aberration: 0.0035, // radial R/B split; ~1px at the corners of 1280x760
+    grain: 0.012,       // shadow-weighted; also dithers 8-bit gradient banding
   };
 
   // ---- THE SKY -------------------------------------------------------------
@@ -159,6 +163,7 @@ const NuggetArcade = (() => {
     dlg: null, dlgName: null, dlgText: null, dlgOpts: null, dlgHint: null,
     wentOutside: false,     // first-steps-outside toast fired this session
     stepAcc: 0,             // footstep distance accumulator
+    gaitAmt: 0, breath: 0, camRoll: 0, camSway: 0,   // 🚶 THE GAIT (see gait())
     prevZ: 99,
     lastChime: -9,
   };
@@ -196,6 +201,11 @@ const NuggetArcade = (() => {
   function mRotX(a) {
     const m = mIdent(), c = Math.cos(a), s = Math.sin(a);
     m[5] = c; m[6] = s; m[9] = -s; m[10] = c;
+    return m;
+  }
+  function mRotZ(a) {
+    const m = mIdent(), c = Math.cos(a), s = Math.sin(a);
+    m[0] = c; m[1] = s; m[4] = -s; m[5] = c;
     return m;
   }
   function mScale(x, y, z) {
@@ -883,11 +893,35 @@ void main() {
   gl_FragColor = vec4(s * (uScale / 16.0), 1.0);
 }`;
 
+  // 🔭 THE LENS. Everything above this point is about what the ROOM is doing.
+  // This is about the thing looking at it, and it is the layer nobody had
+  // touched: the hall's only optical character was a CSS radial-gradient laid
+  // over the finished frame.
+  //
+  // A CSS vignette is a black sheet with a hole in it. It darkens corners
+  // AFTER the tonemap, so the corners lose contrast as well as light and the
+  // whole frame reads as a photo with a sticker on it. The same curve applied
+  // BEFORE the tonemap is an exposure change: corners roll down the same shape
+  // the rest of the picture is on, and keep their colour.
+  //
+  // Then three things a real lens does that CSS cannot:
+  //   ABERRATION — a lens cannot focus every wavelength on the same plane, so
+  //     red and blue land at slightly different radii. Zero at centre, r^2 to
+  //     the corners, sub-pixel until the outer sixth of the frame.
+  //   GRAIN — weighted toward the SHADOWS, which is where a sensor's noise
+  //     actually lives. It also does real work in a dark room full of wide
+  //     gradients: it dithers the banding an 8-bit output would otherwise show
+  //     across every one of this hall's soft light pools.
+  //   DEFOCUS — the bloom pyramid is already a blur chain. Mip 2 is free, and
+  //     mixing it in by radius during the cabinet zoom turns a camera push into
+  //     a camera FOCUSING, which is the whole read of "this shot is deliberate".
   const FS_COMP = `
 precision mediump float;
 varying vec2 vUV;
-uniform sampler2D uScene, uBloom;
+uniform sampler2D uScene, uBloom, uBlur;
 uniform float uAmount, uExposure, uHdr, uSat;
+uniform float uVignette, uAberr, uGrain, uFocus, uTimeJ;
+uniform vec2 uAspect;
 
 // THE SHOULDER, kept for the 8-bit path. This renderer had none: the composite
 // added bloom to the scene and handed the result straight to an 8-bit
@@ -927,14 +961,43 @@ vec3 filmic(vec3 c) {
 }
 
 void main() {
-  vec3 c = max(texture2D(uScene, vUV).rgb, vec3(0.0));
+  vec2 d = (vUV - 0.5) * uAspect;      // aspect-corrected, so the falloff is round
+  float r2 = dot(d, d);
+
+  vec3 c;
+  if (uAberr > 0.0001) {
+    // radial, quadratic: nothing at the centre, ~1px at the corners
+    vec2 off = d * r2 * uAberr;
+    c = vec3(
+      texture2D(uScene, vUV - off).r,
+      texture2D(uScene, vUV).g,
+      texture2D(uScene, vUV + off).b);
+  } else {
+    c = texture2D(uScene, vUV).rgb;
+  }
+  c = max(c, vec3(0.0));
+
+  // DEFOCUS: mip 2 of the bloom chain, already blurred, already resident.
+  if (uFocus > 0.001)
+    c = mix(c, max(texture2D(uBlur, vUV).rgb, vec3(0.0)),
+            clamp(uFocus * smoothstep(0.02, 0.55, r2), 0.0, 0.92));
+
   c += max(texture2D(uBloom, vUV).rgb, vec3(0.0)) * uAmount;
-  c *= uExposure;
+  // VIGNETTE BEFORE THE CURVE — an exposure change, not a black sheet.
+  c *= uExposure * (1.0 - uVignette * smoothstep(0.06, 1.15, r2));
   // a touch of extra saturation so the halos stay COLORED instead of washing
   // toward white (the sign blowout lesson, this time in the shader)
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
   c = mix(vec3(l), c, uSat);
-  gl_FragColor = vec4(uHdr > 0.5 ? filmic(c) : shoulder(c), 1.0);
+  c = uHdr > 0.5 ? filmic(c) : shoulder(c);
+
+  if (uGrain > 0.0001) {
+    // cheap hash, re-seeded per frame. Weighted to the shadows: bright pixels
+    // in a real image are the CLEAN ones.
+    float n = fract(sin(dot(vUV * 1024.0 + uTimeJ, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
+    c += n * uGrain * (1.0 - smoothstep(0.0, 0.75, l));
+  }
+  gl_FragColor = vec4(max(c, vec3(0.0)), 1.0);
 }`;
 
   const BLOOM_MIPS = 5;
@@ -1060,6 +1123,7 @@ void main() {
     bind(H.progComp, H.aComp);
     gl.uniform1i(H.uniComp.uScene, 0);
     gl.uniform1i(H.uniComp.uBloom, 1);
+    gl.uniform1i(H.uniComp.uBlur, 2);
     // The pyramid carries roughly one full copy of the highlights per level,
     // so the same visual weight as the old single blur needs a much smaller
     // number here. Measured, not guessed: see the ACT I table in HANDOFF §13.
@@ -1067,9 +1131,24 @@ void main() {
     gl.uniform1f(H.uniComp.uExposure, P.hdr ? TUNE.exposure : 1.0);
     gl.uniform1f(H.uniComp.uHdr, P.hdr ? 1 : 0);
     gl.uniform1f(H.uniComp.uSat, P.hdr ? TUNE.sat : 1.12);
+    // 🔭 THE LENS. One seam for the lot: H.lens = false gives the frame the
+    // hall shipped with (and the CSS vignette is gone, so this IS the vignette
+    // now — turning it off is a flat frame, not a double-darkened one).
+    const lens = H.lens !== false;
+    gl.uniform2f(H.uniComp.uAspect, Math.max(1, H.canvas.width / H.canvas.height), 1);
+    gl.uniform1f(H.uniComp.uVignette, lens ? TUNE.vignette : 0);
+    gl.uniform1f(H.uniComp.uAberr, lens ? TUNE.aberration : 0);
+    gl.uniform1f(H.uniComp.uGrain, lens ? TUNE.grain : 0);
+    gl.uniform1f(H.uniComp.uFocus, lens ? H.defocus || 0 : 0);
+    // a per-frame seed for the grain — and NOT H.t, which the harness pins to
+    // hold the room still. Grain that freezes with the clock is a fixed
+    // pattern, which is the one thing grain must never be.
+    gl.uniform1f(H.uniComp.uTimeJ, (H.frameN = (H.frameN || 0) + 1) % 977);
     gl.bindTexture(gl.TEXTURE_2D, P.tex);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, P.mips[0].tex);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, P.mips[Math.min(2, P.mips.length - 1)].tex);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     gl.activeTexture(gl.TEXTURE0);
     gl.disableVertexAttribArray(H.aComp);
@@ -3695,7 +3774,8 @@ void main() {
     };
     H.uniDown = unis(H.progDown, ['uTex', 'uTexel', 'uThreshold', 'uKnee', 'uFirst']);
     H.uniUp = unis(H.progUp, ['uTex', 'uTexel', 'uScale']);
-    H.uniComp = unis(H.progComp, ['uScene', 'uBloom', 'uAmount', 'uExposure', 'uHdr', 'uSat']);
+    H.uniComp = unis(H.progComp, ['uScene', 'uBloom', 'uBlur', 'uAmount', 'uExposure',
+      'uHdr', 'uSat', 'uVignette', 'uAberr', 'uGrain', 'uFocus', 'uTimeJ', 'uAspect']);
     H.quadVbo = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, H.quadVbo);
     gl.bufferData(gl.ARRAY_BUFFER,
@@ -4320,7 +4400,8 @@ void main() {
   function stepWalk(dt) {
     // pointer lock has no cursor — release it whenever the UI needs one
     if (H.plock && (H.dialog || modalOpen())) document.exitPointerLock();
-    if (H.dialog) { H.cam.y = EYE; return; } // feet stay planted mid-conversation
+    // feet stay planted mid-conversation — but the chest still moves
+    if (H.dialog) { gait(dt, false); return; }
     // arrow keys steer the view, so you can turn a corner without stopping
     if (H.keys.yl) H.cam.yaw += 2.1 * dt;
     if (H.keys.yr) H.cam.yaw -= 2.1 * dt;
@@ -4338,7 +4419,37 @@ void main() {
       H.bob += dt * 7;
       H.auto = null;
     }
-    H.cam.y = EYE + Math.sin(H.bob) * 0.028;
+    gait(dt, !!(mx || mz));
+  }
+
+  // 🚶 THE GAIT. This was one sine wave on cam.y, 28mm of it, and that is the
+  // difference between a camera that is moving and a PERSON who is walking.
+  // Three things a head actually does, none of which cost anything:
+  //
+  //   - the RISE is at twice the step rate (both feet push), the SWAY is at
+  //     once (the body falls onto alternate legs). Running only the vertical
+  //     term is why the old bob read as a lift, not a walk.
+  //   - the head ROLLS a little into the sway. Sub-degree; you notice its
+  //     absence, never its presence.
+  //   - standing still is not standing still. A slow breath keeps the frame
+  //     alive, which is most of why the hall used to feel like a screenshot
+  //     whenever the player stopped to look at something.
+  //
+  // `amt` ramps rather than switching, so letting go of W settles instead of
+  // snapping, and everything is scaled by H.lens so the whole effect has one
+  // seam. Dialogue plants the feet — see the caller.
+  function gait(dt, moving) {
+    const on = H.lens !== false;
+    H.gaitAmt += ((moving ? 1 : 0) - H.gaitAmt) * Math.min(1, dt * (moving ? 7 : 4));
+    H.breath += dt * 1.15;
+    const a = on ? H.gaitAmt : 0;
+    const rise = Math.sin(H.bob * 2) * 0.031 * a;
+    const sway = Math.sin(H.bob) * 0.026 * a;
+    const breathe = Math.sin(H.breath) * 0.008 * (1 - a * 0.8) * (on ? 1 : 0);
+    H.cam.y = EYE + rise + breathe;
+    // sway is lateral in CAMERA space, so it has to be rotated into the world
+    H.camRoll = -Math.sin(H.bob) * 0.011 * a;
+    H.camSway = sway;
   }
 
   function stepAuto(dt) {
@@ -4367,7 +4478,7 @@ void main() {
     while (dy < -Math.PI) dy += Math.PI * 2;
     H.cam.yaw += dy * Math.min(1, dt * 5);
     H.bob += dt * 7;
-    H.cam.y = EYE + Math.sin(H.bob) * 0.028;
+    gait(dt, true);
   }
 
   function stepZoom(dt) {
@@ -4375,6 +4486,11 @@ void main() {
     if (!z) return; // zoom finished; waiting on the launch flash
     z.t += dt;
     const p = easeInOut(Math.min(1, z.t / z.dur));
+    // 🔭 RACK FOCUS. The push toward a cabinet used to be a translation and
+    // nothing else. Pulling the edges out of focus as it arrives is what turns
+    // it from "the camera moved" into "the camera chose this" — and it is free,
+    // because mip 2 of the bloom pyramid is already a blurred copy of the frame.
+    H.defocus = p * 0.85;
     H.cam.x = z.from.x + (z.to.x - z.from.x) * p;
     H.cam.y = z.from.y + (z.to.y - z.from.y) * p;
     H.cam.z = z.from.z + (z.to.z - z.from.z) * p;
@@ -4600,10 +4716,21 @@ void main() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     const aspect = H.canvas.width / H.canvas.height;
-    const proj = mPersp(FOV, aspect, 0.05, 70);
+    // The frame widens a hair while walking. Every driving game does this and
+    // nobody ever consciously sees it; what they see is that moving feels like
+    // moving. 1.5° at full stride, eased by the same ramp as the gait.
+    const proj = mPersp(FOV * (1 + 0.026 * H.gaitAmt), aspect, 0.05, 70);
+    // 🚶 the gait's lateral term is in CAMERA space, so it rotates into the
+    // world through the camera's own right vector before it becomes a
+    // translation. The roll goes outermost, after pitch, or it tilts the
+    // horizon around the wrong axis.
+    const swx = Math.cos(H.cam.yaw) * H.camSway, swz = -Math.sin(H.cam.yaw) * H.camSway;
     const view = mMul(
-      mRotX(-H.cam.pitch),
-      mMul(mRotY(-H.cam.yaw), mTrans(-H.cam.x, -H.cam.y, -H.cam.z))
+      mRotZ(H.camRoll),
+      mMul(
+        mRotX(-H.cam.pitch),
+        mMul(mRotY(-H.cam.yaw), mTrans(-H.cam.x - swx, -H.cam.y, -H.cam.z - swz))
+      )
     );
     const basis = camBasis(aspect);
 
@@ -4889,6 +5016,10 @@ void main() {
       H.returnT += dt;
       if (H.returnT > 0.55) H.state = 'walk';
     }
+    // 🔭 rack focus decays wherever it was left. Coming back out of a game
+    // lands in 'return', not 'zoom', so releasing it inside stepZoom would
+    // strand the hall permanently soft at the edges.
+    if (H.state !== 'zoom') H.defocus = Math.max(0, (H.defocus || 0) - dt * 2.6);
 
     // footsteps (walking states only) + the door chime when you cross inside
     if (H.state === 'walk' || H.state === 'auto') {

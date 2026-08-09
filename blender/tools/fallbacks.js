@@ -35,6 +35,7 @@ const MATRIX = [
   { name: 'no-pbr', off: ['pbr'], why: 'WebGL2 material shader failed to link' },
   { name: 'no-shadows', off: ['shadows'], why: 'depth FBO refused' },
   { name: 'no-sky', off: ['sky'], why: 'the void the hall shipped with' },
+  { name: 'no-lens', off: ['lens'], why: 'no vignette/aberration/grain/gait' },
   { name: 'no-hallart', off: ['art'], why: 'the paint sheet never decoded' },
   { name: 'no-maps', off: ['maps'], why: 'normal/ORM pages never decoded' },
   { name: 'no-mesh', off: ['mesh'], why: 'Blender geometry never decoded: procedural boxes' },

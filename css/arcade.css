@@ -41,11 +41,16 @@
 }
 #arcadeHall.mlook .hall-cross { display: block; }
 
+/* 🔭 THE LENS moved the vignette into the composite shader (js/arcade.js,
+   FS_COMP). It is an EXPOSURE change applied before the tonemap now, not a
+   black sheet laid over the finished frame — corners roll down the same curve
+   as the rest of the picture instead of losing contrast and colour with the
+   light. The element stays as the layer the fade and the flash sit against;
+   if it painted a gradient too, the corners would be darkened twice. */
 .hall-vignette {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse at center, transparent 52%, rgba(0, 0, 0, 0.6) 100%);
 }
 
 /* "Press ENTER — play NUGGET KNIGHT" chip above the bottom edge */
