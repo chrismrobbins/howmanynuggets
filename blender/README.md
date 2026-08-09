@@ -1,5 +1,9 @@
 # 🎨 The GTN Art Department (blender/)
 
+> **Doing an art session?** Read [HANDOFF.md](HANDOFF.md) first — MCP
+> mechanics, the measure-first law, the A/B harness recipe, and the
+> briefing for the next mission (the arcade-hall remaster).
+
 The 3D source for every sprite in `js/gtaArt.js` — GRAND THEFT NUGGET's
 FRESH PAINT remaster. GTA 1's cars were real 3D models rendered top-down
 into sprites; these are Nuggetown's, and this folder is where they live so
