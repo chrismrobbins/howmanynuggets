@@ -170,6 +170,17 @@ MATS = {
     # the fire escape's open grating: dark, and darker than its ironwork,
     # because you are mostly looking through it at the wall behind
     "grate":    ("sw_iron", [0, 0, 1, 1], 0.0, 0.46),
+    # -- the jukebox (MAIN atlas only — it stands in the hall) ---------------------
+    "jukeBody":   ("cabFront", [0.05, 0.05, 0.95, 0.95], 0.0, 0.95),
+    "jukeCrown":  ("cabFront", [0.05, 0.05, 0.95, 0.95], 0.0, 1.20),
+    "jukeChrome": ("metal", [0, 0, 1, 1], 0.0, 1.02),
+    "jukeTube":   ("sw_white", [0, 0, 1, 1], 0.30, 1.0),
+    "jukeLit":    ("sw_amber", [0, 0, 1, 1], 0.30, 0.62),
+    "jukeStrip":  ("sw_white", [0, 0, 1, 1], 0.16, 0.92),
+    "jukeBtn":    ("sw_amber", [0, 0, 1, 1], 0.40, 1.0),
+    "jukeCard":   ("sw_black", [0, 0, 1, 1], 0.0, 1.0),
+    "jukeGrille": ("metal", [0, 0, 1, 1], 0.0, 0.88),
+    "jukeDark":   ("cabFront", [0.05, 0.05, 0.95, 0.95], 0.0, 0.70),
     "stone":    ("sw_curb", [0, 0, 1, 1], 0.0, 1.35),
     "glassDark": ("sw_black", [0, 0, 1, 1], 0.0, 1.0),
     # -- street furniture, round two -------------------------------------------------
@@ -220,6 +231,12 @@ _PREVIEW = {
     "cabLight": (1.0, 0.86, 0.62), "coinSlot": (0.02, 0.02, 0.03),
     "iron": (0.22, 0.25, 0.33), "ironD": (0.13, 0.15, 0.20),
     "grate": (0.10, 0.11, 0.14),
+    "jukeBody": (0.10, 0.09, 0.13), "jukeCrown": (0.15, 0.13, 0.19),
+    "jukeChrome": (0.55, 0.57, 0.66), "jukeTube": (0.85, 0.80, 1.0),
+    "jukeLit": (0.92, 0.66, 0.24), "jukeStrip": (0.80, 0.80, 0.76),
+    "jukeBtn": (1.0, 0.68, 0.14), "jukeGrille": (0.24, 0.25, 0.30),
+    "jukeCard": (0.06, 0.06, 0.08),
+    "jukeDark": (0.05, 0.05, 0.07),
     "metalD": (0.19, 0.21, 0.27), "metalG": (0.30, 0.33, 0.40),
     "lampGlass": (1.0, 0.72, 0.25), "lampHot": (1.0, 0.90, 0.70),
     "brick": (0.32, 0.16, 0.13), "brickD": (0.20, 0.10, 0.08),
@@ -1828,6 +1845,104 @@ def build_awning():
     return P.finish(bevel=0.004, segments=1, smooth_deg=34)
 
 
+def build_jukebox():
+    """The hall's jukebox, which has been a BOX with two neon strips on it.
+
+    Everything around it is Blender now — ten cabinets, a coffered ceiling, a
+    vestibule, the regulars — and this is a named interactable with its own
+    three-track music engine, a saved preference and a hotspot the player walks
+    across the room to reach. It was six quads.
+
+    The silhouette is the whole job. A jukebox is recognisable from across a
+    room and NONE of what makes it recognisable is its box: it is the ARCH, the
+    two pilasters standing proud of the body with their bubble tubes, the
+    domed selection window, and the grille skirt. So the profile is lofted —
+    the crown is a real half-round with a rolled edge, not a chamfer.
+
+    Origin on the floor, centred, front facing -Y (= +Z in the hall) like every
+    other model here. The call site keeps the neon strips, the beat-synced
+    glows and the hotspot exactly as they were; only the shell moved.
+    """
+    P = Part("jukebox")
+    W, D, H = 0.86, 0.62, 1.58
+    hw, hd = W / 2, D / 2
+
+    # ---- the body, with a waisted profile so it is not a fridge
+    rings = []
+    for (z, wsc, dsc) in ((0.000, 0.94, 0.92), (0.140, 1.00, 1.00), (0.760, 1.00, 1.00),
+                          (1.020, 0.97, 0.95), (1.180, 0.95, 0.93)):
+        rings.append([(-hw * wsc, -hd * dsc, z), (hw * wsc, -hd * dsc, z),
+                      (hw * wsc, hd * dsc, z), (-hw * wsc, hd * dsc, z)])
+    P.loft(rings, "jukeBody", cap_a=True, cap_b=False)
+
+    # ---- THE ARCH. Half-round crown swept across the front, with a rolled lip.
+    # This is the shape people actually recognise; a chamfered box is a box.
+    # A SWEPT SURFACE IS NOT A CROWN. The first version ran a ribbon over the
+    # top and left the tympanum open, so the arch read as a bent strip with the
+    # wall showing through underneath it. It needs the sweep AND both flat
+    # faces that close it, or it is not a solid.
+    N = 13
+    prev = None
+    for i in range(N + 1):
+        t = i / N
+        a = math.pi * t
+        x = -hw * 0.95 * math.cos(a)
+        z = 1.180 + 0.300 * math.sin(a)
+        ring = [(x, -hd * 0.93, z), (x, hd * 0.93, z)]
+        if prev is not None:
+            P.face([prev[0], ring[0], ring[1], prev[1]], "jukeCrown")
+            # front and back tympanum, wound opposite ways so both face out
+            P.face([(prev[0][0], -hd * 0.93, 1.180), (x, -hd * 0.93, 1.180),
+                    ring[0], prev[0]], "jukeCrown")
+            P.face([prev[1], ring[1], (x, hd * 0.93, 1.180),
+                    (prev[0][0], hd * 0.93, 1.180)], "jukeCrown")
+        prev = ring
+    # the lip that runs round the outside of the arch, standing proud
+    for i in range(N + 1):
+        t = i / N
+        a = math.pi * t
+        x = -(hw * 0.95 + 0.045) * math.cos(a)
+        z = 1.180 + (0.300 + 0.045) * math.sin(a)
+        if i:
+            P.limb((px0, -hd * 0.96, pz0), (x, -hd * 0.96, z), 0.032, 0.032, "jukeChrome", slices=6)
+            P.limb((px0, hd * 0.96, pz0), (x, hd * 0.96, z), 0.032, 0.032, "jukeChrome", slices=6)
+        px0, pz0 = x, z
+
+    # ---- THE PILASTERS. Two chrome columns standing PROUD of the body, which
+    # is what gives a jukebox its depth from an angle. The bubble tube runs up
+    # the inside of each; the call site's violet neon lands on top of them.
+    for sx in (-1, 1):
+        P.cyl((sx * (hw - 0.045), -hd - 0.035, 0.760), "z", 0.062, 0.062, 1.180, "jukeChrome", slices=12)
+        P.cyl((sx * (hw - 0.045), -hd - 0.035, 1.380), "z", 0.050, 0.062, 0.120, "jukeChrome", slices=12)
+        P.cyl((sx * (hw - 0.045), -hd - 0.062, 0.780), "z", 0.026, 0.026, 1.120, "jukeTube", slices=8)
+        P.box((sx * (hw - 0.045), -hd - 0.035, 0.150), (0.150, 0.070, 0.170), "jukeChrome")
+
+    # ---- the face: a recessed selection window with a domed reveal
+    # THE SELECTION WINDOW. No glass pane in front of the cards: nothing in
+    # this pass is transparent, so a "glass" box is an OPAQUE box, and putting
+    # one over the title cards turned the whole face into a white slab with
+    # nothing on it. The lit backing IS the window, and the cards stand proud
+    # of it — which is also how you would build the real thing.
+    P.box((0.0, -hd + 0.004, 1.190), (W - 0.250, 0.030, 0.400), "jukeLit")
+    for r in range(4):
+        for c2 in range(2):
+            P.box((-0.14 + c2 * 0.28, -hd - 0.012, 1.032 + r * 0.088),
+                  (0.230, 0.016, 0.052), "jukeCard")
+    P.box((0.0, -hd - 0.030, 1.408), (W - 0.190, 0.055, 0.045), "jukeChrome")
+    P.box((0.0, -hd - 0.030, 0.972), (W - 0.190, 0.055, 0.045), "jukeChrome")
+    # the title strip + button bank
+    P.box((0.0, -hd - 0.022, 0.880), (W - 0.250, 0.045, 0.110), "jukeStrip")
+    for i in range(7):
+        P.cyl((-0.24 + i * 0.08, -hd - 0.050, 0.880), "y", 0.016, 0.016, 0.030, "jukeBtn", slices=8)
+    # ---- the grille skirt: real slats, so it reads as a speaker and not a panel
+    for i in range(5):
+        P.box((-0.24 + i * 0.12, -hd - 0.014, 0.480), (0.075, 0.028, 0.480), "jukeGrille")
+    P.box((0.0, -hd - 0.004, 0.480), (W - 0.180, 0.020, 0.520), "jukeDark")
+    # kick plate
+    P.box((0.0, -hd - 0.018, 0.075), (W - 0.120, 0.040, 0.110), "jukeChrome")
+    return P.finish(bevel=0.006, segments=1, smooth_deg=40)
+
+
 def build_fire_escape():
     """A two-storey fire escape: landings, stringers, rails, and a drop ladder.
 
@@ -1982,6 +2097,7 @@ MODELS.update({
     "hydrant": build_hydrant,
     "awning": build_awning,
     "fireEscape": build_fire_escape,
+    "jukebox": build_jukebox,
     "bin": build_bin,
     "busShelter": build_bus_shelter,
 })

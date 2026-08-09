@@ -2077,23 +2077,44 @@ void main() {
     {
       const jx = -4.8, jz = -0.52, hw2 = 0.42, hd = 0.3, jh = 1.55;
       const fz = jz - hd - 0.012; // the face, sitting proud of the cabinet
-      boxProp(jx, jz, hw2, hd, jh, uv.dark, 0.04);
-      // sloped crown + cap (the classic jukebox arch, low-poly edition)
-      B.quad([jx + 0.36, jh, jz - hd], [jx - 0.36, jh, jz - hd], [jx - 0.26, jh + 0.16, jz - hd + 0.16], [jx + 0.26, jh + 0.16, jz - hd + 0.16], uv.dark, {});
-      B.quad([jx - 0.26, jh + 0.16, jz + hd], [jx + 0.26, jh + 0.16, jz + hd], [jx + 0.26, jh + 0.16, jz - hd + 0.16], [jx - 0.26, jh + 0.16, jz - hd + 0.16], uv.dark, {});
-      // neon arch tubes: magenta over violet, then down the front edges
-      B.quad([jx + 0.34, jh - 0.06, fz], [jx - 0.34, jh - 0.06, fz], [jx - 0.34, jh - 0.015, fz], [jx + 0.34, jh - 0.015, fz], uv.sw_magenta, { e: 0.7 });
-      B.quad([jx + 0.3, jh - 0.115, fz], [jx - 0.3, jh - 0.115, fz], [jx - 0.3, jh - 0.07, fz], [jx + 0.3, jh - 0.07, fz], uv.sw_violet, { e: 0.55 });
-      for (const sd of [-1, 1]) {
-        B.quad([jx + sd * 0.40, 0.18, fz], [jx + sd * 0.355, 0.18, fz], [jx + sd * 0.355, jh - 0.13, fz], [jx + sd * 0.40, jh - 0.13, fz], uv.sw_violet, { e: 0.45 });
+      // 🎶 A REAL JUKEBOX. This was six quads and a chamfer, standing in a room
+      // where every cabinet, the ceiling, the vestibule and the regulars are
+      // Blender geometry — and it is a NAMED INTERACTABLE with a three-track
+      // engine, a saved preference and a hotspot the player crosses the room
+      // for. A jukebox is recognisable from the far wall, and none of what
+      // makes it recognisable is its box: it is the arch, the two chrome
+      // pilasters standing proud with bubble tubes up them, and the grille.
+      //
+      // yaw PI because the model's front faces +Z by convention and this one
+      // faces the aisle at -Z — the same trap the awnings fell into.
+      const jukeMesh = B.model('jukebox', uv, { x: jx, z: jz, yaw: Math.PI });
+      if (!jukeMesh) {
+        boxProp(jx, jz, hw2, hd, jh, uv.dark, 0.04);
+        // sloped crown + cap (the classic jukebox arch, low-poly edition)
+        B.quad([jx + 0.36, jh, jz - hd], [jx - 0.36, jh, jz - hd], [jx - 0.26, jh + 0.16, jz - hd + 0.16], [jx + 0.26, jh + 0.16, jz - hd + 0.16], uv.dark, {});
+        B.quad([jx - 0.26, jh + 0.16, jz + hd], [jx + 0.26, jh + 0.16, jz + hd], [jx + 0.26, jh + 0.16, jz - hd + 0.16], [jx - 0.26, jh + 0.16, jz - hd + 0.16], uv.dark, {});
+        // glass window (where the records would spin, if we had records)
+        B.quad([jx + 0.3, 1.0, fz], [jx - 0.3, 1.0, fz], [jx - 0.3, 1.38, fz], [jx + 0.3, 1.38, fz], uv.sw_glass, { e: 0.16 });
+        // amber button row + cyan speaker grille
+        B.quad([jx + 0.28, 0.84, fz], [jx - 0.28, 0.84, fz], [jx - 0.28, 0.9, fz], [jx + 0.28, 0.9, fz], uv.sw_amber, { e: 0.5 });
+        for (const gx of [-0.2, 0, 0.2]) {
+          B.quad([jx + gx + 0.045, 0.24, fz], [jx + gx - 0.045, 0.24, fz], [jx + gx - 0.045, 0.72, fz], [jx + gx + 0.045, 0.72, fz], uv.sw_tube, { e: 0.14, tint: 0.5 });
+        }
+        // neon down the front edges — the mesh has real bubble tubes instead
+        for (const sd of [-1, 1]) {
+          B.quad([jx + sd * 0.40, 0.18, fz], [jx + sd * 0.355, 0.18, fz], [jx + sd * 0.355, jh - 0.13, fz], [jx + sd * 0.40, jh - 0.13, fz], uv.sw_violet, { e: 0.45 });
+        }
       }
-      // glass window (where the records would spin, if we had records)
-      B.quad([jx + 0.3, 1.0, fz], [jx - 0.3, 1.0, fz], [jx - 0.3, 1.38, fz], [jx + 0.3, 1.38, fz], uv.sw_glass, { e: 0.16 });
-      // amber button row + cyan speaker grille
-      B.quad([jx + 0.28, 0.84, fz], [jx - 0.28, 0.84, fz], [jx - 0.28, 0.9, fz], [jx + 0.28, 0.9, fz], uv.sw_amber, { e: 0.5 });
-      for (const gx of [-0.2, 0, 0.2]) {
-        B.quad([jx + gx + 0.045, 0.24, fz], [jx + gx - 0.045, 0.24, fz], [jx + gx - 0.045, 0.72, fz], [jx + gx + 0.045, 0.72, fz], uv.sw_tube, { e: 0.14, tint: 0.5 });
-      }
+      // THE NEON STAYS EITHER WAY. It is the part that moves with the music,
+      // and the mesh deliberately does not carry it — baked-in neon cannot
+      // pulse. On the mesh it frames the selection window, which is where a
+      // Wurlitzer's colour band actually sits; on the fallback it arches over
+      // the top as it always did.
+      const nz = jukeMesh ? jz - hd - 0.058 : fz;
+      const ny1 = jukeMesh ? 1.408 : jh - 0.038;
+      const ny2 = jukeMesh ? 0.972 : jh - 0.093;
+      B.quad([jx + 0.34, ny1 - 0.022, nz], [jx - 0.34, ny1 - 0.022, nz], [jx - 0.34, ny1 + 0.022, nz], [jx + 0.34, ny1 + 0.022, nz], uv.sw_magenta, { e: 0.7 });
+      B.quad([jx + 0.3, ny2 - 0.022, nz], [jx - 0.3, ny2 - 0.022, nz], [jx - 0.3, ny2 + 0.022, nz], [jx + 0.3, ny2 + 0.022, nz], uv.sw_violet, { e: 0.55 });
       // the lights: they thump with the track (kind 'juke' in the sprite pass)
       H.glows.push({ p: [jx, jh - 0.05, jz - 0.55], c: [1, 0.18, 0.63], s: 1.0, a: 0.16, k: 'juke' });
       H.glows.push({ p: [jx, 1.2, jz - 0.55], c: [0.15, 0.88, 1], s: 0.7, a: 0.12, k: 'juke' });
@@ -4027,6 +4048,21 @@ void main() {
     // extension, even on WebGL2 where the format itself is core — asking for
     // the texture always works, attaching it does not. Probe here, verify the
     // attachment in postSetup, and keep the 8-bit chain if either says no.
+    // 32-BIT INDICES, and this has to be decided BEFORE anything uploads.
+    //
+    // Two bugs, one line. `OES_element_index_uint` is a WebGL**1** extension —
+    // on WebGL2 they are CORE and getExtension returns null — so this read
+    // false on every WebGL2 context, and Builder.upload fell back to Uint16
+    // where an overflow does not error, it WRAPS.
+    //
+    // THE GRIME fixed the value and left it where it was: at the END of
+    // build(), seventy lines AFTER buildScene() has already uploaded every
+    // buffer in the hall. So it was still undefined at the only moment it is
+    // read, and the fix measured as working purely because nothing had crossed
+    // 65535 yet. Adding the jukebox took the hall to 69863 and the room came
+    // back as diagonal shards. A capability probe that runs after the thing it
+    // gates is not a probe, it is a comment.
+    H.uintIndex = !!gl2 || !!gl.getExtension('OES_element_index_uint');
     H.hdrCap = !!(gl2 && (gl.getExtension('EXT_color_buffer_half_float')
       || gl.getExtension('EXT_color_buffer_float')));
     H.hdr = H.hdrCap;   // harness seam: false = the 8-bit room, tonemap and all
@@ -4174,16 +4210,6 @@ void main() {
     // 32-bit element indices: the Blender geometry pushes the static buffer well
     // past 65535 vertices. Universally supported in practice; if it is ever
     // missing, upload() warns and the hall still runs on 16-bit.
-    // 32-BIT INDICES. `OES_element_index_uint` is a WebGL**1** extension; on
-    // WebGL2 they are CORE and getExtension returns null for it. So this check
-    // reported "no 32-bit indices" on every WebGL2 context in the world, and
-    // Builder.upload quietly fell back to Uint16 — where an overflow does not
-    // error, it WRAPS, stitching triangles between unrelated vertices.
-    //
-    // It never fired because no buffer had crossed 65535. Adding two fire
-    // escapes to the street took it to 67765 and the block across the road
-    // turned into a black smear. Latent since §7 of the handoff.
-    H.uintIndex = !!gl2 || !!gl.getExtension('OES_element_index_uint');
     gl.enable(gl.CULL_FACE);
     gl.clearColor(FOG[0], FOG[1], FOG[2], 1);
 
