@@ -265,9 +265,26 @@ MATS = {
     # the bus shelter's lit route map — see build_bus_shelter's note
     "shelterMap": ("sw_white", [0, 0, 1, 1], 0.42, 0.95),
     "shelterAd":  ("sw_amber", [0, 0, 1, 1], 0.34, 0.95),
+    # The OTHER two back panels. One backlit advert is what a real shelter has;
+    # two panels of dark glass either side of it still left two thirds of this
+    # thing as the black slab that has made 10-busstop the worst tile in the
+    # game all night. Glazing with a lit street behind it is not black.
+    "shelterBack": ("sw_white", [0, 0, 1, 1], 0.13, 0.66),
     # -- 🛣 the road surface. Dark and ROUGH on purpose: these are the only
     #    things on a wet road that are NOT reflective, and that contrast is the
     #    entire reason they are worth modelling.
+    # -- 🚸 THE PAVEMENT. The road got manholes, gullies, a crossing and repair
+    #    patches; the pavement it faces is still a grid of clean grey slabs, and
+    #    it is the bottom third of every street frame in the game.
+    "paveIron":   ("sw_iron", [0, 0, 1, 1], 0.0, 0.62),
+    "paveIronD":  ("sw_iron", [0, 0, 1, 1], 0.0, 0.40),
+    "paveStone":  ("sw_curb", [0, 0, 1, 1], 0.0, 1.05),
+    "paveDark":   ("sw_black", [0, 0, 1, 1], 0.0, 1.0),
+    "paveGreen":  ("sw_wood", [0, 0, 1, 1], 0.0, 0.55),
+    "paveLeaf":   ("sw_wood", [0, 0, 1, 1], 0.0, 0.42),
+    "paveBox":    ("sw_red", [0, 0, 1, 1], 0.0, 0.72),
+    "paveGlass":  ("sw_amber", [0, 0, 1, 1], 0.18, 0.85),
+    "paveTop":    ("sw_curb", [0, 0, 1, 1], 0.0, 0.72),
     "ironCast":   ("sw_iron", [0, 0, 1, 1], 0.0, 0.42),
     "ironRib":    ("sw_iron", [0, 0, 1, 1], 0.0, 0.58),
     "ironRim":    ("sw_curb", [0, 0, 1, 1], 0.0, 0.62),
@@ -372,6 +389,12 @@ _PREVIEW = {
     "bladeArm": (0.18, 0.20, 0.26), "bladeFace": (0.16, 0.18, 0.23),
     "bladeGlow": (1.0, 0.35, 0.68),
     "shelterMap": (0.88, 0.90, 0.94), "shelterAd": (1.0, 0.74, 0.28),
+    "shelterBack": (0.62, 0.63, 0.66),
+    "paveIron": (0.16, 0.18, 0.23), "paveIronD": (0.10, 0.11, 0.14),
+    "paveStone": (0.34, 0.34, 0.40), "paveDark": (0.02, 0.02, 0.03),
+    "paveGreen": (0.22, 0.30, 0.10), "paveLeaf": (0.14, 0.24, 0.08),
+    "paveBox": (0.55, 0.10, 0.07), "paveGlass": (0.85, 0.62, 0.22),
+    "paveTop": (0.24, 0.24, 0.29),
     "ironCast": (0.09, 0.10, 0.13), "ironRib": (0.14, 0.15, 0.19),
     "ironRim": (0.20, 0.20, 0.24),
     "furnBody": (0.10, 0.10, 0.14), "furnDark": (0.02, 0.02, 0.03),
@@ -2275,7 +2298,7 @@ def build_bus_shelter():
     # the shelter's BACK. Measure where the camera is before deciding where the
     # light goes.
     for i in (-1, 0, 1):
-        mat = "shelterAd" if i == -1 else "shelterGlass"
+        mat = "shelterAd" if i == -1 else "shelterBack"
         d = 0.055 if i == -1 else 0.028
         P.box((i * (W / 3), hd - 0.040, 1.320), (W / 3 - 0.075, d, 1.760), mat)
     for i in (-1, 1):
@@ -2767,6 +2790,117 @@ MODELS.update({
     "claw": build_claw,
     "changeMachine": build_change_machine,
     "stool": build_stool,
+})
+
+
+def build_bollard():
+    """A cast bollard: tapered shaft, banded collar, domed cap, reflector.
+
+    The cheapest street furniture there is and the one that does the most for a
+    pavement, because a row of them draws the PERSPECTIVE of the kerb. A flat
+    slab with a texture on it has no depth cue at all; eight objects marching
+    away down the same line have nothing but.
+    """
+    P = Part("bollard")
+    P.revolve([
+        (0.115, 0.000), (0.118, 0.045), (0.104, 0.070), (0.096, 0.560),
+        (0.104, 0.600), (0.100, 0.640), (0.086, 0.860), (0.092, 0.900),
+        (0.078, 0.945), (0.048, 0.975), (0.0, 0.985),
+    ], "paveIron", slices=16)
+    P.revolve([(0.108, 0.612), (0.110, 0.636), (0.106, 0.652)], "paveIronD", slices=16)
+    P.box((0, -0.092, 0.735), (0.090, 0.028, 0.055), "paveGlass")
+    return P.finish(bevel=0.004, segments=1, smooth_deg=42)
+
+
+def build_paper_box():
+    """A coin-operated newspaper box on legs, hood open a crack.
+
+    Nuggetown has a police case board, five regulars and a detective who takes
+    notes, and nowhere at all that a newspaper comes from.
+    """
+    P = Part("paperBox")
+    W, D, Hh = 0.44, 0.40, 1.14
+    hd = D / 2
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            P.box((sx * (W / 2 - 0.035), sy * (hd - 0.035), 0.170),
+                  (0.045, 0.045, 0.340), "paveIronD")
+    P.box((0, 0, 0.680), (W, D, 0.680), "paveBox")
+    # the window and its hood
+    P.box((0, -hd - 0.012, 0.790), (W - 0.120, 0.030, 0.360), "paveDark")
+    P.box((0, -hd - 0.030, 0.985), (W + 0.030, 0.090, 0.055), "paveIron")
+    P.box((0, -hd - 0.052, 1.005), (W + 0.010, 0.100, 0.030), "paveIron", taper=0.9)
+    # coin mech and the pull handle
+    P.cyl((0.130, -hd - 0.020, 0.560), "y", 0.048, 0.048, 0.040, "paveIron", slices=12)
+    P.box((-0.070, -hd - 0.030, 0.560), (0.180, 0.055, 0.045), "paveIron")
+    P.box((0, 0, 1.030), (W + 0.040, D + 0.040, 0.055), "paveIron")
+    return P.finish(bevel=0.005, segments=1, smooth_deg=38)
+
+
+def build_planter():
+    """A concrete tub with a shrub in it, of the kind a council buys once.
+
+    Height matters more than the plant: this is a waist-high object standing in
+    the middle of an empty plane, and that is the whole job.
+    """
+    P = Part("planter")
+    P.revolve([
+        (0.400, 0.000), (0.410, 0.040), (0.396, 0.070), (0.344, 0.560),
+        (0.362, 0.600), (0.358, 0.630),
+    ], "paveStone", slices=14)
+    P.revolve([(0.330, 0.590), (0.320, 0.612), (0.180, 0.622), (0.0, 0.624)],
+              "paveDark", slices=14)
+    # the shrub: three overlapping blobs, because a cone reads as a christmas
+    # tree and a sphere reads as a lollipop
+    for cx, cy, cz, r in ((0.0, 0.0, 0.830, 0.300), (-0.135, 0.090, 0.740, 0.215),
+                          (0.130, -0.080, 0.765, 0.235)):
+        P.blob((cx, cy, cz), (r * 2, r * 2, r * 1.75), "paveGreen",
+               stacks=8, slices=12, lump=0.32)
+    P.blob((0.02, 0.04, 0.960), (0.30, 0.28, 0.22), "paveLeaf", stacks=7, slices=10, lump=0.4)
+    return P.finish(bevel=0.006, segments=1, smooth_deg=44)
+
+
+def build_standpipe():
+    """A building's dry riser: twin brass inlets on a wall bracket.
+
+    Every commercial frontage in the world has one and no game ever models it,
+    which is exactly why it reads as real when it is there.
+    """
+    P = Part("standpipe")
+    P.box((0, 0.035, 0.560), (0.300, 0.075, 0.620), "paveIronD")
+    P.box((0, 0.000, 0.560), (0.230, 0.090, 0.560), "paveIron")
+    for sx in (-1, 1):
+        P.cyl((sx * 0.075, -0.075, 0.560), "y", 0.062, 0.070, 0.130, "paveGlass", slices=12)
+        P.cyl((sx * 0.075, -0.145, 0.560), "y", 0.078, 0.074, 0.030, "paveIron", slices=12)
+    P.box((0, -0.030, 0.920), (0.330, 0.050, 0.150), "paveGlass")
+    return P.finish(bevel=0.004, segments=1, smooth_deg=40)
+
+
+def build_cellar_hatch():
+    """A pair of pavement doors over a cellar chute, flush and slightly proud.
+
+    The pavement's version of the road's manhole, and it does the same job: it
+    is MATT where everything around it is wet, and a dry shape is what makes a
+    reflective surface read as reflective.
+    """
+    P = Part("cellarHatch")
+    W, D = 1.06, 0.86
+    P.box((0, 0, 0.014), (W + 0.090, D + 0.090, 0.028), "paveStone")
+    for sx in (-1, 1):
+        P.box((sx * (W / 4 + 0.010), 0, 0.036), (W / 2 - 0.020, D, 0.026), "paveIronD")
+        for i in range(4):
+            y = -D / 2 + D * (i + 0.5) / 4
+            P.box((sx * (W / 4 + 0.010), y, 0.052), (W / 2 - 0.090, 0.040, 0.014), "paveIron")
+    P.cyl((0, 0.240, 0.052), "z", 0.040, 0.040, 0.020, "paveIron", slices=10)
+    return P.finish(bevel=0.003, segments=1, smooth_deg=42)
+
+
+MODELS.update({
+    "bollard": build_bollard,
+    "paperBox": build_paper_box,
+    "planter": build_planter,
+    "standpipe": build_standpipe,
+    "cellarHatch": build_cellar_hatch,
 })
 
 

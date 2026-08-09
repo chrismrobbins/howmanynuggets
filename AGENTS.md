@@ -907,3 +907,101 @@ with `--off msaa`** and 44–60 with 4× MSAA on. That is a software rasteriser
 a real GPU. THE GOVERNOR exists for exactly this and would step such a machine
 down to 2× and then off; the harness pins it, so these tables are always the
 4× picture.
+
+## 🚸 THE PAVEMENT, THE HORIZON AND THE REGULARS (2026-08-09, latest)
+
+Three things, all picked off the previous act's own crops rather than its
+numbers.
+
+### The horizon bar was still there, and here is the arithmetic
+
+§13 recorded the solid orange strip between the water and the skyline as *"the
+single largest defect in the worst-measuring frame in the build"* and tightened
+`skyBase` from `-0.30 .. 0.015` to `-0.055 .. 0.010`. It was still there,
+thinner. The numbers, because the next session will need them:
+
+- the sea sits at **y = −0.42** and the eye at 1.62, so at the **70m far clip**
+  the water's top edge is at **d.y = −0.029**;
+- **the skyline panorama's towers stand on a ground plane at the camera's own
+  height**, so their feet land at latitude ≈ 0 (**d.y = −0.006**) even though
+  the panorama is mapped from −4°. The bottom ~3.7° of it is empty alpha;
+- water to −0.029, city from −0.006, and the sky between them was still ramping
+  up to full sodium. ~15px of orange, right across the frame.
+
+So the ramp has to run the **other way from the obvious guess**: still at
+GROUND colour where the water ends, reaching full sodium only somewhere ABOVE
+the city's feet, where the silhouette covers it anyway. `-0.026 .. 0.042`.
+(Ramping it the intuitive way was tried first and made the bar *brighter*.)
+`15-pier` `hard` 0.942 → 0.722 and the bar is a haze gradient now.
+
+**The root fix is in `blender/skyline.py`:** render the towers standing on a
+plane BELOW the camera so the silhouette fills the panorama's bottom rows.
+
+### A comment is not a measurement
+
+`TUNE.aberration` was `0.0035` with the comment *"~1px at the corners of
+1280x760"*. Do the arithmetic: `off = d * r2 * uAberr`, d aspect-corrected, so
+at the corner d = (0.84, 0.5), r2 = 0.955, split = 0.0028 of UV = **3.6
+pixels**. That is a rainbow on every roofline in the skyline and it reads as a
+compression artifact. 0.0011.
+
+### The pavement
+
+THE WET ROAD dressed the road and left the pavement it faces as a grid of clean
+grey slabs — the bottom third of every street frame and closer to the camera
+than anything else out there. `bollard` (×13 down the kerb — a flat slab has no
+depth cue, thirteen objects marching away down one line have nothing but),
+`cellarHatch` (×3, matt where everything round it is wet), `paperBox`,
+`planter`, `standpipe`.
+
+**Positions are picked against the LIVE hotspot table, not by eye.** Every
+`stand` in `H.hotspots` is somewhere a click sends the player, and a planter
+dropped on one is a hotspot that can no longer be reached — which does not look
+like a bug, it looks like the game ignoring you. Also kept clear: the door
+approach (|x| < 2.2 out to z 5), the crossing, and 0.9m round each lamp. The
+first newspaper box went at x −1.2 and stood dead centre of the `09-doorway`
+crop hiding the crossing; the pavement is 42m long and nothing needs to be in
+the one place the player looks first.
+
+### 🧍 The regulars stop being statues
+
+Five characters have stood out there since the street opened with one thing
+moving on them: a 6–11mm sine on their own height. That is a breath, and a
+breath alone reads as a WAXWORK — the eye catches the stillness long before it
+notices the detail in the model.
+
+There is no skeleton and there is not going to be one; each regular is a single
+static buffer drawn with one model matrix. **But a model matrix is a rigid
+body, and a person standing still is mostly a rigid body doing three things** —
+shifting weight foot to foot, rolling a little into the shift, and looking
+around when nobody is talking to them. All three fit in the matrix already
+there. The shift runs at 0.37× the breath rate and out of phase with it so the
+two never line up into a bounce; the roll goes INSIDE the yaw or the body tips
+toward a world axis and reads as sliding; and the glance switches off the
+moment you talk to them, because being looked at is the one time a person's
+head stops wandering.
+
+`motion.js` gains `npc.shift` and `npc.yaw`. Two tool findings came out of it:
+
+- 🚨 **`NuggetArcade._NPCS`, not a bare `NPCS`.** `new Function` bodies run in
+  GLOBAL scope and `NPCS` is a const inside arcade.js's IIFE, so the bare name
+  throws a ReferenceError *inside the rAF tick* — the sample promise then never
+  resolves and playwright reports **"promise was garbage collected"**, which
+  looks nothing like the mistake it is.
+- **The `no-bob` anti-channel needs a pre-roll.** The idle breath fades over
+  the first ~150ms of a walk, so a sample taken from the instant the key goes
+  down catches its tail and reports 0.0044 of "head-bob" that is really a
+  lungful of air on the way out.
+
+### And the bus stop, finally
+
+One backlit advert on the shelter's back left the other two panels as dark
+glass, i.e. two thirds of the thing still the black slab that has made
+`10-busstop` the worst tile in the game all night. Glazing with a lit street
+behind it is not black. **`10-busstop` 29.63 (session start) → 19.47 near-dead,
+dead black 0.74 → 0.04, mean 62.73 → 83.39.**
+
+| | dead | near | blown | mean | chroma | hard | fps |
+|---|---|---|---|---|---|---|---|
+| THE FLOOR PLAN (20 spots) | 0.38 | 8.83 | 0.01 | 63.65 | 49.85 | 0.782 | 59.2 |
+| THE PAVEMENT (20) | 0.38 | 8.42 | 0.01 | 64.80 | 49.35 | 0.777 | 58.8 |

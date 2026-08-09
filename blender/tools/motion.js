@@ -26,6 +26,17 @@ const CHANNELS = [
   ['speed', 'H.speed', 2.5, 1400, 'walk'],
   ['vel.z', 'H.vel.z', 2.5, 1400, 'walk'],
   ['breath', 'H.breath', 0.5, 1400, 'still'],
+  // 🧍 THE REGULARS. They were statues for five sessions with a 6mm breath as
+  // their only motion, and nothing in this kit could see that either — shoot.js
+  // pins the clock, so a waxwork and a person photograph identically. The
+  // weight shift is SLOW (0.37x the breath rate) so it needs a long window.
+  // NuggetArcade._NPCS, not a bare NPCS: `new Function` bodies run in GLOBAL
+  // scope and NPCS is a const inside arcade.js's IIFE, so the bare name throws
+  // a ReferenceError inside the rAF tick — the sample promise then never
+  // resolves and playwright reports "promise was garbage collected", which
+  // looks nothing at all like the mistake it is.
+  ['npc.shift', 'NuggetArcade._NPCS[0].shift || 0', 1.1, 6000, 'still'],
+  ['npc.yaw', 'NuggetArcade._NPCS[2].curYaw', 0.04, 6000, 'still'],
   // 🌫 the motion layer. A plume that never rises and a splash that never
   // expands both photograph perfectly, which is exactly why they need a
   // channel here rather than an eyeball.
@@ -83,7 +94,14 @@ const CHANNELS = [
   // moving; this one fails when the head-bob comes back. It is a real risk —
   // bob is the reflex fix for "movement feels weightless" and this project
   // has already shipped it once.
+  //
+  // PRE-ROLL, and it is not optional: the idle breath fades out over the first
+  // ~150ms of a walk, so a sample taken from the instant the key goes down
+  // catches the tail of it and reports 0.0044 of "head-bob" that is really a
+  // lungful of air on the way out. This channel is about STEADY-STATE walking.
   {
+    await page.evaluate(() => { NuggetArcade._H.keys.f = true; });
+    await page.waitForTimeout(800);
     const walk = await sample('H.cam.y', 1400, ['f']);
     const rng = Math.max(...walk) - Math.min(...walk);
     const ok = rng < 0.004;

@@ -69,7 +69,14 @@ const NuggetArcade = (() => {
     ambDown: 1.0,
     // 🔭 THE LENS
     vignette: 0.42,     // corner exposure drop, applied BEFORE the tonemap
-    aberration: 0.0035, // radial R/B split; ~1px at the corners of 1280x760
+    // 🔴🔵 0.0011, and the comment this replaces said "~1px at the corners of
+    // 1280x760" while the value was 0.0035. Do the arithmetic: `off = d * r2 *
+    // uAberr` with d aspect-corrected, so at the corner of a 1280x760 frame
+    // d = (0.84, 0.5), r2 = 0.955, and the split lands at 0.0028 of UV — which
+    // is 3.6 PIXELS. That is not a lens, that is a rainbow on every roofline in
+    // the skyline, and it reads as a compression artifact. A comment is not a
+    // measurement; the number it describes has to be checked against it.
+    aberration: 0.0011, // radial R/B split; ~1.1px at the corners of 1280x760
     grain: 0.012,       // shadow-weighted; also dithers 8-bit gradient banding
   };
 
@@ -274,8 +281,26 @@ vec3 skyBase(vec3 d) {
   // clip, that band showed between the end of the water and the base of the
   // skyline as a solid orange strip across a fifth of the pier view. It was
   // the single largest defect in the worst-measuring frame in the build.
-  // Nothing above ground level changes; below it, you see ground.
-  return mix(uSkyGround, skyTint(d), smoothstep(-0.055, 0.010, d.y));
+  //
+  // 🩹 AND IT WAS STILL THERE, thinner. The arithmetic, because the next
+  // session will need it: the sea sits at y = -0.42 and the eye at 1.62, so at
+  // the 70m far clip the water's top edge is at d.y = -0.029. THE SKYLINE
+  // PANORAMA'S BUILDINGS STAND ON A GROUND PLANE AT THE CAMERA'S OWN HEIGHT,
+  // so their feet land at latitude ~0 (d.y = -0.006) even though the panorama
+  // is mapped from -4 degrees up — the bottom ~3.7 degrees of it is empty
+  // alpha. Water to -0.029, city from -0.006, and the sky in between was still
+  // ramping to full sodium. A ~15px orange bar, right across the frame.
+  // The ramp therefore has to run the OTHER way from the obvious guess: it
+  // must still be at GROUND colour where the water ends (-0.029) and only
+  // reach full sodium somewhere ABOVE the city's feet — where the silhouette
+  // is covering it anyway. -0.026 .. +0.042 turns the solid bar into a haze
+  // gradient off the water, which is what a hazy horizon actually looks like.
+  // (Ramping the other way was tried first and made the bar brighter.)
+  //
+  // The root fix lives in blender/skyline.py: render the towers standing on a
+  // plane BELOW the camera so the silhouette covers the panorama's bottom row.
+  // Until someone does that, this is the seam that hides it.
+  return mix(uSkyGround, skyTint(d), smoothstep(-0.026, 0.042, d.y));
 }
 
 // FOG IS NOT THE DOME, and conflating them cost a pass. A ray at eye level
@@ -3506,6 +3531,51 @@ void main() {
       H.propBoxes.push({ min: [hx + 1.1, 0, hz - 0.3], max: [hx + 1.6, 0.85, hz + 0.2] });
     }
 
+    // ---- 🚸 THE PAVEMENT -------------------------------------------------------
+    // THE WET ROAD dressed the road and left the pavement it faces as a grid of
+    // clean grey slabs — and that grid is the bottom third of every street
+    // frame in the game, closer to the camera than anything else out here.
+    //
+    // Positions are picked AGAINST the live hotspot table, not by eye. Every
+    // stand in H.hotspots is a place the player is sent to by a click, and a
+    // planter dropped on one is a hotspot that can no longer be reached —
+    // which does not look like a bug, it looks like the game ignoring you.
+    // Also kept clear: the door approach (|x| < 2.2 out to z 5), the crossing,
+    // and 0.9m around each streetlamp.
+    if (H.uintIndex) {
+      // A row of bollards down the kerb. The cheapest street furniture there
+      // is and the one that does the most for a pavement: a flat slab with a
+      // texture on it has no depth cue at all, and eight objects marching away
+      // down the same line have nothing but.
+      for (const bx2 of [-19.4, -17.0, -12.6, -10.6, -8.0, -1.8, 0.6, 3.0, 7.4, 9.8, 12.2, 17.4, 19.8]) {
+        if (!ST.model('bollard', suv, { x: bx2, z: 7.45 })) break;
+        H.propBoxes.push({ min: [bx2 - 0.16, 0, 7.29], max: [bx2 + 0.16, 1.0, 7.61] });
+      }
+      // Pavement doors over a cellar chute. Same job as the road's manholes:
+      // MATT where everything round it is wet, and a dry shape is what makes a
+      // reflective surface read as reflective.
+      for (const [hx2, hz2] of [[-19.0, 1.3], [13.2, 1.2], [-11.2, 1.4]])
+        ST.model('cellarHatch', suv, { x: hx2, z: hz2 });
+      // A town with a police case board, five regulars and a detective who
+      // takes notes, and nowhere at all a newspaper comes from.
+      // NOT on the door's sightline: at x -1.2 this stood dead centre of the
+      // 09-doorway crop and hid the crossing behind it. The pavement is 42m
+      // long; nothing needs to be in the one place the player looks first.
+      for (const [nx2, nz2] of [[-11.4, 6.5], [12.4, 6.3]]) {
+        if (!ST.model('paperBox', suv, { x: nx2, z: nz2, yaw: Math.PI })) break;
+        H.propBoxes.push({ min: [nx2 - 0.3, 0, nz2 - 0.28], max: [nx2 + 0.3, 1.2, nz2 + 0.28] });
+      }
+      for (const [px2, pz2] of [[-17.6, 6.2], [7.0, 5.6], [14.2, 6.4]]) {
+        if (!ST.model('planter', suv, { x: px2, z: pz2 })) break;
+        H.propBoxes.push({ min: [px2 - 0.42, 0, pz2 - 0.42], max: [px2 + 0.42, 1.1, pz2 + 0.42] });
+      }
+      // Dry risers on the shopfronts. Every commercial frontage in the world
+      // has one and no game ever models it, which is exactly why it reads as
+      // real when it is there.
+      for (const sx4 of [-16.4, 11.8])
+        ST.model('standpipe', suv, { x: sx4, z: 0.06 });
+    }
+
     // crates by the noodle shop (Henrietta's turf)
     for (const [cx2, cz2, s] of [[19.4, 0.9, 0.55], [19.55, 0.9 + 0.06, 0.4]]) {
       const y0 = cx2 === 19.4 ? 0 : 0.55;
@@ -5590,9 +5660,17 @@ void main() {
 
     // dynamic prop models: the mirror ball spins, the regulars idle
     const DD = mMul(mTrans(0, 3.55, -2.6), mRotY(H.t * 0.5));
+    // translate -> yaw -> ROLL. The roll has to go inside the yaw or the body
+    // tips toward a fixed world axis instead of toward its own shoulder, which
+    // reads as a character sliding rather than leaning.
     const npcModel = (n) => mMul(
-      mTrans(n.x, n.yBase + Math.sin(H.t * n.bobSpd + n.phase) * n.bobAmp, n.z),
-      mRotY(n.curYaw)
+      mTrans(
+        n.x + Math.sin(n.curYaw + Math.PI / 2) * (n.shift || 0) * 0.030,
+        n.yBase + Math.sin(H.t * n.bobSpd + n.phase) * n.bobAmp
+          - Math.abs(n.shift || 0) * 0.008,   // the body drops a hair onto the loaded leg
+        n.z + Math.cos(n.curYaw + Math.PI / 2) * (n.shift || 0) * 0.030
+      ),
+      mMul(mRotY(n.curYaw), mRotZ(-(n.shift || 0) * 0.026))
     );
     function drawNpcs(pre, opts) {
       useTex(H.texStreet);
@@ -5983,15 +6061,36 @@ void main() {
 
     stepAudio(dt);
     stepDialog(dt);
-    // the regulars turn to face whoever's talking to them, then drift back
+    // 🧍 THE REGULARS, AND WHY THEY WERE STATUES.
+    //
+    // Five characters have stood on this pavement since the street opened with
+    // exactly one thing moving on them: a sine wave 6-11mm tall on their own
+    // height. That is a breath, and a breath alone reads as a WAXWORK — the eye
+    // catches the stillness long before it notices the detail in the model.
+    //
+    // There is no skeleton here and there is not going to be one: each regular
+    // is a single static buffer drawn with one model matrix. But a model matrix
+    // is a rigid body, and a person standing still is mostly a rigid body doing
+    // three things — shifting weight from one foot to the other, rolling a
+    // little into that shift, and looking around when nobody is talking to
+    // them. All three fit in the matrix that is already there.
     for (const n of NPCS) {
-      const want = H.dialog && H.dialog.npc === n
+      const talking = H.dialog && H.dialog.npc === n;
+      // the weight shift: slower than the breath and out of phase with it, so
+      // the two never line up into a single bounce
+      n.shift = Math.sin(H.t * n.bobSpd * 0.37 + n.phase * 1.7);
+      // and a glance, but only when nobody is talking to them — being looked
+      // at is the one time a person's head stops wandering
+      const glance = talking ? 0
+        : Math.sin(H.t * 0.31 + n.phase) * 0.16 + Math.sin(H.t * 0.11 + n.phase * 2.3) * 0.10;
+      const want = talking
         ? Math.atan2(H.cam.x - n.x, H.cam.z - n.z)
-        : n.baseYaw;
+        : n.baseYaw + glance;
       let dy2 = want - n.curYaw;
       while (dy2 > Math.PI) dy2 -= Math.PI * 2;
       while (dy2 < -Math.PI) dy2 += Math.PI * 2;
-      n.curYaw += dy2 * Math.min(1, dt * 5);
+      // turning to a person is fast; drifting on a glance is not
+      n.curYaw += dy2 * Math.min(1, dt * (talking ? 5 : 1.4));
     }
     updateAttracts();
     updatePrompt();
@@ -6272,5 +6371,10 @@ void main() {
     get active() { return H.active; },
     _H: H, // dev hook: lets test drivers position the camera deterministically
     _TUNE: TUNE, // dev hook: the float-pipeline dials, sweepable between frames
+    // dev hook: motion.js watches the regulars' idle here. NPCS is a const
+    // inside this IIFE, so a `new Function` body cannot see it — the tool
+    // reaching for a bare `NPCS` hung on an unresolved promise instead of
+    // failing, which is the worst way for a probe to be wrong.
+    _NPCS: NPCS,
   };
 })();
