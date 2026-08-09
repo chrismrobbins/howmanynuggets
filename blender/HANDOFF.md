@@ -487,3 +487,52 @@ one.
 - The atlas packer is deterministic, so the normal and ORM pages can be built by
   running the SAME `alloc` sequence and blitting from parallel sheets. Do not
   invent a second packer.
+
+### What THE POWER PLANT actually shipped (2026-08-09, commits 1791a9a / bf16e85 / this one)
+
+Stages 0-4 of the plan above, all on prod:
+
+- **The boot screen** (`js/hallBoot.js`). An asset ledger; heavy payloads
+  register a job before loading and the arcade door draws a bar off it.
+  `js/hallArt.js` and `js/hallMesh.js` are hand-written loaders now; their data
+  lives in `js/hallArtData.js` / `js/hallMeshData.js` / `js/hallMapsData.js`,
+  all injected async. **index.html carries nothing heavy.**
+- **The material shader.** WebGL2 gets normal + roughness + metalness with GGX
+  specular; WebGL1 keeps the old renderer verbatim. `H.pbr = false` in a
+  harness, or `HallMaps.on = () => false`, gives the byte-identical old hall.
+- **The maps.** `hallrig.render_maps` renders `<name>_n.png` and `<name>_s.png`
+  per asset; `pack_maps.py` packs them to a 2048² pair (449KB + 307KB PNG).
+- **Thirty lights**, nearest-16 uploaded per frame, replacing the eight-slot
+  steal-from-the-hall override table.
+- **Rain that lands.** Anisotropic wet-street ripple + lamp shafts + light pools.
+- **Four models**: `hydrant`, `awning`, `bin`, `busShelter`.
+
+Measured at 1280×760, art ON vs OFF: street-ground mean 20.98 → 26.14, stddev
+11.75 → **27.43** (+133%); every other spot within a few percent; blown-pixel
+fraction flat or DOWN at 7 of 10 spots. 60fps both paths. Zero pageerrors, zero
+atlas warnings, `gl.getError()` clean. WebGL1 with `webgl2` forced to null
+still builds and renders.
+
+### New entries for the ledger (§9) — each of these cost real time tonight
+
+| Question | Answer | Why |
+|---|---|---|
+| Can a Bump node feed a normal-map bake? | **No** | Route a Bump output to an Emission and neither EEVEE nor Cycles evaluates it. Proven by rendering at 8× strength: face stddev moved 0.499 → 0.497. Geometry relief bakes fine; the fBm micro-grain is still albedo-only and would need an explicit height→normal node graph. |
+| Blender 5 compositor for a render pass? | **Don't** | `Scene.node_tree` is gone (`compositing_node_group`), `CompositorNodeMixRGB`/`Math`/`Composite` no longer exist, File Output moved to `directory`/`file_name` and its node-level format only offers multilayer EXR. Swapping materials to emission needs none of it. |
+| View transform for a data pass? | **Raw** | Standard pushes every value through the sRGB curve on the way to the PNG, bending every normal vector and every roughness in the set. |
+| Should a packer regenerate its loader? | **Never** | `pack_mesh.py` wrote `js/hallMesh.js`, and silently reverted the boot-ledger wiring the first time geometry was repacked. Both packers now emit the DATA half only. |
+| Which yaw for a prop on the near shopfronts? | **0, not PI** | A model's front faces -Y in Blender = +Z in the hall. `facadeBay` uses PI because it is across the road facing BACK. Copying that buried every awning inside the building. |
+| `sw_glass` on a street prop? | **No such region** | The street sheet's swatch table (`SW2`) is not the main atlas's. This is the `lampHot` trap, walked into a second time — the model bails SILENTLY for the whole prop. Check the model's regions against the target atlas before believing a prop "failed to build".
+
+### Still open, in value order
+
+1. **Shadow maps.** Nothing in the hall casts. Baked AO + the mirror floor sell
+   contact well enough that this stayed below the line tonight, but it is now
+   the biggest single thing left in the lighting.
+2. **Flat-albedo migration.** The albedo is still the pre-lit render, so the
+   room's lights do not truly re-light anything — specular and relief are real,
+   diffuse is still baked. The ORM blue channel exists precisely so this can go
+   region by region. Do the ground and the walls first.
+3. The rest of the §7 model list: vending/change/jukebox, coffered ceiling, the
+   five street doors, fire escape, the hall's own vestibule.
+4. The bump-grain normal graph (row 1 of the table above).

@@ -421,3 +421,46 @@ Rules if you touch it:
   `hallmesh.build_all(); hallmesh.export_all()` in Blender, then
   `python blender/pack_mesh.py`. Full conventions and the four traps that
   cost real debugging time are in **blender/HANDOFF.md §7**.
+
+## 🔌 THE POWER PLANT — the hall's material renderer (2026-08-09)
+
+The hall spent a year rendering `albedo × eight Lambert lights` and that, not
+the textures, was why it read as a free game. A WebGL2 context now gets normal
+mapping, roughness, metalness and GGX specular; **WebGL1 keeps the exact shader
+that shipped**, because nothing in this repo is ever allowed to degrade to worse
+than what it replaced.
+
+Things to know before you touch it:
+
+- **The ORM map's BLUE channel is a per-region opt-in dial.** At 0 the shader
+  collapses to the old equation exactly. Everything unmapped is 0. That is how
+  a region-by-region migration is possible at all — see `PBR_OFF` and
+  `ROUGH_FIX` in `blender/pack_maps.py`, and `MAP_DEFAULTS` in arcade-art.js.
+- **The albedo is still PRE-LIT** (hallrig bakes a 44° key into it). Specular
+  and relief are real; diffuse is baked. Do not add a second diffuse term on
+  top or every surface double-lights.
+- **`makeAtlas()` returns `{canvas, uv, nrm, orm}`.** The material pages are
+  painted by the SAME `alloc()` sequence — never write a second packer, and
+  never reorder allocs on one page only.
+- **No tangent attribute.** The TBN comes from screen-space derivatives, so it
+  works on Blender meshes and hand-built quads alike. Adding a vertex attribute
+  would mean touching every `Builder.quad()` call site in `buildScene`.
+- **Lights are one world list** (`LIGHTS`, ~30 fixtures); the renderer uploads
+  the nearest `MAX_LIGHTS` each frame. Add a fixture by pushing to the list —
+  do NOT resurrect the old index-keyed street/pier override tables.
+- **The ground past the doors is WET in the fragment shader** (`uWet`), keyed on
+  normal.y, world.y and world.z. If you add ground geometry outside, it becomes
+  wet automatically; if you add an indoor floor at z > 0.6 it will too, so check.
+- **Regenerate:** `blender --background --python hallrig.py -- render_maps` then
+  `python blender/pack_maps.py`.
+
+**Packers never regenerate their loaders.** `pack_mesh.py` used to write
+`js/hallMesh.js` and silently reverted the boot-ledger wiring the first time
+anyone repacked geometry. `pack_hall.py`, `pack_mesh.py` and `pack_maps.py` all
+emit only their `*Data.js` half now; the loaders are hand-maintained code with a
+fallback contract.
+
+**The boot screen** (`js/hallBoot.js` + `.hall-booting`) is where all payload
+waiting happens. Anything heavy you add should `HallBoot.job(...)` before it
+loads and `HallBoot.inject(...)` to fetch, so the bar stays honest — and it must
+NOT go in index.html. The converter is the product; it paints first, always.

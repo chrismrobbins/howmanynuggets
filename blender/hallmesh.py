@@ -141,6 +141,24 @@ MATS = {
     "brickD":   ("brick", [0.02, 0.02, 0.98, 0.98], 0.0, 0.72),
     "stone":    ("sw_curb", [0, 0, 1, 1], 0.0, 1.35),
     "glassDark": ("sw_black", [0, 0, 1, 1], 0.0, 1.0),
+    # -- street furniture, round two -------------------------------------------------
+    "hydRed":   ("sw_red", [0, 0, 1, 1], 0.0, 1.05),
+    "hydCap":   ("sw_amber", [0, 0, 1, 1], 0.0, 0.85),
+    "canvasA":  ("sw_red", [0, 0, 1, 1], 0.0, 0.95),
+    "canvasB":  ("sw_white", [0, 0, 1, 1], 0.0, 0.88),
+    "awnFrame": ("sw_iron", [0, 0, 1, 1], 0.0, 0.75),
+    "binMetal": ("sw_iron", [0, 0, 1, 1], 0.0, 0.80),
+    "binDark":  ("sw_iron", [0, 0, 1, 1], 0.0, 0.48),
+    "binLid":   ("sw_iron", [0, 0, 1, 1], 0.0, 0.95),
+    "shelterIron":  ("sw_iron", [0, 0, 1, 1], 0.0, 0.72),
+    # sw_glass is a MAIN-atlas swatch and the street sheet has no such region.
+    # Naming it made Builder.model() bail for the whole shelter, silently —
+    # the same trap "lampHot" is documented for, walked into again. sw_black
+    # with a low roughness in the ORM page reads as dark glass anyway now.
+    "shelterGlass": ("sw_black", [0, 0, 1, 1], 0.0, 0.90),
+    "shelterRoof":  ("sw_curb", [0, 0, 1, 1], 0.0, 0.85),
+    "shelterWood":  ("sw_woodDark", [0, 0, 1, 1], 0.0, 1.00),
+    "shelterLight": ("sw_white", [0, 0, 1, 1], 0.75, 1.0),
     # hall trim lives on the MAIN atlas (it is built into B, not ST), so it
     # wears the wainscot panelling the room is already trimmed in.
     "trimWood": ("wainscot", [0.10, 0.10, 0.90, 0.90], 0.0, 1.15),
@@ -175,6 +193,14 @@ _PREVIEW = {
     "brick": (0.32, 0.16, 0.13), "brickD": (0.20, 0.10, 0.08),
     "stone": (0.42, 0.42, 0.47), "glassDark": (0.02, 0.03, 0.05),
     "trimWood": (0.30, 0.22, 0.10),
+    "hydRed": (0.72, 0.11, 0.07), "hydCap": (0.85, 0.62, 0.10),
+    "canvasA": (0.72, 0.13, 0.09), "canvasB": (0.88, 0.85, 0.78),
+    "awnFrame": (0.20, 0.22, 0.28),
+    "binMetal": (0.22, 0.24, 0.30), "binDark": (0.10, 0.11, 0.15),
+    "binLid": (0.30, 0.33, 0.40),
+    "shelterIron": (0.18, 0.20, 0.26), "shelterGlass": (0.04, 0.09, 0.15),
+    "shelterRoof": (0.36, 0.36, 0.42), "shelterWood": (0.28, 0.20, 0.07),
+    "shelterLight": (0.95, 0.94, 0.86),
 }
 
 
@@ -1561,6 +1587,151 @@ MODELS.update({
     "acUnit": build_ac_unit,
     "trimBase": build_trim_base,
     "trimCrown": build_trim_crown,
+})
+
+
+# ---- STREET FURNITURE, ROUND TWO ------------------------------------------------
+# The HANDOFF §7 next-list, worked down by how much of the frame each one owns.
+# Every one of these replaces a handful of axis-aligned quads doing an
+# impression of an object: the hydrant was six flat faces with a folded card for
+# a bonnet, the shopfronts' awnings were one quad each, and the exit from the
+# entire arcade was a pole with a sign on it.
+#
+# Same conventions as everything above: origin on the ground, centred, front
+# faces -Y in Blender (= +Z in the hall), materials name atlas regions — and
+# only regions that exist on the STREET sheet, because a model naming one it
+# cannot reach makes Builder.model() bail silently for the whole prop.
+
+def build_hydrant():
+    """A fire hydrant with a bonnet, two side nozzles and a pumper outlet.
+
+    Revolved, not boxed. A hydrant is one of the most recognisable silhouettes
+    on any street, and the eye reads a missing shoulder immediately even when it
+    cannot say what is wrong.
+    """
+    P = Part("hydrant")
+    P.revolve([
+        (0.150, 0.000), (0.152, 0.030), (0.128, 0.048), (0.118, 0.070),
+        (0.122, 0.300), (0.128, 0.372), (0.121, 0.400), (0.106, 0.418),
+        (0.104, 0.452), (0.118, 0.468), (0.116, 0.494),
+    ], "hydRed", slices=20)
+    P.revolve([
+        (0.116, 0.494), (0.132, 0.508), (0.128, 0.540), (0.104, 0.566),
+        (0.062, 0.588), (0.030, 0.596),
+    ], "hydCap", slices=20)
+    P.box((0, 0, 0.616), (0.052, 0.052, 0.046), "hydCap")
+    for sx in (-1, 1):
+        P.cyl((sx * 0.118, 0, 0.330), "x", 0.052, 0.052, 0.075, "hydCap", slices=14)
+        P.cyl((sx * 0.162, 0, 0.330), "x", 0.058, 0.050, 0.028, "hydCap", slices=14)
+    P.cyl((0, -0.118, 0.262), "y", 0.062, 0.062, 0.080, "hydCap", slices=14)
+    P.cyl((0, -0.166, 0.262), "y", 0.068, 0.058, 0.030, "hydCap", slices=14)
+    # bolt ring around the base flange: small, but it is what says "cast iron"
+    for i in range(8):
+        a = i * math.pi / 4
+        P.box((math.cos(a) * 0.132, math.sin(a) * 0.132, 0.026),
+              (0.024, 0.024, 0.020), "hydCap")
+    return P.finish(bevel=0.004, segments=1, smooth_deg=40)
+
+
+def build_awning():
+    """A shopfront awning: sloped canvas on a tube frame, scalloped valance.
+
+    The stripes are GEOMETRY — alternating material on adjacent panels — not a
+    texture. So the stripe stays crisp at any distance, needs no atlas region of
+    its own, and the scallops along the bottom edge are real half-round tabs
+    that catch the streetlamp instead of a painted zigzag that cannot.
+    """
+    P = Part("awning")
+    W, DEP = 2.42, 0.86
+    RISE, DROP = 0.62, 0.30
+    N = 10
+    hw = W / 2
+    for i in range(N):
+        x0 = -hw + W * i / N
+        x1 = -hw + W * (i + 1) / N
+        mat = "canvasA" if i % 2 == 0 else "canvasB"
+        P.face([(x0, 0.0, RISE), (x1, 0.0, RISE),
+                (x1, -DEP, RISE - DROP), (x0, -DEP, RISE - DROP)], mat)
+        P.face([(x0, 0.0, RISE - 0.030), (x0, -DEP, RISE - DROP - 0.030),
+                (x1, -DEP, RISE - DROP - 0.030), (x1, 0.0, RISE - 0.030)], mat)
+        P.face([(x0, -DEP, RISE - DROP), (x1, -DEP, RISE - DROP),
+                (x1, -DEP, RISE - DROP - 0.150), (x0, -DEP, RISE - DROP - 0.150)], mat)
+        P.face([(x0, -DEP - 0.014, RISE - DROP), (x0, -DEP - 0.014, RISE - DROP - 0.150),
+                (x1, -DEP - 0.014, RISE - DROP - 0.150), (x1, -DEP - 0.014, RISE - DROP)], mat)
+        P.cyl(((x0 + x1) / 2, -DEP - 0.007, RISE - DROP - 0.150), "y",
+              (x1 - x0) / 2, (x1 - x0) / 2, 0.014, mat, slices=10)
+    P.cyl((0, -DEP, RISE - DROP), "x", 0.026, 0.026, W + 0.04, "awnFrame", slices=10)
+    P.cyl((0, 0, RISE + 0.012), "x", 0.022, 0.022, W + 0.04, "awnFrame", slices=10)
+    for sx in (-1, 1):
+        P.limb((sx * (hw - 0.05), 0.0, RISE), (sx * (hw - 0.05), -DEP, RISE - DROP),
+               0.020, 0.018, "awnFrame", slices=8)
+        P.limb((sx * (hw - 0.05), -DEP, RISE - DROP), (sx * (hw - 0.05), -0.02, RISE - 0.34),
+               0.016, 0.014, "awnFrame", slices=8)
+    return P.finish(bevel=0.004, segments=1, smooth_deg=34)
+
+
+def build_bin():
+    """A municipal litter bin: slatted drum, domed lid, chunky rim.
+
+    There has been a coffee cup and a stack of crates on this pavement since
+    the street opened and nowhere to put either.
+    """
+    P = Part("bin")
+    P.revolve([
+        (0.180, 0.000), (0.196, 0.028), (0.192, 0.060), (0.206, 0.640),
+        (0.216, 0.680), (0.212, 0.706),
+    ], "binMetal", slices=18)
+    for i in range(14):
+        a = i * math.pi * 2 / 14
+        P.box((math.cos(a) * 0.212, math.sin(a) * 0.212, 0.360),
+              (0.026, 0.026, 0.470), "binDark")
+    P.revolve([
+        (0.226, 0.706), (0.228, 0.734), (0.204, 0.760), (0.140, 0.790),
+        (0.060, 0.806), (0.0, 0.810),
+    ], "binLid", slices=18)
+    P.cyl((0, 0, 0.818), "z", 0.044, 0.030, 0.030, "binLid", slices=12)
+    return P.finish(bevel=0.005, segments=1, smooth_deg=40)
+
+
+def build_bus_shelter():
+    """A bus shelter: glazed back and ends, cantilevered roof, perch bench.
+
+    The exit from the entire arcade has been a pole with a sign on it. This
+    stands behind the existing pole rather than replacing it — the bus hotspot
+    and its stand coordinate are a contract with the hall.
+    """
+    P = Part("busShelter")
+    W, D, Hh = 3.10, 1.28, 2.42
+    hw, hd = W / 2, D / 2
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            P.box((sx * (hw - 0.055), sy * (hd - 0.055), Hh / 2),
+                  (0.075, 0.075, Hh), "shelterIron")
+    for i in (-1, 0, 1):
+        P.box((i * (W / 3), hd - 0.030, 1.320), (W / 3 - 0.075, 0.028, 1.760), "shelterGlass")
+    for i in (-1, 1):
+        P.box((i * (W / 6), hd - 0.030, 1.320), (0.048, 0.052, 1.860), "shelterIron")
+    for sx in (-1, 1):
+        P.box((sx * (hw - 0.030), 0, 1.320), (0.028, D - 0.140, 1.760), "shelterGlass")
+    # roof tilted back so the rain runs off it, with a proud fascia both edges
+    P.face([(-hw - 0.10, -hd - 0.22, Hh), (hw + 0.10, -hd - 0.22, Hh),
+            (hw + 0.10, hd + 0.10, Hh + 0.085), (-hw - 0.10, hd + 0.10, Hh + 0.085)],
+           "shelterRoof")
+    P.box((0, -hd - 0.19, Hh - 0.055), (W + 0.20, 0.070, 0.115), "shelterIron")
+    P.box((0, hd + 0.07, Hh + 0.030), (W + 0.20, 0.070, 0.115), "shelterIron")
+    P.box((0, 0, Hh - 0.030), (W + 0.16, D + 0.28, 0.055), "shelterIron")
+    P.box((0, hd - 0.30, 0.560), (W - 0.40, 0.300, 0.055), "shelterWood")
+    for sx in (-1, 1):
+        P.box((sx * (hw - 0.42), hd - 0.30, 0.280), (0.050, 0.260, 0.560), "shelterIron")
+    P.box((0, 0.10, Hh - 0.095), (W - 0.60, 0.130, 0.045), "shelterLight")
+    return P.finish(bevel=0.006, segments=1, smooth_deg=36)
+
+
+MODELS.update({
+    "hydrant": build_hydrant,
+    "awning": build_awning,
+    "bin": build_bin,
+    "busShelter": build_bus_shelter,
 })
 
 

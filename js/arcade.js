@@ -2080,6 +2080,30 @@ void main() {
     shop(-17.1, -12.1, 'shopGarage', 0.12);
     shop(12.1, 17.1, 'shopNoodle', 0.3);
 
+    // Awnings. Every shopfront was a lit quad with nothing standing off it, so
+    // the whole terrace read as a painted backdrop — nothing on that side of
+    // the street cast anything or occluded anything. These are real canvas on
+    // a real frame (blender/hallmesh.py build_awning), one per bay of each
+    // shop, and they are the first thing on the street to hang OVER the
+    // pavement. No fallback quad: an awning that fails to load is simply an
+    // awning the shop never had, which is a shop, not a hole.
+    // Height matters: the shop sign strip lives in the top ~70px of a 224px
+    // region stretched over 4.4m, so anything above ~3.1 covers the shop's own
+    // name. The awning tops out at ay + 0.65.
+    for (const [ax0, ax1, ay] of [[-21.3, -17.5, 2.42], [-17.1, -12.1, 2.30], [12.1, 17.1, 2.42]]) {
+      const bays = Math.max(1, Math.round((ax1 - ax0) / 2.42));
+      const step = (ax1 - ax0) / bays;
+      for (let i = 0; i < bays; i++) {
+        const ax = ax0 + step * (i + 0.5);
+        // yaw 0, NOT PI. A model's front faces -Y in Blender = +Z in the hall,
+        // and the shopfronts face the pavement at +Z. The first pass copied
+        // facadeBay's yaw PI — which is right for the block ACROSS the road,
+        // facing back — and buried every awning inside the building.
+        ST.model('awning', suv, { x: ax, y: ay, z: 0.06, yaw: 0 });
+        H.propBoxes.push({ min: [ax - 1.24, 0, 0.0], max: [ax + 1.24, ay + 0.7, 0.95] });
+      }
+    }
+
     // the road + curb (sidewalk itself is the reflective floor plane)
     planeY(ST, 0.004, -21.5, 21.5, 8, 13.9, suv.road, 4.3, false, {});
     wallZ(ST, 8, 21.5, -21.5, 0, 0.09, suv.sw_curb, 4, 0.09, {}); // curb face → -z
@@ -2136,13 +2160,22 @@ void main() {
     // hydrant
     {
       const hx = -7.5, hz = 0.95;
+      // A revolved hydrant with a bonnet and nozzles. It was six flat faces
+      // with a folded card on top, which the eye reads as wrong long before it
+      // can say why: hydrants are all shoulder.
+      if (!ST.model('hydrant', suv, { x: hx, z: hz })) {
       // outward box faces: z+ x-asc, z- x-desc, x- z-asc, x+ z-desc
       for (const [a, b] of [[[hx - 0.14, hz + 0.14], [hx + 0.14, hz + 0.14]], [[hx + 0.14, hz - 0.14], [hx - 0.14, hz - 0.14]],
         [[hx - 0.14, hz - 0.14], [hx - 0.14, hz + 0.14]], [[hx + 0.14, hz + 0.14], [hx + 0.14, hz - 0.14]]])
         ST.quad([a[0], 0, a[1]], [b[0], 0, b[1]], [b[0], 0.52, b[1]], [a[0], 0.52, a[1]], suv.sw_red, { tint: 0.9 });
       ST.quad([hx - 0.09, 0.52, hz + 0.09], [hx + 0.09, 0.52, hz + 0.09], [hx + 0.09, 0.66, hz], [hx - 0.09, 0.66, hz], suv.sw_red, { tint: 0.8 });
       ST.quad([hx + 0.09, 0.52, hz - 0.09], [hx - 0.09, 0.52, hz - 0.09], [hx - 0.09, 0.66, hz], [hx + 0.09, 0.66, hz], suv.sw_red, { tint: 0.8 });
+      }
       H.propBoxes.push({ min: [hx - 0.2, 0, hz - 0.2], max: [hx + 0.2, 0.7, hz + 0.2] });
+      // a litter bin next to it — there has been a coffee cup and a stack of
+      // crates on this pavement since the street opened and nowhere to put them
+      ST.model('bin', suv, { x: hx + 1.35, z: hz - 0.05 });
+      H.propBoxes.push({ min: [hx + 1.1, 0, hz - 0.3], max: [hx + 1.6, 0.85, hz + 0.2] });
     }
 
     // crates by the noodle shop (Henrietta's turf)
@@ -2163,6 +2196,14 @@ void main() {
       ST.quad([sx - 0.36, 1.5, sz + 0.02], [sx + 0.36, 1.5, sz + 0.02], [sx + 0.36, 2.42, sz + 0.02], [sx - 0.36, 2.42, sz + 0.02], suv.busSign, { e: 0.3 });
       ST.quad([sx + 0.36, 1.5, sz - 0.02], [sx - 0.36, 1.5, sz - 0.02], [sx - 0.36, 2.42, sz - 0.02], [sx + 0.36, 2.42, sz - 0.02], suv.busSign, { e: 0.3 });
       H.propBoxes.push({ min: [sx - 0.12, 0, sz - 0.12], max: [sx + 0.12, 2.5, sz + 0.12] });
+      // The exit from the entire arcade has been a pole with a sign on it.
+      // The shelter stands BEHIND the pole rather than replacing it — the bus
+      // hotspot and its stand coordinate are a contract with the hall, and the
+      // sign is what the player actually aims at.
+      if (ST.model('busShelter', suv, { x: sx - 2.1, z: sz + 0.30, yaw: Math.PI })) {
+        H.propBoxes.push({ min: [sx - 3.7, 0, sz - 0.35], max: [sx - 0.5, 2.6, sz + 0.95] });
+        H.glows.push({ p: [sx - 2.1, 2.29, sz + 0.28], c: [0.85, 0.92, 1], s: 1.15, a: 0.10, k: 'tube' });
+      }
       H.hotspots.push({
         kind: 'bus',
         x: sx, z: sz, r: 2.4,

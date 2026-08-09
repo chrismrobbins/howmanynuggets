@@ -1,7 +1,7 @@
 """PACK_MESH — stage 2 of the hall's GEOMETRY pipeline.
 
     blender/hallmesh.py  --(Blender)-->  render_hall/mesh/*.json
-    blender/pack_mesh.py --(this)---->   js/hallMesh.js
+    blender/pack_mesh.py --(this)---->   js/hallMeshData.js
 
 Reads the per-model JSON that hallmesh.export_all() writes and quantizes it
 into a compact, no-build-step JS module. Plain Python + numpy, exactly like
@@ -43,7 +43,7 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 IN_DIR = os.path.join(HERE, "render_hall", "mesh")
-OUT_JS = os.path.join(REPO, "js", "hallMesh.js")        # loader, in index.html
+OUT_JS = os.path.join(REPO, "js", "hallMesh.js")        # loader — HAND-MAINTAINED, never written here
 OUT_DATA = os.path.join(REPO, "js", "hallMeshData.js")  # payload, injected async
 
 # Model order in the output = the order the hall wants them; anything found on
@@ -256,14 +256,17 @@ def main():
     body = json.dumps(out, separators=(",", ":"))
     with open(OUT_DATA, "w", newline="\n") as fh:
         fh.write(DATA_HEADER.replace("__DATA__", body))
-    with open(OUT_JS, "w", newline="\n") as fh:
-        fh.write(HEADER)
+    # js/hallMesh.js is NOT regenerated here. It used to be, and on the night
+    # the boot ledger landed this script silently reverted the loader's
+    # HallBoot wiring the next time anyone repacked geometry. The loader is
+    # real code with a fallback contract; only the DATA half is generated.
+    # (pack_hall.py carries the same rule — see blender/HANDOFF.md §10.)
 
     print("model            verts    tris    packed")
     for name, n, t, b in report:
         print("  %-14s %6d  %6d  %7.1f KB" % (name, n, t, b / 1024.0))
     print("  %-14s %6s  %6s  %7.1f KB raw" % ("TOTAL", "", "", total / 1024.0))
-    for f in (OUT_JS, OUT_DATA):
+    for f in (OUT_DATA,):
         with open(f, "rb") as fh:
             gz = len(gzip.compress(fh.read(), 9))
         print("wrote %-24s %7.1f KB  (%.1f KB gzipped)"
