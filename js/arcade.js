@@ -267,7 +267,14 @@ vec3 skyTint(vec3 d) {
 // What the dome and the reflection see. Below the horizon there is no sky,
 // there is the city's own bounce off wet ground.
 vec3 skyBase(vec3 d) {
-  return mix(uSkyGround, skyTint(d), smoothstep(-0.30, 0.015, d.y));
+  // THE HORIZON IS A LINE, not a seventeen-degree ramp. This transition used
+  // to span -0.30 to 0.015, which put a band of full-brightness sodium sky
+  // BELOW the horizon — and since the harbour plane runs out before the far
+  // clip, that band showed between the end of the water and the base of the
+  // skyline as a solid orange strip across a fifth of the pier view. It was
+  // the single largest defect in the worst-measuring frame in the build.
+  // Nothing above ground level changes; below it, you see ground.
+  return mix(uSkyGround, skyTint(d), smoothstep(-0.055, 0.010, d.y));
 }
 
 // FOG IS NOT THE DOME, and conflating them cost a pass. A ray at eye level
@@ -601,8 +608,55 @@ void main() {
   // The field is a cheap 2-octave value noise on world XZ — one shared with
   // the gutter term so puddles do not straddle the kerb — plus a hard bias
   // toward the kerb line, because that is where a real road drains.
+  // 🌊 THE HARBOR. Everything below the waterline is not pavement, and until
+  // now the shader could not tell: the sea plane sits outside, faces up and is
+  // low, so it satisfied every test the wet-street path uses and got asphalt
+  // ripple and PUDDLES. Puddles. On the sea.
+  //
+  // Water is the opposite material to a wet road in the one way that matters:
+  // a road is a rough surface with a film on it, so its reflection smears. Open
+  // water is a smooth surface with SHAPE, so its reflection is sharp and the
+  // shape is what breaks it up. Hence a long swell instead of a fine ripple,
+  // near-zero roughness instead of 0.11, and a much stronger environment term.
+  float sea = smoothstep(-0.18, -0.36, vWorld.y) * step(0.6, vWorld.z) * uWet;
+  if (sea > 0.002) {
+    float t = uTime;
+    // three crossing swells, longest first. Wavelengths in METRES — the street
+    // ripple runs at 11-23 cycles per metre and at that scale open water reads
+    // as hammered metal.
+    float a1 = sin(vWorld.x * 0.42 + vWorld.z * 0.17 - t * 0.55);
+    float a2 = sin(vWorld.x * 0.19 - vWorld.z * 0.51 + t * 0.41);
+    float a3 = sin(vWorld.x * 0.86 + vWorld.z * 0.61 - t * 1.05);
+    float b1 = cos(vWorld.x * 0.42 + vWorld.z * 0.17 - t * 0.55);
+    float b2 = cos(vWorld.x * 0.19 - vWorld.z * 0.51 + t * 0.41);
+    float b3 = cos(vWorld.x * 0.86 + vWorld.z * 0.61 - t * 1.05);
+    // The y term is the one that decides whether this reads as SWELL or as
+    // crumpled foil: it is the ratio of wave height to wavelength. 1.55 came
+    // back looking like hammered metal in the mid-distance; open water is much
+    // flatter than it feels, and almost all of what you see in it is a long,
+    // low shape steering a sharp reflection.
+    vec3 sn = vec3(b1 * 0.30 + b2 * 0.17 + b3 * 0.05,
+                   0.0,
+                   b1 * 0.12 + b2 * -0.37 + b3 * 0.04);
+    N = normalize(mix(N, normalize(vec3(sn.x, 2.9, sn.z)), sea));
+    rough = mix(rough, 0.035, sea);
+    metal = mix(metal, 0.0, sea);
+    // deep water is nearly black in its own right; everything you see in it
+    // arrives by reflection, which is why the environment term below carries it
+    // Deep water is dark, but a harbour with a lit city across it is not a
+    // hole: at 0.40 the sea measured MORE near-dead than the flat blue slab it
+    // replaced, which is the wrong trade for a view whose problem was that a
+    // fifth of it had nothing in it.
+    tex.rgb = mix(tex.rgb, tex.rgb * 0.62 + vec3(0.016, 0.034, 0.048), sea);
+    pbr = max(pbr, sea);
+    float unused = a1 + a2 + a3;   // keep the phase terms live for the compiler
+    tex.rgb += vec3(0.0) * unused;
+  }
+
   float puddle = 0.0;
-  if (wet > 0.002 && uPuddle > 0.001) {
+  // ...and the sea is explicitly NOT a puddle. Without this the harbour gets
+  // a second, contradictory water treatment laid on top of the first.
+  if (wet > 0.002 && uPuddle > 0.001 && sea < 0.02) {
     vec2 p = vWorld.xz * 0.19;
     float f = skyFbm(p) * 0.68 + skyFbm(p * 2.9 + 11.3) * 0.32;
     // A SHARP threshold, not a linear ramp. skyFbm piles almost all of its
@@ -743,14 +797,28 @@ void main() {
     // Gated on the puddle mask, not on the wet term: damp asphalt scatters too
     // to hold an image, and a mirrored city on a merely-damp pavement is the
     // chrome look this shader has already been talked out of once.
-    if (uCity > 0.5 && puddle > 0.02)
-      sky = mix(sky, skyCityTex(sky, R), smoothstep(0.02, 0.55, puddle));
+    if (uCity > 0.5 && max(puddle, sea) > 0.02)
+      sky = mix(sky, skyCityTex(sky, R), smoothstep(0.02, 0.55, max(puddle, sea)));
     // ...and the pool returns much more of it than the damp road beside it.
     // the roughness term alone spans 0.86 to 0.96 across the whole range,
     // which is not a difference anybody can see.
     env = sky * uSkyRefl * outside * pbr
         * mix(fres, 1.0, metal) * (1.0 - rough * 0.72)
         * mix(1.0, 2.7, puddle);
+    // 🌊 THE HARBOR returns far more of the sky than a wet pavement does, and
+    // the whole city is standing on the other side of it. Without this the sea
+    // is only the dark water part of water: near-dead went 39.8 -> 47.2 in one
+    // run, because the swell and the deep colour landed with nothing to carry.
+    env *= mix(1.0, 3.8, sea);
+    // THE MOON PATH. The one image every night harbour is famous for, and it
+    // costs a dot product: a very tight lobe on the moon direction, broken up
+    // by the swell normals into a glitter track running from the moon to
+    // whoever is standing at the rail. It cannot be baked — it depends on
+    // where the viewer is.
+    if (sea > 0.02) {
+      float mp = max(dot(R, uMoonDir), 0.0);
+      env += vec3(0.62, 0.60, 0.72) * (pow(mp, 620.0) * 2.6 + pow(mp, 26.0) * 0.10) * sea;
+    }
   }
 
   float e = clamp(vExtra.x * uBoost, 0.0, 1.0);
@@ -3397,8 +3465,20 @@ void main() {
     {
       const px0 = 21.5, px1 = 33.6, pz0 = 9.3, pz1 = 12.5, deckY = 0.05;
 
-      // the harbor itself (big dark apron; moon + swirl glows live on top)
-      planeY(PR, -0.42, 21.5, 46, 2, 20, suv.water, 6, false, { e: 0.06 });
+      // 🌊 THE HARBOR. It used to be an apron 24m x 18m, and from the pier rail
+      // you could see the END OF IT: a hard edge at x=46, and beyond that a
+      // flat orange slab of bare sky where the water should have met the
+      // skyline. That band was most of why 15-pier measured as the worst view
+      // in the build — not because it was dark, but because a fifth of the
+      // frame was a solid colour with nothing in it.
+      //
+      // Water goes to the horizon. The far plane is at 70m and the camera
+      // stands at x=31.4, so this runs out past where it can be drawn and the
+      // aerial-perspective fog closes the last of it into the sky — which is
+      // what a horizon IS. Tiled coarser further out because nothing at 80m
+      // needs 6m of wave detail.
+      planeY(PR, -0.42, 21.5, 52, -14, 34, suv.water, 6, false, { e: 0.06 });
+      planeY(PR, -0.42, 52, 104, -46, 66, suv.water, 13, false, { e: 0.06 });
 
       // the deck + skirts down to the waterline
       planeY(PR, deckY, px0, px1, pz0, pz1, suv.pierWood, 1.6, false, {});
@@ -3431,6 +3511,17 @@ void main() {
       PR.quad([px0 - 0.06, 2.4, 9.55], [px0 - 0.06, 2.4, 12.25], [px0 - 0.06, 3.5, 12.25], [px0 - 0.06, 3.5, 9.55], suv.pierSign, { e: 0.35 });
       PR.quad([px0 + 0.02, 2.4, 12.25], [px0 + 0.02, 2.4, 9.55], [px0 + 0.02, 3.5, 9.55], [px0 + 0.02, 3.5, 12.25], suv.pierSign, { e: 0.2 });
       H.glows.push({ p: [px0 - 0.3, 2.95, 10.9], c: [0.25, 0.85, 1], s: 1.3, a: 0.12, k: 'neon' });
+
+      // 🌊 two channel markers out in the harbour, red to port and green to
+      // starboard the way they actually are. Far enough out to be small and
+      // close enough to be inside the far plane.
+      for (const [bx2, bz2, c] of [[47.0, 3.2, [1.0, 0.16, 0.12]], [43.0, 17.5, [0.18, 1.0, 0.35]]]) {
+        PR.quad([bx2 - 0.28, -0.42, bz2 + 0.28], [bx2 + 0.28, -0.42, bz2 + 0.28],
+          [bx2 + 0.28, 0.34, bz2 + 0.28], [bx2 - 0.28, 0.34, bz2 + 0.28], suv.sw_iron, { tint: 0.5 });
+        PR.quad([bx2 + 0.28, -0.42, bz2 - 0.28], [bx2 - 0.28, -0.42, bz2 - 0.28],
+          [bx2 - 0.28, 0.34, bz2 - 0.28], [bx2 + 0.28, 0.34, bz2 - 0.28], suv.sw_iron, { tint: 0.5 });
+        H.glows.push({ p: [bx2, 0.62, bz2], c, s: 0.85, a: 0.5, k: 'buoy', ph: c[0] > 0.5 ? 0 : 0.5 });
+      }
 
       // lanterns on the south rail
       for (const lx of [25.5, 30.5]) {
@@ -5264,6 +5355,17 @@ void main() {
       } else if (gsp.k === 'hazard') {
         // the double-parked compact: hazards blink like they mean it
         a = gsp.a * (Math.floor(H.t * 1.5) % 2 === 0 ? 1 : 0.05);
+      } else if (gsp.k === 'buoy') {
+        // 🌊 THE CHANNEL MARKER, out where the water goes dark. A real buoy
+        // flashes on a fixed character — this one is a 4-second group, two
+        // quick and then nothing — and out there it is the ONLY thing that
+        // moves, which is what stops the far half of the harbour reading as a
+        // painted backdrop. It also puts a light on the water: the swell picks
+        // the flash up and drags it toward the rail.
+        const ph3 = (H.t * 0.25 + (gsp.ph || 0)) % 1;
+        const hit = Math.max(0, 1 - Math.abs(ph3 - 0.06) * 26)
+                  + Math.max(0, 1 - Math.abs(ph3 - 0.17) * 26);
+        a = gsp.a * (0.06 + 0.94 * Math.min(1, hit));
       } else if (gsp.k === 'thump') {
         // the club door: a kick drum you can see (~123bpm, sharp hit, long decay)
         const ph2 = (H.t * 2.05 + (gsp.ph || 0)) % 1;

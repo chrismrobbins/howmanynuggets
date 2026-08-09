@@ -23,6 +23,10 @@ const EXPECTED = [
   /bloom unavailable/i,        // no FBO at all: render direct
   /no float target/i,          // no half-float: the 8-bit post chain
   /material shader failed/i,   // WebGL2 link failure: the flat renderer
+  // Advisory, not a fault: upload() shouts from 62000 vertices up so the next
+  // person to add geometry meets the 16-bit ceiling before the black spikes do.
+  // It fires on every path by design — see AGENTS.md, THE GRIME.
+  /left before this buffer needs 32-bit/i,
 ];
 
 // Two spots: one deep in the hall (all the material work) and one on the
