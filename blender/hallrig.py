@@ -1355,6 +1355,211 @@ def render_one(name, out_dir=None):
     return path
 
 
+# ---- THE POWER PLANT: material map passes -------------------------------------
+# For a year this rig has thrown away everything it knew about a surface except
+# its colour, because colour was all the hall could display. It can display more
+# now (js/arcade.js, the WebGL2 material shader), so render the rest.
+#
+# TWO EXTRA PASSES PER ASSET, both through the same ortho camera as the colour
+# pass, so all three land in perfect register:
+#
+#   _n   the NORMAL pass. Not a filter run over the colour render — the actual
+#        shading normal of the actual modelled geometry, bump included. The
+#        camera looks down -Z at a flat subject, so world normals ARE tangent
+#        space here and the encode is a plain n*0.5+0.5.
+#   _s   the ORM pass. Every material's surface is temporarily rewired to an
+#        emission of (roughness, metallic, pbr-opt-in) and the scene is
+#        rendered flat. Emissive materials report pbr=0: neon does not get a
+#        specular highlight painted on it, it IS the light.
+#
+# Why a compositor File Output for the normal and a material swap for the ORM:
+# the normal pass must keep the real materials (their bump chains are half the
+# surface detail, and a material_override would delete them), while roughness
+# and metalness are per-material CONSTANTS that no render pass exposes.
+
+def _encode_normal(nt, vec_socket, out_node):
+    """Wire a normal vector -> emission -> material output, encoded 0..1."""
+    enc = nt.nodes.new("ShaderNodeVectorMath")
+    enc.name = "NRM_ENC"
+    enc.operation = "MULTIPLY_ADD"
+    enc.inputs[1].default_value = (0.5, 0.5, 0.5)
+    enc.inputs[2].default_value = (0.5, 0.5, 0.5)
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.name = "NRM_TMP"
+    em.inputs[1].default_value = 1.0
+    nt.links.new(vec_socket, enc.inputs[0])
+    nt.links.new(enc.outputs[0], em.inputs[0])
+    nt.links.new(em.outputs[0], out_node.inputs[0])
+    return [enc.name, em.name]
+
+
+def _normal_swap(sc):
+    """Rewire every material to emit its own SHADING normal.
+
+    The important part is where the vector comes from. Half these materials get
+    their surface detail from a Bump node driving the Principled's Normal input
+    (mapmat + the wrapped-fBm grain maps) — that bump IS the brick's mortar and
+    the carpet's pile, and a plain geometry normal would throw all of it away.
+    So: use whatever is plugged into the BSDF's Normal socket if anything is,
+    and fall back to the raw geometry normal only for materials with no bump.
+    """
+    saved = []
+    seen = set()
+    for ob in sc.collection.all_objects:
+        for slot in getattr(ob, "material_slots", []):
+            m = slot.material
+            if not m or m.name in seen:
+                continue
+            seen.add(m.name)
+            nt = getattr(m, "node_tree", None)
+            if not nt:
+                continue
+            out = next((n for n in nt.nodes if n.type == "OUTPUT_MATERIAL"), None)
+            if not out:
+                continue
+            prev = [(l.from_node.name, l.from_socket.name) for l in out.inputs[0].links]
+            src = None
+            bsdf = next((n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"), None)
+            if bsdf and "Normal" in bsdf.inputs and bsdf.inputs["Normal"].links:
+                src = bsdf.inputs["Normal"].links[0].from_socket
+            if src is None:
+                geo = nt.nodes.new("ShaderNodeNewGeometry")
+                geo.name = "NRM_GEO"
+                src = geo.outputs["Normal"]
+            for l in list(out.inputs[0].links):
+                nt.links.remove(l)
+            tmp = _encode_normal(nt, src, out)
+            if src.node.name == "NRM_GEO":
+                tmp.append("NRM_GEO")
+            saved.append((m, tmp, prev, out.name))
+    return saved
+
+
+def _mat_pbr(m):
+    """(roughness, metallic, pbr-opt-in) for a material, read off its BSDF."""
+    rough, metal, lit = 0.7, 0.0, 1.0
+    nt = getattr(m, "node_tree", None)
+    if not nt:
+        return rough, metal, lit
+    for n in nt.nodes:
+        if n.type == "EMISSION":
+            return 0.9, 0.0, 0.0            # it is a light, not a surface
+        if n.type == "BSDF_PRINCIPLED":
+            try:
+                rough = float(n.inputs["Roughness"].default_value)
+                metal = float(n.inputs["Metallic"].default_value)
+            except Exception:
+                pass
+            try:
+                es = float(n.inputs["Emission Strength"].default_value)
+                ec = n.inputs["Emission Color"].default_value
+                if es > 0.01 and max(ec[0], ec[1], ec[2]) > 0.01:
+                    lit = 0.0               # emissive Principled: same rule
+            except Exception:
+                pass
+    return rough, metal, lit
+
+
+def _orm_swap(sc):
+    """Rewire every material in the scene to emit its own ORM triple.
+    Returns the undo list."""
+    saved = []
+    seen = set()
+    for ob in sc.collection.all_objects:
+        for slot in getattr(ob, "material_slots", []):
+            m = slot.material
+            if not m or m.name in seen:
+                continue
+            seen.add(m.name)
+            nt = getattr(m, "node_tree", None)
+            if not nt:
+                continue
+            out = None
+            for n in nt.nodes:
+                if n.type == "OUTPUT_MATERIAL":
+                    out = n
+                    break
+            if not out:
+                continue
+            prev = [(l.from_node.name, l.from_socket.name) for l in out.inputs[0].links]
+            r, g_, b = _mat_pbr(m)
+            em = nt.nodes.new("ShaderNodeEmission")
+            em.name = "ORM_TMP"
+            em.inputs[0].default_value = (r, g_, b, 1.0)
+            em.inputs[1].default_value = 1.0
+            for l in list(out.inputs[0].links):
+                nt.links.remove(l)
+            nt.links.new(em.outputs[0], out.inputs[0])
+            saved.append((m, [em.name], prev, out.name))
+    return saved
+
+
+def _swap_restore(saved):
+    """Undo _orm_swap / _normal_swap: drop the temp nodes, relink the original."""
+    for m, tmp_names, prev, outname in saved:
+        nt = m.node_tree
+        out = nt.nodes.get(outname)
+        if out:
+            for l in list(out.inputs[0].links):
+                nt.links.remove(l)
+            for src_name, sock in prev:
+                src = nt.nodes.get(src_name)
+                if src:
+                    nt.links.new(src.outputs[sock], out.inputs[0])
+        for nm in tmp_names:
+            n = nt.nodes.get(nm)
+            if n:
+                nt.nodes.remove(n)
+
+
+def render_maps_one(name, out_dir=None):
+    """Normal + ORM for one asset, through the same camera as the colour pass
+    so all three land in perfect register."""
+    out_dir = out_dir or OUT_DEFAULT
+    map_dir = os.path.join(out_dir, "mat")
+    os.makedirs(map_dir, exist_ok=True)
+    fn, w, h = ASSETS[name]
+    _wipe()
+    _noise_maps()
+    fn()
+    sc = _scene()
+
+    # Both passes are DATA, not pictures. Standard view transform would push
+    # every value through the sRGB curve on its way to the PNG and quietly bend
+    # every normal vector and every roughness in the set.
+    vt_prev, world_prev = sc.view_settings.view_transform, sc.world
+    sc.world = None
+    try:
+        sc.view_settings.view_transform = "Raw"
+    except Exception:
+        sc.view_settings.view_transform = "Standard"
+    try:
+        saved = _normal_swap(sc)
+        try:
+            shot(name + "_n", w, h, map_dir)
+        finally:
+            _swap_restore(saved)
+        saved = _orm_swap(sc)
+        try:
+            shot(name + "_s", w, h, map_dir)
+        finally:
+            _swap_restore(saved)
+    finally:
+        sc.view_settings.view_transform = vt_prev
+        sc.world = world_prev
+    return map_dir
+
+
+def render_maps(out_dir=None, only=None):
+    out_dir = out_dir or OUT_DEFAULT
+    names = only or list(ASSETS)
+    for n in names:
+        render_maps_one(n, out_dir)
+        print("mapped", n)
+    print(f"render_maps: {len(names)} assets -> {os.path.join(out_dir, 'mat')}")
+    return os.path.join(out_dir, "mat")
+
+
 def render_all(out_dir=None):
     out_dir = out_dir or OUT_DEFAULT
     done = []
@@ -1403,6 +1608,8 @@ if __name__ == "__main__":
     elif argv[0] == "render_one":
         for n in argv[1:]:
             render_one(n)
+    elif argv[0] == "render_maps":
+        render_maps(only=argv[1:] or None)
     elif argv[0] == "library":
         render_all()
         build_library()

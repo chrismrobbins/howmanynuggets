@@ -48,6 +48,47 @@ const ArcadeArt = (() => {
     return typeof HallArt !== 'undefined' && HallArt.blit(g, name, w, h);
   }
 
+  // ---- THE POWER PLANT: the material pages ------------------------------------
+  // The albedo atlas has always been the hall's only texture. It is now one of
+  // three, packed by the SAME alloc() sequence so all three share a uv table:
+  //
+  //   albedo  what the surface looks like       (painters, or the Blender sheet)
+  //   normal  which way it faces, per texel     (baked from the rig's geometry)
+  //   orm     r = roughness, g = metalness,
+  //           b = HOW MUCH OF THE NEW SHADER THIS REGION HAS OPTED INTO
+  //
+  // That blue channel is the whole migration strategy. The hall's albedo was
+  // rendered with a key light baked in, so it is not true base colour; a region
+  // only turns its PBR dial up once the art department has re-rendered it flat
+  // and baked its maps. b=0 — the default for every unmapped region — makes the
+  // shader collapse to the exact equation that shipped last year.
+  //
+  // MAP_DEFAULTS carries [roughness, metalness, pbr] for regions we have
+  // opinions about but no baked maps for yet. It is a tuning surface: a harness
+  // can override it before makeAtlas() to A/B a material without a re-bake.
+  const FLAT_NORMAL = 'rgb(128,128,255)';   // +Z, i.e. "no relief"
+
+  const MAP_DEFAULTS = {};
+
+  function mapBlit(kind, g, name, w, h) {
+    return typeof HallMaps !== 'undefined' && HallMaps.blit(kind, g, name, w, h);
+  }
+
+  // Paint one region into the normal and orm pages. Blender data wins; the
+  // defaults table is the fallback; flat-and-inert is the fallback's fallback.
+  function paintMaps(gN, gO, name, w, h) {
+    if (!mapBlit('n', gN, name, w, h)) {
+      gN.fillStyle = FLAT_NORMAL;
+      gN.fillRect(0, 0, w, h);
+    }
+    if (!mapBlit('s', gO, name, w, h)) {
+      const d = MAP_DEFAULTS[name] || [0.7, 0, 0];
+      gO.fillStyle = 'rgb(' + Math.round(d[0] * 255) + ',' + Math.round(d[1] * 255) +
+        ',' + Math.round(d[2] * 255) + ')';
+      gO.fillRect(0, 0, w, h);
+    }
+  }
+
   function rr(g, x, y, w, h, r) {
     g.beginPath();
     g.moveTo(x + r, y);
@@ -946,6 +987,12 @@ const ArcadeArt = (() => {
     const g = c.getContext('2d');
     g.fillStyle = '#0a0913';
     g.fillRect(0, 0, S, S);
+    // The two material pages ride along on the same alloc() sequence, so their
+    // layout can never drift from the albedo page's uv table.
+    const cN = cv(S, S), cO = cv(S, S);
+    const gN = cN.getContext('2d'), gO = cO.getContext('2d');
+    gN.fillStyle = FLAT_NORMAL; gN.fillRect(0, 0, S, S);
+    gO.fillStyle = 'rgb(179,0,0)'; gO.fillRect(0, 0, S, S);   // rough 0.7, no metal, PBR off
     const uv = {};
     let cx = 0, cy = 0, rowH = 0;
     const PAD = 8;
@@ -957,6 +1004,10 @@ const ArcadeArt = (() => {
       g.beginPath(); g.rect(0, 0, w, h); g.clip();
       painter(g, w, h);
       g.restore();
+      gN.save(); gN.translate(cx, cy); gN.beginPath(); gN.rect(0, 0, w, h); gN.clip();
+      gO.save(); gO.translate(cx, cy); gO.beginPath(); gO.rect(0, 0, w, h); gO.clip();
+      paintMaps(gN, gO, name, w, h);
+      gN.restore(); gO.restore();
       // Inset the uv rect by 1.5px so mipmap bleeding never shows a neighbor.
       uv[name] = [(cx + 1.5) / S, (cy + 1.5) / S, (cx + w - 1.5) / S, (cy + h - 1.5) / S];
       cx += w + PAD;
@@ -1006,7 +1057,7 @@ const ArcadeArt = (() => {
       const mx = (r[0] + r[2]) / 2, my = (r[1] + r[3]) / 2;
       uv['sw_' + name] = [mx - 0.001, my - 0.001, mx + 0.001, my + 0.001];
     }
-    return { canvas: c, uv };
+    return { canvas: c, uv, nrm: cN, orm: cO };
   }
 
   // ---- the street atlas ------------------------------------------------------------
@@ -1367,6 +1418,10 @@ const ArcadeArt = (() => {
     const c = cv(SW, SH);
     const g = c.getContext('2d');
     // transparent page: NPC cutouts need alpha; solid regions paint their own bg
+    const cN = cv(SW, SH), cO = cv(SW, SH);
+    const gN = cN.getContext('2d'), gO = cO.getContext('2d');
+    gN.fillStyle = FLAT_NORMAL; gN.fillRect(0, 0, SW, SH);
+    gO.fillStyle = 'rgb(179,0,0)'; gO.fillRect(0, 0, SW, SH);
     const uv = {};
     let cx = 0, cy = 0, rowH = 0;
     const PAD = 8;
@@ -1378,6 +1433,10 @@ const ArcadeArt = (() => {
       g.beginPath(); g.rect(0, 0, w, h); g.clip();
       painter(g, w, h);
       g.restore();
+      gN.save(); gN.translate(cx, cy); gN.beginPath(); gN.rect(0, 0, w, h); gN.clip();
+      gO.save(); gO.translate(cx, cy); gO.beginPath(); gO.rect(0, 0, w, h); gO.clip();
+      paintMaps(gN, gO, name, w, h);
+      gN.restore(); gO.restore();
       uv[name] = [(cx + 1.5) / SW, (cy + 1.5) / SH, (cx + w - 1.5) / SW, (cy + h - 1.5) / SH];
       cx += w + PAD;
       rowH = Math.max(rowH, h);
@@ -1448,7 +1507,7 @@ const ArcadeArt = (() => {
       const mx = (r[0] + r[2]) / 2, my = (r[1] + r[3]) / 2;
       uv['sw_' + name] = [mx - 0.001, my - 0.001, mx + 0.001, my + 0.001];
     }
-    return { canvas: c, uv };
+    return { canvas: c, uv, nrm: cN, orm: cO };
   }
 
   // The flank of a compact that has seen some things: wet red paint, two dark
@@ -2467,5 +2526,6 @@ const ArcadeArt = (() => {
     scanlines(g, w, h, t);
   }
 
-  return { GAMES, STREET_GAMES, makeAtlas, makeStreetAtlas, makeGlow, drawAttract, drawScoreboard };
+  return { GAMES, STREET_GAMES, makeAtlas, makeStreetAtlas, makeGlow, drawAttract, drawScoreboard,
+    MAP_DEFAULTS };
 })();

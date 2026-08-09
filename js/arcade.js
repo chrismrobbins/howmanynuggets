@@ -16,6 +16,13 @@ const NuggetArcade = (() => {
   const FOV = (62 * Math.PI) / 180;
   const FOG = [0.023, 0.016, 0.04];
   const FOG_DENSITY = 0.04;
+  // THE POWER PLANT dials. Per §1 of the handoff: start at a known-good
+  // midpoint, not at timid. 1.0 relief and a specular that reads without
+  // turning every wall into wet plastic.
+  const FLAT_RIGHT = [1, 0, 0], FLAT_FWD = [0, 0, 1];
+  const NRM_SCALE = 1.0;
+  const SPEC_AMT = 1.15;
+  const WET_AMT = 1.0;
   // room shell: |x| < RX, RZB < z < 0 (doors at z=0), ceiling at RCH
   const RX = 7.5, RZB = -20, RCH = 4.2;
 
@@ -165,6 +172,150 @@ void main() {
   float fog = clamp(1.0 - exp(-uFogDensity * distance(uCamPos, vWorld)), 0.0, 1.0);
   col = mix(col, uFogColor, fog * (1.0 - 0.7 * e)); // lit signage punches through fog
   gl_FragColor = vec4(col * uMirror, tex.a * uAlpha);
+}`;
+
+  // ---- THE POWER PLANT: the WebGL2 material shader ----------------------------
+  // Everything above this comment is the hall as it shipped for a year: colour
+  // times eight Lambert lights. It is kept EXACTLY as it was and is what a
+  // WebGL1 browser still gets — the house rule is that nothing ever degrades to
+  // black, and the safest fallback is the renderer that already worked.
+  //
+  // What follows is the same room with the rest of what Blender knows about a
+  // surface: a normal map, roughness, metalness, and a real microfacet specular
+  // lobe. A chrome bezel and a grimy carpet stop responding to light the same
+  // way, which is the single biggest reason the hall read as flat.
+  //
+  // Two decisions worth keeping:
+  //
+  // 1. NO TANGENT ATTRIBUTE. Half this hall is hand-built quads in buildScene;
+  //    adding a vertex attribute would mean touching every one. The tangent
+  //    frame is derived per-pixel from screen-space derivatives instead, which
+  //    costs a few ALU and works on procedural quads and Blender meshes alike.
+  //
+  // 2. THE BLUE CHANNEL OF THE ORM MAP IS A MIGRATION DIAL. The hall's albedo
+  //    was rendered WITH a 44° key light baked into it, so it is not true base
+  //    colour and cannot take full PBR without double-lighting (HANDOFF §10).
+  //    orm.b says how much of this shader's new behaviour a region has opted
+  //    into. At 0 — the default, and what an unmapped region gets — the maths
+  //    collapses to exactly the old equation. Regions light up one at a time as
+  //    the art department bakes them.
+
+  const VS_LIT2 = `#version 300 es
+in vec3 aPos; in vec3 aNormal; in vec2 aUV; in vec2 aExtra;
+uniform mat4 uProj, uView, uModel;
+out vec3 vWorld, vNormal; out vec2 vUV, vExtra;
+void main() {
+  vec4 w = uModel * vec4(aPos, 1.0);
+  vWorld = w.xyz;
+  vNormal = mat3(uModel) * aNormal;
+  vUV = aUV; vExtra = aExtra;
+  gl_Position = uProj * uView * w;
+}`;
+
+  const FS_LIT2 = `#version 300 es
+precision highp float;
+in vec3 vWorld, vNormal; in vec2 vUV, vExtra;
+uniform sampler2D uTex, uNrm, uOrm;
+uniform vec3 uLightPos[16]; uniform vec3 uLightColor[16];
+uniform vec3 uAmbient, uFogColor, uCamPos;
+uniform float uFogDensity, uAlpha, uMirror, uBoost, uNrmScale, uSpecAmt, uWet, uTime;
+out vec4 fragColor;
+
+const float PI = 3.14159265;
+
+// A tangent basis with no tangent attribute: the classic cotangent frame.
+mat3 cotangent(vec3 N, vec3 p, vec2 uv) {
+  vec3 dp1 = dFdx(p), dp2 = dFdy(p);
+  vec2 du1 = dFdx(uv), du2 = dFdy(uv);
+  vec3 dp2perp = cross(dp2, N), dp1perp = cross(N, dp1);
+  vec3 T = dp2perp * du1.x + dp1perp * du2.x;
+  vec3 B = dp2perp * du1.y + dp1perp * du2.y;
+  float inv = inversesqrt(max(max(dot(T, T), dot(B, B)), 1e-8));
+  return mat3(T * inv, B * inv, N);
+}
+
+void main() {
+  vec4 tex = texture(uTex, vUV);
+  vec3 orm = texture(uOrm, vUV).rgb;
+  float rough = clamp(orm.r, 0.05, 1.0);
+  float metal = orm.g;
+  float pbr = orm.b;              // how much of this shader the region opted into
+
+  vec3 Ng = normalize(vNormal);
+  vec3 N = Ng;
+  if (pbr > 0.004) {
+    vec3 nm = texture(uNrm, vUV).rgb * 2.0 - 1.0;
+    nm.xy *= uNrmScale * pbr;
+    N = normalize(cotangent(Ng, vWorld, vUV) * nm);
+  }
+
+  // IT IS RAINING OUT THERE. It has been raining out there since the street was
+  // built, and until now the pavement did not know. Upward-facing ground beyond
+  // the doors gets a slow ripple and a much sharper specular lobe — which is
+  // the whole difference between "black floor" and "wet street at night".
+  // Decided per-fragment rather than by a flag on the geometry, because the
+  // street's ground is spread across several buffers built by different code.
+  float wet = uWet
+    * smoothstep(0.86, 0.99, Ng.y)              // faces up
+    * (1.0 - smoothstep(0.12, 0.45, vWorld.y))  // is the ground, not a shelf
+    * smoothstep(0.6, 2.2, vWorld.z);           // is outside the doors
+  vec3 F0 = mix(vec3(0.04), tex.rgb, metal);
+  if (wet > 0.002) {
+    // ANISOTROPIC on purpose. A first pass rippled x and z equally and the
+    // lamps landed on the pavement as hard white blobs — which is what an
+    // isotropic microfacet lobe on a near-flat plane always gives you. A real
+    // wet street smears its reflections along the view axis, so the ripple is
+    // fine and busy ACROSS the street and lazy ALONG it: highlights stretch
+    // into streaks running away from the camera instead of pooling into dots.
+    float wx = vWorld.x, wz = vWorld.z, t = uTime;
+    float gx = cos(wx * 11.0 + t * 1.1) * 0.55
+             + cos((wx * 6.5 + wz * 1.7) - t * 1.9) * 0.35
+             + cos(wx * 23.0 - t * 2.7) * 0.16;
+    float gz = cos(wz * 2.3 - t * 0.6) * 0.10
+             + cos((wx * 1.1 + wz * 3.1) + t * 0.8) * 0.06;
+    N = normalize(N + vec3(gx, 0.0, gz) * 0.09 * wet);
+    // 0.09 was a mirror and read as chrome. 0.2 keeps the streak soft-edged.
+    rough = mix(rough, 0.2, wet);
+    F0 = mix(F0, vec3(0.05), wet);
+    pbr = max(pbr, wet);                        // wet ground gets a highlight
+  }
+
+  vec3 V = normalize(uCamPos - vWorld);
+  float NdotV = max(dot(N, V), 1e-3);
+
+  // The diffuse term is the ORIGINAL equation, unchanged, so an unmapped
+  // surface is pixel-for-pixel what it always was. Specular is added on top.
+  vec3 light = uAmbient;
+  vec3 spec = vec3(0.0);
+  for (int i = 0; i < 16; i++) {
+    vec3 d = uLightPos[i] - vWorld;
+    float dist = length(d);
+    vec3 L = d / max(dist, 0.001);
+    float att = 1.0 / (1.0 + 0.13 * dist + 0.026 * dist * dist);
+    float NdotL = max(dot(Ng, L), 0.0);
+    light += uLightColor[i] * max(dot(N, L), 0.0) * att;
+    if (pbr > 0.004 && NdotL > 0.0) {
+      vec3 Hv = normalize(V + L);
+      float NdotH = max(dot(N, Hv), 0.0);
+      float NL = max(dot(N, L), 0.0);
+      float a = rough * rough, a2 = a * a;
+      float dn = NdotH * NdotH * (a2 - 1.0) + 1.0;
+      float D = a2 / (PI * dn * dn);
+      float k = (rough + 1.0) * (rough + 1.0) / 8.0;
+      float G = (NL / (NL * (1.0 - k) + k)) * (NdotV / (NdotV * (1.0 - k) + k));
+      vec3 F = F0 + (1.0 - F0) * pow(1.0 - max(dot(Hv, V), 0.0), 5.0);
+      spec += min(uLightColor[i] * att * NL * D * G * F, vec3(2.2));
+    }
+  }
+
+  float e = clamp(vExtra.x * uBoost, 0.0, 1.0);
+  vec3 col = tex.rgb * mix(light, vec3(1.45), e) * vExtra.y;
+  // Neon does not get a highlight painted on it, and neither does anything the
+  // region table has not signed off on.
+  col += spec * uSpecAmt * pbr * (1.0 - e) * vExtra.y;
+  float fog = clamp(1.0 - exp(-uFogDensity * distance(uCamPos, vWorld)), 0.0, 1.0);
+  col = mix(col, uFogColor, fog * (1.0 - 0.7 * e));
+  fragColor = vec4(col * uMirror, tex.a * uAlpha);
 }`;
 
   const VS_SPR = `
@@ -338,7 +489,10 @@ void main() {
     gl.enable(gl.DEPTH_TEST);
   }
 
-  function makeProgram(gl, vsSrc, fsSrc) {
+  // `soft: true` reports a compile/link failure as null instead of throwing —
+  // used for the WebGL2 material program, whose failure means "use the old
+  // renderer", not "the arcade is closed".
+  function makeProgram(gl, vsSrc, fsSrc, soft) {
     function sh(type, src) {
       const s = gl.createShader(type);
       gl.shaderSource(s, src);
@@ -347,13 +501,19 @@ void main() {
         throw new Error(gl.getShaderInfoLog(s));
       return s;
     }
-    const p = gl.createProgram();
-    gl.attachShader(p, sh(gl.VERTEX_SHADER, vsSrc));
-    gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fsSrc));
-    gl.linkProgram(p);
-    if (!gl.getProgramParameter(p, gl.LINK_STATUS))
-      throw new Error(gl.getProgramInfoLog(p));
-    return p;
+    try {
+      const p = gl.createProgram();
+      gl.attachShader(p, sh(gl.VERTEX_SHADER, vsSrc));
+      gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fsSrc));
+      gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS))
+        throw new Error(gl.getProgramInfoLog(p));
+      return p;
+    } catch (err) {
+      if (!soft) throw err;
+      console.warn('Nugget Arcade: shader program failed —', String(err).slice(0, 300));
+      return null;
+    }
   }
 
   function makeTexture(gl, source, { mips = true } = {}) {
@@ -372,6 +532,57 @@ void main() {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     }
     return t;
+  }
+
+  function makeSolidTexture(gl, rgba) {
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+      new Uint8Array(rgba));
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    return t;
+  }
+
+  // Upload an atlas set's material pages and remember which albedo page they
+  // belong to. Only WebGL2 has a shader that can read them, so WebGL1 never
+  // pays for the upload.
+  function registerMaps(gl, albedoTex, set) {
+    if (!H.pbr || !set.nrm || !set.orm) return;
+    const prev = H.mapsFor.get(albedoTex);
+    if (prev) {
+      gl.bindTexture(gl.TEXTURE_2D, prev.n);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, set.nrm);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      gl.bindTexture(gl.TEXTURE_2D, prev.s);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, set.orm);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      return;
+    }
+    H.mapsFor.set(albedoTex, {
+      n: makeTexture(gl, set.nrm),
+      s: makeTexture(gl, set.orm),
+    });
+  }
+
+  // Rebuild both atlas sets from scratch and re-upload all six pages. Called
+  // when a Blender payload lands after the hall has already been built.
+  function rebakeAtlases() {
+    const gl = H.gl;
+    const atlas = ArcadeArt.makeAtlas();
+    gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, atlas.canvas);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    const street = ArcadeArt.makeStreetAtlas();
+    gl.bindTexture(gl.TEXTURE_2D, H.texStreet);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, street.canvas);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    registerMaps(gl, H.texAtlas, atlas);
+    registerMaps(gl, H.texStreet, street);
+    H.builtHallArt = (typeof HallArt !== 'undefined' && HallArt.on() ? 'a' : '-') +
+      (typeof HallMaps !== 'undefined' && HallMaps.on() ? 'm' : '-');
   }
 
   // ---- mesh builder -----------------------------------------------------------------
@@ -1894,6 +2105,15 @@ void main() {
       ST.quad([lx - 0.16, 2.98, lz - 0.72], [lx + 0.16, 2.98, lz - 0.72], [lx + 0.16, 2.98, lz - 0.42], [lx - 0.16, 2.98, lz - 0.42], suv.sw_amber, { e: 1 }); // underside faces down
       }
       H.glows.push({ p: [lx, 3.0, lz - 0.57], c: [1, 0.72, 0.35], s: 1.5, a: 0.2, k: 'sign' });
+      // A lamp on a wet night is not a bright dot, it is a CONE. The hall had
+      // light with nothing in the air for it to catch — the reason the street
+      // read as a black room with lamps painted on the wall. These are the
+      // cheapest possible volumetrics: two tall additive billboards for the
+      // shaft and one flat pool where it lands, riding the sprite pass that
+      // was already drawing halos. No new program, no depth prepass.
+      H.glows.push({ p: [lx, 1.75, lz - 0.62], c: [1, 0.74, 0.38], sw: 0.78, sh: 1.5, a: 0.052, k: 'shaft' });
+      H.glows.push({ p: [lx, 1.05, lz - 0.66], c: [1, 0.78, 0.42], sw: 1.25, sh: 1.05, a: 0.030, k: 'shaft' });
+      H.glows.push({ p: [lx, 0.035, lz - 0.72], c: [1, 0.7, 0.34], sw: 1.9, sh: 1.9, a: 0.085, k: 'pool' });
       H.propBoxes.push({ min: [lx - 0.15, 0, lz - 0.15], max: [lx + 0.15, 3.3, lz + 0.15] });
     }
 
@@ -2519,8 +2739,20 @@ void main() {
     return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
   }
 
-  // Eight point lights; intensities animated each frame.
+  // ---- THE POWER PLANT: the light rig ------------------------------------------
+  // This used to be exactly eight lights, and the street had to STEAL slots
+  // from the hall to light itself — an index-keyed override table that swapped
+  // ceiling tubes for streetlamps the moment the camera crossed z=0.6. Which
+  // meant a block of shopfronts, five neon signs, a lit marquee and a pier were
+  // sharing four lights between them, and no sign ever lit the wall it hung on.
+  //
+  // Now: one world list, every fixture in it, and the renderer uploads the
+  // MAX_LIGHTS nearest to the camera each frame. Cost is fixed and the same as
+  // before; what changes is that the nearest lights are the ones you can see.
+  const MAX_LIGHTS = 16;      // WebGL2 shader loop bound (WebGL1 keeps its 8)
+
   const LIGHTS = [
+    // --- the hall ---
     { p: [0, 3.6, 1.4], c: [1.5, 1.1, 0.5], k: 'sign' },
     { p: [0, 3.8, -4], c: [0.75, 0.9, 1.35], k: 'tube' },
     { p: [0, 3.8, -9], c: [0.75, 0.9, 1.35], k: 'tube' },
@@ -2529,6 +2761,32 @@ void main() {
     { p: [-5.8, 2.3, -9.5], c: [1.1, 0.35, 0.75], k: 'neon' },
     { p: [5.8, 2.3, -9.5], c: [0.35, 0.95, 1.15], k: 'neon' },
     { p: [0, 2.8, -1.6], c: [0.6, 0.55, 0.8], k: 'door' },
+    // the cabinet walls: ten CRTs and ten backlit marquees were pure texture
+    // before — bright rectangles that threw nothing onto the carpet
+    { p: [-6.2, 1.7, -5.5], c: [0.34, 0.42, 0.62], k: 'crt' },
+    { p: [-6.2, 1.7, -12.5], c: [0.34, 0.42, 0.62], k: 'crt' },
+    { p: [6.2, 1.7, -5.5], c: [0.34, 0.42, 0.62], k: 'crt' },
+    { p: [6.2, 1.7, -12.5], c: [0.34, 0.42, 0.62], k: 'crt' },
+    { p: [0, 1.75, -17.4], c: [0.7, 0.42, 0.18], k: 'crt' },
+    // --- the street: its own lights, not the hall's on loan ---
+    { p: [-15, 3.0, 6.9], c: [1.5, 1.05, 0.55], k: 'lamp' },
+    { p: [-5.5, 3.0, 6.9], c: [1.5, 1.05, 0.55], k: 'lamp' },
+    { p: [5.0, 3.0, 6.9], c: [1.5, 1.05, 0.55], k: 'lamp' },
+    { p: [15.0, 3.0, 6.9], c: [1.5, 1.05, 0.55], k: 'lamp' },
+    { p: [-19.4, 2.2, 0.9], c: [0.42, 1.0, 1.2], k: 'neon' },   // laundromat
+    { p: [14.5, 2.2, 0.9], c: [1.25, 0.5, 0.85], k: 'neon' },   // noodle shop
+    { p: [-9.5, 2.4, 0.6], c: [1.3, 0.95, 0.35], k: 'sign' },   // the marquee, outside
+    { p: [-26, 2.1, 1.0], c: [0.5, 0.95, 0.6], k: 'neon' },     // the garage
+    { p: [3.5, 0.55, 10.2], c: [0.9, 0.35, 0.75], k: 'thump' }, // club door, far side
+    { p: [9.0, 0.30, 8.4], c: [0.75, 0.62, 0.2], k: 'swirl' },  // the grate
+    { p: [-2.0, 0.85, 9.6], c: [0.5, 0.55, 0.85], k: 'across' },// across-the-road windows
+    { p: [-13.0, 0.85, 9.6], c: [0.5, 0.55, 0.85], k: 'across' },
+    { p: [12.0, 0.85, 9.6], c: [0.5, 0.55, 0.85], k: 'across' },
+    // --- the pier ---
+    { p: [25.5, 1.6, 12.3], c: [1.3, 0.9, 0.45], k: 'torch' },
+    { p: [30.5, 1.6, 12.3], c: [1.3, 0.9, 0.45], k: 'torch' },
+    { p: [40, 3.2, 10.9], c: [0.5, 0.62, 1.0], k: 'moon' },
+    { p: [36, 0.3, 10.9], c: [1.0, 0.75, 0.25], k: 'swirl' },
   ];
 
   // ---- init ---------------------------------------------------------------------------
@@ -2561,15 +2819,30 @@ void main() {
     H.dlgOpts = root.querySelector('.hd-opts');
     H.dlgHint = root.querySelector('.hd-hint');
 
-    const gl = H.canvas.getContext('webgl', { antialias: true });
+    const gl2 = H.canvas.getContext('webgl2', { antialias: true });
+    const gl = gl2 || H.canvas.getContext('webgl', { antialias: true });
     if (!gl) return false;
     H.gl = gl;
 
-    H.progLit = makeProgram(gl, VS_LIT, FS_LIT);
+    // THE POWER PLANT: a WebGL2 context gets the material shader; WebGL1 keeps
+    // the renderer that shipped, verbatim. `H.pbr = false` in a harness gives
+    // the byte-identical old hall on any browser (the §7 fallback rule, applied
+    // to the shader instead of a call site).
+    H.pbr = !!gl2;
+    let progLit = null;
+    if (H.pbr) {
+      progLit = makeProgram(gl, VS_LIT2, FS_LIT2, true);
+      if (!progLit) {                       // compile trouble = fall all the way back
+        console.warn('Nugget Arcade: material shader failed, using the flat renderer');
+        H.pbr = false;
+      }
+    }
+    H.progLit = progLit || makeProgram(gl, VS_LIT, FS_LIT);
     H.progSpr = makeProgram(gl, VS_SPR, FS_SPR);
     H.uni = {};
     for (const name of ['uProj', 'uView', 'uModel', 'uTex', 'uLightPos', 'uLightColor',
-      'uAmbient', 'uFogColor', 'uCamPos', 'uFogDensity', 'uAlpha', 'uMirror', 'uBoost'])
+      'uAmbient', 'uFogColor', 'uCamPos', 'uFogDensity', 'uAlpha', 'uMirror', 'uBoost',
+      'uNrm', 'uOrm', 'uNrmScale', 'uSpecAmt', 'uWet', 'uTime'])
       H.uni[name] = gl.getUniformLocation(H.progLit, name);
     H.uniS = {};
     for (const name of ['uProj', 'uView', 'uTex'])
@@ -2586,6 +2859,13 @@ void main() {
       aColor: gl.getAttribLocation(H.progSpr, 'aColor'),
     };
 
+    // Two 1×1 textures that stand in for "this surface has no material maps":
+    // a normal pointing straight out and an ORM whose PBR dial is at zero. Any
+    // surface bound without companions renders through the old equation.
+    H.texFlatN = makeSolidTexture(gl, [128, 128, 255, 255]);
+    H.texFlatS = makeSolidTexture(gl, [179, 0, 0, 255]);
+    H.mapsFor = new Map();
+
     const atlas = ArcadeArt.makeAtlas();
     H.texAtlas = makeTexture(gl, atlas.canvas);
     H.texGlow = makeTexture(gl, ArcadeArt.makeGlow());
@@ -2593,7 +2873,10 @@ void main() {
     const street = ArcadeArt.makeStreetAtlas();
     H.texStreet = makeTexture(gl, street.canvas);
     H.bufsStreet = buildStreet(gl, street.uv);
-    H.builtHallArt = typeof HallArt !== 'undefined' && HallArt.on();
+    registerMaps(gl, H.texAtlas, atlas);
+    registerMaps(gl, H.texStreet, street);
+    H.builtHallArt = (typeof HallArt !== 'undefined' && HallArt.on() ? 'a' : '-') +
+      (typeof HallMaps !== 'undefined' && HallMaps.on() ? 'm' : '-');
 
     // live attract-mode screens: one canvas + texture per game
     H.screenTex = {};
@@ -3004,10 +3287,12 @@ void main() {
   }
 
   function artPending() {
-    const meshWait = typeof HallMesh !== 'undefined' && HallMesh && !HallMesh.settled();
-    const artWait = typeof HallArt !== 'undefined' && HallArt && HallArt.settled
-      && !HallArt.settled();
-    return meshWait || artWait;
+    const waits = [
+      typeof HallMesh !== 'undefined' && HallMesh,
+      typeof HallArt !== 'undefined' && HallArt,
+      typeof HallMaps !== 'undefined' && HallMaps,
+    ];
+    return waits.some((m) => m && m.settled && !m.settled());
   }
 
   function enter() {
@@ -3023,8 +3308,10 @@ void main() {
         setTimeout(() => { H.bootClosing = false; bootScreenDown(); enter(); }, 520);
       };
       if (typeof HallBoot !== 'undefined') HallBoot.whenAll(go);
-      if (typeof HallMesh !== 'undefined' && HallMesh) HallMesh.whenReady(go);
-      if (typeof HallArt !== 'undefined' && HallArt && HallArt.whenReady) HallArt.whenReady(go);
+      for (const m of [typeof HallMesh !== 'undefined' && HallMesh,
+        typeof HallArt !== 'undefined' && HallArt,
+        typeof HallMaps !== 'undefined' && HallMaps])
+        if (m && m.whenReady) m.whenReady(go);
       return;
     }
     bootScreenDown();
@@ -3037,22 +3324,13 @@ void main() {
         fallbackLaunch();
         return;
       }
-      // THE GRAND REOPENING: if the Blender sheet (js/hallArt.js) finished
-      // decoding after the atlases were baked, re-bake them once — the hall
-      // must never keep procedural paint just because it built too fast.
-      const hallArtUp = typeof HallArt !== 'undefined' && HallArt.on();
-      if (H.builtHallArt !== hallArtUp) {
-        const gl = H.gl;
-        const atlas = ArcadeArt.makeAtlas();
-        gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, atlas.canvas);
-        gl.generateMipmap(gl.TEXTURE_2D);
-        const street = ArcadeArt.makeStreetAtlas();
-        gl.bindTexture(gl.TEXTURE_2D, H.texStreet);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, street.canvas);
-        gl.generateMipmap(gl.TEXTURE_2D);
-        H.builtHallArt = hallArtUp;
-      }
+      // THE GRAND REOPENING: if the Blender sheet finished decoding after the
+      // atlases were baked, re-bake them once — the hall must never keep
+      // procedural paint just because it built too fast. Same for the material
+      // maps: a late HallMaps means every region is sitting on flat normals.
+      const artSig = (typeof HallArt !== 'undefined' && HallArt.on() ? 'a' : '-') +
+        (typeof HallMaps !== 'undefined' && HallMaps.on() ? 'm' : '-');
+      if (H.builtHallArt !== artSig) rebakeAtlases();
     } catch (err) {
       console.error('Nugget Arcade hall failed to build:', err);
       const root = document.getElementById('arcadeHall');
@@ -3406,12 +3684,31 @@ void main() {
       H.attractIdx++;
       const c = H.screenCv[game.mode];
       ArcadeArt.drawAttract(c.getContext('2d'), c.width, c.height, game, H.t, H.best[game.mode] || 0);
-      gl.bindTexture(gl.TEXTURE_2D, H.screenTex[game.mode]);
+      useTex(H.screenTex[game.mode]);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
     }
   }
 
   // ---- rendering ------------------------------------------------------------------------
+
+  // ---- surface binding --------------------------------------------------------
+  // A lit surface is three textures now, not one, and they must move together:
+  // unit 0 albedo, unit 1 normal, unit 2 ORM. H.mapsFor remembers which
+  // material pages belong to which albedo page; anything without an entry (the
+  // live attract screens, the scoreboard) gets the inert defaults, which make
+  // the shader behave exactly like the old one.
+  function useTex(t) {
+    const gl = H.gl;
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    if (!H.pbr) return;
+    const m = H.mapsFor && H.mapsFor.get(t);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, (m && m.n) || H.texFlatN);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, (m && m.s) || H.texFlatS);
+    gl.activeTexture(gl.TEXTURE0);
+  }
 
   function bindLit(buf) {
     const gl = H.gl, a = H.attr;
@@ -3451,11 +3748,11 @@ void main() {
     gl.uniform1f(H.uni.uBoost, 1);
     bindLit(H.bufs.screens);
     for (const cab of H.cabinets) {
-      gl.bindTexture(gl.TEXTURE_2D, H.screenTex[cab.game.mode]);
+      useTex(H.screenTex[cab.game.mode]);
       const sb = H.bufs.screens;
       gl.drawElements(gl.TRIANGLES, 6, sb.type || gl.UNSIGNED_SHORT, cab.screenIndex * (sb.bytes || 2));
     }
-    gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
+    useTex(H.texAtlas);
   }
 
   function pushSprite(arr, cx, cy, cz, hw, hh, r, g, b, a, right, up) {
@@ -3493,40 +3790,43 @@ void main() {
     gl.uniform3fv(H.uni.uFogColor, FOG);
     gl.uniform1f(H.uni.uFogDensity, FOG_DENSITY);
     gl.uniform1i(H.uni.uTex, 0);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
+    if (H.pbr) {
+      gl.uniform1i(H.uni.uNrm, 1);
+      gl.uniform1i(H.uni.uOrm, 2);
+      // How hard the relief bites, and how bright the highlights sit. Both are
+      // tuned once here rather than per material — the maps carry the variation.
+      gl.uniform1f(H.uni.uNrmScale, NRM_SCALE);
+      gl.uniform1f(H.uni.uSpecAmt, SPEC_AMT);
+      gl.uniform1f(H.uni.uWet, WET_AMT);
+      gl.uniform1f(H.uni.uTime, H.t);
+    }
+    useTex(H.texAtlas);
 
-    // animated light intensities. Out on the street the ceiling tubes can't
-    // reach, so their slots become the streetlamps + shop neon instead.
-    const onStreet = H.cam.z > 0.6;
-    const STREET_LIGHTS = {
-      1: { p: [-15, 3.0, 6.9], c: [1.35, 0.95, 0.5], k: 'tube' },
-      2: { p: [-5.5, 3.0, 6.9], c: [1.35, 0.95, 0.5], k: 'tube' },
-      3: { p: [5, 3.0, 6.9], c: [1.35, 0.95, 0.5], k: 'tube' },
-      5: { p: [14.5, 2.2, 0.9], c: [1.2, 0.5, 0.8], k: 'neon' },
-      6: { p: [-19.4, 2.2, 0.9], c: [0.35, 0.95, 1.15], k: 'neon' },
-    };
-    // out on the pier the streetlamps hand over to lanterns, moonlight, and
-    // whatever is glowing under the water
-    const onPier = onStreet && H.cam.x > 19.5;
-    const PIER_LIGHTS = {
-      1: { p: [25.5, 1.6, 12.3], c: [1.3, 0.9, 0.45], k: 'torch' },
-      2: { p: [30.5, 1.6, 12.3], c: [1.3, 0.9, 0.45], k: 'torch' },
-      3: { p: [40, 3.2, 10.9], c: [0.5, 0.62, 1.0], k: 'neon' },   // the moon, off the water
-      5: { p: [36, 0.3, 10.9], c: [1.0, 0.75, 0.25], k: 'neon' },  // the swirl reaches up
-    };
+    // Pick the lights that matter from where the camera is standing. Sorting
+    // ~30 fixtures by squared distance every frame is nothing next to a draw
+    // call, and it means the hall, the street and the pier stop competing for
+    // the same eight slots — each place is simply lit by its own fixtures.
     const sl = signLevel(H.t);
-    const lp = new Float32Array(24), lc = new Float32Array(24);
-    LIGHTS.forEach((L0, i) => {
-      const L = onPier && PIER_LIGHTS[i] ? PIER_LIGHTS[i]
-        : onStreet && STREET_LIGHTS[i] ? STREET_LIGHTS[i] : L0;
+    const nLights = H.pbr ? MAX_LIGHTS : 8;
+    const cx = H.cam.x, cy = H.cam.y, cz = H.cam.z;
+    const pick = LIGHTS.map((L, i) => {
+      const dx = L.p[0] - cx, dy = L.p[1] - cy, dz = L.p[2] - cz;
+      return { L, i, d: dx * dx + dy * dy + dz * dz };
+    }).sort((a, b) => a.d - b.d).slice(0, nLights);
+    const lp = new Float32Array(nLights * 3), lc = new Float32Array(nLights * 3);
+    pick.forEach(({ L, i }, slot) => {
       let f = 1;
       if (L.k === 'sign') f = sl;
       else if (L.k === 'tube') f = 0.97 + 0.05 * Math.sin(H.t * 6.5 + i * 2.1);
       else if (L.k === 'torch') f = 0.85 + 0.2 * Math.sin(H.t * 9 + Math.sin(H.t * 23));
       else if (L.k === 'neon') f = 0.92 + 0.1 * Math.sin(H.t * 3 + i);
-      lp.set(L.p, i * 3);
-      lc.set([L.c[0] * f, L.c[1] * f, L.c[2] * f], i * 3);
+      else if (L.k === 'lamp') f = 0.96 + 0.04 * Math.sin(H.t * 1.7 + i * 1.3);
+      else if (L.k === 'crt') f = 0.82 + 0.18 * Math.sin(H.t * 11 + i * 2.7);
+      else if (L.k === 'thump') f = 0.55 + 0.6 * Math.pow(Math.max(0, Math.sin(H.t * 5.6 + i)), 3);
+      else if (L.k === 'swirl') f = 0.7 + 0.3 * Math.sin(H.t * 2.2 + i * 1.9);
+      else if (L.k === 'across') f = 0.9 + 0.1 * Math.sin(H.t * 0.7 + i * 3.1);
+      lp.set(L.p, slot * 3);
+      lc.set([L.c[0] * f, L.c[1] * f, L.c[2] * f], slot * 3);
     });
     gl.uniform3fv(H.uni.uLightPos, lp);
     gl.uniform3fv(H.uni.uLightColor, lc);
@@ -3543,18 +3843,18 @@ void main() {
       mRotY(n.curYaw)
     );
     function drawNpcs(pre, opts) {
-      gl.bindTexture(gl.TEXTURE_2D, H.texStreet);
+      useTex(H.texStreet);
       for (const n of NPCS) {
         const buf = H.bufsStreet.npcs[n.id];
         if (buf) drawLit(buf, pre ? mMul(pre, npcModel(n)) : npcModel(n), opts);
       }
-      gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
+      useTex(H.texAtlas);
     }
 
     function drawBoard(model, opts) {
-      gl.bindTexture(gl.TEXTURE_2D, H.boardTex);
+      useTex(H.boardTex);
       drawLit(H.bufs.board, model, opts);
-      gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
+      useTex(H.texAtlas);
     }
 
     // 1) mirrored world beneath the floor plane
@@ -3567,9 +3867,9 @@ void main() {
     drawBoard(MIR, { mirror: 0.38 });
     drawScreens(MIR, { mirror: 0.38 });
     // the street set (and its regulars) reflects in the wet sidewalk too
-    gl.bindTexture(gl.TEXTURE_2D, H.texStreet);
+    useTex(H.texStreet);
     drawLit(H.bufsStreet.solid, MIR, { mirror: 0.33 });
-    gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
+    useTex(H.texAtlas);
     drawNpcs(MIR, { mirror: 0.33 });
     gl.frontFace(gl.CCW);
 
@@ -3587,10 +3887,10 @@ void main() {
     drawLit(H.bufs.disco, DD, {});
     drawBoard(I, {});
     drawScreens(I, {});
-    gl.bindTexture(gl.TEXTURE_2D, H.texStreet);
+    useTex(H.texStreet);
     drawLit(H.bufsStreet.solid, I, {});
     drawLit(H.bufsStreet.pier, I, {}); // world pass only — the sea does not reflect in itself
-    gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
+    useTex(H.texAtlas);
     drawNpcs(null, {}); // the regulars: real geometry now, lit like the room
 
     // 4) contact shadows + alpha-cutout extras (the golden nug)
@@ -3643,12 +3943,22 @@ void main() {
       } else if (gsp.k === 'candle') {
         if (H.cakeWished) continue; // the wish took it
         a = gsp.a * (0.62 + 0.28 * Math.sin(H.t * 11 + gsp.p[1] * 40) + 0.1 * Math.sin(H.t * 27));
+      } else if (gsp.k === 'shaft') {
+        // the shaft thickens and thins as rain drifts through it
+        a = gsp.a * (0.72 + 0.28 * Math.sin(H.t * 0.9 + gsp.p[0] * 0.7));
+      } else if (gsp.k === 'pool') {
+        a = gsp.a * (0.82 + 0.18 * Math.sin(H.t * 1.3 + gsp.p[0]));
       } else if (gsp.k === 'votive') {
         // the cellar seam: candlelight nobody admits to leaving. steadier than
         // the cake's candle — whatever burns down there has been at it a while.
         a = gsp.a * (0.72 + 0.18 * Math.sin(H.t * 7 + (gsp.ph || 0)) + 0.1 * Math.sin(H.t * 19 + (gsp.ph || 0) * 3));
       }
-      pushSprite(arr, gx, gsp.p[1], gz, gsp.s, gsp.s, gsp.c[0], gsp.c[1], gsp.c[2], a, right, up);
+      // A pool of light lies ON the pavement; billboarding it at the camera
+      // would stand it up like a card. Give it a world-flat basis instead.
+      const rt = gsp.k === 'pool' ? FLAT_RIGHT : right;
+      const upv = gsp.k === 'pool' ? FLAT_FWD : up;
+      pushSprite(arr, gx, gsp.p[1], gz, gsp.sw || gsp.s, gsp.sh || gsp.s,
+        gsp.c[0], gsp.c[1], gsp.c[2], a, rt, upv);
     }
     for (const m of H.dust) {
       const tw = 0.5 + 0.5 * Math.sin(H.t * 1.7 + m.ph);
@@ -3747,7 +4057,7 @@ void main() {
       const g2 = H.boardCv.getContext('2d');
       ArcadeArt.drawScoreboard(g2, H.boardCv.width, H.boardCv.height, H.t, game, H.lb.data[game.mode], H.best[game.mode] || 0);
       const gl = H.gl;
-      gl.bindTexture(gl.TEXTURE_2D, H.boardTex);
+      useTex(H.boardTex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, H.boardCv);
     }
 
