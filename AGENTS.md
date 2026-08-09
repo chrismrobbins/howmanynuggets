@@ -785,3 +785,66 @@ black 0.74 → 0.32** — the tile §15 recorded as "has not moved all night".
 it reads 58.9–60.1 at `02-aisle` and `09-doorway` and 51–59 at `13-drain`,
 which is a close-up on the new geometry. Worth a look if a later act needs
 budget back.
+
+## 💧 THE WET ROAD — the biggest surface in the street was not in the mirror
+   pass at all (2026-08-09)
+
+The hall's reflections are a MIRROR PASS, not screen-space: the world is drawn
+once flipped under y=0, and then a translucent floor plane is drawn over it so
+the reflection ghosts through. `bufs.floor` is that plane and it has always
+carried the hall's carpet **and the exterior sidewalk**.
+
+The road was never in it. It was built into the opaque street set and drawn in
+the WORLD pass — after the mirror, on top of it, hiding it. So the single
+biggest object in every street view, the one THE WET STREET spent a whole act
+giving an anisotropic ripple and a sharpened specular, was reflecting the sky
+and the city and **nothing that was standing on it**.
+
+- It cannot simply move into `bufs.floor`: that buffer is drawn with the MAIN
+  atlas bound and `road` lives on the street sheet. The street gets its own
+  floor buffer (`bufsStreet.floor`, `STF` in `buildStreet`) drawn in the same
+  slot with its own texture.
+- Road alpha **0.74** against the carpet's 0.87, and the mirrored street draws
+  at **0.52** against the hall's 0.33. Wet asphalt under sodium is the most
+  reflective thing in this game; carpet is carpet.
+- **Do not put the road's own buffer in the mirror pass.** A road reflected in
+  itself is a second road under the first one.
+- Road dressing follows the same split: painted marks (crossing, stop line,
+  asphalt repairs) go in `STF` because wet paint is the shiniest thing out
+  there, and the ironwork (`manhole`, `gully`) goes in the OPAQUE set because a
+  manhole is the one thing on a wet road that stays matt — and a dry patch in a
+  mirror is what makes the mirror read.
+
+**THE MEASUREMENT LESSON, and it is the important half.** Over eighteen spots
+this act moved near-dead 10.05 → 10.13 and mean 60.71 → 61.10. Flat. The
+picture is not flat — the road carries the shopfronts' colour down its whole
+length now — but **near-dead punishes a reflective surface for reflecting a
+night sky, which is the correct thing for it to do.** Same family as §13's
+`blown 0.00%`: the number was not measuring what it was being read as. Look at
+`09-doorway` before and after and then decide.
+
+## ⚖️ THE GOVERNOR — the hall picks its own sample count (2026-08-09)
+
+4× MSAA is close to free on a discrete GPU and brutal on a software rasteriser:
+measured on ANGLE/SwiftShader here at **60.2fps flat with it off and 57–60 with
+dips at 4×**. The honest answer to "how much antialiasing" is not a constant.
+
+`governor(dt)` walks `H.msaaWant` down 4 → 2 → off when a two-second window
+misses 48fps. Three rules keep it from being worse than the problem:
+
+- **It only ever walks DOWN.** A governor that climbs back up oscillates at the
+  boundary forever, which the player sees as the picture changing while they
+  stand still.
+- **It ignores the first ~3 seconds** (180 frames). Shader compile, the shadow
+  bake and the async payloads all land there and none of them is the steady
+  cost.
+- **It measures a window, not a frame.** One long frame is a GC, not a verdict.
+
+`postSetup` keys its cache on the requested count, so flipping `H.msaaWant` is
+the entire mechanism — the targets rebuild on the next frame by themselves.
+
+🚨 **`openHall` pins `H.msaaAuto = false` unconditionally, and any new tool must
+keep doing so.** This box renders through SwiftShader and WILL trip the
+governor; unpinned, an eighteen-spot run photographs the first six spots at 4×
+and the rest at 2× and then reports the difference as a change. Exactly the
+same class of bug as an unpinned clock. Seam name: `msaaauto`.

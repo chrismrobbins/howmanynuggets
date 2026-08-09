@@ -101,6 +101,11 @@ const SEAMS = {
   city:    { when: 'post', src: 'H.city = false;' },
   // ✂️ THE EDGE. postSetup rebuilds when this flips, so it is safe post-boot.
   msaa:    { when: 'post', src: 'H.msaa = false;' },
+  // ⚖️ THE GOVERNOR walks the sample count down on a slow machine. Every
+  // measurement in this kit must PIN it, or a long run silently changes the
+  // renderer halfway through and the second half of the table is a different
+  // picture from the first.
+  msaaauto: { when: 'post', src: 'H.msaaAuto = false;' },
   // read once, while enter() builds the atlas and the buffers.
   //
   // `typeof X !== 'undefined'`, NOT `window.X`. HallArt / HallMaps / GtaArt are
@@ -171,9 +176,17 @@ async function openHall(opts = {}) {
   await page.waitForTimeout(400);
 
   // Skip the intro (doors + neon warm-up) and get to a walking camera.
+  //
+  // ⚖️ AND PIN THE GOVERNOR, always, whatever the caller asked for. The hall
+  // walks its own MSAA sample count down when a machine cannot hold 48fps —
+  // which is right for a player and poison for a measurement, because this box
+  // renders through SwiftShader and WILL trip it. Unpinned, an eighteen-spot
+  // run photographs the first six spots at 4x and the rest at 2x and calls the
+  // difference a change. Same class of bug as an unpinned clock.
   await page.evaluate(() => {
     const H = NuggetArcade._H;
     H.introT = 99; H.doorsOpen = 1; H.state = 'walk';
+    H.msaaAuto = false;
   });
 
   // §4: the storm layer is DOM ON TOP of the canvas. It covers the thing under

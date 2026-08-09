@@ -265,6 +265,12 @@ MATS = {
     # the bus shelter's lit route map — see build_bus_shelter's note
     "shelterMap": ("sw_white", [0, 0, 1, 1], 0.42, 0.95),
     "shelterAd":  ("sw_amber", [0, 0, 1, 1], 0.34, 0.95),
+    # -- 🛣 the road surface. Dark and ROUGH on purpose: these are the only
+    #    things on a wet road that are NOT reflective, and that contrast is the
+    #    entire reason they are worth modelling.
+    "ironCast":   ("sw_iron", [0, 0, 1, 1], 0.0, 0.42),
+    "ironRib":    ("sw_iron", [0, 0, 1, 1], 0.0, 0.58),
+    "ironRim":    ("sw_curb", [0, 0, 1, 1], 0.0, 0.62),
 }
 
 # preview-only colours, so the Blender viewport isn't a grey blob
@@ -329,6 +335,8 @@ _PREVIEW = {
     "bladeArm": (0.18, 0.20, 0.26), "bladeFace": (0.16, 0.18, 0.23),
     "bladeGlow": (1.0, 0.35, 0.68),
     "shelterMap": (0.88, 0.90, 0.94), "shelterAd": (1.0, 0.74, 0.28),
+    "ironCast": (0.09, 0.10, 0.13), "ironRib": (0.14, 0.15, 0.19),
+    "ironRim": (0.20, 0.20, 0.24),
 }
 
 
@@ -2481,11 +2489,60 @@ def build_shop_blade():
     return P.finish(bevel=0.005, segments=1, smooth_deg=36)
 
 
+def build_manhole():
+    """A cast-iron manhole cover, seated in its frame and standing 25mm proud.
+
+    THE ROAD IS A FLOOR GAME SURFACE and it was one flat plane with a dashed
+    line on it — the biggest single object in every street view and the only
+    one with nothing on it. Since THE WET ROAD it also reflects, which makes
+    this worth real geometry rather than a decal: a manhole is the one thing on
+    a wet road that stays MATT, and a dry patch in a mirror reads instantly.
+    """
+    P = Part("manhole")
+    R = 0.360
+    # the frame seated in the asphalt, then the cover sitting in it
+    P.revolve([(R + 0.075, 0.000), (R + 0.075, 0.022), (R + 0.010, 0.026)], "ironRim", slices=24)
+    P.revolve([
+        (R, 0.010), (R, 0.030), (R - 0.030, 0.038), (0.0, 0.040),
+    ], "ironCast", slices=24)
+    # the raised pattern: two rings of radial ribs, offset, the way a real one
+    # is cast so a tyre bites on it in the wet
+    for ring, n, w in ((0.255, 16, 0.052), (0.135, 10, 0.048)):
+        for i in range(n):
+            a = i * math.tau / n + (0.0 if ring > 0.2 else math.pi / n)
+            P.box((math.cos(a) * ring, math.sin(a) * ring, 0.046),
+                  (w, w, 0.014), "ironRib")
+    # the two lifting keyholes
+    for sx in (-1, 1):
+        P.box((sx * 0.115, 0.0, 0.044), (0.070, 0.032, 0.020), "ironRim")
+    return P.finish(bevel=0.004, segments=1, smooth_deg=40)
+
+
+def build_gully():
+    """A kerbside drain: a slotted grating in its frame, flush with the gutter.
+
+    Different object from the STORM DRAIN grate the player dives into (that one
+    is a hotspot with its own art on the street sheet). These are the ordinary
+    ones, six of them down the gutter line, and they are what makes a kerb read
+    as drainage rather than as an extruded rectangle.
+    """
+    P = Part("gully")
+    W, D = 0.520, 0.330
+    P.box((0, 0, 0.016), (W + 0.080, D + 0.070, 0.032), "ironRim")
+    P.box((0, 0, 0.030), (W, D, 0.028), "ironCast")
+    for i in range(5):
+        y = -D / 2 + D * (i + 0.5) / 5
+        P.box((0, y, 0.042), (W - 0.070, D / 11, 0.016), "ironRib")
+    return P.finish(bevel=0.003, segments=1, smooth_deg=40)
+
+
 MODELS.update({
     "shopShut": build_shop_shut,
     "shopOpen": build_shop_open,
     "shopDoor": build_shop_door,
     "shopBlade": build_shop_blade,
+    "manhole": build_manhole,
+    "gully": build_gully,
 })
 
 

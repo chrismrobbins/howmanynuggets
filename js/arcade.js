@@ -182,6 +182,7 @@ const NuggetArcade = (() => {
     stepAcc: 0,             // footstep distance accumulator
     vel: { x: 0, z: 0 },    // 🚶 world-space velocity — see glide()
     speed: 0, breath: 0,    // speed feeds the FOV widen; breath is the idle only
+    govAcc: 0, govN: 0, govSkip: 0,   // ⚖️ THE GOVERNOR (see governor())
     prevZ: 99,
     lastChime: -9,
   };
@@ -1264,14 +1265,14 @@ void main() {
   // resolve blit must use NEAREST, and the driver has to be asked whether it
   // can multisample THIS format rather than trusted to.
   function msTarget(gl, w, h, hdr) {
-    if (!H.gl2 || H.msaa === false) return null;
+    if (!H.gl2 || H.msaa === false || H.msaaWant < 2) return null;
     const fmt = hdr ? gl.RGBA16F : gl.RGBA8;
     let n = 0;
     try {
       // getInternalformatParameter returns the supported counts DESCENDING;
       // MAX_SAMPLES alone is not an answer for a float format.
       const list = gl.getInternalformatParameter(gl.RENDERBUFFER, fmt, gl.SAMPLES);
-      n = list && list.length ? Math.min(4, list[0], gl.getParameter(gl.MAX_SAMPLES)) : 0;
+      n = list && list.length ? Math.min(H.msaaWant, list[0], gl.getParameter(gl.MAX_SAMPLES)) : 0;
     } catch (e) { return null; }
     if (n < 2) return null;
     const color = gl.createRenderbuffer();
@@ -1297,7 +1298,7 @@ void main() {
 
   function postSetup(gl, w, h) {
     const wantHdr = H.hdr !== false && !!H.hdrCap;
-    const wantMs = H.msaa !== false;
+    const wantMs = H.msaa !== false ? H.msaaWant : 0;
     if (H.post && H.post.w === w && H.post.h === h && H.post.hdr === wantHdr
       && H.post.msWanted === wantMs) return true;
     if (H.post === false) return false;
@@ -3322,10 +3323,67 @@ void main() {
       }
     }
 
-    // the road + curb (sidewalk itself is the reflective floor plane)
-    planeY(ST, 0.004, -21.5, 21.5, 8, 13.9, suv.road, 4.3, false, {});
+    // 💧 THE ROAD REFLECTS NOW, and this is why it did not before.
+    //
+    // The hall's reflections are a MIRROR PASS, not screen-space: the world is
+    // drawn once flipped under y=0, and then a translucent floor plane is drawn
+    // over it so the reflection ghosts through. `bufs.floor` is that plane, and
+    // it has always carried the hall's carpet AND the exterior sidewalk.
+    //
+    // The road was never in it. It was built into the opaque street set, drawn
+    // in the WORLD pass — i.e. after the mirror, on top of it, hiding it. So
+    // the biggest surface in every street view in this game, the one the wet
+    // shader spent a whole act making glossy, was reflecting the sky and the
+    // city and NOTHING THAT WAS STANDING ON IT. A red car parked on a wet road
+    // with no car in the water under it is the exact tell this project keeps
+    // trying to get rid of.
+    //
+    // It cannot simply move into `bufs.floor`: that buffer is drawn with the
+    // MAIN atlas bound and `road` lives on the street sheet. So the street gets
+    // a floor buffer of its own, drawn in the same slot with its own texture.
+    const STF = new Builder();
+    planeY(STF, 0.004, -21.5, 21.5, 8, 13.9, suv.road, 4.3, false, {});
+    planeY(STF, 0.09, -21.5, 21.5, 7.72, 8.01, suv.sw_curb, 4, false, {});
     wallZ(ST, 8, 21.5, -21.5, 0, 0.09, suv.sw_curb, 4, 0.09, {}); // curb face → -z
-    planeY(ST, 0.09, -21.5, 21.5, 7.72, 8.01, suv.sw_curb, 4, false, {});
+
+    // 🛣 ROAD DRESSING. Everything above made the street's WALLS worth looking
+    // at and left its biggest surface as one plane with a dashed line down it.
+    // Now that the road reflects, the things on it that DON'T are what sells
+    // it: a manhole is matt in a mirror and the eye finds a dry patch
+    // instantly.
+    //
+    // The painted marks go in STF (they are part of the reflective floor — wet
+    // paint is the shiniest thing on a road). The ironwork goes in ST, opaque,
+    // sitting 25-45mm proud, because it is not reflective and should occlude
+    // what is underneath it.
+    {
+      // asphalt patches: a road is a hundred years of trench repairs
+      for (const [px, pz, pw, pd, t] of [
+        [-15.6, 9.4, 3.6, 2.4, 0.74], [-6.2, 11.9, 5.2, 1.6, 0.82],
+        [3.4, 9.1, 2.8, 3.1, 0.70], [12.8, 12.2, 4.4, 1.9, 0.80],
+        [17.9, 9.6, 2.2, 2.2, 0.88],
+      ])
+        planeY(STF, 0.005, px - pw / 2, px + pw / 2, pz - pd / 2, pz + pd / 2,
+          suv.road, 1.6, false, { tint: t });
+      // a crossing at the bus stop — the only reason the road is crossable and
+      // the brightest painted thing out there
+      for (let i = 0; i < 6; i++) {
+        const cx = -6.9 + i * 0.95;
+        planeY(STF, 0.007, cx, cx + 0.52, 8.35, 13.55, suv.sw_white, 1, false, { tint: 0.40 });
+      }
+      // stop line on the arcade side of it
+      planeY(STF, 0.007, -8.5, -7.4, 8.35, 13.55, suv.sw_white, 1, false, { tint: 0.34 });
+      if (H.uintIndex) {
+        // manholes down the crown of the road, gullies in the gutter line.
+        // Skipping x 8.1..11.3: that gutter belongs to the STORM DRAIN grate
+        // and its DPW barricade, and a municipal drain next to the one the
+        // whole fourth game is about is a continuity joke nobody asked for.
+        for (const [mx, mz] of [[-13.5, 10.2], [2.8, 9.5], [14.6, 11.7], [-3.1, 12.6]])
+          ST.model('manhole', suv, { x: mx, z: mz });
+        for (const gx of [-18.4, -12.2, -1.4, 4.6, 15.8, 19.6])
+          ST.model('gully', suv, { x: gx, z: 8.28 });
+      }
+    }
 
     // streetlamps down the curb line — cast iron, with a real lantern on the
     // end of a curved arm (blender/hallmesh.py build_street_lamp). yaw PI turns
@@ -3963,7 +4021,7 @@ void main() {
       }
     }
 
-    return { solid: ST.upload(gl), pier: PR.upload(gl), npcs: npcBufs };
+    return { solid: ST.upload(gl), floor: STF.upload(gl), pier: PR.upload(gl), npcs: npcBufs };
   }
 
   function foundGoldenNug(x, y, z) {
@@ -4203,7 +4261,9 @@ void main() {
     // does render straight to the canvas. THE EDGE (postSetup/msTarget) is the
     // real antialiasing, and it needs the WebGL2 handle to do it.
     H.gl2 = gl2 || null;
-    H.msaa = true;  // harness seam: false = the aliased frame that shipped
+    H.msaa = true;      // harness seam: false = the aliased frame that shipped
+    H.msaaWant = 4;     // THE GOVERNOR walks this down if the frame cannot pay
+    H.msaaAuto = true;  // harness seam: false pins the sample count
 
     // THE POWER PLANT: a WebGL2 context gets the material shader; WebGL1 keeps
     // the renderer that shipped, verbatim. `H.pbr = false` in a harness gives
@@ -5506,17 +5566,27 @@ void main() {
     drawLit(H.bufs.disco, mMul(MIR, DD), { mirror: 0.33 });
     drawBoard(MIR, { mirror: 0.38 });
     drawScreens(MIR, { mirror: 0.38 });
-    // the street set (and its regulars) reflects in the wet sidewalk too
+    // The street set (and its regulars) reflect in the wet sidewalk AND, since
+    // THE WET ROAD, in the road. 0.52 and not the hall's 0.33: this is asphalt
+    // under a rain film at night, which is the most reflective thing in the
+    // game — a neon sign in a wet road comes back nearly as bright as the sign.
+    // The hall's own carpet keeps 0.33; it is carpet.
     useTex(H.texStreet);
-    drawLit(H.bufsStreet.solid, MIR, { mirror: 0.33 });
+    drawLit(H.bufsStreet.solid, MIR, { mirror: 0.52 });
     useTex(H.texAtlas);
-    drawNpcs(MIR, { mirror: 0.33 });
+    drawNpcs(MIR, { mirror: 0.52 });
     gl.frontFace(gl.CCW);
 
     // 2) the floor itself, slightly translucent so the reflection ghosts through
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     drawLit(H.bufs.floor, I, { alpha: 0.87 });
+    // the ROAD is a floor too — same slot, its own atlas. Slightly more
+    // transparent than the carpet: wet asphalt at night is closer to a mirror
+    // than a hall floor is, and this is the surface the whole street stands on.
+    useTex(H.texStreet);
+    drawLit(H.bufsStreet.floor, I, { alpha: 0.74 });
+    useTex(H.texAtlas);
     gl.disable(gl.BLEND);
 
     // 3) the world proper
@@ -5723,12 +5793,44 @@ void main() {
     if (bloom) postDraw(gl);
   }
 
+  // ⚖️ THE GOVERNOR. 4× MSAA is very close to free on a discrete GPU and
+  // brutal on a software rasteriser or weak integrated part — measured here at
+  // 60.2fps flat with it off and 57–60 with dips at 4×, on ANGLE/SwiftShader.
+  // The honest answer to "how much antialiasing" is not a constant, it is
+  // whatever this machine can pay for, and every real game asks that question.
+  //
+  // Rules that keep it from being worse than the problem:
+  //   - it only ever walks DOWN (4 -> 2 -> off). A governor that climbs back up
+  //     oscillates forever at the exact boundary, which is visible as the
+  //     picture changing while you stand still.
+  //   - it ignores the first ~3 seconds. Shader compile, the shadow bake and
+  //     the async payloads all land there and none of them are the steady cost.
+  //   - it measures a 2-second window, not a frame. One long frame is a
+  //     garbage collection, not a verdict.
+  // postSetup keys its cache on the requested count, so flipping H.msaaWant is
+  // the whole mechanism — the targets rebuild on the next frame by themselves.
+  function governor(dt) {
+    if (H.msaaAuto === false || H.msaaWant < 2 || !H.post || !H.post.ms) return;
+    if (H.govSkip < 180) { H.govSkip++; return; }
+    H.govAcc += dt; H.govN++;
+    if (H.govN < 120) return;
+    const avg = H.govAcc / H.govN;
+    H.govAcc = 0; H.govN = 0;
+    if (avg > 1 / 48) {
+      H.msaaWant = H.msaaWant > 2 ? 2 : 0;
+      H.govSkip = 0;
+      console.info('arcade: ' + (1 / avg).toFixed(0) + 'fps — antialiasing down to '
+        + (H.msaaWant ? H.msaaWant + 'x' : 'off'));
+    }
+  }
+
   function frame(ts) {
     if (!H.active || H.suspended) return;
     if (!H.last) H.last = ts;
     const dt = Math.min((ts - H.last) / 1000, 0.05);
     H.last = ts;
     H.t += dt;
+    governor(dt);
 
     const wasX = H.cam.x, wasZ = H.cam.z;
     if (H.state === 'intro') stepIntro(dt);
