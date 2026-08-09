@@ -8,8 +8,46 @@ The whole hall + street + the five regulars are Blender-rendered now
 (`hallrig.py` -> `pack_hall.py` -> `js/hallArt.js`, 50 regions, one 337KB
 JPEG data URI). Read §5b for what that added to the law before painting
 anything new.
+**UPDATE 2026-08-09: the hall has real Blender GEOMETRY now, not just Blender
+paint** (`hallmesh.py` -> `pack_mesh.py` -> `js/hallMeshData.js`). Read §0 for
+what Beau actually means by "upgrade", then §7 for the pipeline.
 
 ---
+
+## 0. WHAT BEAU MEANS BY "UPGRADE" — read this before you plan anything
+
+Every art session so far has mis-scoped its first attempt in the same
+direction, and every time Beau has had to say so from prod. Writing his own
+words down so the next session starts where this one finished:
+
+> *"most of the arcade feels like it wasn't built in blender and like a real
+> life video game that people would pay for. all of this seems like a free
+> game and I'd love to improve on all the things."*
+>
+> *"This is something I want to show family and friends and be proud of it."*
+
+That is the bar. Not "make the thing in the screenshot better". **When Beau
+sends a screenshot, it is an EXAMPLE, not the scope.** He sent a photo of the
+double-parked car; the actual job was the whole arcade. Read the ask as
+"bring this to a level worth showing people" and scope accordingly.
+
+Corollaries that have each been learned the hard way:
+
+- **Find the layer nobody has touched.** S2.12 re-graded textures that were
+  already fine (invisible). 0b0eac0 re-skinned surfaces in a room that had no
+  bloom (the real fix was the bloom). This session's boxes were still boxes
+  after two nights of texture work. Before planning, ask: *which layer of this
+  picture has never been upgraded?* — palette, lighting, geometry, or motion.
+- **Go wide, not deep.** Asked to choose a slice, he picked *"Both, hall
+  first, no stopping"* and *"go big, add loading"* over any budgeted option.
+  Given a choice between polishing one asset and covering ten, cover ten.
+- **Payload is not the constraint you think it is.** He explicitly rejected a
+  size budget in favour of loading work. Spend bytes on quality; move them off
+  the critical path instead of shrinking them.
+- **He also said, mid-session:** *"I think you're spending way too many cycles
+  validating and we could use some more cycles prepping and planning and
+  making sure you have the best process."* See §8 for the loop that came out
+  of that.
 
 ## 1. The law (learned the expensive way)
 
@@ -99,6 +137,17 @@ the cop cap per outfit).
 - Hall-specific: `NuggetArcade._H` exposes `cam.x/z/yaw/pitch` for
   deterministic teleports; capture `pageerror` AND console warnings (the
   atlas-overflow guard is a **warning**); screenshot and actually look.
+- **Hide the storm layer before screenshotting the hall.** The falling
+  nuggets and the HUD are DOM *on top of* the canvas — they cover the thing
+  under test, and they cost enough to make an fps reading meaningless (a run
+  measured 25fps that was really 61). Inject
+  `#nuggetStorm,.storm-hud,.arcade-hint{display:none!important}`.
+- **Do not invent camera spots.** Hand-picked coordinates land inside walls
+  and the collision solver quietly walks the camera back into the hall — one
+  run "photographed" the cabinets while claiming to shoot the street. Read
+  `H.hotspots[].stand` and let the game tell you where to stand.
+- Localhost leaderboard fetches fail CORS by design; that console noise is
+  identical ON and OFF, so diff the counts rather than reading the text.
 - Budget: 61fps was the bar before and after; hold it.
 
 ## 5. 🕹 NEXT MISSION: the arcade hall (a MASSIVE upgrade, not a nudge)
@@ -215,3 +264,161 @@ The rules that came out of it:
   (or the relevant doc), AGENTS.md status entry, memory updated. The
   repo's docs culture is load-bearing — the next agent is only as good as
   your handoff. Hi. That's you now.
+
+## 7. 🧊 THE GEOMETRY PIPELINE (2026-08-09) — read before modelling anything
+
+Sections 1-6 are about what the hall is PAINTED with. This one is about what
+it is SHAPED like, which until now was: axis-aligned boxes hand-coded in
+js/arcade.js. Beau's verdict on the result was *"most of the arcade feels like
+it wasn't built in blender... this seems like a free game"*, and he was right:
+the compact was a slab with a smaller slab on top, the cabinets were a
+five-segment extrusion with a joystick painted on, and the whole block across
+the road was ONE QUAD with windows drawn on it.
+
+    blender/hallmesh.py  --(Blender)-->  render_hall/mesh/*.json
+    blender/pack_mesh.py --(python)-->   js/hallMeshData.js  (+ js/hallMesh.js)
+    js/arcade.js         Builder.model(name, uvMap, xf)
+
+### The conventions (a contract — do not drift)
+
+- **Units are HALL metres.** The ceiling is 4.2, a cabinet is 1.94 tall.
+  (nugrig is 1-unit-per-game-*pixel*; different rig, different rule.)
+- **Blender is Z-up, the hall is Y-up:** `hall = (bx, bz, -by)`. det = +1, so
+  handedness — and therefore triangle winding — survives.
+- **A model's FRONT faces -Y in Blender**, which lands on the hall's +Z. Same
+  convention arcade.js already used for NPCs.
+- **Origin on the ground, centred**, so a call site places a model with a
+  position, a yaw and nothing else.
+- **Materials are atlas coordinates, not shaders.** `MATS` maps a material
+  name to (region, sub-rect, emissive, tint) — exactly the four things the
+  hall's vertex format carries.
+- **`$MARQ` / `$PANEL` / `$SIDE` are SENTINEL regions**, remapped per instance
+  via `xf.remap`. One cabinet model wears all ten games' artwork.
+- **Every call site keeps its procedural rig** in an `if (!Model)` branch.
+  `HallMesh.on = () => false` in a harness gives the byte-identical old hall.
+
+### Baked AO is the single biggest lever, and it was free
+
+The vertex format is pos/normal/uv/emissive/**tint**, and `tint` only ever
+held a per-MATERIAL constant — a per-vertex float sitting in the buffer doing
+nothing. `hallmesh._bake_ao` raycasts each model against itself (plus a ground
+plane) and multiplies the result into it. Contact shadow and crevice darkening
+on every surface, no new textures, no shader change, one byte per vertex.
+Emissive surfaces are exempt — neon does not dim because it is near a wall.
+
+### Payload comes off the critical path
+
+`js/hallMeshData.js` (~670KB, ~334KB gzipped) is **not** in index.html.
+`js/hallMesh.js` (2.2KB gzipped, and the only thing in the page) injects it as
+an async `<script>` after first paint. A `<script>` and not `fetch()` on
+purpose: this site must work from disk, where fetch is blocked by origin
+rules. `enter()` waits on `HallMesh.whenReady()` if someone clicks the arcade
+button before it lands, showing `.hall-booting`.
+
+### The four traps, all of which cost real time
+
+1. **`build_all()` must leave every model at the ORIGIN.** `extract()` bakes
+   `matrix_world`, so objects nudged apart "just for the contact sheet" ship
+   that nudge. The cabinets exported 2.2m sideways and drew *inside the west
+   wall* — which looks exactly like geometry that failed to build.
+   `export_all` now zeroes any stray location and says so.
+2. **`recalc_face_normals` is only meaningful on a CLOSED manifold.** Give it
+   an open shell and it picks a direction that is just as likely to be inward,
+   and the hall culls back faces — so inward is not "shaded oddly", it is
+   INVISIBLE. Build solids closed (the cabinet body is one prism, not side
+   slabs plus loose front quads); `_orient()` catches the rest per shell,
+   by signed volume when closed and by facing-vs-centre when open.
+   **Verify by rendering with `use_backface_culling = True`** — that is the
+   test the hall actually performs.
+3. **Interpolate profiles with PCHIP, never smoothstep-per-segment.**
+   Smoothstepping each span forces zero slope at every keyframe, so a profile
+   scallops between its own keys. On the compact that swung the surface normal
+   0.67 -> 0.82 -> 0.54 -> 0.89 between adjacent body rings, which striped the
+   roof and banded the shading.
+4. **Anything that has to be READ needs explicit UVs** (`Part.set_uv`). Box
+   projection is fine for grain; a marquee projected by its dominant axis
+   samples a hair-thin band of its own artwork stretched across the panel, and
+   the control panel comes out mirrored.
+
+Related: material boundaries should follow ring TOPOLOGY, not a normal
+threshold. Classifying the compact's glass by face normal produced a sawtooth
+boundary that read in-game as black spikes stabbing out of the pillars; giving
+the cross-section an explicit waist point fixed it permanently.
+
+### 32-bit indices
+
+Ten Blender cabinets are ~56k vertices between them. `Builder.upload` switches
+to `Uint32Array` above 65535 (via `OES_element_index_uint`, checked into
+`H.uintIndex`) — an overflow does not error, it WRAPS, stitching triangles
+between unrelated vertices.
+
+### What is modelled, and what is next
+
+Done: `compact`, `cabinet` (x10), the five regulars (`crumb` `dill` `gravy`
+`hood` `hen`), `streetLamp`, `bench`, `facadeBay` (x12 across the road),
+`acUnit`, `trimBase`, `trimCrown`.
+
+Next, in rough value order: the vending + change machines and the jukebox; a
+coffered ceiling; the bus shelter; bins/hydrant/newspaper box; the five street
+game doors (club, grate, cellar, pier gate, garage); shopfront awnings and a
+fire escape variant for `facadeBay`; and the hall's own entry vestibule.
+`build_library()` keeps `hall_meshes.blend` in sync; `export_gltf()` is the
+Unreal on-ramp (1 unit = 1 metre here, so these import at real scale).
+
+## 8. THE WORKING LOOP (and the cycles this session wasted)
+
+Beau's process note was *"way too many cycles validating... more cycles
+prepping and planning."* He was right, and the fix is specific.
+
+**What wasted time:** modelling ONE asset, packing it, running the full
+Playwright A/B, opening the crops, then modelling the next. Six full
+verification rounds for what was really one integration risk.
+
+**The loop that works:**
+
+1. **Recon + diagnose FIRST, in one pass.** Name the layer that has never been
+   upgraded and say so out loud before touching anything. This session's whole
+   value came from one sentence — *"the hall has no way to display a Blender
+   mesh at all"* — and that was findable in ten minutes of reading.
+2. **De-risk the SEAM once, with one throwaway asset.** Get a single model all
+   the way through Blender → pack → engine → screenshot. Everything that can
+   go wrong structurally (winding, uv resolution, index width, scale, the
+   mirror pass) goes wrong here, on one cheap asset.
+3. **Then BATCH.** Model everything else without stopping to verify each one.
+   Preview in Blender while building (`preview()` renders in ~2s and the Read
+   tool shows it) — that catches shape problems without touching the browser.
+4. **One verification pass at the end.** Full A/B, all spots, fps, pageerrors,
+   console. Look at the crops (§1, §5c — this is not optional, it is how the
+   blown-out sign shipped).
+5. **Write the handoff as you go, not after.**
+
+**Blender-side checks that are nearly free and catch most of it:**
+`preview()` for shape; `preview()` with `use_backface_culling = True` for
+orientation; printing vert/tri counts for budget; printing the exported bbox
+for scale and origin. Use these instead of a browser round-trip.
+
+## 9. THE LEDGER — things already resolved, do not re-litigate
+
+Each of these cost at least one wrong turn. They are settled.
+
+| Question | Answer | Why |
+|---|---|---|
+| Ship meshes as JSON numbers or packed binary? | **Packed base64, quantized** | A car is ~400KB as decimal text and ~75KB packed, and it decodes straight into the typed arrays the vertex buffer wants. |
+| Put the mesh data in index.html? | **No — async `<script>` injection** | Keeps ~334KB gzipped off first paint. `<script>` not `fetch()`, because the site must work from `file://` where fetch is blocked. |
+| Recompute normals in JS to save bytes? | **No, ship them** | Loses Blender's split/auto-smooth normals, which is the entire reason to model in Blender. int8 normals are ~1 degree of error — invisible under this lighting. |
+| Port the builders to JS and generate geometry at load (zero bytes)? | **No** | Throws away bevel, auto-smooth and any freeform modelling, and means maintaining two implementations. It is also not what "do it in Blender" means. |
+| New atlas regions for the car's clean paint? | **No — sample a sub-rect of the existing region** | `gtaCarSide` has windows painted on it (drawn for a slab with none). Materials carry a `[u0,v0,u1,v1]` sub-rect, so paint samples a clean band below them. No repack of the 337KB sheet for one prop. |
+| Per-face material heuristics for glass/paint? | **No — drive materials off ring TOPOLOGY** | Any positional/normal threshold produces a SAWTOOTH boundary. Give the cross-section an explicit waist point instead. |
+| Trust `recalc_face_normals`? | **Only on closed manifolds** | Build solids closed; `_orient()` handles the rest per shell. Verify with backface culling on. |
+| Instance the cabinet, or bake 10 copies? | **Bake 10** | The engine has no instancing path and `buildScene` bakes one static buffer. Cost is 32-bit indices, already handled. |
+| Is 16-bit index overflow the cause of weird geometry? | **It was NOT, twice** | Both times the real cause was elsewhere (a sawtooth material boundary, then a baked object offset). `Builder.upload` now switches to Uint32 above 65535 anyway — but MEASURE before blaming it. |
+| Where does baked AO live? | **The vertex `tint` channel** | It already existed and only ever held a per-material constant. Multiply into it, never overwrite. Emissives are exempt. |
+| Should models carry their own world position? | **Never** | `extract()` bakes `matrix_world`. Origin on the ground, centred; the call site places it. `export_all` zeroes stray locations and says so. |
+
+**Two habits worth keeping.** First: when something looks wrong, *measure the
+thing itself* — dumping the exported triangle edge lengths, the face
+orientation, the buffer vertex counts and finally the in-page placement math is
+what actually found each bug; three plausible theories in a row were all wrong.
+Second: a metric can lie. "46% of surface area faces inward" looked like a
+smoking gun and was an artifact of counting the back faces of every small box.
+A render with backface culling answered it in one shot.

@@ -397,3 +397,27 @@ Pushing `main` auto-deploys the site (GitHub Pages) and, when `worker/**`
 changed, the API worker. Verify with `gh run list` / `gh run watch`.
 The worker only allows the production origin — leaderboard fetches from
 localhost fail CORS by design (the hall scoreboard shows its OFFLINE state).
+
+## 🧊 Blender GEOMETRY (js/hallMesh.js + js/hallMeshData.js)
+
+The hall can display real Blender meshes now, not just Blender *textures*.
+`Builder.model(name, uvMap, xf)` in js/arcade.js appends a model's triangles
+into whatever buffer is being built, resolving each vertex's uv against the
+LIVE atlas rect for its region (the street atlas is shelf-packed at runtime,
+so models store region-relative uv and never fixed atlas coordinates).
+
+Rules if you touch it:
+
+- **Every call site keeps its procedural box rig** in an `if (!Model)` branch.
+  `HallMesh.on = () => false` in a harness gives the byte-identical old hall.
+- The geometry payload is **not** in index.html — `js/hallMesh.js` injects
+  `js/hallMeshData.js` async after first paint, and `enter()` waits on
+  `HallMesh.whenReady()` if you click the arcade button before it lands.
+- Vertex `tint` carries **baked ambient occlusion**. If you write a new call
+  site, multiply, don't overwrite.
+- `Builder.upload` uses 32-bit indices above 65535 vertices — the hall's
+  static buffer is ~58k now, so do not assume Uint16.
+- Adding/regenerating a model: edit `blender/hallmesh.py`, run
+  `hallmesh.build_all(); hallmesh.export_all()` in Blender, then
+  `python blender/pack_mesh.py`. Full conventions and the four traps that
+  cost real debugging time are in **blender/HANDOFF.md §7**.

@@ -21,6 +21,9 @@ we can keep updating, upgrading, and eventually walking them into Unreal.
 | `hallrig.py` | The HALL factory — 32 parametric texture builders (padded walls, cosmic carpet, neon signage with 3D tube text, the three shopfront dioramas, the five NPC skins). Renders 4x; scene-safe (works in a GUI session without touching your open file) |
 | `pack_hall.py` | Stage 2 for the hall: grade renders to the measured procedural palette (`hall_targets.json`), tint 10 marquee + 10 panel variants, bake neon glow, pack ONE JPEG sheet into `js/hallArt.js` |
 | `hall_targets.json` | The measured mean color of every procedural atlas region — the grading law's ground truth (regenerate via the measure-targets harness; mind the street atlas is 1024x2048, NON-square) |
+| `hall_meshes.blend` | 🧊 THE GEOMETRY — every Blender-authored MODEL, one collection each: the compact, the arcade cabinet, the five regulars, the streetlamp, the bench, a facade bay, an AC unit, and the two trim mouldings |
+| `hallmesh.py` | The GEOMETRY factory. Hall metres (not game pixels), Z-up→Y-up, front at -Y, origin on the ground. Lofts, revolves, blobs, brims + per-shell normal orientation, PCHIP profiles, explicit UVs for artwork panels, and raycast AO baked per vertex |
+| `pack_mesh.py` | Stage 2 for geometry: quantize (pos→u16 over the bbox, normal→i8, uv→u16 of its atlas REGION, AO→u8) and write `js/hallMeshData.js` + the tiny `js/hallMesh.js` loader |
 | `nugrig.py` | THE FACTORY — parametric builders for everything above, plus the render rig. The .blends are *built by* this script; edit either, but the script is the source of truth |
 | `pack_atlas.py` | Stage 2: downscale/grade/pack renders and regenerate `js/gtaArt.js` (plain Python; needs `pip install pillow numpy`) |
 

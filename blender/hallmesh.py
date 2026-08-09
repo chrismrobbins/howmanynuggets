@@ -1,0 +1,1760 @@
+"""HALLMESH — the Nugget Arcade's GEOMETRY factory.
+
+Third sibling of nugrig.py (GTN sprites) and hallrig.py (hall textures).
+Those two rebuilt what the hall is PAINTED with. This one rebuilds what the
+hall is SHAPED like.
+
+The problem it exists to solve: every prop and every regular on the street is
+hand-coded in js/arcade.js out of axis-aligned boxes (`box3`), wobbled
+spheres (`blob3`) and tiled wall quads. The double-parked compact is a slab
+with a smaller slab on it. No amount of texture or bloom fixes a silhouette
+that has no wheel arches. So: model it in Blender, bevel it, smooth it, and
+ship the triangles.
+
+    import hallmesh
+    hallmesh.build_all()                       # everything into the HALLMESH scene
+    hallmesh.export_all(r"C:/repo/blender/render_hall/mesh")   # -> .json per model
+    hallmesh.preview("compact")                # build one + point the camera at it
+
+Then `python blender/pack_mesh.py` quantizes the JSON into js/hallMesh.js.
+
+CONVENTIONS (a contract with js/arcade.js — do not drift):
+
+- **Units are HALL units** (1.0 = one hall metre; the ceiling is at 4.2,
+  an arcade cabinet is 1.94 tall). Not nugrig's 1-unit-per-game-pixel.
+- **Blender is Z-up, the hall is Y-up.** Export converts
+  `hall = (bx, bz, -by)` — determinant +1, so handedness and therefore
+  triangle winding survive. The hall culls back faces and flips
+  `frontFace` for the mirror pass; a mirrored model is not an option.
+- Therefore **a model's FRONT faces -Y in Blender** (the front orthographic
+  view), which lands on the hall's +Z. That matches arcade.js's NPC
+  convention: "local origin at the feet, +z is the character's front".
+- **Origin at the feet / at the ground**, centred in X and Y, so a call site
+  can place a model with a position + a yaw and nothing else.
+- **Materials are atlas coordinates, not shaders.** Every material name is a
+  key into MATS below, which resolves to (region, sub-rect, emissive, tint)
+  — the exact four things the hall's vertex format carries. Blender's own
+  material colours are set for preview only and are never exported.
+- Faces get **box-projected UVs into the 0..1 of their sub-rect**, clamped
+  with an inset so a bevelled corner can never bleed into the atlas
+  neighbour.
+
+WHY SUB-RECTS: `gtaCarSide` has WINDOWS PAINTED ON IT (arcade-art.js
+pGtaCarSide) — it was drawn for a slab that had no real ones. Rather than
+repack the whole 337KB street sheet for one prop, the paint materials sample
+a clean horizontal band of that region, below the painted glass. Same
+pixels, no pipeline churn, and the geometry supplies the windows now.
+"""
+import json
+import math
+import os
+
+import bmesh
+import bpy
+from mathutils import Matrix, Vector
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) if "__file__" in dir() else r"c:\dev\HowManyNugs\howmanynuggets"
+OUT_DEFAULT = os.path.join(REPO, "blender", "render_hall", "mesh")
+
+SCENE = "HALLMESH"
+
+# ---- the material table = the contract with the street atlas -----------------------
+# name: (atlas region, [u0, v0, u1, v1] sub-rect of it, emissive, tint)
+# Regions are allocated in ArcadeArt.makeStreetAtlas (js/arcade-art.js). The
+# sw_* swatches are collapsed to a single texel at runtime, so their sub-rect
+# is decorative — any value resolves to the same point.
+MATS = {
+    # -- the compact ---------------------------------------------------------------
+    "paint":    ("gtaCarSide", [0.03, 0.55, 0.97, 0.72], 0.0, 1.10),
+    "paintLo":  ("gtaCarSide", [0.03, 0.78, 0.97, 0.97], 0.0, 0.95),
+    "roof":     ("gtaCarRoof", [0.04, 0.04, 0.96, 0.96], 0.0, 1.05),
+    "glass":    ("gtaCarGlass", [0.04, 0.04, 0.96, 0.96], 0.0, 1.0),
+    "tire":     ("sw_black", [0, 0, 1, 1], 0.0, 1.15),
+    "trim":     ("sw_iron", [0, 0, 1, 1], 0.0, 0.55),
+    "chrome":   ("sw_iron", [0, 0, 1, 1], 0.0, 1.5),
+    "hub":      ("sw_iron", [0, 0, 1, 1], 0.0, 1.05),
+    "amber":    ("sw_amber", [0, 0, 1, 1], 0.22, 1.0),
+    "lampRed":  ("sw_red", [0, 0, 1, 1], 0.14, 0.95),
+    "lampW":    ("sw_white", [0, 0, 1, 1], 0.10, 0.85),
+    # -- the regulars --------------------------------------------------------------
+    "nug":      ("nugSkin", [0.02, 0.02, 0.98, 0.98], 0.0, 1.05),
+    "nugDark":  ("nugSkin", [0.02, 0.02, 0.98, 0.98], 0.0, 0.78),
+    "pickle":   ("pickle", [0.02, 0.02, 0.98, 0.98], 0.0, 1.05),
+    "pickleDk": ("pickle", [0.02, 0.02, 0.98, 0.98], 0.0, 0.8),
+    "cloth":    ("hoodCloth", [0.02, 0.02, 0.98, 0.98], 0.0, 0.85),
+    "clothDk":  ("hoodCloth", [0.02, 0.02, 0.98, 0.98], 0.0, 0.62),
+    "cup":      ("cupGravy", [0.01, 0.01, 0.99, 0.99], 0.0, 1.05),
+    "hen":      ("henWhite", [0.02, 0.02, 0.98, 0.98], 0.0, 1.0),
+    "henDark":  ("henWhite", [0.02, 0.02, 0.98, 0.98], 0.0, 0.82),
+    "felt":     ("sw_iron", [0, 0, 1, 1], 0.0, 0.72),
+    "feltDk":   ("sw_iron", [0, 0, 1, 1], 0.0, 0.5),
+    "black":    ("sw_black", [0, 0, 1, 1], 0.0, 1.0),
+    "white":    ("sw_white", [0, 0, 1, 1], 0.0, 0.9),
+    "paper":    ("sw_white", [0, 0, 1, 1], 0.0, 1.0),
+    "badge":    ("sw_badge", [0, 0, 1, 1], 0.30, 1.0),
+    "comb":     ("sw_comb", [0, 0, 1, 1], 0.0, 1.0),
+    "beak":     ("sw_beak", [0, 0, 1, 1], 0.0, 1.0),
+    "eye":      ("sw_amber", [0, 0, 1, 1], 0.60, 1.0),
+    "lid":      ("sw_white", [0, 0, 1, 1], 0.0, 0.78),
+    "sauce":    ("sw_red", [0, 0, 1, 1], 0.0, 0.9),
+    "wood":     ("sw_woodDark", [0, 0, 1, 1], 0.0, 1.0),
+    # -- the arcade cabinet (MAIN atlas) --------------------------------------------
+    # $MARQ/$PANEL/$SIDE are SENTINELS, not real regions. js/arcade.js remaps
+    # them per instance (xf.remap) to marq_<mode> / panel_<mode> / side_<mode>,
+    # so one model wears all ten games' artwork. A missing remap resolves to
+    # nothing and Builder.model() bails to the procedural cabinet — which is
+    # the behaviour we want, not a silently untextured machine.
+    "cabMarq":  ("$MARQ", [0.0, 0.0, 1.0, 1.0], 0.72, 1.0),
+    "cabPanel": ("$PANEL", [0.0, 0.0, 1.0, 1.0], 0.15, 1.0),
+    "cabSide":  ("$SIDE", [0.0, 0.0, 1.0, 1.0], 0.0, 1.0),
+    "cabFront": ("cabFront", [0.02, 0.02, 0.98, 0.98], 0.0, 1.0),
+    "cabBezel": ("bezel", [0.02, 0.02, 0.98, 0.98], 0.0, 1.0),
+    "cabMetal": ("metal", [0.05, 0.05, 0.95, 0.95], 0.0, 1.0),
+    "cabMetalD": ("metal", [0.05, 0.05, 0.95, 0.95], 0.0, 0.62),
+    "cabDark":  ("dark", [0.1, 0.1, 0.9, 0.9], 0.0, 1.0),
+    # T-molding has to be LIGHT — it is the edge highlight that makes a cabinet
+    # read as a machine. sw_black tinted up is still black (0 x 1.45 = 0), which
+    # is how the first pass shipped an invisible one.
+    "cabTrim":  ("sw_white", [0, 0, 1, 1], 0.0, 0.62),
+    "cabTrimD": ("sw_black", [0, 0, 1, 1], 0.0, 0.9),
+    "cabGlass": ("sw_glass", [0, 0, 1, 1], 0.0, 1.0),
+    "btnRed":   ("sw_red", [0, 0, 1, 1], 0.10, 1.0),
+    "btnAmber": ("sw_amber", [0, 0, 1, 1], 0.10, 1.0),
+    "btnCyan":  ("sw_cyan", [0, 0, 1, 1], 0.10, 1.0),
+    "btnWhite": ("sw_white", [0, 0, 1, 1], 0.06, 0.9),
+    "cabLight": ("sw_warm", [0, 0, 1, 1], 0.55, 1.0),
+    "coinSlot": ("sw_black", [0, 0, 1, 1], 0.0, 0.35),
+    # -- street furniture and architecture (STREET atlas) ----------------------------
+    "iron":     ("sw_iron", [0, 0, 1, 1], 0.0, 1.0),
+    "ironD":    ("sw_iron", [0, 0, 1, 1], 0.0, 0.60),
+    "metalD":   ("sw_iron", [0, 0, 1, 1], 0.0, 0.85),
+    "metalG":   ("sw_iron", [0, 0, 1, 1], 0.0, 1.15),
+    # the lamp lens is the one thing on the street that has to look HOT.
+    # 176 is the emissive texel ceiling (HANDOFF 5c) — sw_amber is already
+    # under it, so the glow comes from e + bloom, not from a brighter texel.
+    "lampGlass": ("sw_amber", [0, 0, 1, 1], 0.85, 1.0),
+    # sw_warm is a MAIN-atlas swatch and the street sheet has no such region —
+    # a model that names one it cannot reach makes Builder.model() bail to the
+    # fallback, silently, for the whole prop.
+    "lampHot":  ("sw_white", [0, 0, 1, 1], 1.0, 1.0),
+    "brick":    ("brick", [0.02, 0.02, 0.98, 0.98], 0.0, 1.0),
+    "brickD":   ("brick", [0.02, 0.02, 0.98, 0.98], 0.0, 0.72),
+    "stone":    ("sw_curb", [0, 0, 1, 1], 0.0, 1.35),
+    "glassDark": ("sw_black", [0, 0, 1, 1], 0.0, 1.0),
+    # hall trim lives on the MAIN atlas (it is built into B, not ST), so it
+    # wears the wainscot panelling the room is already trimmed in.
+    "trimWood": ("wainscot", [0.10, 0.10, 0.90, 0.90], 0.0, 1.15),
+}
+
+# preview-only colours, so the Blender viewport isn't a grey blob
+_PREVIEW = {
+    "paint": (0.62, 0.13, 0.08), "paintLo": (0.34, 0.07, 0.04),
+    "roof": (0.55, 0.11, 0.07), "glass": (0.03, 0.04, 0.07),
+    "tire": (0.02, 0.02, 0.03), "trim": (0.10, 0.11, 0.15),
+    "chrome": (0.55, 0.58, 0.65), "hub": (0.32, 0.35, 0.42), "amber": (1.0, 0.55, 0.05),
+    "lampRed": (0.8, 0.06, 0.05), "lampW": (0.9, 0.88, 0.8),
+    "nug": (0.85, 0.62, 0.22), "nugDark": (0.5, 0.34, 0.12),
+    "pickle": (0.32, 0.55, 0.14), "pickleDk": (0.2, 0.35, 0.09),
+    "cloth": (0.22, 0.24, 0.3), "clothDk": (0.12, 0.13, 0.17),
+    "cup": (0.75, 0.7, 0.6), "hen": (0.9, 0.88, 0.82), "henDark": (0.7, 0.68, 0.62),
+    "felt": (0.16, 0.18, 0.24), "feltDk": (0.09, 0.1, 0.14),
+    "black": (0.02, 0.02, 0.03), "white": (0.85, 0.83, 0.76), "paper": (0.9, 0.88, 0.8),
+    "badge": (1.0, 0.78, 0.3), "comb": (0.75, 0.13, 0.13), "beak": (0.85, 0.55, 0.1),
+    "eye": (1.0, 0.6, 0.1), "lid": (0.8, 0.78, 0.72), "sauce": (0.8, 0.2, 0.15),
+    "wood": (0.25, 0.18, 0.05),
+    "cabMarq": (0.9, 0.85, 0.5), "cabPanel": (0.3, 0.32, 0.45), "cabSide": (0.28, 0.1, 0.35),
+    "cabFront": (0.10, 0.10, 0.14), "cabBezel": (0.05, 0.05, 0.07),
+    "cabMetal": (0.30, 0.32, 0.38), "cabMetalD": (0.16, 0.17, 0.21),
+    "cabDark": (0.03, 0.03, 0.04), "cabTrim": (0.62, 0.64, 0.70), "cabTrimD": (0.2, 0.2, 0.24),
+    "cabGlass": (0.02, 0.05, 0.10), "btnRed": (0.9, 0.12, 0.12), "btnAmber": (1.0, 0.65, 0.06),
+    "btnCyan": (0.1, 0.8, 0.95), "btnWhite": (0.85, 0.85, 0.8),
+    "cabLight": (1.0, 0.86, 0.62), "coinSlot": (0.02, 0.02, 0.03),
+    "iron": (0.22, 0.25, 0.33), "ironD": (0.13, 0.15, 0.20),
+    "metalD": (0.19, 0.21, 0.27), "metalG": (0.30, 0.33, 0.40),
+    "lampGlass": (1.0, 0.72, 0.25), "lampHot": (1.0, 0.90, 0.70),
+    "brick": (0.32, 0.16, 0.13), "brickD": (0.20, 0.10, 0.08),
+    "stone": (0.42, 0.42, 0.47), "glassDark": (0.02, 0.03, 0.05),
+    "trimWood": (0.30, 0.22, 0.10),
+}
+
+
+# ---- scene management (GUI-safe: only ever touches the HALLMESH scene) --------------
+
+def _scene():
+    sc = bpy.data.scenes.get(SCENE)
+    if not sc:
+        sc = bpy.data.scenes.new(SCENE)
+    try:
+        bpy.context.window.scene = sc
+    except Exception:
+        pass  # headless right after open_mainfile: context.screen is None
+    return sc
+
+
+def wipe():
+    """Remove ONLY the objects linked to the HALLMESH scene."""
+    sc = _scene()
+    for o in list(sc.collection.all_objects):
+        bpy.data.objects.remove(o, do_unlink=True)
+    for m in list(bpy.data.meshes):
+        if m.users == 0:
+            bpy.data.meshes.remove(m)
+
+
+def _material(name):
+    key = "HM_" + name
+    m = bpy.data.materials.get(key)
+    if not m:
+        m = bpy.data.materials.new(key)
+        m.use_nodes = True
+        c = _PREVIEW.get(name, (0.6, 0.6, 0.6))
+        bsdf = m.node_tree.nodes.get("Principled BSDF")
+        if bsdf:
+            bsdf.inputs["Base Color"].default_value = (*c, 1.0)
+            try:
+                bsdf.inputs["Roughness"].default_value = 0.45
+            except Exception:
+                pass
+        m.diffuse_color = (*c, 1.0)
+    return m
+
+
+# ---- profile helpers ---------------------------------------------------------------
+
+def pw(t, keys):
+    """Monotone cubic (Fritsch-Carlson PCHIP) through [(t, value), ...].
+
+    NOT smoothstep-per-segment, which was the first thing tried and is a trap:
+    smoothstepping each span forces the slope to ZERO at every keyframe, so a
+    profile scallops between its own keys. On the compact that made the
+    windscreen an S-curve instead of a rake and swung the surface normal
+    0.67 -> 0.82 -> 0.54 -> 0.89 from one body ring to the next, which
+    striped the roof (the material classifier reads normals) and banded the
+    shading. PCHIP gives real slopes at the keys, and — unlike Catmull-Rom —
+    never overshoots, so a plateau in a profile (the top of a wheel arch,
+    the parallel middle of a flank) stays a plateau.
+    """
+    n = len(keys)
+    if n == 1 or t <= keys[0][0]:
+        return keys[0][1]
+    if t >= keys[-1][0]:
+        return keys[-1][1]
+    xs = [k[0] for k in keys]
+    ys = [k[1] for k in keys]
+    h = [max(xs[i + 1] - xs[i], 1e-9) for i in range(n - 1)]
+    d = [(ys[i + 1] - ys[i]) / h[i] for i in range(n - 1)]
+    m = [0.0] * n
+    m[0], m[-1] = d[0], d[-1]
+    for i in range(1, n - 1):
+        if d[i - 1] * d[i] <= 0:
+            m[i] = 0.0
+        else:
+            w1, w2 = 2 * h[i] + h[i - 1], h[i] + 2 * h[i - 1]
+            m[i] = (w1 + w2) / (w1 / d[i - 1] + w2 / d[i])
+    i = 0
+    while i < n - 2 and t > xs[i + 1]:
+        i += 1
+    s = (t - xs[i]) / h[i]
+    s2, s3 = s * s, s * s * s
+    return ((2 * s3 - 3 * s2 + 1) * ys[i] + (s3 - 2 * s2 + s) * h[i] * m[i]
+            + (-2 * s3 + 3 * s2) * ys[i + 1] + (s3 - s2) * h[i] * m[i + 1])
+
+
+def smoothstep(a, b, t):
+    if b == a:
+        return 0.0
+    t = max(0.0, min(1.0, (t - a) / (b - a)))
+    return t * t * (3 - 2 * t)
+
+
+# ---- the builder -------------------------------------------------------------------
+
+class Part:
+    """One object under construction: a bmesh plus a material-slot table."""
+
+    def __init__(self, name):
+        self.name = name
+        self.bm = bmesh.new()
+        self.uv = self.bm.loops.layers.uv.new("UVMap")
+        self.fixed = self.bm.faces.layers.int.new("uvfixed")
+        self.slots = []       # material names, in slot order
+        self._slot = {}
+
+    def set_uv(self, mat, fn):
+        """Give every face of material `mat` an EXPLICIT uv from a position
+        function, and mark it so finish()'s box projection leaves it alone.
+
+        Box projection is fine for a texture that is basically grain — paint,
+        brushed metal, cloth. It is useless for a PICTURE. A cabinet marquee
+        projected by its dominant axis samples a hair-thin band of its own
+        artwork stretched across the whole panel, and the control panel comes
+        out mirrored. Anything that has to be READ gets mapped by hand.
+        """
+        want = self._slot.get(mat)
+        if want is None:
+            return
+        for f in self.bm.faces:
+            if f.material_index != want:
+                continue
+            for l in f.loops:
+                p = l.vert.co
+                u, v = fn(p.x, p.y, p.z)
+                l[self.uv].uv = (min(1.0, max(0.0, u)), min(1.0, max(0.0, v)))
+            f[self.fixed] = 1
+
+    def slot(self, mat):
+        if mat not in self._slot:
+            self._slot[mat] = len(self.slots)
+            self.slots.append(mat)
+        return self._slot[mat]
+
+    def face(self, pts, mat):
+        """Add one n-gon from a list of (x, y, z). Winding is fixed later by
+        recalc_face_normals, so callers may be sloppy — but only if the part
+        ends up closed. Open shells must wind CCW seen from the front."""
+        vs = [self.bm.verts.new(Vector(p)) for p in pts]
+        try:
+            f = self.bm.faces.new(vs)
+        except ValueError:
+            return None
+        f.material_index = self.slot(mat)
+        return f
+
+    # -- primitives ------------------------------------------------------------------
+
+    def loft(self, rings, mat, cap_a=True, cap_b=True, cap_mat=None, closed=True, mat_fn=None):
+        """Skin a list of equal-length rings (each a list of (x,y,z)).
+
+        This is the workhorse: a car body, a torso, a sleeve — anything with a
+        cross-section that changes along a path.
+        """
+        vs = [[self.bm.verts.new(Vector(p)) for p in r] for r in rings]
+        n = len(rings[0])
+        for i in range(len(rings) - 1):
+            for j in range(n):
+                k = (j + 1) % n if closed else j + 1
+                if not closed and k >= n:
+                    continue
+                quad = [vs[i][j], vs[i][k], vs[i + 1][k], vs[i + 1][j]]
+                # collapse degenerate rings (a ring that came to a point)
+                uniq = []
+                for v in quad:
+                    if not any((v.co - u.co).length < 1e-6 for u in uniq):
+                        uniq.append(v)
+                if len(uniq) < 3:
+                    continue
+                m = mat_fn(i, j) if mat_fn else mat
+                if m is None:
+                    continue    # mat_fn may punch holes (the Hood's face opening)
+                try:
+                    f = self.bm.faces.new(uniq)
+                except ValueError:
+                    continue
+                f.material_index = self.slot(m)
+        cm = cap_mat or mat
+        if cap_a and closed:
+            try:
+                self.bm.faces.new(vs[0]).material_index = self.slot(cm)
+            except ValueError:
+                pass
+        if cap_b and closed:
+            try:
+                self.bm.faces.new(list(reversed(vs[-1]))).material_index = self.slot(cm)
+            except ValueError:
+                pass
+        return vs
+
+    def box(self, c, size, mat, taper=1.0):
+        """Axis-aligned box centred at c with (sx, sy, sz) dimensions. `taper`
+        scales the +Z face's footprint (a box3 that can be a frustum)."""
+        cx, cy, cz = c
+        sx, sy, sz = size[0] / 2, size[1] / 2, size[2] / 2
+        lo = [(cx - sx, cy - sy, cz - sz), (cx + sx, cy - sy, cz - sz),
+              (cx + sx, cy + sy, cz - sz), (cx - sx, cy + sy, cz - sz)]
+        hi = [(cx - sx * taper, cy - sy * taper, cz + sz), (cx + sx * taper, cy - sy * taper, cz + sz),
+              (cx + sx * taper, cy + sy * taper, cz + sz), (cx - sx * taper, cy + sy * taper, cz + sz)]
+        return self.loft([lo, hi], mat)
+
+    def cyl(self, c, axis, r0, r1, length, mat, slices=16, cap=True):
+        """Cylinder/cone about 'x', 'y' or 'z', centred at c."""
+        rings = []
+        for t, r in ((-0.5, r0), (0.5, r1)):
+            ring = []
+            for j in range(slices):
+                a = (j / slices) * math.tau
+                ca, sa = math.cos(a) * r, math.sin(a) * r
+                d = t * length
+                if axis == "z":
+                    ring.append((c[0] + ca, c[1] + sa, c[2] + d))
+                elif axis == "x":
+                    ring.append((c[0] + d, c[1] + ca, c[2] + sa))
+                else:
+                    ring.append((c[0] + ca, c[1] + d, c[2] + sa))
+            rings.append(ring)
+        return self.loft(rings, mat, cap_a=cap, cap_b=cap)
+
+    def revolve(self, profile, mat, axis_x=0.0, axis_y=0.0, slices=18):
+        """Lathe a [(radius, z), ...] profile around the vertical axis. Radius 0
+        at either end closes the shape (a sphere, a teardrop, a cup)."""
+        rings = []
+        for r, z in profile:
+            ring = []
+            for j in range(slices):
+                a = (j / slices) * math.tau
+                ring.append((axis_x + math.cos(a) * r, axis_y + math.sin(a) * r, z))
+            rings.append(ring)
+        return self.loft(rings, mat, cap_a=profile[0][0] > 1e-4, cap_b=profile[-1][0] > 1e-4)
+
+    def ovoid(self, c, radii, mat, stacks=9, slices=16, squash=None):
+        """An egg. `squash(v)` in 0..1 (bottom→top) scales the radius — this is
+        what makes a nugget a nugget rather than a ball."""
+        rx, ry, rz = radii
+        prof = []
+        for i in range(stacks + 1):
+            v = i / stacks
+            ph = v * math.pi
+            r = math.sin(ph)
+            z = -math.cos(ph)
+            if squash:
+                r *= squash(v)
+            prof.append((r, z))
+        rings = []
+        for r, z in prof:
+            ring = []
+            for j in range(slices):
+                a = (j / slices) * math.tau
+                ring.append((c[0] + math.cos(a) * r * rx, c[1] + math.sin(a) * r * ry, c[2] + z * rz))
+            rings.append(ring)
+        return self.loft(rings, mat, cap_a=False, cap_b=False)
+
+    def limb(self, a, b, r0, r1, mat, slices=8, cap=True):
+        """A tapered capsule from a to b — an arm, a leg, a hat band, a stalk."""
+        a, b = Vector(a), Vector(b)
+        d = b - a
+        if d.length < 1e-6:
+            return
+        up = Vector((0, 0, 1)) if abs(d.normalized().z) < 0.95 else Vector((1, 0, 0))
+        ax = d.normalized().cross(up).normalized()
+        ay = d.normalized().cross(ax).normalized()
+        rings = []
+        for t, r in ((0.0, r0), (1.0, r1)):
+            c = a + d * t
+            rings.append([tuple(c + ax * (math.cos(j / slices * math.tau) * r)
+                                + ay * (math.sin(j / slices * math.tau) * r))
+                          for j in range(slices)])
+        return self.loft(rings, mat, cap_a=cap, cap_b=cap)
+
+    def blob(self, c, size, mat, stacks=10, slices=14, prof=None, lump=0.0,
+             seed=0.0, flat=1.0):
+        """The character workhorse: an ovoid whose radius follows `prof` up its
+        height and wobbles per-angle by `lump`. A nugget, a pickle, a hen — all
+        the same call with different numbers. Origin at the BOTTOM, not the
+        centre, because every regular stands on the pavement."""
+        prof = prof or [(0.0, 0.0), (0.10, 0.62), (0.35, 0.98), (0.62, 1.0),
+                        (0.85, 0.78), (1.0, 0.0)]
+        cx, cy, cz = c
+        w, dep, h = size
+        rings = []
+        for i in range(stacks + 1):
+            v = i / stacks
+            r = pw(v, prof)
+            ring = []
+            for j in range(slices):
+                a = (j / slices) * math.tau
+                k = 1.0
+                if lump:
+                    k += lump * (math.sin(a * 3 + seed) * math.cos(v * 5.5 + seed * 1.7)
+                                 + 0.6 * math.sin(v * 3.0 + a * 2 + seed))
+                ring.append((cx + math.cos(a) * r * w * 0.5 * k,
+                             cy + math.sin(a) * r * dep * 0.5 * flat * k,
+                             cz + v * h))
+            rings.append(ring)
+        return self.loft(rings, mat, cap_a=False, cap_b=False)
+
+    def brim(self, c, r_in, r_out, mat, thick=0.022, tilt=0.0, slices=22):
+        """A hat brim: an annulus with real thickness that can dip at the front
+        and lift at the back (`tilt`). A flat box for a fedora is a crime."""
+        cx, cy, cz = c
+
+        def rz(a):
+            return cz + tilt * math.cos(a)   # -y is the face direction
+
+        rings = []
+        for r, dz in ((r_in, thick / 2), (r_out, 0.0), (r_out, -thick * 0.35), (r_in, -thick / 2)):
+            rings.append([(cx + math.cos(a) * r, cy + math.sin(a) * r, rz(a) + dz)
+                          for a in [(j / slices) * math.tau for j in range(slices)]])
+        rings.append(rings[0])   # close the section: a torus, so it stays manifold
+        return self.loft(rings, mat, cap_a=False, cap_b=False)
+
+    # -- finish ------------------------------------------------------------------------
+
+    def finish(self, bevel=0.012, segments=2, smooth_deg=38, uv_scale=None):
+        """UV-project, bevel, auto-smooth, and link into the HALLMESH scene."""
+        bm = self.bm
+        bm.verts.ensure_lookup_table()
+        bm.faces.ensure_lookup_table()
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        _orient(bm)
+
+        # box-project every face into the 0..1 of its own material sub-rect,
+        # using the part's bounding box so the projection is scale-independent.
+        xs = [v.co.x for v in bm.verts] or [0]
+        ys = [v.co.y for v in bm.verts] or [0]
+        zs = [v.co.z for v in bm.verts] or [0]
+        lo = Vector((min(xs), min(ys), min(zs)))
+        hi = Vector((max(xs), max(ys), max(zs)))
+        span = Vector((max(hi.x - lo.x, 1e-4), max(hi.y - lo.y, 1e-4), max(hi.z - lo.z, 1e-4)))
+        if uv_scale:
+            span = Vector((span.x / uv_scale, span.y / uv_scale, span.z / uv_scale))
+        for f in bm.faces:
+            if f[self.fixed]:
+                continue      # already mapped by hand (artwork panels)
+            n = f.normal
+            ax, ay, az = abs(n.x), abs(n.y), abs(n.z)
+            for l in f.loops:
+                p = l.vert.co - lo
+                if az >= ax and az >= ay:
+                    u, v = p.x / span.x, p.y / span.y
+                elif ax >= ay:
+                    u, v = p.y / span.y, p.z / span.z
+                else:
+                    u, v = p.x / span.x, p.z / span.z
+                l[self.uv].uv = (min(1.0, max(0.0, u % 1.0 if u > 1.0 else u)),
+                                 min(1.0, max(0.0, v % 1.0 if v > 1.0 else v)))
+
+        me = bpy.data.meshes.new(self.name)
+        bm.to_mesh(me)
+        bm.free()
+        ob = bpy.data.objects.new(self.name, me)
+        for mname in self.slots:
+            ob.data.materials.append(_material(mname))
+        _scene().collection.objects.link(ob)
+
+        if bevel and bevel > 0:
+            mod = ob.modifiers.new("bev", "BEVEL")
+            mod.width = bevel
+            mod.segments = segments
+            mod.limit_method = "ANGLE"
+            mod.angle_limit = math.radians(32)
+            mod.harden_normals = False
+            try:
+                mod.miter_outer = "MITER_ARC"
+            except Exception:
+                pass
+        _shade_auto_smooth(ob, smooth_deg)
+        return ob
+
+
+def _orient(bm):
+    """Point every face OUTWARD, per connected shell.
+
+    `recalc_face_normals` is only meaningful for CLOSED manifolds. Give it an
+    open shell — a side panel, a strip of T-molding, a bezel frame — and it
+    picks a consistent direction that is just as likely to be inward. The hall
+    culls back faces, so an inward shell is not subtly wrong, it is INVISIBLE.
+    The first Blender cabinet had 46% of its surface area facing inward and
+    rendered as ten attract screens floating in mid-air with no machines
+    around them.
+
+    So decide per shell, with the right test for each kind:
+      closed shell -> signed volume. Exact, and correct even for concave parts.
+      open shell   -> which way it faces relative to the whole object's centre.
+                      A shell that wraps an object faces away from its middle.
+    """
+    bm.faces.ensure_lookup_table()
+    bm.faces.index_update()
+    if not bm.verts:
+        return
+    ctr = Vector((0, 0, 0))
+    for v in bm.verts:
+        ctr += v.co
+    ctr /= len(bm.verts)
+
+    seen = set()
+    for f0 in bm.faces:
+        if f0.index in seen:
+            continue
+        comp, stack = [], [f0]
+        while stack:
+            g = stack.pop()
+            if g.index in seen:
+                continue
+            seen.add(g.index)
+            comp.append(g)
+            for e in g.edges:
+                for h in e.link_faces:
+                    if h.index not in seen:
+                        stack.append(h)
+        closed = all(len(e.link_faces) == 2 for f in comp for e in f.edges)
+        if closed:
+            vol = 0.0
+            for f in comp:
+                vs = f.verts
+                a = vs[0].co
+                for k in range(1, len(vs) - 1):
+                    vol += a.dot(vs[k].co.cross(vs[k + 1].co))
+            flip = vol < 0
+        else:
+            s = 0.0
+            for f in comp:
+                d = f.calc_center_median() - ctr
+                if d.length > 1e-9:
+                    s += f.calc_area() * d.normalized().dot(f.normal)
+            flip = s < 0
+        if flip:
+            bmesh.ops.reverse_faces(bm, faces=comp)
+
+
+def _shade_auto_smooth(ob, deg):
+    """Blender 4.1+ dropped mesh.use_auto_smooth for a 'Smooth by Angle'
+    modifier. Try the operator, fall back to flat-but-smooth polys."""
+    for p in ob.data.polygons:
+        p.use_smooth = True
+    try:
+        prev = bpy.context.view_layer.objects.active
+        sel = [o for o in bpy.context.view_layer.objects if o.select_get()]
+        bpy.ops.object.select_all(action="DESELECT")
+        ob.select_set(True)
+        bpy.context.view_layer.objects.active = ob
+        bpy.ops.object.shade_auto_smooth(angle=math.radians(deg))
+        bpy.ops.object.select_all(action="DESELECT")
+        for o in sel:
+            try:
+                o.select_set(True)
+            except Exception:
+                pass
+        bpy.context.view_layer.objects.active = prev
+    except Exception:
+        pass
+
+
+# ---- export ------------------------------------------------------------------------
+
+def _to_hall(v):
+    """Blender Z-up -> hall Y-up. det = +1, so winding survives."""
+    return (v[0], v[2], -v[1])
+
+
+# ---- ambient occlusion ---------------------------------------------------------------
+# THE BIGGEST QUALITY LEVER IN THE WHOLE PIPELINE, and it ships for free.
+#
+# The hall's vertex format is pos(3) normal(3) uv(2) emissive(1) TINT(1). Until
+# now `tint` only ever carried a per-MATERIAL constant — one number repeated
+# across every vertex that used it. It is a per-vertex float sitting in the
+# buffer doing nothing.
+#
+# So: raycast the model against itself, work out how occluded each vertex is,
+# and multiply that into tint. Result is contact shadow and crevice darkening
+# on every surface — under the car, inside a wheel arch, in the corner where a
+# cabinet meets the floor, up under a hat brim — with no new textures, no new
+# bytes, and no shader change. That absence of any occlusion anywhere is most
+# of what makes a scene read as "drawn" instead of "built".
+#
+# Raycast rather than Cycles' bake-to-vertex-colour: no engine config, no
+# material node surgery, runs headless, deterministic, and the radius is a
+# dial rather than a scene property.
+
+def _hemisphere(n_rays):
+    """Fibonacci hemisphere directions around +Z, cosine-ish weighted."""
+    out = []
+    ga = math.pi * (3 - math.sqrt(5))
+    for i in range(n_rays):
+        z = (i + 0.5) / n_rays          # 0..1, never exactly 0 or 1
+        r = math.sqrt(max(0.0, 1 - z * z))
+        a = ga * i
+        out.append(Vector((math.cos(a) * r, math.sin(a) * r, z)))
+    return out
+
+
+AO = dict(rays=28, dist=0.40, floor=0.42, power=1.15, ground=True)
+
+
+def _bake_ao(me, mw, rays, dist, floor, power, ground):
+    """Per-vertex AO in 0..1 (1 = fully open) for an already-evaluated mesh.
+
+    `floor` is how dark a fully occluded vertex may get — never 0, or crevices
+    punch black holes in a room that is already dark. `ground` adds the
+    pavement as an occluder so things sitting on it get a contact shadow
+    creeping up their sides, which is most of what sells weight.
+    """
+    from mathutils.bvhtree import BVHTree
+
+    verts = [mw @ v.co for v in me.vertices]
+    normals = [(mw.to_3x3() @ v.normal).normalized() for v in me.vertices]
+    tris = [tuple(lt.vertices) for lt in me.loop_triangles]
+
+    if ground:
+        base = len(verts)
+        s = 6.0
+        verts += [Vector((-s, -s, 0)), Vector((s, -s, 0)), Vector((s, s, 0)), Vector((-s, s, 0))]
+        tris += [(base, base + 1, base + 2), (base, base + 2, base + 3)]
+
+    bvh = BVHTree.FromPolygons(verts, tris, all_triangles=True)
+    dirs = _hemisphere(rays)
+    out = []
+    for i in range(len(normals)):
+        p, n = verts[i], normals[i]
+        up = Vector((0, 0, 1)) if abs(n.z) < 0.95 else Vector((1, 0, 0))
+        tx = n.cross(up).normalized()
+        ty = n.cross(tx).normalized()
+        origin = p + n * 1e-3
+        hit = 0.0
+        for d in dirs:
+            wd = (tx * d.x + ty * d.y + n * d.z).normalized()
+            loc, _nn, _idx, dd = bvh.ray_cast(origin, wd, dist)
+            if loc is not None:
+                hit += 1.0 - (dd / dist) ** 2      # near hits occlude hardest
+        open_f = max(0.0, 1.0 - hit / rays)
+        out.append(floor + (1.0 - floor) * (open_f ** power))
+    return out
+
+
+def extract(ob, ao=True, ao_opts=None):
+    """Evaluate modifiers and pull out (verts, tris, mats) in HALL space."""
+    dg = bpy.context.evaluated_depsgraph_get()
+    ev = ob.evaluated_get(dg)
+    me = ev.to_mesh()
+    me.calc_loop_triangles()
+
+    o = dict(AO)
+    o.update(ao_opts or {})
+    vao = _bake_ao(me, ob.matrix_world, o["rays"], o["dist"], o["floor"],
+                   o["power"], o["ground"]) if ao else None
+
+    # split (auto-smooth) normals if this Blender exposes them
+    corner = None
+    try:
+        corner = [tuple(c.vector) for c in me.corner_normals]
+    except Exception:
+        try:
+            me.calc_normals_split()
+            corner = [tuple(l.normal) for l in me.loops]
+        except Exception:
+            corner = None
+
+    slot_names = []
+    for ms in ev.data.materials:
+        slot_names.append(ms.name[3:] if ms and ms.name.startswith("HM_") else "paint")
+
+    mats, mat_ix = [], {}
+    verts, vix, tris = [], {}, []
+    mw = ob.matrix_world
+    nrm_mw = mw.to_3x3().inverted_safe().transposed()
+
+    for lt in me.loop_triangles:
+        mname = slot_names[lt.material_index] if lt.material_index < len(slot_names) else "paint"
+        if mname not in MATS:
+            mname = "paint"
+        if mname not in mat_ix:
+            mat_ix[mname] = len(mats)
+            mats.append(mname)
+        mi = mat_ix[mname]
+        region, rect, em, tint = MATS[mname]
+        tri = []
+        for k in range(3):
+            li = lt.loops[k]
+            vi = lt.vertices[k]
+            co = mw @ me.vertices[vi].co
+            # AO rides in the tint channel. Emissive surfaces are exempt: neon
+            # does not get darker because it is near a wall.
+            shade = 1.0 if (vao is None or em > 0.02) else vao[vi]
+            if corner:
+                nv = Vector(corner[li])
+            else:
+                nv = Vector(lt.normal)
+            nv = (nrm_mw @ nv).normalized()
+            uvv = me.uv_layers.active.data[li].uv if me.uv_layers.active else (0.5, 0.5)
+            # region-local uv, inset so a bevel highlight can't sample a neighbour
+            fu = rect[0] + (rect[2] - rect[0]) * min(1.0, max(0.0, uvv[0]))
+            fv = rect[1] + (rect[3] - rect[1]) * min(1.0, max(0.0, uvv[1]))
+            p = _to_hall((co.x, co.y, co.z))
+            nn = _to_hall((nv.x, nv.y, nv.z))
+            # normals to 2dp (~0.3 degrees): merges the split-normal near-duplicates
+            # the beveller leaves behind without welding across a real crease.
+            key = (round(p[0], 4), round(p[1], 4), round(p[2], 4),
+                   round(nn[0], 2), round(nn[1], 2), round(nn[2], 2),
+                   round(fu, 4), round(fv, 4), mi, round(shade, 2))
+            ix = vix.get(key)
+            if ix is None:
+                ix = len(verts)
+                vix[key] = ix
+                verts.append([p[0], p[1], p[2], nn[0], nn[1], nn[2], fu, fv, mi, shade])
+            tri.append(ix)
+        if tri[0] != tri[1] and tri[1] != tri[2] and tri[0] != tri[2]:
+            tris.append(tri)
+
+    ev.to_mesh_clear()
+    return {
+        "mats": [{"r": MATS[m][0], "e": MATS[m][2], "t": MATS[m][3]} for m in mats],
+        "verts": verts,
+        "tris": tris,
+    }
+
+
+# ---- THE COMPACT ---------------------------------------------------------------------
+# The double-parked car outside the hall — GRAND THEFT NUGGET's front door, and
+# the single most-stared-at object on the street (you walk up to it to launch
+# the game). It used to be six quads: a slab, a smaller slab, four flat stubs.
+#
+# It is now a lofted body: a nose that drops, a hood that crowns, a raked
+# windscreen, a greenhouse that tucks in, wheel arches cut into the rocker, and
+# four round wheels sitting under them.
+#
+# The footprint is a CONTRACT: js/arcade.js parks it in a 2.4 x 1.2 slot at
+# x -10.6..-8.2, z 8.75..9.95, and hangs the blinking-hazard glow sprites off
+# the corners at local (+-0.50, +-1.02). Keep the length 2.4, the width ~1.16,
+# and put amber at those corners.
+
+CAR_TOP = [                              # upper silhouette: bumper, hood, roof, boot
+    (-1.20, 0.415), (-1.13, 0.505), (-0.99, 0.565), (-0.62, 0.595),
+    (-0.36, 0.615), (-0.24, 0.715), (-0.03, 0.950), (0.33, 0.980),
+    (0.58, 0.950), (0.72, 0.800), (0.87, 0.665), (1.07, 0.630), (1.20, 0.495),
+]
+CAR_BELT = [                             # the shoulder line (widest point)
+    (-1.20, 0.300), (-1.10, 0.400), (-0.94, 0.468), (0.94, 0.468),
+    (1.10, 0.402), (1.20, 0.318),
+]
+CAR_HW = [                               # half width at the belt
+    (-1.20, 0.435), (-1.08, 0.525), (-0.88, 0.572), (-0.30, 0.580),
+    (0.30, 0.580), (0.88, 0.572), (1.08, 0.532), (1.20, 0.445),
+]
+CAR_TW = [                               # half width along the top edge
+    (-1.20, 0.355), (-1.08, 0.455), (-0.88, 0.518), (-0.42, 0.522),
+    (-0.20, 0.458), (0.02, 0.432), (0.44, 0.432), (0.64, 0.468),
+    (0.86, 0.508), (1.08, 0.472), (1.20, 0.375),
+]
+CAR_ROCKER = [                           # the sill, centre of the underside
+    (-1.20, 0.205), (-1.06, 0.132), (-0.90, 0.146), (0.90, 0.146),
+    (1.06, 0.132), (1.20, 0.212),
+]
+CAR_ARCH = [                             # extra lift at the OUTER edge = the arches
+    (-1.20, 0.0), (-1.03, 0.0), (-0.96, 0.10), (-0.83, 0.225), (-0.63, 0.225),
+    (-0.50, 0.10), (-0.43, 0.0), (0.43, 0.0), (0.50, 0.10), (0.63, 0.225),
+    (0.83, 0.225), (0.96, 0.10), (1.03, 0.0), (1.20, 0.0),
+]
+CAR_YS = [-1.200, -1.160, -1.100, -1.030, -0.955, -0.870, -0.760, -0.660,
+          -0.560, -0.470, -0.400, -0.340, -0.270, -0.180, -0.090, 0.000,
+          0.110, 0.230, 0.340, 0.440, 0.530, 0.610, 0.680, 0.760,
+          0.845, 0.930, 1.010, 1.080, 1.140, 1.200]
+CAR_WHEEL_Y = 0.735
+CAR_WHEEL_R = 0.248
+
+
+def _arch_w(f):
+    """How much of the arch lift a point at |x|/hw = f receives. 0 at the
+    centre of the underside, all of it at the outer edge."""
+    return smoothstep(0.50, 0.97, f)
+
+
+def _car_ring(y):
+    hw = pw(y, CAR_HW)
+    tw = pw(y, CAR_TW)
+    top = pw(y, CAR_TOP)
+    belt = pw(y, CAR_BELT)
+    rock = pw(y, CAR_ROCKER)
+    arch = max(0.0, pw(y, CAR_ARCH))
+
+    def b(f):
+        return rock + arch * _arch_w(f)
+
+    low = max(b(1.0) + 0.022, rock + 0.022)
+    shx = hw * 0.52 + tw * 0.48
+    shz = belt + (top - belt) * 0.58
+    crown = top + 0.014
+    # the waist rides between the belt and the shoulder, tucking in as it rises
+    wz = min(max(pw(y, CAR_WAIST), belt + 0.030), shz - 0.030)
+    wx = hw + (tw - hw) * ((wz - belt) / max(top - belt, 1e-4)) * 0.62
+    pts = [
+        (0.0, b(0.0)),
+        (0.50 * hw, b(0.50)), (0.86 * hw, b(0.86)),
+        (hw, low), (hw, belt), (wx, wz), (shx, shz), (tw, top - 0.022), (tw * 0.60, crown - 0.006),
+        (0.0, crown),
+        (-tw * 0.60, crown - 0.006), (-tw, top - 0.022), (-shx, shz), (-wx, wz), (-hw, belt), (-hw, low),
+        (-0.86 * hw, b(0.86)), (-0.50 * hw, b(0.50)),
+    ]
+    return [(x, y, z) for (x, z) in pts]
+
+
+# THE WAISTLINE — where paint stops and glass starts. This is a real edge loop
+# in the body, not a threshold: the first version classified each face by its
+# centre height and normal, and the boundary came out as a SAWTOOTH, because
+# adjacent faces around the greenhouse shoulder straddle any line you pick. In
+# the hall that read as black spikes stabbing out of the A- and C-pillars (you
+# see the far side's jagged edge past the near roof). Give the cross-section a
+# waist point and the boundary follows the geometry, cleanly, every time.
+CAR_WAIST = [
+    (-1.20, 0.545), (-0.60, 0.590), (-0.36, 0.618), (-0.20, 0.652),
+    (0.30, 0.668), (0.62, 0.680), (0.86, 0.700), (1.20, 0.600),
+]
+
+# Where the glasshouse is, along the length. Chosen to land BETWEEN rings in
+# CAR_YS so each boundary is one clean transverse edge.
+CAR_CABIN = (-0.36, 0.87)     # windscreen base .. backlight base
+CAR_LID = (-0.045, 0.575)     # the painted roof panel between them
+
+# Ring point roles (see _car_ring): 18 points, so quad j spans point j -> j+1.
+_J_UNDER = (0, 1, 2, 15, 16, 17)      # the floor pan
+_J_FLANK = (3, 4, 13, 14)             # arch-to-belt, belt-to-waist: door skin
+_J_GLASS = (5, 6, 11, 12)             # waist-to-shoulder-to-top: side windows
+_J_TOP = (7, 8, 9, 10)                # the lid: roof, windscreen or backlight
+
+
+def _car_face_mat(y, j):
+    """Material for the quad at ring-midpoint y, loop position j."""
+    if CAR_CABIN[0] <= y <= CAR_CABIN[1]:
+        if j in _J_TOP:
+            return "roof" if CAR_LID[0] <= y <= CAR_LID[1] else "glass"
+        if j in _J_GLASS:
+            return "glass"
+    if j in _J_UNDER:
+        return "paintLo"
+    return "paint"
+
+
+def build_compact():
+    P = Part("compact")
+    rings = [_car_ring(y) for y in CAR_YS]
+
+    # --- body shell, lofted and then re-materialled by position ------------------
+    ymid = [(CAR_YS[i] + CAR_YS[i + 1]) / 2 for i in range(len(CAR_YS) - 1)]
+    P.loft(rings, "paint", cap_a=True, cap_b=True,
+           mat_fn=lambda i, j: _car_face_mat(ymid[i], j))
+
+    # --- wheels: tyre, sidewall shoulder, and a hub that catches the streetlamp ---
+    for sy in (-1, 1):
+        for sx in (-1, 1):
+            y = sy * CAR_WHEEL_Y
+            x = sx * (pw(y, CAR_HW) - 0.052)
+            R = CAR_WHEEL_R
+            # a tyre with rounded shoulders: three radial rings, not a can
+            prof = [(-0.075, R * 0.80), (-0.052, R * 0.97), (0.052, R * 0.97), (0.075, R * 0.80)]
+            rr = []
+            for off, rad in prof:
+                ring = []
+                for j in range(18):
+                    a = (j / 18) * math.tau
+                    ring.append((x + off * sx, y + math.cos(a) * rad, R + math.sin(a) * rad))
+                rr.append(ring)
+            P.loft(rr, "tire", cap_a=True, cap_b=True)
+            # hub cap, proud of the sidewall. Small and dim on purpose: at
+            # R*0.42 in chrome it read as a pale dinner plate from the pavement.
+            P.cyl((x + 0.082 * sx, y, R), "x", R * 0.34, R * 0.27, 0.026, "hub", slices=14)
+
+    # --- bumpers: a bar that wraps the corners, sitting proud of the paint --------
+    for sy, ykey in ((-1, -1.20), (1, 1.20)):
+        yb = ykey - sy * 0.012
+        hw = pw(ykey, CAR_HW)
+        seg = []
+        for j in range(9):
+            t = j / 8.0
+            xx = (t * 2 - 1) * hw * 1.02
+            # bow the bar forward at the centre
+            yy = yb + sy * 0.045 * (1 - (t * 2 - 1) ** 2)
+            seg.append((xx, yy, 0.0))
+        rings = []
+        for dz, inset in ((0.175, 0.86), (0.235, 1.0), (0.300, 0.90)):
+            rings.append([(x * inset, y + (yb - y) * (1 - inset) * 0.0, dz) for (x, y, _z) in seg])
+        # skin the bar as an open strip (front face only — the back is inside paint)
+        for i in range(len(rings) - 1):
+            for j in range(len(seg) - 1):
+                a, b_, c, d = rings[i][j], rings[i][j + 1], rings[i + 1][j + 1], rings[i + 1][j]
+                if sy < 0:
+                    P.face([a, b_, c, d], "trim")
+                else:
+                    P.face([d, c, b_, a], "trim")
+
+    # --- the face: grille, lamps, and the corner ambers the hazards hang off ------
+    ny = -1.20
+    P.box((0.0, ny + 0.030, 0.400), (pw(ny, CAR_HW) * 1.28, 0.070, 0.100), "trim")
+    P.box((0.0, ny + 0.022, 0.400), (pw(ny, CAR_HW) * 0.55, 0.070, 0.026), "chrome")
+    for sx in (-1, 1):
+        P.box((sx * 0.300, ny + 0.062, 0.442), (0.230, 0.055, 0.068), "lampW")
+    ty = 1.20
+    for sx in (-1, 1):
+        P.box((sx * 0.310, ty - 0.050, 0.470), (0.230, 0.060, 0.090), "lampRed")
+    P.box((0.0, ty - 0.038, 0.450), (0.300, 0.055, 0.062), "trim")
+
+    # corner markers — these sit under the blinking 'hazard' glow sprites that
+    # js/arcade.js parks at local (+-0.50, +-1.02). Move them and the blink
+    # detaches from the car. Tucked in far enough to read as a lens, not a flag.
+    for sy in (-1, 1):
+        for sx in (-1, 1):
+            # ride the flank, don't guess at it: at |y|=1.02 the body has already
+            # tucked in to ~0.545, so a lens parked at a hardcoded 0.50 buries
+            # itself inside the paint and only the corner peeks out.
+            hwm = pw(sy * 1.020, CAR_HW)
+            P.box((sx * (hwm - 0.012), sy * 1.020, 0.452), (0.075, 0.105, 0.070), "amber")
+
+    # --- wing mirrors: a stalk and a housing, at the base of the A-pillar ---------
+    # z 0.60, not 0.64: the greenhouse has already tucked in by the belt, and at
+    # 0.64 the stalk started in mid-air with a cube hovering beside the screen.
+    for sx in (-1, 1):
+        P.box((sx * 0.545, -0.330, 0.598), (0.090, 0.046, 0.030), "trim")
+        P.box((sx * 0.612, -0.335, 0.612), (0.070, 0.105, 0.068), "paint")
+
+    # --- door seam + handle: a shallow groove is worth more than a painted line ---
+    # INSET (hw - 0.020, box 0.020 wide) so the seam is a crease in the flank,
+    # not a panel bolted onto it.
+    for sx in (-1, 1):
+        hwm = 0.578
+        P.box((sx * (hwm - 0.020), 0.055, 0.395), (0.020, 0.020, 0.300), "paintLo")
+        P.box((sx * (hwm - 0.002), -0.115, 0.505), (0.026, 0.110, 0.034), "chrome")
+
+    # segments=1: on a body this smooth the second bevel segment costs ~1.4k
+    # triangles and a pile of split-normal duplicate vertices to buy an edge
+    # highlight nobody can see from the pavement.
+    return P.finish(bevel=0.016, segments=1, smooth_deg=42)
+
+
+# ---- THE REGULARS ---------------------------------------------------------------------
+# The five who stand outside the hall after dark. In js/arcade.js they were
+# `blob3` (a wobbled UV sphere) with `box3` cubes stuck on for eyes, hats and
+# hands. Local origin at the FEET, front at -Y (Blender) = +Z (hall), and the
+# height of each is a contract with NPCS[] in arcade.js — a model taller than
+# its `h` pushes its name prompt and its head glow into its own skull.
+#
+#   crumb 1.00   gravy 0.55 (sits on the bench at yBase 0.45)   hood 1.05
+#   hen   0.78   dill  1.12
+
+def _eyes(P, y, z, sep, r, mat="black"):
+    """A pair of eyes set INTO the face rather than bolted onto it.
+
+    `y` is the face SURFACE. The ball is squashed front-to-back and its centre
+    pushed behind that surface, so only the front ~40% of it emerges. Full
+    spheres parked proud of the skin read as googly eyes — which is exactly
+    how Gravy's first pair came out."""
+    for sx in (-1, 1):
+        P.blob((sx * sep, y + r * 0.40, z), (r * 2, r * 1.6, r * 2), mat, stacks=6, slices=8)
+
+
+def build_crumb():
+    """BIG CRUMB — the bouncer. A slab of nugget in night sunglasses and a bow
+    tie, arms crossed, unimpressed."""
+    P = Part("crumb")
+    NUG = [(0.0, 0.0), (0.05, 0.55), (0.16, 0.82), (0.30, 0.96), (0.46, 1.0),
+           (0.63, 0.98), (0.78, 0.90), (0.90, 0.70), (1.0, 0.0)]
+    HW = 0.86 / 2   # remember the half-width; hanging arms off a guessed number
+                    # is what buried the first pair INSIDE his own body
+    # the man himself: one big flattened nugget, lumpy the way a nugget is
+    P.blob((0, 0, 0.115), (0.86, 0.60, 0.855), "nug", prof=NUG, lump=0.055, seed=1.7,
+           stacks=13, slices=16)
+    # feet: two rounded shoes, toes forward
+    for sx in (-1, 1):
+        P.blob((sx * 0.170, -0.045, 0.0), (0.235, 0.340, 0.130), "nugDark",
+               prof=[(0, 0.75), (0.5, 1.0), (1.0, 0.55)], stacks=5, slices=10)
+    # crossed arms: shoulder OUTSIDE the flank, forearms folded over the belly.
+    # Slung LOW — at z 0.615 the shoulders sat level with the shades and the
+    # arms looked like they grew out of his cheeks.
+    for sx in (-1, 1):
+        P.limb((sx * (HW - 0.02), -0.02, 0.470), (sx * (HW + 0.070), -0.10, 0.330), 0.092, 0.080, "nug")
+        P.limb((sx * (HW + 0.070), -0.10, 0.330), (-sx * 0.095, -0.265, 0.352), 0.080, 0.065, "nug")
+        P.blob((-sx * 0.110, -0.280, 0.305), (0.145, 0.145, 0.125), "nugDark", stacks=6, slices=9)
+    # the shades: a wraparound band with two lenses, out on the face not the brow
+    P.limb((-0.335, -0.235, 0.700), (0.335, -0.235, 0.700), 0.032, 0.032, "black", slices=8)
+    for sx in (-1, 1):
+        P.blob((sx * 0.160, -0.262, 0.640), (0.265, 0.130, 0.125), "black",
+               prof=[(0, 0.5), (0.4, 1.0), (0.75, 1.0), (1.0, 0.45)], stacks=5, slices=10)
+    # earpieces, back along the sides of his head
+    for sx in (-1, 1):
+        P.limb((sx * 0.320, -0.245, 0.702), (sx * 0.395, 0.060, 0.678), 0.026, 0.020, "black", slices=6)
+    # bow tie: two wedges and a knot, worn at the collar — ABOVE the folded arms
+    for sx in (-1, 1):
+        P.blob((sx * 0.115, -0.272, 0.478), (0.185, 0.115, 0.150), "sauce",
+               prof=[(0, 0.95), (0.5, 0.55), (1.0, 0.95)], stacks=4, slices=8)
+    P.blob((0, -0.292, 0.510), (0.085, 0.085, 0.085), "wood", stacks=5, slices=8)
+    return P.finish(bevel=0.008, segments=1, smooth_deg=48)
+
+
+def build_dill():
+    """DETECTIVE DILL — a dill pickle in a fedora and a trench collar, badge on
+    the chest, notepad out, working the Catch Incident."""
+    P = Part("dill")
+    PICKLE = [(0.0, 0.0), (0.04, 0.62), (0.14, 0.88), (0.30, 0.99), (0.50, 1.0),
+              (0.68, 0.96), (0.82, 0.86), (0.92, 0.66), (1.0, 0.0)]
+    # the pickle: taller than he is wide, gently bumpy, flattened front-to-back
+    P.blob((0, 0, 0.04), (0.40, 0.36, 0.92), "pickle", prof=PICKLE, lump=0.05, seed=4.1,
+           stacks=14, slices=14)
+    # trench collar: sits ON the shoulders and slopes DOWN and out. The first
+    # pass flared upward at r=0.255 and read as a dinner plate round his neck.
+    P.limb((0, -0.005, 0.700), (0, -0.005, 0.605), 0.150, 0.215, "felt", slices=14, cap=False)
+    P.limb((0, -0.005, 0.700), (0, -0.005, 0.660), 0.150, 0.158, "feltDk", slices=14, cap=False)
+    # arms out of the collar, one holding the notepad
+    P.limb((-0.170, -0.02, 0.635), (-0.215, -0.145, 0.50), 0.062, 0.052, "felt")
+    P.limb((0.170, -0.02, 0.635), (0.175, -0.175, 0.545), 0.062, 0.052, "felt")
+    P.blob((-0.215, -0.165, 0.455), (0.10, 0.10, 0.095), "pickleDk", stacks=5, slices=8)
+    P.blob((0.175, -0.195, 0.505), (0.10, 0.10, 0.095), "pickleDk", stacks=5, slices=8)
+    # the notepad, flipped open
+    P.box((0.185, -0.235, 0.545), (0.115, 0.020, 0.145), "paper")
+    P.box((0.185, -0.245, 0.612), (0.115, 0.016, 0.030), "paper", taper=0.9)
+    # the badge
+    P.blob((0.115, -0.155, 0.585), (0.085, 0.045, 0.105), "badge", stacks=5, slices=8)
+    # THE FEDORA: brim with a real dip at the front, a creased crown, a band
+    P.brim((0, -0.01, 0.955), 0.115, 0.275, "felt", thick=0.026, tilt=-0.030)
+    P.blob((0, -0.01, 0.945), (0.325, 0.315, 0.175), "felt",
+           prof=[(0, 1.0), (0.55, 0.97), (0.82, 0.80), (1.0, 0.42)], stacks=6, slices=14)
+    P.limb((0, -0.01, 0.975), (0, -0.01, 1.020), 0.170, 0.168, "feltDk", slices=14, cap=False)
+    # the crown pinch — two dents either side of the centre crease
+    for sx in (-1, 1):
+        P.blob((sx * 0.085, -0.01, 1.070), (0.115, 0.20, 0.075), "felt", stacks=5, slices=9)
+    _eyes(P, -0.145, 0.735, 0.080, 0.038)
+    return P.finish(bevel=0.008, segments=1, smooth_deg=48)
+
+
+def build_gravy():
+    """GRAVY JONES — a weathered sauce cup settled on the bench, lid ajar, eyes
+    at half mast. He does not get up."""
+    P = Part("gravy")
+    # the cup: a tapered tub with a rolled rim, dented on one side
+    rings = []
+    for v, r, z in ((0.00, 0.150, 0.000), (0.10, 0.158, 0.055), (0.45, 0.180, 0.245),
+                    (0.80, 0.198, 0.420), (0.94, 0.205, 0.480), (1.00, 0.212, 0.505)):
+        ring = []
+        for j in range(18):
+            a = (j / 18) * math.tau
+            dent = 1.0 - 0.055 * math.exp(-((math.cos(a - 2.2) - 1) ** 2) * 6) * (1 - v)
+            ring.append((math.cos(a) * r * dent, math.sin(a) * r * dent, z))
+        rings.append(ring)
+    P.loft(rings, "cup", cap_a=True, cap_b=False)
+    # the rolled rim
+    P.limb((0, 0, 0.505), (0, 0, 0.527), 0.212, 0.206, "cup", slices=18, cap=False)
+    # the lid, ajar: an offset disc tipped off the rim
+    P.brim((0.015, -0.02, 0.560), 0.0, 0.215, "lid", thick=0.030, tilt=0.038, slices=18)
+    P.limb((0.015, -0.02, 0.545), (0.015, -0.02, 0.566), 0.200, 0.212, "lid", slices=18, cap=False)
+    # a sauce tide-line where the cup has been sitting a while
+    P.limb((0, 0, 0.300), (0, 0, 0.318), 0.186, 0.187, "sauce", slices=18, cap=False)
+    # heavy lids over tired eyes. The lid is a HOOD over the top third — the
+    # first version was as big as the eye and sat in front of it, so Gravy had
+    # two white tabs for a face.
+    _eyes(P, -0.170, 0.348, 0.064, 0.042)
+    for sx in (-1, 1):
+        P.blob((sx * 0.064, -0.182, 0.402), (0.112, 0.070, 0.038), "cup",
+               prof=[(0, 0.9), (0.55, 1.0), (1.0, 0.55)], stacks=4, slices=9)
+    return P.finish(bevel=0.007, segments=1, smooth_deg=48)
+
+
+def build_hood():
+    """THE HOODED NUG — a robe to the floor, a deep cowl, and two amber glints
+    where a face should be. Four for four on rumours."""
+    P = Part("hood")
+    # the robe: flares to the pavement, no feet, gathers at the shoulders
+    ROBE = [(0.0, 1.0), (0.20, 0.86), (0.48, 0.74), (0.72, 0.70), (0.88, 0.66), (1.0, 0.58)]
+    rings = []
+    for i in range(11):
+        v = i / 10
+        r = pw(v, ROBE)
+        ring = []
+        for j in range(16):
+            a = (j / 16) * math.tau
+            fold = 1 + 0.045 * math.sin(a * 6 + 0.4) * (0.4 + 0.6 * (1 - v))
+            ring.append((math.cos(a) * 0.310 * r * fold, math.sin(a) * 0.265 * r * fold, v * 0.700))
+        rings.append(ring)
+    P.loft(rings, "cloth", cap_a=True, cap_b=False)
+    # shoulders under the cloth
+    P.limb((-0.205, 0.0, 0.600), (0.205, 0.0, 0.600), 0.140, 0.140, "cloth", slices=10)
+    # the nug inside, in shadow
+    P.blob((0, -0.020, 0.640), (0.270, 0.245, 0.310), "nugDark", stacks=8, slices=12)
+
+    # THE COWL. First attempt was an arc swept over the head; it rendered as a
+    # MUSHROOM CAP — a wide flat disc with no face under it. A cowl is not a
+    # dome on a stick: it is a closed teardrop of cloth with a CAVE punched
+    # into the front. So this builds a closed shell and pushes the front-centre
+    # inward, leaving a recess dark enough for two eyes to live in.
+    CZ0, CH = 0.560, 0.520
+    SL, ST = 18, 11
+    FRONT = -math.pi / 2      # -Y is the face direction
+
+    def cowl_pt(v, j):
+        a = (j / SL) * math.tau
+        ph = math.pi * (0.10 + 0.86 * v)
+        rr = math.sin(ph)
+        zz = CZ0 + CH * (0.5 - math.cos(ph) * 0.5)
+        # angular and vertical falloff around the face opening
+        da = math.atan2(math.sin(a - FRONT), math.cos(a - FRONT))
+        fa = max(0.0, 1.0 - (abs(da) / 1.05) ** 2)
+        fv = max(0.0, 1.0 - ((v - 0.44) / 0.40) ** 2)
+        dish = 1.0 - 0.62 * fa * fv
+        return (math.cos(a) * 0.300 * rr * dish,
+                math.sin(a) * 0.285 * rr * dish - 0.030 * (1 - v),
+                zz)
+
+    cowl = [[cowl_pt(i / (ST - 1), j) for j in range(SL)] for i in range(ST)]
+
+    def cowl_mat(i, j):
+        v = (i + 0.5) / (ST - 1)
+        a = ((j + 0.5) / SL) * math.tau
+        da = math.atan2(math.sin(a - FRONT), math.cos(a - FRONT))
+        inside = abs(da) < 0.80 and 0.16 < v < 0.72
+        return "clothDk" if inside else "cloth"
+
+    P.loft(cowl, "cloth", cap_a=False, cap_b=False, mat_fn=cowl_mat)
+    # the eyes, down in the recess. The only bright thing on him.
+    for sx in (-1, 1):
+        P.blob((sx * 0.072, -0.150, 0.660), (0.056, 0.050, 0.068), "eye", stacks=5, slices=8)
+    return P.finish(bevel=0.007, segments=1, smooth_deg=50)
+
+
+def build_hen():
+    """HENRIETTA — an actual hen. Comb, wattle, tail fan, and the small
+    skeptical eyes of someone who has heard this before."""
+    P = Part("hen")
+    # body: an egg tipped nose-down, tail high
+    P.blob((0, 0.03, 0.155), (0.30, 0.40, 0.375), "hen",
+           prof=[(0, 0.0), (0.10, 0.68), (0.34, 0.96), (0.60, 1.0), (0.82, 0.82), (1.0, 0.0)],
+           stacks=10, slices=14)
+    # neck and head
+    P.limb((0, -0.045, 0.400), (0, -0.100, 0.545), 0.098, 0.082, "hen", slices=10, cap=False)
+    P.blob((0, -0.115, 0.475), (0.185, 0.195, 0.215), "hen", stacks=8, slices=12)
+    # the comb: three lobes along the crown
+    for i, (yy, rr, zz) in enumerate(((-0.055, 0.042, 0.660), (-0.115, 0.052, 0.672), (-0.170, 0.038, 0.652))):
+        P.blob((0, yy, zz), (0.030, rr * 2, rr * 2.1), "comb", stacks=5, slices=8)
+    # wattle, under the beak
+    P.blob((0, -0.185, 0.500), (0.055, 0.048, 0.090), "comb", stacks=5, slices=8)
+    # beak: a tapered wedge, not a box
+    P.limb((0, -0.180, 0.560), (0, -0.290, 0.545), 0.052, 0.010, "beak", slices=8)
+    _eyes(P, -0.205, 0.588, 0.072, 0.030)
+    # wings folded along the flanks
+    for sx in (-1, 1):
+        P.blob((sx * 0.150, 0.020, 0.195), (0.075, 0.320, 0.260), "henDark",
+               prof=[(0, 0.35), (0.4, 1.0), (0.75, 0.92), (1.0, 0.30)], stacks=6, slices=10)
+    # tail fan: three swept feathers
+    for i, sx in enumerate((-1, 0, 1)):
+        P.blob((sx * 0.075, 0.290 + abs(sx) * 0.02, 0.330 - abs(sx) * 0.04),
+               (0.075, 0.240, 0.300), "hen",
+               prof=[(0, 0.30), (0.45, 1.0), (1.0, 0.22)], stacks=5, slices=8)
+    # legs and feet
+    for sx in (-1, 1):
+        P.limb((sx * 0.075, -0.010, 0.150), (sx * 0.082, -0.020, 0.030), 0.030, 0.024, "beak", slices=7)
+        for ty, tx in ((-0.075, 0.0), (-0.050, 0.045), (-0.050, -0.045)):
+            P.limb((sx * 0.082, -0.020, 0.024), (sx * 0.082 + tx, ty, 0.014), 0.020, 0.010, "beak", slices=6)
+    return P.finish(bevel=0.006, segments=1, smooth_deg=48)
+
+
+# ---- THE CABINET -----------------------------------------------------------------------
+# Ten of these stand in the hall and they are what a visitor looks at for most
+# of their visit. The old one was five extruded quads off a side profile: no
+# T-molding, no coin door, no speakers, and a joystick painted onto the control
+# panel as a picture of a joystick.
+#
+# THE PROFILE IS A CONTRACT. js/arcade.js's PROF/CAB_ZB still compute the CRT
+# quad (`screen.pts`), the zoom target, the interaction AABB and the marquee
+# glow position from these exact numbers — that metadata stays in JS and only
+# the visible geometry moves here. Change a number and the camera will fly to
+# a screen that is no longer where the picture is.
+CAB_PROF = [
+    (0.000, 0.340),   # floor
+    (1.020, 0.340),   # lower front (coin door)
+    (1.120, 0.460),   # deck lip
+    (1.200, 0.140),   # control panel (slanted top)
+    (1.680, 0.020),   # screen face (leans back)
+    (1.940, 0.160),   # marquee (leans forward)
+]
+CAB_W, CAB_H, CAB_ZB, CAB_ZMAX = 0.920, 1.940, -0.420, 0.460
+
+
+def build_cabinet():
+    """One model, ten machines. Blender front is -Y; the JS profile measures
+    `zFront` as POSITIVE toward the player, so V() flips it once here rather
+    than sprinkling minus signs through ninety coordinates."""
+    P = Part("cabinet")
+    hw = CAB_W / 2
+    prof = CAB_PROF
+    T = 0.026          # T-molding thickness: the strip that caps a cabinet's edges
+
+    def V(x, zf, y):
+        return (x, -zf, y)
+
+    # --- THE BODY: ONE CLOSED PRISM ------------------------------------------------
+    # Extrude the side outline across the cabinet's width. The tube WALLS are
+    # the front segments (coin door, deck, control panel, screen face, marquee)
+    # plus the top and back; the two CAPS are the side-art panels.
+    #
+    # Closed and manifold on purpose. The first version built the sides as
+    # separate open slabs and the front as loose quads, which left the body a
+    # single open shell — and `recalc_face_normals` cannot tell you which way
+    # an open shell should face. Half the machine ended up inside-out, and
+    # since the hall culls back faces, that is not "shaded oddly", it is GONE:
+    # ten attract screens hanging in mid-air with no cabinets around them.
+    # A closed solid has exactly one right answer and Blender always finds it.
+    poly = [(z, y) for (y, z) in prof] + [(CAB_ZB, CAB_H), (CAB_ZB, 0.0)]
+    seg_mat = ["cabFront", "cabMetal", "cabPanel", "cabBezel", "cabMarq",
+               "cabDark", "cabDark", "cabDark"]   # ...top, back, underside
+    fw = hw - T
+    P.loft([[V(-fw, z, y) for (z, y) in poly], [V(fw, z, y) for (z, y) in poly]],
+           "cabFront", cap_a=True, cap_b=True, cap_mat="cabSide",
+           mat_fn=lambda i, j: seg_mat[j] if j < len(seg_mat) else "cabDark")
+
+    # --- ARTWORK UVs: the per-game panels have to be READ, not projected ----------
+    # Same mapping the original JS quads used, so every marquee, panel and side
+    # panel that ArcadeArt paints still lands exactly where its painter expects.
+    def across(x):
+        return (x + fw) / (2 * fw)
+
+    def seg_v(i, y):
+        """0 at the far end of profile segment i, 1 at the near end — matching
+        the v the old B.quad() call handed this face."""
+        y1, y2 = prof[i][0], prof[i + 1][0]
+        return 1.0 - (y - y1) / (y2 - y1)
+
+    P.set_uv("cabFront", lambda x, y, z: (across(x), seg_v(0, z)))
+    P.set_uv("cabMetal", lambda x, y, z: (across(x), seg_v(1, z)))
+    P.set_uv("cabBezel", lambda x, y, z: (across(x), seg_v(3, z)))
+    P.set_uv("cabMarq", lambda x, y, z: (across(x), seg_v(4, z)))
+    # the control panel is nearly horizontal: run v along its DEPTH, front to back
+    P.set_uv("cabPanel", lambda x, y, z: (across(x), ((-y) - prof[3][1]) / (prof[2][1] - prof[3][1])))
+    # side art spans the whole side profile: u across the depth, v down the height
+    P.set_uv("cabSide", lambda x, y, z: (((-y) - CAB_ZB) / (CAB_ZMAX - CAB_ZB), 1.0 - z / CAB_H))
+
+    # --- T-MOLDING: the proud lip that follows a cabinet's whole edge ---------------
+    # The signature detail of an arcade machine. Without it you have a box with
+    # a picture on the side.
+    for sx in (-1, 1):
+        mold = []
+        for out_d, grow in ((0.000, -0.014), (T * 0.70, -0.003), (T * 1.05, 0.004),
+                            (T * 0.70, -0.003), (0.000, -0.014)):
+            mold.append([V(sx * (fw + out_d), z, y) for (z, y) in _grow(poly, grow)])
+        P.loft(mold, "cabTrim", cap_a=False, cap_b=False)
+
+    # --- MARQUEE LIGHT BOX: a hood over the top, glowing from underneath -----------
+    P.box(V(0, 0.215, 1.985), (CAB_W + 0.03, 0.135, 0.055), "cabTrimD")
+    P.box(V(0, 0.185, 1.950), (CAB_W - 0.10, 0.075, 0.018), "cabLight")
+
+    # --- SPEAKER GRILLE under the marquee ------------------------------------------
+    P.box(V(0, 0.058, 1.742), (CAB_W - 0.14, 0.028, 0.088), "cabMetalD")
+    for i in range(9):
+        gx = -0.31 + i * 0.0775
+        P.limb(V(gx, 0.074, 1.706), V(gx, 0.074, 1.778), 0.014, 0.014, "cabDark", slices=7)
+
+    # --- BEZEL: the CRT sits in a recess with a lip that catches the room ----------
+    y1, z1 = prof[3]
+    y2, z2 = prof[4]
+    nl = math.hypot(z2 - z1, y2 - y1)
+    bny, bnz = -(z2 - z1) / nl, (y2 - y1) / nl      # outward normal of the screen face
+
+    def fp(t, xx, off):
+        return V(xx, z1 + (z2 - z1) * t + bnz * off, y1 + (y2 - y1) * t + bny * off)
+
+    inx = hw * 0.80
+    frames = [(0.015, 0.095, -inx - 0.034, inx + 0.034),
+              (0.905, 0.985, -inx - 0.034, inx + 0.034)]
+    for (ta, tb, xa, xb) in frames:
+        P.loft([[fp(ta, xa, 0.004), fp(tb, xa, 0.004), fp(tb, xb, 0.004), fp(ta, xb, 0.004)],
+                [fp(ta, xa, 0.040), fp(tb, xa, 0.040), fp(tb, xb, 0.040), fp(ta, xb, 0.040)]],
+               "cabTrimD")
+    for sx in (-1, 1):
+        xa, xb = sx * (inx + 0.002), sx * (inx + 0.034)
+        P.loft([[fp(0.05, xa, 0.004), fp(0.95, xa, 0.004), fp(0.95, xb, 0.004), fp(0.05, xb, 0.004)],
+                [fp(0.05, xa, 0.040), fp(0.95, xa, 0.040), fp(0.95, xb, 0.040), fp(0.05, xb, 0.040)]],
+               "cabTrimD")
+
+    # --- CONTROL PANEL: a joystick and buttons you could actually grab -------------
+    py1, pz1 = prof[2]
+    py2, pz2 = prof[3]
+    pl = math.hypot(pz2 - pz1, py2 - py1)
+    pny, pnz = -(pz2 - pz1) / pl, (py2 - py1) / pl
+
+    def cp(t, xx, off=0.0):
+        return V(xx, pz1 + (pz2 - pz1) * t + pnz * off, py1 + (py2 - py1) * t + pny * off)
+
+    jx, jt = -0.250, 0.50
+    P.limb(cp(jt, jx, 0.002), cp(jt, jx, 0.020), 0.054, 0.045, "cabMetal", slices=12)
+    P.limb(cp(jt, jx, 0.016), cp(jt, jx, 0.088), 0.017, 0.015, "cabMetalD", slices=8)
+    P.blob(cp(jt, jx, 0.076), (0.072, 0.072, 0.074), "btnRed", stacks=7, slices=10)
+    cols = ["btnRed", "btnAmber", "btnCyan"]
+    for row, tt in enumerate((0.34, 0.64)):
+        for i in range(3):
+            bx = 0.020 + i * 0.100
+            P.limb(cp(tt, bx, 0.001), cp(tt, bx, 0.014), 0.041, 0.037, "cabMetalD", slices=10)
+            P.blob(cp(tt, bx, 0.009), (0.068, 0.068, 0.026), cols[(i + row) % 3],
+                   prof=[(0, 0.92), (0.55, 1.0), (1.0, 0.45)], stacks=4, slices=10)
+    for bx in (-0.075, 0.015):
+        P.limb(cp(0.88, bx, 0.001), cp(0.88, bx, 0.011), 0.029, 0.027, "cabMetalD", slices=8)
+        P.blob(cp(0.88, bx, 0.007), (0.048, 0.048, 0.018), "btnWhite",
+               prof=[(0, 0.92), (0.55, 1.0), (1.0, 0.45)], stacks=4, slices=8)
+
+    # --- COIN DOOR: recessed steel, two slots, a return cup, a lock ---------------
+    cz = prof[0][1]
+    P.box(V(0, cz - 0.012, 0.560), (0.380, 0.028, 0.440), "cabMetalD")
+    P.box(V(0, cz + 0.008, 0.560), (0.345, 0.020, 0.405), "cabMetal")
+    for sx in (-1, 1):
+        P.box(V(sx * 0.100, cz + 0.022, 0.690), (0.118, 0.022, 0.118), "cabMetalD")
+        P.box(V(sx * 0.100, cz + 0.033, 0.706), (0.015, 0.012, 0.064), "coinSlot")
+    P.box(V(0, cz + 0.016, 0.428), (0.195, 0.026, 0.078), "coinSlot")
+    P.limb(V(0, cz + 0.008, 0.585), V(0, cz + 0.028, 0.585), 0.026, 0.022, "cabMetal", slices=8)
+
+    # --- kick plate and levelers ---------------------------------------------------
+    P.box(V(0, cz - 0.004, 0.068), (CAB_W - 0.06, 0.018, 0.128), "cabMetalD")
+    for sx in (-1, 1):
+        for zz in (cz - 0.07, CAB_ZB + 0.09):
+            P.limb(V(sx * (hw - 0.075), zz, 0.0), V(sx * (hw - 0.075), zz, 0.032),
+                   0.026, 0.026, "cabMetalD", slices=6)
+    return P.finish(bevel=0.006, segments=1, smooth_deg=34)
+
+
+def _grow(poly, d):
+    """Offset a closed 2D outline outward by d (used for the T-molding lip)."""
+    if not d:
+        return list(poly)
+    cx = sum(p[0] for p in poly) / len(poly)
+    cy = sum(p[1] for p in poly) / len(poly)
+    out = []
+    for (x, y) in poly:
+        vx, vy = x - cx, y - cy
+        L = math.hypot(vx, vy) or 1.0
+        out.append((x + vx / L * d, y + vy / L * d))
+    return out
+
+
+REGULARS = {
+    "crumb": build_crumb, "dill": build_dill, "gravy": build_gravy,
+    "hood": build_hood, "hen": build_hen,
+}
+
+
+# ---- THE STREET AND THE ROOM -----------------------------------------------------------
+# Props and architecture. Same rules as everything else: origin on the ground,
+# front at -Y (Blender) = +Z (hall), and never move the object — build_all()
+# keeps everything at the origin because extract() bakes matrix_world.
+#
+# The trim pieces are ONE UNIT LONG on X and get stretched by the call site
+# (Builder.model's per-axis scale). A moulding profile does not distort when
+# you stretch it along its own run, so a 1m section covers a 20m wall.
+
+def build_street_lamp():
+    """A cast-iron streetlamp: stepped plinth, fluted tapered post, a curved
+    arm, and a real lantern with a glowing lens. Was a four-quad box pole with
+    a four-quad box on the end."""
+    P = Part("streetLamp")
+    # stepped plinth
+    P.cyl((0, 0, 0.055), "z", 0.150, 0.150, 0.110, "iron", slices=12)
+    P.cyl((0, 0, 0.140), "z", 0.128, 0.104, 0.070, "iron", slices=12)
+    P.cyl((0, 0, 0.210), "z", 0.098, 0.086, 0.075, "ironD", slices=12)
+    # the post, tapering, with two collars
+    P.cyl((0, 0, 1.700), "z", 0.070, 0.050, 3.000, "iron", slices=12, cap=False)
+    for zz, r in ((0.62, 0.082), (2.62, 0.062)):
+        P.cyl((0, 0, zz), "z", r, r, 0.055, "ironD", slices=12)
+    # the arm: a quarter-turn sweep out over the pavement (model front, -Y)
+    steps = 7
+    prev = None
+    for i in range(steps + 1):
+        t = i / steps
+        a = t * math.pi * 0.5
+        y = -0.70 * math.sin(a)
+        z = 3.20 - 0.24 * (1 - math.cos(a))
+        if prev:
+            P.limb(prev, (0, y, z), 0.044 - 0.010 * t, 0.042 - 0.010 * t, "iron", slices=8, cap=False)
+        prev = (0, y, z)
+    # the lantern: a tapered housing, a glowing lens beneath, a finial on top
+    P.cyl((0, -0.700, 3.010), "z", 0.075, 0.185, 0.110, "ironD", slices=10)
+    P.cyl((0, -0.700, 2.880), "z", 0.180, 0.140, 0.170, "lampGlass", slices=10, cap=False)
+    P.cyl((0, -0.700, 2.790), "z", 0.140, 0.055, 0.045, "lampHot", slices=10)
+    P.blob((0, -0.700, 3.070), (0.070, 0.070, 0.110), "iron", stacks=5, slices=8)
+    return P.finish(bevel=0.006, segments=1, smooth_deg=40)
+
+
+def build_bench():
+    """A slatted park bench with cast-iron ends. 2.0 long, seat facing +Z in
+    the hall — Gravy Jones sits on it, so the seat height is a contract (his
+    yBase is 0.45)."""
+    P = Part("bench")
+    L = 2.0
+    for sx in (-1, 1):
+        ex = sx * (L / 2 - 0.10)
+        # end frame: two legs, an armrest curl, a back stile
+        P.limb((ex, 0.115, 0.0), (ex, 0.150, 0.450), 0.036, 0.030, "ironD", slices=8)
+        P.limb((ex, -0.150, 0.0), (ex, -0.170, 0.450), 0.036, 0.030, "ironD", slices=8)
+        P.limb((ex, -0.170, 0.440), (ex, 0.150, 0.440), 0.030, 0.030, "ironD", slices=8)
+        P.limb((ex, 0.150, 0.430), (ex, 0.190, 0.930), 0.032, 0.026, "ironD", slices=8)
+        P.limb((ex, -0.180, 0.470), (ex, -0.150, 0.700), 0.026, 0.022, "ironD", slices=8)
+        P.limb((ex, -0.150, 0.700), (ex, 0.060, 0.760), 0.026, 0.024, "ironD", slices=8)
+        P.blob((ex, 0.075, 0.740), (0.070, 0.140, 0.070), "ironD", stacks=5, slices=8)
+    # seat slats, front to back
+    for i, yy in enumerate((-0.135, -0.045, 0.045, 0.135)):
+        P.box((0, yy, 0.470), (L - 0.06, 0.072, 0.036), "wood")
+    # back slats, raked
+    for i, (yy, zz) in enumerate(((0.165, 0.620), (0.180, 0.730), (0.196, 0.840))):
+        P.box((0, yy, zz), (L - 0.10, 0.032, 0.078), "wood")
+    return P.finish(bevel=0.005, segments=1, smooth_deg=40)
+
+
+def build_facade_bay():
+    """One bay of the block across the road: pilasters, two windows set into
+    real reveals with sills and lintels, a stringcourse and a cornice.
+
+    The whole opposite side of the street was ONE FLAT QUAD with windows
+    painted on it. Painted windows have no reveal, so they never catch a
+    shadow and the block reads as wallpaper — which is precisely what it
+    looked like. This sits proud of that quad, which stays as the backdrop.
+    """
+    P = Part("facadeBay")
+    W, H = 3.00, 5.40
+    hw = W / 2
+    D = 0.150            # how far the bay stands off the flat wall behind it
+    # pilasters up both edges
+    for sx in (-1, 1):
+        P.box((sx * (hw - 0.130), -D / 2, 2.500), (0.260, D, 5.000), "brickD")
+        P.box((sx * (hw - 0.130), -D - 0.020, 2.500), (0.200, 0.045, 4.900), "brickD")
+    # spandrel panels between the windows, standing proud
+    for zz, hh in ((0.900, 1.800), (3.150, 0.700)):
+        P.box((0, -D / 2, zz), (W - 0.520, D, hh), "brick")
+    # two windows, each in a recess with a sill and a lintel
+    for zc in (2.150, 4.250):
+        P.box((0, -D + 0.055, zc), (W - 0.640, 0.110, 1.180), "glassDark")
+        # reveal: jambs, head and cill returns around the opening
+        for sx in (-1, 1):
+            P.box((sx * (W / 2 - 0.320), -D / 2 + 0.010, zc), (0.090, D - 0.020, 1.300), "brickD")
+        P.box((0, -D / 2 + 0.010, zc + 0.650), (W - 0.560, D - 0.020, 0.100), "brickD")
+        # sill, proud and shadow-casting
+        P.box((0, -D - 0.060, zc - 0.660), (W - 0.440, 0.170, 0.090), "stone")
+        # lintel band
+        P.box((0, -D - 0.035, zc + 0.720), (W - 0.480, 0.115, 0.085), "stone")
+        # window mullion + transom
+        P.box((0, -D + 0.005, zc), (0.045, 0.055, 1.180), "ironD")
+        P.box((0, -D + 0.005, zc + 0.330), (W - 0.640, 0.055, 0.040), "ironD")
+    # stringcourse and cornice
+    P.box((0, -D - 0.075, 3.560), (W, 0.180, 0.120), "stone")
+    P.box((0, -D - 0.110, 5.180), (W, 0.250, 0.180), "stone")
+    P.box((0, -D - 0.070, 5.330), (W, 0.180, 0.120), "brickD")
+    return P.finish(bevel=0.006, segments=1, smooth_deg=36)
+
+
+def build_ac_unit():
+    """A window air-conditioner, dripping onto the pavement since forever."""
+    P = Part("acUnit")
+    P.box((0, -0.180, 0.170), (0.560, 0.360, 0.340), "metalD")
+    P.box((0, -0.362, 0.170), (0.500, 0.020, 0.280), "metalG")
+    for i in range(6):
+        P.box((-0.200 + i * 0.080, -0.372, 0.170), (0.022, 0.014, 0.250), "metalD")
+    # the bracket that holds it up
+    for sx in (-1, 1):
+        P.limb((sx * 0.240, -0.010, 0.010), (sx * 0.240, -0.340, 0.010), 0.020, 0.016, "ironD", slices=6)
+        P.limb((sx * 0.240, -0.340, 0.010), (sx * 0.240, -0.030, -0.230), 0.016, 0.014, "ironD", slices=6)
+    return P.finish(bevel=0.005, segments=1, smooth_deg=40)
+
+
+def build_trim_base():
+    """One metre of skirting board. Stretched along a wall by the call site."""
+    P = Part("trimBase")
+    prof = [(0.000, 0.000), (0.062, 0.000), (0.062, 0.115), (0.048, 0.140),
+            (0.048, 0.168), (0.020, 0.196), (0.000, 0.196)]
+    rings = [[(x, -py, pz) for (py, pz) in prof] for x in (0.0, 1.0)]
+    P.loft(rings, "trimWood", cap_a=True, cap_b=True)
+    return P.finish(bevel=0.004, segments=1, smooth_deg=34)
+
+
+def build_trim_crown():
+    """One metre of crown moulding: origin at the ceiling line, hangs down."""
+    P = Part("trimCrown")
+    prof = [(0.000, 0.000), (0.170, 0.000), (0.150, -0.055), (0.100, -0.105),
+            (0.052, -0.140), (0.030, -0.185), (0.030, -0.245), (0.000, -0.245)]
+    rings = [[(x, -py, pz) for (py, pz) in prof] for x in (0.0, 1.0)]
+    P.loft(rings, "trimWood", cap_a=True, cap_b=True)
+    return P.finish(bevel=0.004, segments=1, smooth_deg=34)
+
+
+MODELS = {"compact": build_compact, "cabinet": build_cabinet}
+MODELS.update(REGULARS)
+MODELS.update({
+    "streetLamp": build_street_lamp,
+    "bench": build_bench,
+    "facadeBay": build_facade_bay,
+    "acUnit": build_ac_unit,
+    "trimBase": build_trim_base,
+    "trimCrown": build_trim_crown,
+})
+
+
+def build_all(only=None):
+    """Every model at the ORIGIN. Do not lay them out in a row.
+
+    extract() bakes `matrix_world` into the vertices, so an object nudged
+    aside "just for the contact sheet" ships that nudge to the hall. It cost a
+    whole debugging pass: the cabinets were exported 2.2m sideways and 3m back
+    and drew *inside the west wall*, which looks exactly like geometry that
+    failed to build. preview() frames one object at a time and contact sheets
+    are composited from separate renders — nothing needs them spread out.
+    """
+    wipe()
+    return [fn() for name, fn in MODELS.items() if not only or name in only]
+
+
+# ---- preview ------------------------------------------------------------------------
+# Not a production render — a look-at-it rig. The hall's own lighting decides how
+# these actually read; this just answers "is the SHAPE right".
+
+def preview(target=None, out=None, res=760, azim=38, elev=22, dist=None):
+    sc = _scene()
+    obs = [o for o in sc.collection.all_objects if o.type == "MESH" and not o.name.startswith("_")]
+    if target:
+        obs = [o for o in obs if o.name == target]
+    if not obs:
+        raise RuntimeError("nothing to preview")
+    lo = Vector((1e9, 1e9, 1e9))
+    hi = Vector((-1e9, -1e9, -1e9))
+    for o in obs:
+        for c in o.bound_box:
+            w = o.matrix_world @ Vector(c)
+            lo = Vector((min(lo[i], w[i]) for i in range(3)))
+            hi = Vector((max(hi[i], w[i]) for i in range(3)))
+    ctr = (lo + hi) / 2
+    rad = max((hi - lo).length / 2, 0.2)
+    dist = dist or rad * 3.2
+
+    try:
+        sc.render.engine = "BLENDER_EEVEE_NEXT"
+    except Exception:
+        sc.render.engine = "BLENDER_EEVEE"
+    try:
+        sc.eevee.use_raytracing = True
+    except Exception:
+        pass
+    sc.render.resolution_x = res
+    sc.render.resolution_y = int(res * 0.72)
+    sc.render.resolution_percentage = 100
+    sc.render.film_transparent = False
+    sc.view_settings.view_transform = "Standard"
+    sc.view_settings.look = "None"
+    sc.render.image_settings.file_format = "PNG"
+
+    w = bpy.data.worlds.get("MeshNight") or bpy.data.worlds.new("MeshNight")
+    w.use_nodes = True
+    w.node_tree.nodes.get("Background").inputs[0].default_value = (0.035, 0.04, 0.06, 1.0)
+    sc.world = w
+
+    def lamp(name, kind):
+        o = sc.collection.all_objects.get(name)
+        if not o:
+            o = bpy.data.objects.new(name, bpy.data.lights.new(name, kind))
+            sc.collection.objects.link(o)
+        return o
+
+    k = lamp("_key", "AREA")
+    k.data.energy = 260 * rad * rad
+    k.data.size = rad * 2.5
+    k.data.color = (1.0, 0.93, 0.84)
+    k.location = ctr + Vector((-dist * 0.55, -dist * 0.62, dist * 0.85))
+    k.rotation_euler = (math.radians(52), 0, math.radians(-42))
+    f = lamp("_fill", "AREA")
+    f.data.energy = 70 * rad * rad
+    f.data.size = rad * 4
+    f.data.color = (0.45, 0.6, 1.0)
+    f.location = ctr + Vector((dist * 0.8, dist * 0.35, dist * 0.4))
+    f.rotation_euler = (math.radians(74), 0, math.radians(115))
+    r = lamp("_rim", "AREA")
+    r.data.energy = 120 * rad * rad
+    r.data.size = rad * 2
+    r.data.color = (1.0, 0.35, 0.75)
+    r.location = ctr + Vector((dist * 0.3, dist * 0.9, dist * 0.5))
+    r.rotation_euler = (math.radians(66), 0, math.radians(160))
+
+    # a ground plane so the silhouette has something to sit on
+    gp = sc.collection.all_objects.get("_ground")
+    if not gp:
+        me = bpy.data.meshes.new("_ground")
+        bm = bmesh.new()
+        s = rad * 14
+        vs = [bm.verts.new((-s, -s, 0)), bm.verts.new((s, -s, 0)),
+              bm.verts.new((s, s, 0)), bm.verts.new((-s, s, 0))]
+        bm.faces.new(vs)
+        bm.to_mesh(me)
+        bm.free()
+        gp = bpy.data.objects.new("_ground", me)
+        mg = bpy.data.materials.get("_gnd") or bpy.data.materials.new("_gnd")
+        mg.use_nodes = True
+        b = mg.node_tree.nodes.get("Principled BSDF")
+        b.inputs["Base Color"].default_value = (0.05, 0.05, 0.06, 1)
+        b.inputs["Roughness"].default_value = 0.35
+        gp.data.materials.append(mg)
+        sc.collection.objects.link(gp)
+
+    cam = sc.collection.all_objects.get("_cam")
+    if not cam:
+        cam = bpy.data.objects.new("_cam", bpy.data.cameras.new("_cam"))
+        sc.collection.objects.link(cam)
+    a, e = math.radians(azim), math.radians(elev)
+    cam.location = ctr + Vector((math.sin(a) * math.cos(e) * dist,
+                                 -math.cos(a) * math.cos(e) * dist,
+                                 math.sin(e) * dist))
+    d = (ctr - cam.location).normalized()
+    cam.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
+    cam.data.lens = 60
+    sc.camera = cam
+
+    hide = [o for o in sc.collection.all_objects
+            if o.type == "MESH" and not o.name.startswith("_") and o not in obs]
+    for o in hide:
+        o.hide_render = True
+    out = out or os.path.join(OUT_DEFAULT, "_preview.png")
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    sc.render.filepath = out
+    bpy.ops.render.render(write_still=True)
+    for o in hide:
+        o.hide_render = False
+    return out
+
+
+def build_library(repo=None, path=None):
+    """Save every model into blender/hall_meshes.blend, one collection each.
+
+    The factory above is the source of truth — this file exists so the shapes
+    can be OPENED, poked at, and re-rendered without running any of it, and so
+    there is something to hand an artist. Keep it in sync with whatever you
+    render (same rule as nugrig.build_library).
+    """
+    path = path or os.path.join(repo or os.path.join(REPO, "blender"), "hall_meshes.blend")
+    obs = build_all()
+    sc = _scene()
+    for ob in obs:
+        col = bpy.data.collections.get(ob.name) or bpy.data.collections.new(ob.name)
+        if col.name not in sc.collection.children:
+            sc.collection.children.link(col)
+        for c in list(ob.users_collection):
+            c.objects.unlink(ob)
+        col.objects.link(ob)
+    bpy.ops.wm.save_as_mainfile(filepath=path, copy=True)
+    return path
+
+
+def export_gltf(out_dir=None):
+    """One .glb per model — the Unreal on-ramp. 1 unit = 1 hall metre here
+    (NOT nugrig's 1-unit-per-game-pixel), so these import at real scale."""
+    out_dir = out_dir or os.path.join(OUT_DEFAULT, "glb")
+    os.makedirs(out_dir, exist_ok=True)
+    sc = _scene()
+    written = []
+    for ob in list(sc.collection.all_objects):
+        if ob.type != "MESH" or ob.name.startswith("_"):
+            continue
+        bpy.ops.object.select_all(action="DESELECT")
+        ob.select_set(True)
+        bpy.context.view_layer.objects.active = ob
+        fp = os.path.join(out_dir, ob.name + ".glb")
+        bpy.ops.export_scene.gltf(filepath=fp, use_selection=True, export_format="GLB")
+        written.append(fp)
+    return written
+
+
+def export_all(out_dir=None, names=None):
+    out_dir = out_dir or OUT_DEFAULT
+    os.makedirs(out_dir, exist_ok=True)
+    sc = _scene()
+    written = []
+    for ob in sc.collection.all_objects:
+        if ob.type != "MESH" or ob.name.startswith("_"):
+            continue
+        if names and ob.name not in names:
+            continue
+        # Models are placed by the call site in js/arcade.js; a translation on
+        # the object here would be baked into every vertex and silently offset
+        # the thing in the hall. Refuse it rather than ship it.
+        if max(abs(v) for v in ob.location) > 1e-6:
+            print("hallmesh: %s is at %s — zeroing before export" % (ob.name, tuple(ob.location)))
+            ob.location = (0, 0, 0)
+            bpy.context.view_layer.update()
+        d = extract(ob)
+        d["name"] = ob.name
+        path = os.path.join(out_dir, ob.name + ".json")
+        with open(path, "w") as fh:
+            json.dump(d, fh)
+        written.append((ob.name, len(d["verts"]), len(d["tris"])))
+    return written

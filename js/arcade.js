@@ -407,14 +407,93 @@ void main() {
       opts
     );
   };
+  // Append a Blender-authored mesh (js/hallMesh.js) placed by position + yaw.
+  //
+  // Returns FALSE — never throws, never draws nothing — if the geometry is
+  // unavailable for any reason: the file didn't load, the model isn't in it,
+  // its payload is corrupt, or the live atlas is missing a region it needs.
+  // That's the contract every call site relies on to fall back to its
+  // procedural box rig (blender/HANDOFF.md §1.5).
+  //
+  // uv rects are resolved HERE, not at export: the street atlas is shelf-packed
+  // at runtime, so a model ships region-relative uv and learns its atlas
+  // coordinates only once the packer has run.
+  //
+  // Does NOT honour `this.tf` — that hook recomputes normals from transformed
+  // corners, which only works for flat quads. Models carry real split normals,
+  // so they rotate themselves. buildCabinet is the only tf user and it builds
+  // no models.
+  Builder.prototype.model = function (name, uvMap, xf) {
+    if (typeof HallMesh === 'undefined' || !HallMesh || !HallMesh.on()) return false;
+    const M = HallMesh.get(name);
+    if (!M) return false;
+    // xf.remap lets ONE model serve many instances that differ only in which
+    // atlas region a surface wears — the cabinet is modelled once and each of
+    // the ten games swaps in its own marquee, panel and side art.
+    const remap = (xf && xf.remap) || null;
+    const rects = [];
+    for (let k = 0; k < M.mats.length; k++) {
+      let region = M.mats[k][0];
+      if (remap && remap[region]) region = remap[region];
+      const r = uvMap && uvMap[region];
+      if (!r) return false;   // region never allocated — bail before we emit junk uv
+      rects.push(r);
+    }
+    xf = xf || {};
+    const px = xf.x || 0, py = xf.y || 0, pz = xf.z || 0;
+    const yaw = xf.yaw || 0, sc = xf.s == null ? 1 : xf.s;
+    // per-axis scale: the deluxe Knight cabinet is 1.55 x 1.18 x 1.15
+    const sx = xf.sx == null ? sc : xf.sx;
+    const sy = xf.sy == null ? sc : xf.sy;
+    const sz = xf.sz == null ? sc : xf.sz;
+    // normals go through the inverse transpose — for an axis scale that is
+    // just 1/s per axis, renormalised. Scaling a normal like a position tilts
+    // every shading normal on a non-uniformly scaled model.
+    const ix = 1 / sx, iy = 1 / sy, iz = 1 / sz;
+    const c = Math.cos(yaw), sn = Math.sin(yaw);   // same handedness as mRotY
+    const lo = M.lo, sp = M.span, base = this.n;
+    for (let i = 0; i < M.n; i++) {
+      const x = (lo[0] + (M.pos[i * 3] / 65535) * sp[0]) * sx;
+      const y = (lo[1] + (M.pos[i * 3 + 1] / 65535) * sp[1]) * sy;
+      const z = (lo[2] + (M.pos[i * 3 + 2] / 65535) * sp[2]) * sz;
+      let nx = (M.nrm[i * 3] / 127) * ix, ny = (M.nrm[i * 3 + 1] / 127) * iy,
+        nz = (M.nrm[i * 3 + 2] / 127) * iz;
+      const nl = Math.hypot(nx, ny, nz) || 1;
+      nx /= nl; ny /= nl; nz /= nl;
+      const mi = M.mat[i], rc = rects[mi], mm = M.mats[mi];
+      this.v.push(
+        x * c + z * sn + px, y + py, -x * sn + z * c + pz,
+        nx * c + nz * sn, ny, -nx * sn + nz * c,
+        rc[0] + (rc[2] - rc[0]) * (M.uv[i * 2] / 65535),
+        rc[1] + (rc[3] - rc[1]) * (M.uv[i * 2 + 1] / 65535),
+        // baked AO rides in the tint channel — the one per-vertex float this
+        // format already had and never used for anything per-vertex.
+        mm[1], mm[2] * (M.ao[i] / 255)
+      );
+    }
+    for (let i = 0; i < M.idx.length; i++) this.i.push(base + M.idx[i]);
+    this.n += M.n;
+    return true;
+  };
   Builder.prototype.upload = function (gl) {
     const vbo = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.v), gl.STATIC_DRAW);
     const ibo = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.i), gl.STATIC_DRAW);
-    return { vbo, ibo, count: this.i.length };
+    // 32-bit indices when the buffer outgrows 16. Ten Blender cabinets are
+    // ~56k vertices between them, so the hall's static buffer now sails past
+    // the 65535 a Uint16 index can address — and an overflow does not error,
+    // it WRAPS, stitching triangles between unrelated vertices. Which looks
+    // exactly like black spikes stabbing out of the geometry.
+    let type = gl.UNSIGNED_SHORT, bytes = 2;
+    if (this.n > 65535) {
+      if (H.uintIndex) { type = gl.UNSIGNED_INT; bytes = 4; }
+      else console.warn('arcade: ' + this.n + ' vertices with no OES_element_index_uint — geometry will wrap');
+    }
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,
+      bytes === 4 ? new Uint32Array(this.i) : new Uint16Array(this.i), gl.STATIC_DRAW);
+    return { vbo, ibo, count: this.i.length, verts: this.n, type, bytes };
   };
 
   // Sub-rect of a uv region: fx0..fx1 across, fy0..fy1 down (0=top of region).
@@ -491,14 +570,34 @@ void main() {
       ['cabFront', 0], ['metal', 0], ['panel_' + game.mode, 0.15],
       ['bezel', 0], ['marq_' + game.mode, 0.72], // marquee lit but not blown out
     ];
+    // THE MACHINE ITSELF is a Blender model now (blender/hallmesh.py
+    // build_cabinet): T-molding, a coin door with slots and a return cup, a
+    // speaker grille, a marquee light box, and a joystick and buttons you could
+    // put a hand on. The per-game artwork rides in as a region REMAP, so one
+    // model wears all ten games.
+    //
+    // Everything below still runs either way: PROF is a CONTRACT, and the CRT
+    // quad, the zoom target, the interaction AABB and the marquee glow are all
+    // derived from it right here. Only the visible shell moved to Blender —
+    // if it fails to load, the original extruded-profile cabinet draws instead.
+    const meshCab = B.model('cabinet', uv, {
+      x: px, z: pz, yaw, sx: sw, sy: sh, sz: sd,
+      remap: {
+        $MARQ: 'marq_' + game.mode,
+        $PANEL: 'panel_' + game.mode,
+        $SIDE: 'side_' + game.mode,
+      },
+    });
     let screenPts = null;
     for (let i = 0; i < 5; i++) {
       const [y1, z1] = prof[i], [y2, z2] = prof[i + 1];
       const [name, em] = segUV[i];
-      B.quad(
-        [-hw, y1, z1], [hw, y1, z1], [hw, y2, z2], [-hw, y2, z2],
-        uv[name], { e: em }
-      );
+      if (!meshCab) {
+        B.quad(
+          [-hw, y1, z1], [hw, y1, z1], [hw, y2, z2], [-hw, y2, z2],
+          uv[name], { e: em }
+        );
+      }
       if (i === 3) {
         // The CRT: inset quad floating a hair in front of the bezel face.
         const t1 = 0.1, t2 = 0.9, inx = hw * 0.8;
@@ -515,23 +614,25 @@ void main() {
         screenPts = [pt(t1, -inx), pt(t1, inx), pt(t2, inx), pt(t2, -inx)].map(B.tf);
       }
     }
-    // top cap, back, underside skipped (never visible)
-    B.quad([-hw, HH, prof[5][1]], [hw, HH, prof[5][1]], [hw, HH, zb], [-hw, HH, zb], uv.dark, {});
-    B.quad([hw, 0, zb], [-hw, 0, zb], [-hw, HH, zb], [hw, HH, zb], uv.dark, {});
-    // sides: one trapezoid per profile segment, from the back plane to the profile
-    const sideUV = uv['side_' + game.mode];
-    const su = (z) => sideUV[0] + ((z - zb) / (zMax - zb)) * (sideUV[2] - sideUV[0]);
-    const sv = (y) => sideUV[3] - (y / HH) * (sideUV[3] - sideUV[1]);
-    for (let i = 0; i < 5; i++) {
-      const [y1, z1] = prof[i], [y2, z2] = prof[i + 1];
-      B.quadV(
-        [[-hw, y1, zb], [-hw, y1, z1], [-hw, y2, z2], [-hw, y2, zb]],
-        [[su(zb), sv(y1)], [su(z1), sv(y1)], [su(z2), sv(y2)], [su(zb), sv(y2)]], {}
-      );
-      B.quadV(
-        [[hw, y1, z1], [hw, y1, zb], [hw, y2, zb], [hw, y2, z2]],
-        [[su(z1), sv(y1)], [su(zb), sv(y1)], [su(zb), sv(y2)], [su(z2), sv(y2)]], {}
-      );
+    if (!meshCab) {
+      // top cap, back, underside skipped (never visible)
+      B.quad([-hw, HH, prof[5][1]], [hw, HH, prof[5][1]], [hw, HH, zb], [-hw, HH, zb], uv.dark, {});
+      B.quad([hw, 0, zb], [-hw, 0, zb], [-hw, HH, zb], [hw, HH, zb], uv.dark, {});
+      // sides: one trapezoid per profile segment, from the back plane to the profile
+      const sideUV = uv['side_' + game.mode];
+      const su = (z) => sideUV[0] + ((z - zb) / (zMax - zb)) * (sideUV[2] - sideUV[0]);
+      const sv = (y) => sideUV[3] - (y / HH) * (sideUV[3] - sideUV[1]);
+      for (let i = 0; i < 5; i++) {
+        const [y1, z1] = prof[i], [y2, z2] = prof[i + 1];
+        B.quadV(
+          [[-hw, y1, zb], [-hw, y1, z1], [-hw, y2, z2], [-hw, y2, zb]],
+          [[su(zb), sv(y1)], [su(z1), sv(y1)], [su(z2), sv(y2)], [su(zb), sv(y2)]], {}
+        );
+        B.quadV(
+          [[hw, y1, z1], [hw, y1, zb], [hw, y2, zb], [hw, y2, z2]],
+          [[su(z1), sv(y1)], [su(zb), sv(y1)], [su(zb), sv(y2)], [su(z2), sv(y2)]], {}
+        );
+      }
     }
     // top edge of the marquee cap glow strip
     B.tf = null;
@@ -610,6 +711,31 @@ void main() {
     wallX(B, -1.25, 0.12, -0.12, 0, 2.6, uv.dark, 0.3, 2.6, {});
     wallX(B, 1.25, -0.12, 0.12, 0, 2.6, uv.dark, 0.3, 2.6, {});
     wallZ(B, -0.12, -1.25, 1.25, 2.6, 2.72, uv.dark, 2.5, 0.2, {});
+
+    // ---- ARCHITECTURAL TRIM ------------------------------------------------------
+    // Skirting and crown moulding, mitred into the room's corners. A flat wall
+    // meeting a flat floor at a hard line is the single most "untextured box"
+    // thing about a room; a moulding gives both junctions an edge that catches
+    // the neon. One 1m Blender section per run, stretched to length (the
+    // profile does not distort along its own axis).
+    //
+    // Local: the section runs along +x with the wall behind it at z=0, so a
+    // yaw turns the run onto whichever wall it belongs to.
+    {
+      const runs = [
+        // [x, z, yaw, length]  — yaw aims the profile's front into the room
+        [-X + 0.02, 0, Math.PI / 2, -ZB],       // west wall, running -z
+        [X - 0.02, ZB, -Math.PI / 2, -ZB],      // east wall, running +z
+        [-X, ZB + 0.02, 0, 2 * X],              // north wall, running +x
+        [X, -0.02, Math.PI, X - 1.25],          // south wall, right of the doors
+        [-1.25, -0.02, Math.PI, X - 1.25],      // south wall, left of the doors
+      ];
+      for (const [tx, tz, tyaw, len] of runs) {
+        if (len <= 0) continue;
+        B.model('trimBase', uv, { x: tx, z: tz, yaw: tyaw, sx: len });
+        B.model('trimCrown', uv, { x: tx, y: CH, z: tz, yaw: tyaw, sx: len });
+      }
+    }
 
     // neon trim strips (emissive) along the side + back walls
     const strip = (bld, name) => {
@@ -1713,6 +1839,28 @@ void main() {
     wallX(ST, 21.5, 12.8, 13.9, 0, 6, suv.brick, 2.2, 2.2, {});
     wallX(ST, 21.5, 9.0, 12.8, 3.6, 6, suv.brick, 2.2, 2.2, {}); // archway header
     wallZ(ST, 13.9, 21.5, -21.5, 0, 5.4, suv.across, 21.5, 5.4, { e: 0.22 }); // faces -z
+    // THE BLOCK ACROSS THE ROAD. That one quad above is 43 metres of wall with
+    // windows PAINTED on it — no reveals, so nothing ever catches a shadow and
+    // the whole far side of the street reads as wallpaper. These bays stand
+    // proud of it with real openings, sills, lintels and a cornice; the quad
+    // stays behind as the backdrop, and if the mesh is unavailable you simply
+    // get the old flat wall.
+    {
+      const BAY = 3.0, z = 13.9;
+      for (let i = 0; i < 14; i++) {
+        const bx = -20.0 + i * BAY;
+        // DIP HOP's basement door and its neon are the only things ON this
+        // wall (the shops are at z=0.04, on the arcade's own side of the
+        // street). A bay over the top of them buries the club entrance.
+        if (bx > -9.0 && bx < -3.0) continue;
+        if (!ST.model('facadeBay', suv, { x: bx, z, yaw: Math.PI })) break;
+        // a few of them wear an air conditioner over the lower window
+        if ((i * 7) % 5 === 0) {
+          ST.model('acUnit', suv, { x: bx + 0.55, y: 1.42, z: z - 0.16, yaw: Math.PI });
+          H.glows.push({ p: [bx, 4.3, z - 0.35], c: [1, 0.86, 0.55], s: 0.7, a: 0.05, k: 'sign' });
+        }
+      }
+    }
 
     // storefronts sit proud of the brick
     const shop = (x0, x1, name, e) =>
@@ -1726,9 +1874,12 @@ void main() {
     wallZ(ST, 8, 21.5, -21.5, 0, 0.09, suv.sw_curb, 4, 0.09, {}); // curb face → -z
     planeY(ST, 0.09, -21.5, 21.5, 7.72, 8.01, suv.sw_curb, 4, false, {});
 
-    // streetlamps down the curb line
+    // streetlamps down the curb line — cast iron, with a real lantern on the
+    // end of a curved arm (blender/hallmesh.py build_street_lamp). yaw PI turns
+    // the model's -z arm to reach out over the pavement.
     for (const lx of [-15, -5.5, 5, 15]) {
       const lz = 7.3;
+      if (!ST.model('streetLamp', suv, { x: lx, z: lz, yaw: Math.PI })) {
       ST.quad([lx - 0.07, 0, lz + 0.07], [lx + 0.07, 0, lz + 0.07], [lx + 0.07, 3.2, lz + 0.07], [lx - 0.07, 3.2, lz + 0.07], suv.sw_iron, { tint: 0.85 });
       ST.quad([lx + 0.07, 0, lz - 0.07], [lx - 0.07, 0, lz - 0.07], [lx - 0.07, 3.2, lz - 0.07], [lx + 0.07, 3.2, lz - 0.07], suv.sw_iron, { tint: 0.85 });
       ST.quad([lx - 0.07, 0, lz - 0.07], [lx - 0.07, 0, lz + 0.07], [lx - 0.07, 3.2, lz + 0.07], [lx - 0.07, 3.2, lz - 0.07], suv.sw_iron, { tint: 0.85 });
@@ -1741,19 +1892,23 @@ void main() {
       ST.quad([lx - 0.16, 2.98, lz - 0.72], [lx - 0.16, 2.98, lz - 0.42], [lx - 0.16, 3.12, lz - 0.42], [lx - 0.16, 3.12, lz - 0.72], suv.sw_amber, { e: 1 });
       ST.quad([lx + 0.16, 2.98, lz - 0.42], [lx + 0.16, 2.98, lz - 0.72], [lx + 0.16, 3.12, lz - 0.72], [lx + 0.16, 3.12, lz - 0.42], suv.sw_amber, { e: 1 });
       ST.quad([lx - 0.16, 2.98, lz - 0.72], [lx + 0.16, 2.98, lz - 0.72], [lx + 0.16, 2.98, lz - 0.42], [lx - 0.16, 2.98, lz - 0.42], suv.sw_amber, { e: 1 }); // underside faces down
+      }
       H.glows.push({ p: [lx, 3.0, lz - 0.57], c: [1, 0.72, 0.35], s: 1.5, a: 0.2, k: 'sign' });
       H.propBoxes.push({ min: [lx - 0.15, 0, lz - 0.15], max: [lx + 0.15, 3.3, lz + 0.15] });
     }
 
-    // a bench for Gravy (seat + back + legs)
+    // a bench for Gravy — slatted, cast-iron ends. The seat stays at 0.45
+    // because his NPCS[] yBase sits him on it.
     {
       const bx0 = 8.3, bx1 = 10.3, bz = 0.62;
+      if (!ST.model('bench', suv, { x: (bx0 + bx1) / 2, z: bz + 0.21 })) {
       planeY(ST, 0.45, bx0, bx1, bz, bz + 0.42, suv.sw_wood, 2.2, false, {});
       ST.quad([bx0, 0.45, bz], [bx1, 0.45, bz], [bx1, 0.95, bz], [bx0, 0.95, bz], suv.sw_wood, { tint: 0.9 });
       ST.quad([bx1, 0.45, bz - 0.02], [bx0, 0.45, bz - 0.02], [bx0, 0.95, bz - 0.02], [bx1, 0.95, bz - 0.02], suv.sw_wood, { tint: 0.75 });
       for (const lx2 of [bx0 + 0.15, bx1 - 0.15]) {
         ST.quad([lx2 - 0.04, 0, bz + 0.42], [lx2 + 0.04, 0, bz + 0.42], [lx2 + 0.04, 0.45, bz + 0.42], [lx2 - 0.04, 0.45, bz + 0.42], suv.sw_woodDark, {});
         ST.quad([lx2 + 0.04, 0, bz + 0.02], [lx2 - 0.04, 0, bz + 0.02], [lx2 - 0.04, 0.45, bz + 0.02], [lx2 + 0.04, 0.45, bz + 0.02], suv.sw_woodDark, {});
+      }
       }
       H.propBoxes.push({ min: [bx0, 0, bz - 0.05], max: [bx1, 0.95, bz + 0.5] });
     }
@@ -1844,6 +1999,13 @@ void main() {
     {
       const cx0 = -10.6, cx1 = -8.2, cz0 = 8.75, cz1 = 9.95;
       const cmx = (cx0 + cx1) / 2, cmz = (cz0 + cz1) / 2;
+      // THE COMPACT, in the metal. blender/hallmesh.py build_compact(): a
+      // lofted body with wheel arches, a raked screen, and four round wheels,
+      // parked nose-west (yaw -90° turns the model's local +z front onto -x).
+      // Everything below the `if` is the original slab rig, kept as the
+      // fallback — it is what you see if js/hallMesh.js fails to load.
+      const carMesh = ST.model('compact', suv, { x: cmx, z: cmz, yaw: -Math.PI / 2 });
+      if (!carMesh) {
       // wheels: four dark stubs under the corners
       for (const [wx, wz] of [[cx0 + 0.42, cz0 + 0.13], [cx1 - 0.42, cz0 + 0.13], [cx0 + 0.42, cz1 - 0.13], [cx1 - 0.42, cz1 - 0.13]]) {
         for (const [a, b] of [[[wx - 0.19, wz + 0.12], [wx + 0.19, wz + 0.12]], [[wx + 0.19, wz - 0.12], [wx - 0.19, wz - 0.12]],
@@ -1870,6 +2032,9 @@ void main() {
         if (face === 1) ST.quad([x0h, 0.36, hz2], [x1h, 0.36, hz2], [x1h, 0.47, hz2], [x0h, 0.47, hz2], suv.sw_amber, { e: 0.2 });
         else ST.quad([x1h, 0.36, hz2], [x0h, 0.36, hz2], [x0h, 0.47, hz2], [x1h, 0.47, hz2], suv.sw_amber, { e: 0.2 });
       }
+      } // end procedural compact fallback
+      // The blink lives in the sprite pass either way — the mesh carries amber
+      // corner lenses at local (±0.50, ±1.02) so these sit right on them.
       H.glows.push({ p: [cx0 + 0.14, 0.42, cz0 - 0.06], c: [1, 0.7, 0.15], s: 0.75, a: 0.3, k: 'hazard' });
       H.glows.push({ p: [cx1 - 0.14, 0.42, cz0 - 0.06], c: [1, 0.7, 0.15], s: 0.75, a: 0.3, k: 'hazard' });
       H.glows.push({ p: [cmx, 0.5, cz1 + 0.06], c: [1, 0.7, 0.15], s: 0.9, a: 0.22, k: 'hazard' });
@@ -2121,9 +2286,14 @@ void main() {
     };
 
     const npcBufs = {};
+    // Each regular is a Blender model (blender/hallmesh.py build_<id>()) with
+    // its hand-built blob3/box3 rig kept underneath as the fallback. The models
+    // share this file's conventions exactly: origin at the feet, +z is the
+    // character's front, and the height matches NPCS[].h so the name prompt and
+    // the head glow still land above the head and not inside it.
     const makeNpc = (id, fn) => {
       const B2 = new Builder();
-      fn(B2);
+      if (!B2.model(id, suv, {})) fn(B2);
       npcBufs[id] = B2.upload(gl);
     };
 
@@ -2477,6 +2647,10 @@ void main() {
     H.canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); exit(true); });
 
     gl.enable(gl.DEPTH_TEST);
+    // 32-bit element indices: the Blender geometry pushes the static buffer well
+    // past 65535 vertices. Universally supported in practice; if it is ever
+    // missing, upload() warns and the hall still runs on 16-bit.
+    H.uintIndex = !!gl.getExtension('OES_element_index_uint');
     gl.enable(gl.CULL_FACE);
     gl.clearColor(FOG[0], FOG[1], FOG[2], 1);
 
@@ -2748,7 +2922,28 @@ void main() {
 
   // ---- state flow -----------------------------------------------------------------------
 
+  // js/hallMeshData.js is injected async at page load so its vertex data never
+  // blocks first paint. It is normally long since landed by the time anyone
+  // clicks the arcade button — but if someone is FAST, wait for it rather than
+  // build the whole hall out of fallback boxes and cache that for the session
+  // (build() is once-only; there is no second chance).
   function enter() {
+    if (typeof HallMesh !== 'undefined' && HallMesh && !H.built && !HallMesh.settled()) {
+      const root = document.getElementById('arcadeHall');
+      if (root && !H.waitEl) {
+        H.waitEl = document.createElement('div');
+        H.waitEl.className = 'hall-booting';
+        H.waitEl.textContent = 'WARMING UP THE CABINETS…';
+        root.appendChild(H.waitEl);
+        root.classList.add('on');
+      }
+      HallMesh.whenReady(() => {
+        if (H.waitEl) { H.waitEl.remove(); H.waitEl = null; }
+        enter();
+      });
+      return;
+    }
+    if (H.waitEl) { H.waitEl.remove(); H.waitEl = null; }
     try {
       if (!build()) { fallbackLaunch(); return; }
       // THE GRAND REOPENING: if the Blender sheet (js/hallArt.js) finished
@@ -3142,7 +3337,9 @@ void main() {
     gl.uniform1f(H.uni.uMirror, mirror);
     gl.uniform1f(H.uni.uBoost, boost);
     bindLit(buf);
-    gl.drawElements(gl.TRIANGLES, count == null ? buf.count : count, gl.UNSIGNED_SHORT, offset * 2);
+    const bytes = buf.bytes || 2;
+    gl.drawElements(gl.TRIANGLES, count == null ? buf.count : count,
+      buf.type || gl.UNSIGNED_SHORT, offset * bytes);
   }
 
   function doorModels() {
@@ -3162,7 +3359,8 @@ void main() {
     bindLit(H.bufs.screens);
     for (const cab of H.cabinets) {
       gl.bindTexture(gl.TEXTURE_2D, H.screenTex[cab.game.mode]);
-      gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, cab.screenIndex * 2);
+      const sb = H.bufs.screens;
+      gl.drawElements(gl.TRIANGLES, 6, sb.type || gl.UNSIGNED_SHORT, cab.screenIndex * (sb.bytes || 2));
     }
     gl.bindTexture(gl.TEXTURE_2D, H.texAtlas);
   }
