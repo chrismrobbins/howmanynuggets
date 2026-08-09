@@ -54,7 +54,8 @@ GRADE = {
     "cabFront": 1.3, "bezel": 1.25, "door": 1.25, "vending": 1.2,
     "change": 1.2, "road": 1.5, "pierWood": 1.45, "water": 1.6,
     "shopNoodle": 1.2, "shopLaundro": 1.2, "shopGarage": 1.2,
-    "across": 1.25, "sideBase": 1.3,
+    "across": 1.15, "sideBase": 1.3,
+    "carNose": 1.15, "carRoof": 1.15,
     "nugSkin": 1.25, "hoodCloth": 1.3, "cupGravy": 1.15,
     "henWhite": 1.15, "pickle": 1.25,
 }
@@ -67,17 +68,36 @@ TARGET_KEY = {
     "water": ("street", "water"), "shopNoodle": ("street", "shopNoodle"),
     "shopLaundro": ("street", "shopLaundro"), "shopGarage": ("street", "shopGarage"),
     "across": ("street", "across"), "nugSkin": ("street", "nugSkin"),
+    "carNose": ("street", "gtaCarSide"), "carRoof": ("street", "gtaCarSide"),
+    "carGlass": None,
     "hoodCloth": ("street", "hoodCloth"), "cupGravy": ("street", "cupGravy"),
     "henWhite": ("street", "henWhite"), "pickle": ("street", "pickle"),
 }
 
-# Neon signage: no grading (emissive, drawn with e:1 in-engine), baked glow.
-NEON_GLOW = {"sign": 10, "open": 7, "phrase": 8, "highscores": 8}
+# Neon signage: glow radius, then graded like everything else. These are drawn
+# with e:1 in-engine (the shader mixes toward 1.45), so an ungraded sign clips
+# to white on the wall — the SIGN BLOWOUT that shipped in 0b0eac0. protect=
+# keeps the tubes/bulbs themselves hot while the box returns to near-black.
+# Baked glow existed to fake a halo when the renderer had none. The hall has
+# a REAL bloom pass now, so baking one in only lifts the sign's black box to
+# gray — these stay at 0 and the engine does the glowing. (Kept as a dial in
+# case a future region is drawn somewhere bloom can't reach.)
+NEON_GLOW = {"sign": 0, "open": 0, "phrase": 0, "highscores": 0}
+NEON_PROTECT = 190
+# Emissive quads are drawn with e:1 and FS_LIT does mix(light, vec3(1.45), e)
+# — so ANY texel above 255/1.45 = 176 clips to flat white ON THE WALL, no
+# matter how clean the texture looks in isolation. That is what turned
+# "NUGGET" into a slab in 0b0eac0. Neon regions get a soft ceiling under it;
+# the perceived brightness comes from the bloom halo instead.
+EMISSIVE_CEIL = 172.0
+EMISSIVE_KNEE = 120.0
 
 # Tileables get wrap-safe grain (masks JPEG blocking, adds tooth).
 GRAINY = {"carpet", "wall", "wainscot", "ceiling", "brick", "sidewalk",
           "metal", "dark", "road", "pierWood", "nugSkin", "hoodCloth",
           "henWhite", "pickle"}
+# Anything the hall draws on an emissive quad also needs the ceiling.
+CEIL_TOO = {"across"}
 
 JPEG_QUALITY = 87
 
@@ -111,6 +131,17 @@ def grade(arr, target_rgb, contrast, protect=0):
         lum = arr @ np.array([0.2126, 0.7152, 0.0722])
         p = np.clip((lum - protect) / 80.0, 0, 1)[..., None]
         out = out * (1 - p) + arr * p
+    return out
+
+
+def soft_ceiling(arr, ceil=EMISSIVE_CEIL, knee=EMISSIVE_KNEE):
+    """Compress everything above `knee` into [knee, ceil] so the engine's
+    emissive multiply can't clip it. Below the knee nothing moves."""
+    out = arr.copy()
+    hi = arr > knee
+    if hi.any():
+        span = max(255.0 - knee, 1e-3)
+        out[hi] = knee + (arr[hi] - knee) / span * (ceil - knee)
     return out
 
 
@@ -173,7 +204,12 @@ def main():
     for name in names:
         arr = load_small(os.path.join(renders, name + ".png"))
         if name in NEON_GLOW:
-            arr = np.clip(glow(arr, NEON_GLOW[name]) * 1.28, 0, 255)
+            if NEON_GLOW[name]:
+                arr = glow(arr, NEON_GLOW[name])
+            # NO mean grade here (see the note on EMISSIVE_CEIL): these read
+            # bright because the hall multiplies them and blooms them, not
+            # because the texture is bright. Keep the box black.
+            arr = soft_ceiling(arr)
         elif name == "marqBase":
             base = arr @ np.array([0.2126, 0.7152, 0.0722]) / 255.0  # 0..1 shading
             for mode, (c1, c2) in GAMES.items():
@@ -206,6 +242,8 @@ def main():
             if t:
                 arr = grade(arr, t, GRADE.get(name, 1.2),
                             protect=100 if name == 'carpet' else 0)
+        if name in CEIL_TOO:
+            arr = soft_ceiling(arr, ceil=200, knee=150)
         if name in GRAINY:
             arr = grain(arr, hash(name) & 0xFFFF)
         add(name, arr)

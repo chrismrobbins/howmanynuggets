@@ -186,6 +186,158 @@ void main() {
   gl_FragColor = vec4(vColor.rgb * vColor.a * t, 1.0);
 }`;
 
+  // ---- post chain: the reason a dark neon room reads as LIGHT -----------------
+  // The hall used to draw straight to the screen, so every emissive quad was
+  // just a bright rectangle. Now the scene renders into an FBO, the hot pixels
+  // get extracted and blurred at quarter res, and the halo is added back —
+  // neon, CRTs, the carpet confetti and the marquees actually throw light.
+
+  const VS_POST = `
+attribute vec2 aPos;
+varying vec2 vUV;
+void main() { vUV = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }`;
+
+  const FS_BRIGHT = `
+precision mediump float;
+varying vec2 vUV;
+uniform sampler2D uTex;
+uniform float uThreshold, uKnee;
+void main() {
+  vec3 c = texture2D(uTex, vUV).rgb;
+  float l = max(max(c.r, c.g), c.b);
+  float f = clamp((l - uThreshold) / max(uKnee, 0.001), 0.0, 1.0);
+  gl_FragColor = vec4(c * f * f, 1.0);   // squared: soft knee, no hard edge
+}`;
+
+  const FS_BLUR = `
+precision mediump float;
+varying vec2 vUV;
+uniform sampler2D uTex;
+uniform vec2 uDir;
+void main() {
+  vec3 s = texture2D(uTex, vUV).rgb * 0.2270270;
+  s += (texture2D(uTex, vUV + uDir * 1.3846).rgb + texture2D(uTex, vUV - uDir * 1.3846).rgb) * 0.3162162;
+  s += (texture2D(uTex, vUV + uDir * 3.2308).rgb + texture2D(uTex, vUV - uDir * 3.2308).rgb) * 0.0702703;
+  gl_FragColor = vec4(s, 1.0);
+}`;
+
+  const FS_COMP = `
+precision mediump float;
+varying vec2 vUV;
+uniform sampler2D uScene, uBloom;
+uniform float uAmount;
+void main() {
+  vec3 c = texture2D(uScene, vUV).rgb;
+  vec3 b = texture2D(uBloom, vUV).rgb;
+  c += b * uAmount;
+  // a touch of extra saturation so the halos stay COLORED instead of washing
+  // toward white (the sign blowout lesson, this time in the shader)
+  float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  c = mix(vec3(l), c, 1.12);
+  gl_FragColor = vec4(c, 1.0);
+}`;
+
+  // Allocate (or reallocate on resize) the scene target + two ping-pong blur
+  // buffers. Returns false if the GPU won't give us a complete FBO — the hall
+  // then renders exactly as it always did.
+  function postSetup(gl, w, h) {
+    if (H.post && H.post.w === w && H.post.h === h) return true;
+    if (H.post === false) return false;
+    try {
+      if (H.post) {
+        gl.deleteFramebuffer(H.post.fbo); gl.deleteTexture(H.post.tex);
+        gl.deleteRenderbuffer(H.post.depth);
+        for (const b of H.post.blur) { gl.deleteFramebuffer(b.fbo); gl.deleteTexture(b.tex); }
+      }
+      const target = (tw, th, depth) => {
+        const tex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, tw, th, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        const fbo = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+        let rb = null;
+        if (depth) {
+          rb = gl.createRenderbuffer();
+          gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
+          gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, tw, th);
+          gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, rb);
+        }
+        const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+        return ok ? { fbo, tex, depth: rb } : null;
+      };
+      const bw = Math.max(1, w >> 2), bh = Math.max(1, h >> 2);
+      const scene = target(w, h, true);
+      const b0 = target(bw, bh, false);
+      const b1 = target(bw, bh, false);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      if (!scene || !b0 || !b1) throw new Error('incomplete framebuffer');
+      H.post = { ...scene, w, h, bw, bh, blur: [b0, b1] };
+      return true;
+    } catch (err) {
+      console.warn('Nugget Arcade: bloom unavailable, rendering direct', err);
+      H.post = false;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return false;
+    }
+  }
+
+  function postDraw(gl) {
+    const P = H.post;
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.BLEND);
+    gl.bindBuffer(gl.ARRAY_BUFFER, H.quadVbo);
+
+    const bind = (prog, aLoc) => {
+      gl.useProgram(prog);
+      gl.enableVertexAttribArray(aLoc);
+      gl.vertexAttribPointer(aLoc, 2, gl.FLOAT, false, 0, 0);
+    };
+
+    // 1) bright pass, straight into the quarter-res buffer
+    gl.bindFramebuffer(gl.FRAMEBUFFER, P.blur[0].fbo);
+    gl.viewport(0, 0, P.bw, P.bh);
+    bind(H.progBright, H.aBright);
+    gl.uniform1i(H.uniBright.uTex, 0);
+    gl.uniform1f(H.uniBright.uThreshold, 0.74);
+    gl.uniform1f(H.uniBright.uKnee, 0.30);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, P.tex);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    // 2) separable blur, twice, for a halo wide enough to read as light
+    bind(H.progBlur, H.aBlur);
+    gl.uniform1i(H.uniBlur.uTex, 0);
+    for (let pass = 0; pass < 2; pass++) {
+      for (const [dx, dy, src, dst] of [[1, 0, 0, 1], [0, 1, 1, 0]]) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, P.blur[dst].fbo);
+        gl.uniform2f(H.uniBlur.uDir, (dx * (1 + pass)) / P.bw, (dy * (1 + pass)) / P.bh);
+        gl.bindTexture(gl.TEXTURE_2D, P.blur[src].tex);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+      }
+    }
+
+    // 3) composite to the screen
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, H.canvas.width, H.canvas.height);
+    bind(H.progComp, H.aComp);
+    gl.uniform1i(H.uniComp.uScene, 0);
+    gl.uniform1i(H.uniComp.uBloom, 1);
+    gl.uniform1f(H.uniComp.uAmount, 0.92);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, P.tex);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, P.blur[0].tex);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.disableVertexAttribArray(H.aComp);
+    gl.enable(gl.DEPTH_TEST);
+  }
+
   function makeProgram(gl, vsSrc, fsSrc) {
     function sh(type, src) {
       const s = gl.createShader(type);
@@ -1701,16 +1853,16 @@ void main() {
       // body: painted flanks, solid nose/tail, roof panel
       wallZ(ST, cz1, cx0, cx1, 0.16, 0.58, suv.gtaCarSide, cx1 - cx0, 0.42, {}); // faces +z (the road)
       wallZ(ST, cz0, cx1, cx0, 0.16, 0.58, suv.gtaCarSide, cx1 - cx0, 0.42, {}); // faces -z (the curb — the one you see)
-      wallX(ST, cx0, cz0, cz1, 0.16, 0.58, suv.sw_carRed, cz1 - cz0, 0.42, {});  // nose → -x
-      wallX(ST, cx1, cz1, cz0, 0.16, 0.58, suv.sw_carRed, cz1 - cz0, 0.42, {});  // tail → +x
-      planeY(ST, 0.58, cx0, cx1, cz0, cz1, suv.sw_carRed, 2.6, false, {});
+      wallX(ST, cx0, cz0, cz1, 0.16, 0.58, suv.gtaCarNose, cz1 - cz0, 0.42, {});  // nose → -x
+      wallX(ST, cx1, cz1, cz0, 0.16, 0.58, suv.gtaCarNose, cz1 - cz0, 0.42, {});  // tail → +x
+      planeY(ST, 0.58, cx0, cx1, cz0, cz1, suv.gtaCarRoof, 2.6, false, {});
       // cabin: dark glass all round, red roof
       const gx0 = cx0 + 0.55, gx1 = cx1 - 0.55, gz0 = cz0 + 0.12, gz1 = cz1 - 0.12;
-      wallZ(ST, gz1, gx0, gx1, 0.58, 0.88, suv.sw_black, gx1 - gx0, 0.3, {});
-      wallZ(ST, gz0, gx1, gx0, 0.58, 0.88, suv.sw_black, gx1 - gx0, 0.3, {});
-      wallX(ST, gx0, gz0, gz1, 0.58, 0.88, suv.sw_black, gz1 - gz0, 0.3, {});
-      wallX(ST, gx1, gz1, gz0, 0.58, 0.88, suv.sw_black, gz1 - gz0, 0.3, {});
-      planeY(ST, 0.88, gx0, gx1, gz0, gz1, suv.sw_carRed, 1.6, false, {});
+      wallZ(ST, gz1, gx0, gx1, 0.58, 0.88, suv.gtaCarGlass, gx1 - gx0, 0.3, {});
+      wallZ(ST, gz0, gx1, gx0, 0.58, 0.88, suv.gtaCarGlass, gx1 - gx0, 0.3, {});
+      wallX(ST, gx0, gz0, gz1, 0.58, 0.88, suv.gtaCarGlass, gz1 - gz0, 0.3, {});
+      wallX(ST, gx1, gz1, gz0, 0.58, 0.88, suv.gtaCarGlass, gz1 - gz0, 0.3, {});
+      planeY(ST, 0.88, gx0, gx1, gz0, gz1, suv.gtaCarRoof, 1.6, false, {});
       // hazard corners (dim amber quads; the BLINK is the glow sprites below)
       for (const [hx2, face] of [[cx0 + 0.14, 1], [cx1 - 0.14, 1], [cx0 + 0.14, -1], [cx1 - 0.14, -1]]) {
         const hz2 = face === 1 ? cz1 + 0.005 : cz0 - 0.005;
@@ -2291,6 +2443,33 @@ void main() {
 
     // dynamic sprite buffer
     H.sprVbo = gl.createBuffer();
+
+    // post chain: programs + the fullscreen triangle pair
+    H.progBright = makeProgram(gl, VS_POST, FS_BRIGHT);
+    H.progBlur = makeProgram(gl, VS_POST, FS_BLUR);
+    H.progComp = makeProgram(gl, VS_POST, FS_COMP);
+    H.aBright = gl.getAttribLocation(H.progBright, 'aPos');
+    H.aBlur = gl.getAttribLocation(H.progBlur, 'aPos');
+    H.aComp = gl.getAttribLocation(H.progComp, 'aPos');
+    H.uniBright = {
+      uTex: gl.getUniformLocation(H.progBright, 'uTex'),
+      uThreshold: gl.getUniformLocation(H.progBright, 'uThreshold'),
+      uKnee: gl.getUniformLocation(H.progBright, 'uKnee'),
+    };
+    H.uniBlur = {
+      uTex: gl.getUniformLocation(H.progBlur, 'uTex'),
+      uDir: gl.getUniformLocation(H.progBlur, 'uDir'),
+    };
+    H.uniComp = {
+      uScene: gl.getUniformLocation(H.progComp, 'uScene'),
+      uBloom: gl.getUniformLocation(H.progComp, 'uBloom'),
+      uAmount: gl.getUniformLocation(H.progComp, 'uAmount'),
+    };
+    H.quadVbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, H.quadVbo);
+    gl.bufferData(gl.ARRAY_BUFFER,
+      new Float32Array([-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1]), gl.STATIC_DRAW);
+    H.post = null;
 
     bindInput();
     H.muteBtn.addEventListener('click', () => setMuted(!AC.muted));
@@ -3002,6 +3181,8 @@ void main() {
   function render() {
     const gl = H.gl;
     resize();
+    const bloom = postSetup(gl, H.canvas.width, H.canvas.height);
+    if (bloom) gl.bindFramebuffer(gl.FRAMEBUFFER, H.post.fbo);
     gl.viewport(0, 0, H.canvas.width, H.canvas.height);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -3212,6 +3393,8 @@ void main() {
     gl.depthMask(true);
     gl.disable(gl.BLEND);
     for (const k of ['aPos', 'aUV', 'aColor']) gl.disableVertexAttribArray(H.attrS[k]);
+
+    if (bloom) postDraw(gl);
   }
 
   function frame(ts) {

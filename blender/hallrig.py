@@ -750,7 +750,7 @@ def t_door(W=192, H=448):
     # a curl of pink neon behind the glass (the arcade inside)
     poly_tube("innerglow", [(-pr * 0.55, py + pr * 0.1), (-pr * 0.1, py - pr * 0.35),
                             (pr * 0.45, py - pr * 0.1)], 2.4,
-              emis("HALL_portglow", NEON["magenta"], 2.2), z=-0.5)
+              emis("HALL_portglow", NEON["magenta"], 1.4), z=-0.5)
     tor = cyl("rim", pr + 5, 6, 0, py, 1.2, mat("HALL_portrim", (0.33, 0.36, 0.52), metallic=0.9, rough=0.3))
     cyl("rimhole", pr - 2, 8, 0, py, 1.2, mat("HALL_glass2", (0.01, 0.02, 0.05), rough=0.1))
     # push bar (y = H/2 - 0.61H)
@@ -905,12 +905,12 @@ def t_sign(W=1024, H=256):
     """The exterior hero: NUGGET ARCADE — extruded channel letters, a real
     neon border tube, chase bulbs, and a 3D golden nug. Text is BAKED."""
     rig(key_deg=30, key_energy=1.4, fill_energy=0.5)
-    bx = mapmat("HALL_signbox", (0.022, 0.022, 0.05), "grain_fine",
+    bx = mapmat("HALL_signbox", (0.007, 0.007, 0.016), "grain_fine",
                 bump=0.25, rough=0.6, scale=1.5)
     plane("boxface", W * 1.02, H * 1.02, bx)
-    rrect_tube("border", 0, 0, W - 40, H - 40, 44, 5.0, emis("HALL_signtube", NEON["cyan"], 5.0), z=6)
+    rrect_tube("border", 0, 0, W - 40, H - 40, 44, 5.0, emis("HALL_signtube", NEON["cyan"], 1.6), z=6)
     # chase bulbs just inside the border
-    onm = emis("HALL_bulb_on", (1.0, 0.88, 0.3), 6.0)
+    onm = emis("HALL_bulb_on", (1.0, 0.88, 0.3), 1.3)
     offm = mat("HALL_bulb_off", (0.25, 0.2, 0.08), rough=0.5)
     per = 2 * (W - 112) + 2 * (H - 112)
     for i in range(40):
@@ -926,14 +926,14 @@ def t_sign(W=1024, H=256):
             x, y = -W / 2 + 56, -H / 2 + 56 + d
         sph(f"bulb{i}", 5, x, y, 8, onm if i % 2 else offm)
     nug_blob("nug", 44, -W / 2 + 108, 0, 26)
-    accent("nuglight", (1.0, 0.85, 0.4), -W / 2 + 108, 30, 90, energy=350, size=80)
-    ym = mat("HALL_letter_y", (1.0, 0.82, 0.1), rough=0.35, emit=(1.0, 0.86, 0.2), emit_str=2.6)
-    mm = mat("HALL_letter_m", (1.0, 0.12, 0.55), rough=0.35, emit=(1.0, 0.15, 0.6), emit_str=2.6)
+    accent("nuglight", (1.0, 0.85, 0.4), -W / 2 + 108, 30, 90, energy=110, size=80)
+    ym = mat("HALL_letter_y", (1.0, 0.82, 0.1), rough=0.35, emit=(1.0, 0.86, 0.2), emit_str=0.5)
+    mm = mat("HALL_letter_m", (1.0, 0.12, 0.55), rough=0.35, emit=(1.0, 0.15, 0.6), emit_str=0.5)
     t1 = text3d("nugget", "NUGGET", 96, -W * 0.08, H * 0.155, ym, kind="impact", extrude=7, bevel=1.5, z=8, squeeze=0.98)
     t2 = text3d("arcade", "ARCADE", 96, W * 0.12, -H * 0.20, mm, kind="impact", extrude=7, bevel=1.5, z=8, squeeze=0.98)
 
 
-def _tube_text(name, body, size, x, y, color, strength=4.5, kind="impact", r=2.6, squeeze=1.0):
+def _tube_text(name, body, size, x, y, color, strength=1.5, kind="impact", r=2.6, squeeze=1.0):
     """Neon tube lettering: glyph outlines beveled with no fill = real tubes."""
     m = emis("HALL_tube_" + name, color, strength)
     return text3d(name, body, size, x, y, m, kind=kind, extrude=0.0, bevel=r, fill="NONE", z=6, squeeze=squeeze)
@@ -942,24 +942,24 @@ def _tube_text(name, body, size, x, y, color, strength=4.5, kind="impact", r=2.6
 def t_open(W=256, H=128):
     rig(key_deg=30, key_energy=0.9, fill_energy=0.4)
     plane("boxface", W * 1.02, H * 1.02,
-          mapmat("HALL_openbox", (0.012, 0.015, 0.035), "grain_fine", bump=0.2, rough=0.7, scale=1.5))
-    _tube_text("open", "OPEN", 62, 0, H * 0.14, NEON["magenta"], 5.0, r=2.8)
-    _tube_text("247", "24/7", 36, 0, -H * 0.26, NEON["cyan"], 4.5, r=2.2)
+          mapmat("HALL_openbox", (0.006, 0.007, 0.017), "grain_fine", bump=0.2, rough=0.7, scale=1.5))
+    _tube_text("open", "OPEN", 62, 0, H * 0.14, NEON["magenta"], 1.6, r=2.8)
+    _tube_text("247", "24/7", 36, 0, -H * 0.26, NEON["cyan"], 1.5, r=2.2)
 
 
 def t_phrase(W=512, H=128):
     rig(key_deg=30, key_energy=0.9, fill_energy=0.4)
     plane("boxface", W * 1.02, H * 1.02,
-          mapmat("HALL_phrasebox", (0.014, 0.011, 0.03), "grain_fine", bump=0.2, rough=0.7, scale=1.5))
-    _tube_text("phrase", "HOW MANY NUGS?", 58, 0, 0, NEON["magenta"], 5.0, kind="georgia_i", r=2.4)
+          mapmat("HALL_phrasebox", (0.007, 0.006, 0.015), "grain_fine", bump=0.2, rough=0.7, scale=1.5))
+    _tube_text("phrase", "HOW MANY NUGS?", 58, 0, 0, NEON["magenta"], 1.6, kind="georgia_i", r=2.4)
 
 
 def t_highscores(W=512, H=128):
     rig(key_deg=30, key_energy=0.9, fill_energy=0.4)
     plane("boxface", W * 1.02, H * 1.02,
-          mapmat("HALL_hsbox", (0.01, 0.018, 0.03), "grain_fine", bump=0.2, rough=0.7, scale=1.5))
-    _tube_text("hs", "HIGH SCORES", 54, 0, 0, NEON["green"], 5.0, r=2.4)
-    sm = emis("HALL_tube_star", NEON["yellow"], 4.5)
+          mapmat("HALL_hsbox", (0.005, 0.009, 0.015), "grain_fine", bump=0.2, rough=0.7, scale=1.5))
+    _tube_text("hs", "HIGH SCORES", 54, 0, 0, NEON["green"], 1.6, r=2.4)
+    sm = emis("HALL_tube_star", NEON["yellow"], 1.5)
     for sx in (-W * 0.42, W * 0.42):
         pts = []
         for k in range(10):
@@ -1090,19 +1090,19 @@ def t_shopgarage(W=256, H=224):
 
 def t_across(W=512, H=192):
     """The far side of the street: building row, lit windows, fire escapes."""
-    rig(key_deg=32, key_energy=1.1, fill_energy=0.8, fill_color=(0.35, 0.45, 0.9))
+    rig(key_deg=32, key_energy=0.42, fill_energy=0.30, fill_color=(0.35, 0.45, 0.9))
     plane("sky", W * 1.05, H * 1.05,
           mat("HALL_sky", (0.014, 0.018, 0.055), rough=1.0), z=-30)
     rng = np.random.default_rng(13)
-    warm = emis("HALL_win_warm", (1.0, 0.8, 0.5), 1.6)
-    cool = emis("HALL_win_cool", (0.55, 0.7, 1.0), 1.0)
+    warm = emis("HALL_win_warm", (1.0, 0.8, 0.5), 1.15)
+    cool = emis("HALL_win_cool", (0.55, 0.7, 1.0), 0.85)
     dark = mat("HALL_win_dark", (0.03, 0.04, 0.07), rough=0.3)
     fm = mat("HALL_fire", (0.05, 0.05, 0.08), metallic=0.6, rough=0.6)
     for i in range(9):
         bw = 42 + ((i * 37) % 46)
         bh = 60 + ((i * 53) % 90)
         bx = i * 58 - W / 2 + bw / 2
-        shade = (0.045, 0.055, 0.10) if i % 2 else (0.058, 0.07, 0.125)
+        shade = (0.016, 0.020, 0.042) if i % 2 else (0.023, 0.029, 0.055)
         bm = mapmat(f"HALL_bldg{i}", shade, "grain_coarse", bump=0.35, rough=0.85, scale=1.2)
         box(f"bldg{i}", bw, bh, 14 + (i % 3) * 6, bx, -H / 2 + bh / 2, 0, bm)
         for z in range(10):
@@ -1118,6 +1118,70 @@ def t_across(W=512, H=192):
     # the distant NUGGETOWN smudge — a soft magenta glow, letters at runtime? no:
     # the painter bakes it; here a glowing panel reads as the distant sign
     box("smudge", 74, 12, 2, W * 0.32, -H * 0.08, 6, emis("HALL_smudge", (1.0, 0.3, 0.6), 1.1))
+
+
+def t_carnose(W=128, H=64):
+    """The double-parked compact, head on: grille, bumper, headlight pods.
+    Flat sw_carRed was the single most-looked-at surface on the street."""
+    rig(key_deg=38, key_energy=2.4)
+    accent("streetlamp", (1.0, 0.85, 0.55), 0, H * 0.7, 70, energy=180, size=90)
+    paint = mapmat("HALL_carpaint", (0.52, 0.09, 0.06), "grain_fine",
+                   bump=0.12, rough=0.28, metallic=0.45, scale=0.8)
+    plane("panel", W * 1.2, H * 1.2, paint)
+    # hood shut-line + a shallow power bulge
+    box("shutline", W * 1.2, 2.0, 1.2, 0, H * 0.30, 0.6,
+        mat("HALL_carshut", (0.06, 0.012, 0.01), rough=0.6))
+    box("bulge", W * 0.52, 18, 3.0, 0, H * 0.12, 1.2, paint, bevel=4.0)
+    # grille: slats between two headlight pods
+    box("grille", W * 0.44, 15, 3.5, 0, -H * 0.06, -1.0,
+        mat("HALL_grille", (0.02, 0.02, 0.028), rough=0.75))
+    gm = mat("HALL_slat", (0.13, 0.13, 0.16), metallic=0.8, rough=0.4)
+    for i in range(4):
+        box(f"slat{i}", W * 0.42, 1.8, 2.0, 0, -H * 0.06 + 5.4 - i * 3.6, 0.4, gm)
+    hl = mat("HALL_headlamp", (0.85, 0.85, 0.78), rough=0.12, metallic=0.2,
+             emit=(1.0, 0.95, 0.8), emit_str=0.55)
+    for hx in (-W * 0.33, W * 0.33):
+        box(f"pod{hx}", 22, 13, 4.0, hx, -H * 0.05, 0.8,
+            mat("HALL_podrim", (0.05, 0.05, 0.06), rough=0.5), bevel=2.0)
+        box(f"lamp{hx}", 17, 9, 3.0, hx, -H * 0.05, 2.6, hl, bevel=1.5)
+    # bumper across the bottom, with a scuff it earned
+    box("bumper", W * 1.2, 12, 6.0, 0, -H * 0.36, 2.0,
+        mapmat("HALL_bumper", (0.10, 0.10, 0.12), "brushed", bump=0.2,
+               rough=0.42, metallic=0.85), bevel=2.5)
+    plane("scuff", 26, 4, mat("HALL_carscuff", (0.03, 0.03, 0.035), rough=0.95),
+          -W * 0.22, -H * 0.36, 5.2)
+
+
+def t_carroof(W=128, H=64):
+    """Roof/hood sheet seen from above: wet paint, a seam, rain beading."""
+    rig(key_deg=58, key_energy=2.0)
+    accent("lamp", (1.0, 0.86, 0.6), -W * 0.3, H * 0.4, 80, energy=220, size=110)
+    paint = mapmat("HALL_carroof", (0.50, 0.085, 0.055), "grain_fine",
+                   bump=0.1, rough=0.22, metallic=0.5, scale=0.7)
+    plane("sheet", W * 1.2, H * 1.2, paint)
+    box("seam", 2.0, H * 1.2, 1.0, 0, 0, 0.5,
+        mat("HALL_roofseam", (0.05, 0.01, 0.008), rough=0.6))
+    bead = mat("HALL_bead", (0.6, 0.65, 0.75), rough=0.05, metallic=0.1)
+    rng = np.random.default_rng(71)
+    for i in range(34):
+        sph(f"bead{i}", float(rng.uniform(0.8, 2.0)),
+            float(rng.uniform(-W / 2, W / 2)), float(rng.uniform(-H / 2, H / 2)),
+            0.9, bead, squash=0.45)
+
+
+def t_carglass(W=128, H=64):
+    """Cabin glass: near-black, but it REFLECTS — a streetlamp smear and the
+    faint shape of a headrest nobody is using."""
+    rig(key_deg=30, key_energy=1.4)
+    accent("lamp", (1.0, 0.88, 0.62), -W * 0.28, H * 0.55, 60, energy=260, size=70)
+    accent("neon", NEON["magenta"], W * 0.42, -H * 0.2, 55, energy=90, size=60)
+    glass = mapmat("HALL_carglass", (0.012, 0.014, 0.03), "grain_fine",
+                   bump=0.05, rough=0.06, metallic=0.25, scale=0.6)
+    plane("pane", W * 1.2, H * 1.2, glass)
+    box("headrest", 20, 13, 2.0, W * 0.12, -H * 0.10, 1.0,
+        mat("HALL_headrest", (0.035, 0.033, 0.045), rough=0.85), bevel=3.0)
+    box("pillar", 7, H * 1.2, 3.0, -W * 0.46, 0, 1.4,
+        mat("HALL_pillar", (0.05, 0.012, 0.01), rough=0.5))
 
 
 # ---- the street regulars (character skins — wrap the NPC meshes) -------------------
@@ -1262,6 +1326,10 @@ ASSETS = {
     "shopLaundro": (t_shoplaundro, 256, 224),
     "shopGarage": (t_shopgarage, 256, 224),
     "across": (t_across, 512, 192),
+    # the street: the double-parked compact (was three flat swatches)
+    "carNose": (t_carnose, 128, 64),
+    "carRoof": (t_carroof, 128, 64),
+    "carGlass": (t_carglass, 128, 64),
     # the street regulars (NPC skins)
     "nugSkin": (t_nugskin, 96, 96),
     "hoodCloth": (t_hoodcloth, 64, 64),

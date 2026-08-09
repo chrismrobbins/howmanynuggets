@@ -169,6 +169,39 @@ procedural canvas atlases built at hall-init by `js/arcade-art.js`:
   header y36, change header y26, shop sign strips, panel title 0.16h/0.9h,
   across smudge y0.585h). Move geometry -> move the text in arcade-art.js.
 
+## 5c. THE LIGHTS GO ON (2026-08-09) — read before touching emissives
+
+Beau reviewed 0b0eac0 on prod: the facade sign was BLOWN OUT and the whole
+thing read "meh". Two separate mistakes, both instructive.
+
+**Mistake 1 — I upgraded the wrong layer.** I re-skinned surfaces that were
+already textured while the frame was dominated by flat-fill geometry (the
+double-parked compact was three solid swatches; the across-the-road block
+washed out) and by the fact that **the hall had no bloom**. In a dark neon
+room, bloom IS the upgrade — a texture swap can't fake light. `js/arcade.js`
+now renders into an FBO, extracts >0.74 luma, blurs it at quarter res twice
+separably, and composites at 0.92 with a slight saturation push. It falls
+back to direct rendering if the FBO won't complete (`H.post === false`).
+
+**Mistake 2 — I trusted a number over a picture.** `street-facade` was IN my
+A/B set. Its mean went 24 -> 30 and I read that as "more contrast" without
+opening the file. The mean going UP is exactly what a blowout looks like.
+Open the crops. Every time. (This is the S2.12 lesson, re-learned.)
+
+The rules that came out of it:
+- **176 is the emissive ceiling.** Quads drawn `{e: 1}` go through
+  `mix(light, vec3(1.45), e)`, so any texel over 255/1.45 = 176 clips to
+  flat white ON THE WALL however clean the texture looks alone. pack_hall's
+  `soft_ceiling()` compresses neon into [120, 172].
+- **Don't mean-grade emissive regions.** `hall_targets.json` was measured in
+  a world with NO bloom; matching those means now double-counts brightness
+  and lifts a sign's black box to gray. Neon keeps its own dark box.
+- **Don't bake glow anymore.** The baked halo existed to fake bloom. With a
+  real bloom pass it only greys the background. `NEON_GLOW` is all zeros now
+  (kept as a dial for anything bloom can't reach).
+- **Emission strength is for HUE, not brightness.** Fat Impact glyphs at
+  high emission merge into one block under bloom. Letters sit at 0.5.
+
 ## 6. Working with Beau (operating notes)
 
 - High autonomy: recon → plan → execute → verify → present evidence. He

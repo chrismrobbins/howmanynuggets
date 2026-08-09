@@ -176,6 +176,26 @@ already bitten someone.
 > (tier/clearRoom/boon/showBoons/pickBoon/floor/room/warp/hearts/hit —
 > `hit` clears i-frames first, a sexton-adjacent test flake taught us why).
 > Verified 25/25 headless ×3.
+> **2026-08-09 — 💡 THE LIGHTS GO ON (the Reopening's second half):** Beau
+> reviewed THE GRAND REOPENING on prod and was right on both counts — the
+> facade sign was blown out, and the upgrade read "meh" because it was the
+> wrong layer. **The hall now has a real post chain** (js/arcade.js): the
+> scene renders to an FBO, a bright pass (>0.74 luma, soft knee) extracts the
+> hot pixels, two separable blurs at quarter res widen them, and a composite
+> adds the halo at 0.92 with a small saturation push so glows stay COLORED.
+> Falls back to direct rendering if the FBO won't complete. Neon, CRTs, the
+> carpet confetti and the marquees finally throw light instead of being
+> bright rectangles. Also: the double-parked compact's nose/tail/roof/glass
+> were flat `sw_carRed`/`sw_black` swatches — now `carNose`/`carRoof`/
+> `carGlass` (grille, headlight pods, bumper scuff, rain beading, a reflected
+> streetlamp), and the across-the-road block got its night back (facades
+> darkened ~3x, lit windows do the talking). **THE EMISSIVE RULES** (full
+> story in blender/HANDOFF.md §5c): 176 is the hard ceiling for any texel on
+> an `{e:1}` quad (the shader multiplies by 1.45 — that is what turned
+> "NUGGET" into a white slab); NEVER mean-grade an emissive region (the
+> palette targets were measured before bloom existed); never bake a glow now
+> that bloom is real. Verified: 60fps, zero new console messages, fallback
+> path intact, facade back to baseline luminance while still blooming.
 > **2026-08-08 (the Blender night, pt. 3) — 🏟 THE GRAND REOPENING:** the
 > ENTIRE arcade hall + street + the five NPC regulars are Blender-rendered
 > now. `blender/hallrig.py` (32 parametric texture builders — padded walls,

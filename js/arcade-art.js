@@ -1405,6 +1405,21 @@ const ArcadeArt = (() => {
     alloc('pierSign', 192, 96, pPierSign);
     // GRAND THEFT NUGGET's street door: the double-parked compact
     alloc('gtaCarSide', 192, 64, pGtaCarSide);
+    // THE GRAND REOPENING: the compact's other faces were flat sw_carRed /
+    // sw_black swatches — the most-stared-at surface on the street. Each
+    // falls back to its old solid fill if the Blender sheet is down.
+    alloc('gtaCarNose', 128, 64, (gg, w, h) => {
+      if (hallBlit(gg, 'carNose', w, h)) return;
+      gg.fillStyle = '#8f1f14'; gg.fillRect(0, 0, w, h);
+    });
+    alloc('gtaCarRoof', 128, 64, (gg, w, h) => {
+      if (hallBlit(gg, 'carRoof', w, h)) return;
+      gg.fillStyle = '#8f1f14'; gg.fillRect(0, 0, w, h);
+    });
+    alloc('gtaCarGlass', 128, 64, (gg, w, h) => {
+      if (hallBlit(gg, 'carGlass', w, h)) return;
+      gg.fillStyle = '#000000'; gg.fillRect(0, 0, w, h);
+    });
     // DIP HOP's front door: the basement club across the street
     alloc('beatDoor', 128, 192, pBeatDoor);
     alloc('beatSign', 192, 96, pBeatSign);
