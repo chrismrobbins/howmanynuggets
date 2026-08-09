@@ -23,6 +23,11 @@ const NuggetArcade = (() => {
   const NRM_SCALE = 1.0;
   const SPEC_AMT = 1.15;
   const WET_AMT = 1.0;
+  // 💧 How much of the road is standing water rather than merely damp. The wet
+  // term used to be uniform across every outdoor upward face, which gave the
+  // largest surface in the exterior exactly one material and read as a flat
+  // brown sheet. 0 collapses it back to that.
+  const PUDDLE_AMT = 1.0;
   // 🎞 THE FLOAT BUFFER dial. How bright a fully-emissive texel is allowed to
   // be, in a buffer that no longer stops at 1.0. Everything above 1.0 is
   // headroom the bloom threshold and the tonemap can actually see, so this is
@@ -54,6 +59,7 @@ const NuggetArcade = (() => {
     bloomKnee: 0.55,
     exposure: 1.0,
     sat: 1.10,
+    puddle: PUDDLE_AMT,
     // 🔭 THE LENS
     vignette: 0.42,     // corner exposure drop, applied BEFORE the tonemap
     aberration: 0.0035, // radial R/B split; ~1px at the corners of 1280x760
@@ -357,6 +363,47 @@ vec3 skyCityProc(vec3 col, vec3 d) {
 
 vec3 skyColor(vec3 d) { return skyCityProc(skyDome(d), d); }`;
 
+  // 🏙 THE CITY LOOKUP, shared by the dome and by anything reflecting it.
+  // Concatenated into FS_SKY (GLSL ES 1.00) and FS_LIT2 (ES 3.00) but NOT into
+  // FS_LIT — WebGL1 has no city, and giving its shader a sampler it never
+  // reads is a texture unit spent on nothing. The ES 3.00 side defines
+  // texture2D -> texture so one source compiles as both.
+  const GLSL_CITY = `
+uniform sampler2D uCityTex;
+uniform vec2 uCityLat;
+// az->u measured, not guessed: blender/skyline.py calibrate() renders four
+// markers at known bearings and reads their columns back out. The answer is
+// u = 0.75 - az/2pi with az taken in BLENDER's frame, and Blender is Z-up
+// while the hall is Y-up (hall = bx, bz, -by), so the hall's +Z is Blender's
+// -Y. v is linear in LATITUDE, which is an angle — not in el = tan(elevation),
+// which is what the procedural ridge used.
+vec3 skyCityTex(vec3 col, vec3 d) {
+  float lat = atan(d.y, max(length(d.xz), 1e-5));
+  float v = (lat - uCityLat.x) / (uCityLat.y - uCityLat.x);
+  if (v < -0.02 || v > 1.02) return col;
+  float u = fract(0.75 - atan(-d.z, d.x) * 0.15915494);
+  // 1.0 - v, and it is not a taste call. This renderer never sets
+  // UNPACK_FLIP_Y_WEBGL, so row 0 of the PNG — the HIGHEST latitude — lands at
+  // t = 0. Without the flip the city hangs off the zenith by its roofs, which
+  // is exactly what the first crop showed.
+  vec4 s = texture2D(uCityTex, vec2(u, 1.0 - clamp(v, 0.0, 1.0)));
+  if (s.a < 0.004) return col;
+  vec3 e = pow(s.rgb, vec3(2.2));
+  // the body is the haze it stands in — that is what makes a distant tower
+  // read as DISTANT rather than as a hole punched in the sky
+  // The near end of the ring is NOT black. A building 170m away at 1am is lit
+  // by the streetlights under it and by the same overcast everything else is
+  // under — dropping it to a silhouette put 14% of the pier view into pure
+  // black in one run. It bottoms out at the ground bounce and climbs to the
+  // horizon palette as the air in front of it thickens.
+  vec3 body = mix(uSkyGround * 1.35, skyTint(vec3(0.0, max(d.y, 0.02), 0.0)), e.r);
+  body *= 0.34 + 1.22 * e.b;                       // b is SHADE
+  // windows dim with distance too: a lit pane 500m back is behind the same air
+  body += vec3(0.60, 0.44, 0.20) * e.g * (1.35 - e.r * 0.75);   // g is WINDOW
+  return mix(col, body, s.a);
+}
+`;
+
   const VS_LIT = `
 attribute vec3 aPos; attribute vec3 aNormal; attribute vec2 aUV; attribute vec2 aExtra;
 uniform mat4 uProj, uView, uModel;
@@ -464,9 +511,12 @@ uniform float uShadowAmt;
 uniform vec3 uLightPos[16]; uniform vec3 uLightColor[16];
 uniform vec3 uAmbUp, uAmbDown, uFogColor, uCamPos, uSkyAmb, uGndAmb;
 uniform float uFogDensity, uAlpha, uMirror, uBoost, uNrmScale, uSpecAmt, uWet, uTime, uSkyAmt, uSkyRefl;
-uniform float uEmisGain;
+uniform float uEmisGain, uPuddle, uCity;
 out vec4 fragColor;
-` + GLSL_SKY + `
+// ES 3.00 removed texture2D; the shared sky/city source is written against
+// ES 1.00 so FS_SKY can use it verbatim. One alias makes it compile as both.
+#define texture2D texture
+` + GLSL_SKY + GLSL_CITY + `
 const float PI = 3.14159265;
 
 // One overhead map per zone, chosen by which zone the fragment stands in. Four
@@ -523,6 +573,57 @@ void main() {
     * smoothstep(0.86, 0.99, Ng.y)              // faces up
     * (1.0 - smoothstep(0.12, 0.45, vWorld.y))  // is the ground, not a shelf
     * smoothstep(0.6, 2.2, vWorld.z);           // is outside the doors
+
+  // 💧 PUDDLES. The wet term above was UNIFORM: every upward-facing pavement
+  // outside the doors was equally wet, so the largest surface in the exterior
+  // — the road — had one material across its whole area and read as a flat
+  // brown sheet no matter how good the highlight on it was. Roads are not
+  // uniformly wet. Water sits in the low spots, runs to the kerb, and leaves
+  // dry patches under anything that overhangs.
+  //
+  // So: a low-frequency field decides where the water IS, and everything the
+  // wet path already did is scaled by it. Between the puddles the asphalt is
+  // merely damp; inside them it is nearly a mirror, which is what gives the
+  // road structure at a glance instead of only under a lamp.
+  //
+  // The field is a cheap 2-octave value noise on world XZ — one shared with
+  // the gutter term so puddles do not straddle the kerb — plus a hard bias
+  // toward the kerb line, because that is where a real road drains.
+  float puddle = 0.0;
+  if (wet > 0.002 && uPuddle > 0.001) {
+    vec2 p = vWorld.xz * 0.19;
+    float f = skyFbm(p) * 0.68 + skyFbm(p * 2.9 + 11.3) * 0.32;
+    // A SHARP threshold, not a linear ramp. skyFbm piles almost all of its
+    // output within about 0.1 of the middle, so the first version — a linear
+    // remap of (f - 0.44) — produced a mask whose average value was 0.09 and
+    // whose effect was, correctly, invisible. Water has an EDGE: it is either
+    // standing there or it is not, and the boundary is where a puddle reads.
+    float gut = smoothstep(1.6, 0.35, abs(abs(vWorld.x) - 11.2));
+    puddle = smoothstep(0.455, 0.545, f);
+    puddle = max(puddle, gut * 0.8);
+    // clamp BEFORE it multiplies anything: uPuddle is a tuning dial, and above
+    // 1 an unclamped mask drove the diffuse multiplier negative.
+    puddle = clamp(puddle * uPuddle, 0.0, 1.0) * wet;
+  }
+  // Damp everywhere, mirror in the pools. The floor of 0.34 is what stops the
+  // dry asphalt going back to the matte brown sheet this act is about.
+  wet *= mix(0.34, 1.0, puddle);
+  // AND WATER DARKENS WHAT IT SITS ON. This was the whole miss on the first
+  // pass: puddles were built purely as a specular change, and the specular
+  // difference between damp and mirrored turned out to be about twelve per
+  // cent — because the road's ORM already opts fully into the material shader,
+  // so max(pbr, wet) erased the rest of it. The crop came back with the same
+  // flat sheet it started with.
+  //
+  // A wet surface is darker because the water films over the microstructure
+  // that was scattering light back out. That is a DIFFUSE change, it is large,
+  // and it is most of what makes a wet road legible: dark pools with the
+  // sodium sky sitting in them, not a uniform sheen.
+  // 0.62, not the 0.46 the first pass used: at 0.46 the pools read as oil
+  // stains rather than water, because the diffuse loss was outrunning what the
+  // reflection put back. Water is darker AND brighter than the road it sits
+  // on, and only getting the first half is a smear.
+  tex.rgb *= mix(1.0, 0.62, puddle);
   vec3 F0 = mix(vec3(0.04), tex.rgb, metal);
   if (wet > 0.002) {
     // ANISOTROPIC on purpose. A first pass rippled x and z equally and the
@@ -537,9 +638,16 @@ void main() {
              + cos(wx * 23.0 - t * 2.7) * 0.16;
     float gz = cos(wz * 2.3 - t * 0.6) * 0.10
              + cos((wx * 1.1 + wz * 3.1) + t * 0.8) * 0.06;
-    N = normalize(N + vec3(gx, 0.0, gz) * 0.09 * wet);
+    // Standing water is FLATTER than damp asphalt — a puddle is a surface of
+    // its own, not the road with a sheen. Its ripple is smaller and slower.
+    N = normalize(N + vec3(gx, 0.0, gz) * 0.09 * wet * mix(1.0, 0.42, puddle));
     // 0.09 was a mirror and read as chrome. 0.2 keeps the streak soft-edged.
-    rough = mix(rough, 0.2, wet);
+    // 0.11 in the pool, not 0.055. A near-mirror lobe means a streetlamp
+    // reflects as a single tight dot that misses the eye almost everywhere;
+    // opening it a little turns each lamp into a readable streak lying down
+    // the length of the water, which is what a wet road at night actually
+    // shows and what makes the pools read as full rather than as holes.
+    rough = mix(rough, mix(0.2, 0.11, puddle), wet);
     F0 = mix(F0, vec3(0.05), wet);
     pbr = max(pbr, wet);                        // wet ground gets a highlight
   }
@@ -611,9 +719,26 @@ void main() {
   // turns into a mirror. Costs nothing indoors — the outside term gates it.
   vec3 env = vec3(0.0);
   if (outside > 0.003 && pbr > 0.004) {
+    vec3 R = reflect(-V, N);
     float fres = 0.045 + 0.955 * pow(1.0 - NdotV, 5.0);
-    env = skyBase(reflect(-V, N)) * uSkyRefl * outside * pbr
-        * mix(fres, 1.0, metal) * (1.0 - rough * 0.72);
+    vec3 sky = skyBase(R);
+    // 💧 THE CITY IN THE PUDDLE. The road reflected a SMOOTH GRADIENT — the
+    // one thing it could never be, because a wet street at night is famously
+    // a picture of whatever is standing over it. Now that the skyline is a
+    // real panorama, the same lookup the dome uses answers the reflection
+    // vector too, and the towers and their lit windows land in the water.
+    //
+    // Gated on the puddle mask, not on the wet term: damp asphalt scatters too
+    // to hold an image, and a mirrored city on a merely-damp pavement is the
+    // chrome look this shader has already been talked out of once.
+    if (uCity > 0.5 && puddle > 0.02)
+      sky = mix(sky, skyCityTex(sky, R), smoothstep(0.02, 0.55, puddle));
+    // ...and the pool returns much more of it than the damp road beside it.
+    // the roughness term alone spans 0.86 to 0.96 across the whole range,
+    // which is not a difference anybody can see.
+    env = sky * uSkyRefl * outside * pbr
+        * mix(fres, 1.0, metal) * (1.0 - rough * 0.72)
+        * mix(1.0, 2.7, puddle);
   }
 
   float e = clamp(vExtra.x * uBoost, 0.0, 1.0);
@@ -809,40 +934,7 @@ varying vec2 vNdc;
 uniform vec3 uSkyFwd, uSkyRight, uSkyUp;
 uniform vec2 uSkyScale;
 uniform float uSkyFlip, uCity;
-uniform sampler2D uCityTex;
-uniform vec2 uCityLat;
-` + GLSL_SKY + `
-// az->u measured, not guessed: blender/skyline.py calibrate() renders four
-// markers at known bearings and reads their columns back out. The answer is
-// u = 0.75 - az/2pi with az taken in BLENDER's frame, and Blender is Z-up
-// while the hall is Y-up (hall = bx, bz, -by), so the hall's +Z is Blender's
-// -Y. v is linear in LATITUDE, which is an angle — not in el = tan(elevation),
-// which is what the procedural ridge used.
-vec3 skyCityTex(vec3 col, vec3 d) {
-  float lat = atan(d.y, max(length(d.xz), 1e-5));
-  float v = (lat - uCityLat.x) / (uCityLat.y - uCityLat.x);
-  if (v < -0.02 || v > 1.02) return col;
-  float u = fract(0.75 - atan(-d.z, d.x) * 0.15915494);
-  // 1.0 - v, and it is not a taste call. This renderer never sets
-  // UNPACK_FLIP_Y_WEBGL, so row 0 of the PNG — the HIGHEST latitude — lands at
-  // t = 0. Without the flip the city hangs off the zenith by its roofs, which
-  // is exactly what the first crop showed.
-  vec4 s = texture2D(uCityTex, vec2(u, 1.0 - clamp(v, 0.0, 1.0)));
-  if (s.a < 0.004) return col;
-  vec3 e = pow(s.rgb, vec3(2.2));
-  // the body is the haze it stands in — that is what makes a distant tower
-  // read as DISTANT rather than as a hole punched in the sky
-  // The near end of the ring is NOT black. A building 170m away at 1am is lit
-  // by the streetlights under it and by the same overcast everything else is
-  // under — dropping it to a silhouette put 14% of the pier view into pure
-  // black in one run. It bottoms out at the ground bounce and climbs to the
-  // horizon palette as the air in front of it thickens.
-  vec3 body = mix(uSkyGround * 1.35, skyTint(vec3(0.0, max(d.y, 0.02), 0.0)), e.r);
-  body *= 0.34 + 1.22 * e.b;                       // b is SHADE
-  // windows dim with distance too: a lit pane 500m back is behind the same air
-  body += vec3(0.60, 0.44, 0.20) * e.g * (1.35 - e.r * 0.75);   // g is WINDOW
-  return mix(col, body, s.a);
-}
+` + GLSL_SKY + GLSL_CITY + `
 void main() {
   vec3 d = normalize(uSkyFwd + uSkyRight * vNdc.x * uSkyScale.x
                              + uSkyUp * vNdc.y * uSkyScale.y);
@@ -3767,6 +3859,7 @@ void main() {
     for (const name of ['uProj', 'uView', 'uModel', 'uTex', 'uLightPos', 'uLightColor',
       'uAmbUp', 'uAmbDown', 'uFogColor', 'uCamPos', 'uFogDensity', 'uAlpha', 'uMirror', 'uBoost',
       'uNrm', 'uOrm', 'uNrmScale', 'uSpecAmt', 'uWet', 'uTime', 'uEmisGain',
+      'uPuddle', 'uCity', 'uCityTex', 'uCityLat',
       'uSkyAmb', 'uGndAmb', 'uSkyAmt', 'uSkyRefl', 'uSkyHorizon', 'uSkyZenith', 'uSkyGlow',
       'uSkyGround', 'uMoonDir', 'uSkyT',
       'uShadowH', 'uShadowS', 'uShadowMatH', 'uShadowMatS', 'uShadowAmt'])
@@ -4892,6 +4985,18 @@ void main() {
       // the value that just barely clipped. With somewhere to put it, neon can
       // be brighter than paper — which is the only way it reads as a light.
       gl.uniform1f(H.uni.uEmisGain, H.post && H.post.hdr ? TUNE.emisGain : 1.45);
+      // 💧 puddles, and the city they reflect. Unit 5 is the panorama, the
+      // same one the dome binds — one texture, two consumers.
+      gl.uniform1f(H.uni.uPuddle, TUNE.puddle);
+      const litCity = H.cityTex && H.city !== false;
+      gl.uniform1f(H.uni.uCity, litCity ? 1 : 0);
+      if (litCity) {
+        gl.uniform1i(H.uni.uCityTex, 5);
+        gl.uniform2f(H.uni.uCityLat, HallSky.lat[0], HallSky.lat[1]);
+        gl.activeTexture(gl.TEXTURE5);
+        gl.bindTexture(gl.TEXTURE_2D, H.cityTex);
+        gl.activeTexture(gl.TEXTURE0);
+      }
       const sh = H.shadow && H.shadows !== false;
       gl.uniform1f(H.uni.uShadowAmt, sh ? SHADOW_AMT : 0);
       if (sh) {
