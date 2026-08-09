@@ -714,3 +714,74 @@ percentage of adjacent pixel pairs whose luma differs by more than 34. MSAA
 moved it −10.1% overall and −30% on the street spots. Read it as a same-frame
 A/B only — real detail is hard edges too, so a change that adds a neon tube
 raises it honestly.
+
+## 🏪 THE GROUND FLOOR — the block across the road gets doors (2026-08-09)
+
+Fourteen bays of `facadeBay` stood on one brick panel each, 1.46m tall, running
+42 metres without a single opening in it. It is in every street view in the
+game and it was the last thing out there still reading as a backdrop.
+
+Three units in `blender/hallmesh.py` — `shopShut` (roller shutter down, real
+corrugation), `shopOpen` (stall riser, display window, goods in silhouette) and
+`shopDoor` (a recessed porch with a panelled leaf and a bracket lamp) — dealt
+per bay from a stable hash, plus `shopBlade` projecting over the pavement.
+
+**Four things this cost time on, in the order they bit:**
+
+1. **A recess is jambs + a head + a leaf at the back. It is NOT a solid box
+   with the door inside it.** Both the porch and the shop door shipped as one
+   "void" box in the first pass, so the box WAS the door and every detail was
+   buried in it. The `preview()` render caught it before the browser did —
+   which is the §8 loop working exactly as written.
+2. **NOTHING IN THIS RENDERER IS TRANSPARENT** (§15 ledger, verbatim, and it
+   was walked into again). A `shopGlass` pane in front of an emissive interior
+   is an opaque black box in front of a light nobody will ever see. The LIT
+   PLANE IS THE WINDOW; the joinery stands in front of it and the goods stand
+   on it.
+3. **Modelled beautifully and left unlit is still murk.** The first pass wore
+   the terrace's own dark tints (0.5–0.7) and every piece of joinery was there
+   and none of it was READABLE. The streetlamps stand on the curb at z 6.9 and
+   this wall is at 13.9 — seven metres of road between the band and the nearest
+   fixture. Tints went to 1.05–1.35 AND every unit got a light of its own.
+4. **Fourteen amber fascias in a row is a 42-metre light fitting, not a parade
+   of shops.** `$SIGN` is a sentinel like `$BRICK`; the call site deals a
+   colour per unit.
+
+**THE HEIGHT DECISION, which is the one worth re-reading.** The first build put
+the whole storey inside facadeBay's existing 0..1.46 blank band. Every piece of
+it was modelled and NONE of it read: at 9.7m from the arcade door that band is
+90 pixels of a 760-pixel frame and a 1.13m door in it is a hatch. So the
+masonry is lifted `TERR_Y = 0.56` and the storey is 2.02.
+
+Not the 2.6m a real ground floor wants, and here is the constraint: **the
+arcade door sees that wall across ~60° of vertical FOV, so every metre of
+terrace eats roughly 66 pixels of the sky above it — and the sky above it is
+THE SKYLINE, 156 modelled towers and a whole session's work.** A full-height
+storey swallows it from the most-used vantage in the game. 0.56 was picked by
+measuring what survived. If you raise it again, shoot `09-doorway` and
+`16-skyward` and look at the crops.
+
+- 🚨 **The ground floor is GATED ON `H.uintIndex`.** It adds ~24k vertices to a
+  street buffer already at 59209, which puts it past the 65535 a Uint16 index
+  can address — and an overflow does not error, it WRAPS (§14, §15, twice
+  already). WebGL1 without the extension gets the brick band that shipped,
+  which is a wall, not a hole.
+- **Measure where the CAMERA is before deciding where a light goes.** The bus
+  shelter's lit panels went on its ENDS first — correct for a route map, and
+  the crop came back with the same black slab, because from the stop's own
+  hotspot you are looking at the shelter's BACK. The backlit advert is on the
+  back panel now and `10-busstop` finally moved.
+
+| | dead | near | blown | mean | chroma | hard | fps |
+|---|---|---|---|---|---|---|---|
+| THE EDGE (18 spots) | 0.50 | 11.39 | 0.01 | 58.24 | 50.33 | 0.621 | 59.9 |
+| THE GROUND FLOOR (18) | 0.42 | 10.05 | 0.00 | 60.71 | 49.92 | 0.650 | 55.7* |
+
+`09-doorway` 13.50 → 10.26 near-dead, `13-drain` 25.14 → 17.65, `11-gta` 13.70
+→ 11.04, `16-skyward` 19.70 → 15.21, and **`10-busstop` 29.63 → 26.29 with dead
+black 0.74 → 0.32** — the tile §15 recorded as "has not moved all night".
+
+\* the fps number is 13-drain dragging the mean: re-sampled three times a spot
+it reads 58.9–60.1 at `02-aisle` and `09-doorway` and 51–59 at `13-drain`,
+which is a close-up on the new geometry. Worth a look if a later act needs
+budget back.

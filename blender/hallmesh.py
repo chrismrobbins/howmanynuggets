@@ -216,6 +216,55 @@ MATS = {
     # hall trim lives on the MAIN atlas (it is built into B, not ST), so it
     # wears the wainscot panelling the room is already trimmed in.
     "trimWood": ("wainscot", [0.10, 0.10, 0.90, 0.90], 0.0, 1.15),
+    # -- 🏪 THE GROUND FLOOR (STREET atlas) -------------------------------------------
+    # The terrace's bottom 1.46m was one brick panel per bay, fourteen bays
+    # wide, and it is the biggest single object in every street view. A city
+    # block at street level with no doors in it reads as scenery, not a place.
+    #
+    # Painted TIMBER, not more brick. A shopfront is a joinery object stuck
+    # onto a masonry building and it is the one part of a Victorian terrace
+    # that was never the same colour twice — which is exactly the variety the
+    # measured verdict on this wall kept asking for.
+    # TINTS ARE HIGH ON PURPOSE. The first pass wore the terrace's own dark
+    # values (0.5-0.7) and the whole band came back as murk: every piece of
+    # joinery was modelled, none of it was READABLE. A shopfront is the one
+    # part of a night street that is deliberately painted to catch light.
+    "shopPier":   ("sw_woodDark", [0, 0, 1, 1], 0.0, 1.35),
+    "shopPierB":  ("sw_iron", [0, 0, 1, 1], 0.0, 0.95),
+    "shopFascia": ("sw_woodDark", [0, 0, 1, 1], 0.0, 1.05),
+    "shopCorn":   ("sw_curb", [0, 0, 1, 1], 0.0, 1.35),
+    # $SIGN is a SENTINEL. Fourteen fascias all wearing sw_amber came back as
+    # one continuous orange bar 42 metres long — which is a light fitting, not
+    # a parade of shops. The call site deals a colour per unit.
+    #
+    # A SHUT shop's sign is not off, it is UNLIT — the streetlamp still finds
+    # it. 0.05 is the difference between "closed" and "demolished".
+    "shopSignD":  ("$SIGN", [0, 0, 1, 1], 0.05, 0.85),
+    "shopSign":   ("$SIGN", [0, 0, 1, 1], 0.34, 1.0),
+    "shutBox":    ("sw_iron", [0, 0, 1, 1], 0.0, 0.86),
+    "shutter":    ("sw_iron", [0, 0, 1, 1], 0.0, 1.28),
+    "shutRail":   ("sw_iron", [0, 0, 1, 1], 0.0, 0.72),
+    "shopIron":   ("sw_iron", [0, 0, 1, 1], 0.0, 1.15),
+    "shopPlinth": ("sw_curb", [0, 0, 1, 1], 0.0, 1.15),
+    "shopRiser":  ("sw_woodDark", [0, 0, 1, 1], 0.0, 1.10),
+    "shopGlass":  ("sw_black", [0, 0, 1, 1], 0.0, 0.92),
+    # The lit interior is the entire point of the OPEN variant: it is a light
+    # SOURCE in the dead band, and the call site promotes it to a world light
+    # so the pavement in front of it actually gets some.
+    "shopLit":    ("sw_amber", [0, 0, 1, 1], 0.50, 1.0),
+    "shopLitC":   ("sw_white", [0, 0, 1, 1], 0.42, 0.95),
+    "shopVoid":   ("sw_black", [0, 0, 1, 1], 0.0, 1.0),
+    "shopDoorL":  ("sw_woodDark", [0, 0, 1, 1], 0.0, 1.25),
+    "shopFan":    ("sw_amber", [0, 0, 1, 1], 0.28, 0.88),
+    "shopLamp":   ("sw_white", [0, 0, 1, 1], 0.70, 1.0),
+    # 🪧 the blade signs. $BLADE is a SENTINEL like $BRICK — the call site
+    # remaps it per unit so the terrace does not grow fourteen pink signs.
+    "bladeArm":   ("sw_iron", [0, 0, 1, 1], 0.0, 0.72),
+    "bladeFace":  ("sw_iron", [0, 0, 1, 1], 0.0, 0.66),
+    "bladeGlow":  ("$BLADE", [0, 0, 1, 1], 0.58, 1.0),
+    # the bus shelter's lit route map — see build_bus_shelter's note
+    "shelterMap": ("sw_white", [0, 0, 1, 1], 0.42, 0.95),
+    "shelterAd":  ("sw_amber", [0, 0, 1, 1], 0.34, 0.95),
 }
 
 # preview-only colours, so the Blender viewport isn't a grey blob
@@ -267,6 +316,19 @@ _PREVIEW = {
     "shelterIron": (0.18, 0.20, 0.26), "shelterGlass": (0.04, 0.09, 0.15),
     "shelterRoof": (0.36, 0.36, 0.42), "shelterWood": (0.28, 0.20, 0.07),
     "shelterLight": (0.95, 0.94, 0.86),
+    "shopPier": (0.26, 0.20, 0.06), "shopPierB": (0.13, 0.15, 0.20),
+    "shopFascia": (0.18, 0.14, 0.04), "shopCorn": (0.40, 0.40, 0.46),
+    "shopSignD": (0.55, 0.36, 0.09), "shopSign": (1.0, 0.72, 0.16),
+    "shutBox": (0.14, 0.15, 0.20), "shutter": (0.24, 0.27, 0.34),
+    "shutRail": (0.11, 0.13, 0.17), "shopIron": (0.28, 0.31, 0.38),
+    "shopPlinth": (0.36, 0.36, 0.42), "shopRiser": (0.17, 0.13, 0.04),
+    "shopGlass": (0.02, 0.03, 0.06), "shopLit": (1.0, 0.78, 0.36),
+    "shopLitC": (0.86, 0.88, 0.92), "shopVoid": (0.01, 0.01, 0.02),
+    "shopDoorL": (0.24, 0.18, 0.05), "shopFan": (0.95, 0.72, 0.28),
+    "shopLamp": (1.0, 0.96, 0.84),
+    "bladeArm": (0.18, 0.20, 0.26), "bladeFace": (0.16, 0.18, 0.23),
+    "bladeGlow": (1.0, 0.35, 0.68),
+    "shelterMap": (0.88, 0.90, 0.94), "shelterAd": (1.0, 0.74, 0.28),
 }
 
 
@@ -2150,8 +2212,16 @@ def build_bus_shelter():
         for sy in (-1, 1):
             P.box((sx * (hw - 0.055), sy * (hd - 0.055), Hh / 2),
                   (0.075, 0.075, Hh), "shelterIron")
+    # 🚏 THE BACKLIT ADVERT. Every bus shelter on earth has exactly one, and it
+    # is the only lit thing at a bus stop. The first pass put lit panels on the
+    # ENDS, which is where the route map goes — and the crop then showed the
+    # same black slab, because from the stop's own hotspot you are looking at
+    # the shelter's BACK. Measure where the camera is before deciding where the
+    # light goes.
     for i in (-1, 0, 1):
-        P.box((i * (W / 3), hd - 0.030, 1.320), (W / 3 - 0.075, 0.028, 1.760), "shelterGlass")
+        mat = "shelterAd" if i == -1 else "shelterGlass"
+        d = 0.055 if i == -1 else 0.028
+        P.box((i * (W / 3), hd - 0.040, 1.320), (W / 3 - 0.075, d, 1.760), mat)
     for i in (-1, 1):
         P.box((i * (W / 6), hd - 0.030, 1.320), (0.048, 0.052, 1.860), "shelterIron")
     for sx in (-1, 1):
@@ -2167,6 +2237,18 @@ def build_bus_shelter():
     for sx in (-1, 1):
         P.box((sx * (hw - 0.42), hd - 0.30, 0.280), (0.050, 0.260, 0.560), "shelterIron")
     P.box((0, 0.10, Hh - 0.095), (W - 0.60, 0.130, 0.045), "shelterLight")
+    # 🚏 THE LIT PANELS. `10-busstop` has been the worst tile in the game all
+    # night at 29.6% near-dead, and the crop says why: the right third of that
+    # frame is this shelter's end, and an end made of dark glass on dark iron
+    # against a night street is a BLACK SLAB. Every bus shelter ever built has
+    # a backlit route map at one end and a backlit advert at the other, for the
+    # same reason: it is the only lit thing at a bus stop.
+    #
+    # These are boxes inside the existing glazing, not replacements for it, so
+    # the shelter's silhouette and its collision box are unchanged.
+    for sx, mat in ((-1, "shelterMap"), (1, "shelterMap")):
+        P.box((sx * (hw - 0.030), 0, 1.340), (0.020, D - 0.300, 1.420), mat)
+        P.box((sx * (hw - 0.055), 0, 1.340), (0.030, D - 0.230, 1.520), "shelterIron")
     return P.finish(bevel=0.006, segments=1, smooth_deg=36)
 
 
@@ -2178,6 +2260,232 @@ MODELS.update({
     "vending": build_vending,
     "bin": build_bin,
     "busShelter": build_bus_shelter,
+})
+
+
+# ---- 🏪 THE GROUND FLOOR --------------------------------------------------------
+# The block across the road is fourteen bays of facadeBay standing on a brick
+# panel 1.46m tall that runs the full 42m without one opening in it. Every
+# street view in the game contains it, and it is the last thing on this street
+# that still says "backdrop" rather than "place".
+#
+# HOW TALL, AND WHY IT WAS MEASURED TWICE. facadeBay's own first window sill
+# lands at 1.49, so the band under it was 0..1.46 and the first pass built the
+# whole storey inside that. Every piece of joinery was there and NONE of it
+# read: at 9.7m from the arcade door that band is 90 pixels of a 760-pixel
+# frame, and a 1.13m door in it is a hatch. So the terrace is lifted 0.56m and
+# the storey is 2.02 — low, but a door in it is 1.5m and reads as a door.
+#
+# NOT the 2.6m a real ground floor wants, and this is the constraint worth
+# writing down: the arcade door sees this wall across ~60 degrees of vertical
+# FOV, so every metre of terrace eats roughly 66 pixels of the sky above it,
+# and the sky above it is THE SKYLINE — a whole session's work, 156 modelled
+# towers. A full-height storey would have swallowed it from the most-used
+# vantage in the game. 0.56 was picked by measuring what survived.
+#
+# Three units, picked per bay by the call site, plus a blade sign that hangs
+# over the pavement. They share a fascia/pier frame on purpose: a terrace is
+# one building with different tenants in it, not three different buildings.
+
+SHOP_W, SHOP_H = 3.00, 2.02
+# y is DEPTH here and negative is toward the road. facadeBay's own front face
+# sits at -0.150 and its sills reach -0.295, so the shopfront frame at -0.31
+# stands proud of the masonry above it exactly as a real one does.
+_SF_FRONT, _SF_GLASS, _SF_BACK = -0.310, -0.120, 0.020
+
+
+def _shop_frame(P, pier="shopPier", sign="shopSignD"):
+    """The parts every unit shares: two piers, a fascia, a cornice, a plinth.
+
+    Kept in one function because the whole point of a terrace is that the
+    JOINERY lines up across the tenancies even when nothing else does.
+    """
+    W, Z1 = SHOP_W, SHOP_H
+    hw = W / 2
+    d = abs(_SF_FRONT - _SF_BACK)
+    cy = (_SF_FRONT + _SF_BACK) / 2
+    # piers up both edges, full height, standing proudest of everything
+    for sx in (-1, 1):
+        P.box((sx * (hw - 0.135), cy, Z1 / 2), (0.270, d, Z1), pier)
+    # fascia band with the shop's name on it, and a cornice over the top that
+    # catches the streetlamp and throws a line of shadow down the front
+    P.box((0, cy + 0.020, Z1 - 0.140), (W - 0.060, d - 0.040, 0.280), "shopFascia")
+    P.box((0, _SF_FRONT - 0.045, Z1 - 0.150), (W - 0.520, 0.050, 0.165), sign)
+    P.box((0, _SF_FRONT - 0.030, Z1 - 0.010), (W + 0.050, 0.130, 0.075), "shopCorn")
+    P.box((0, _SF_FRONT + 0.015, Z1 - 0.290), (W - 0.100, 0.075, 0.045), "shopIron")
+    # plinth: the wet granite kerbstone every shopfront in the world sits on
+    P.box((0, cy - 0.015, 0.045), (W, d + 0.030, 0.090), "shopPlinth")
+
+
+def build_shop_shut():
+    """A unit with the shutter down: corrugated steel, a housing, a hasp.
+
+    Half a night street is CLOSED, and a closed shop is not an absence — it is
+    a big ribbed metal plane that catches a streetlamp in a way nothing else on
+    this wall does.
+    """
+    P = Part("shopShut")
+    W, Z1 = SHOP_W, SHOP_H
+    _shop_frame(P, pier="shopPier", sign="shopSignD")
+    # the shutter housing under the fascia
+    P.box((0, _SF_GLASS - 0.010, Z1 - 0.330), (W - 0.400, 0.190, 0.115), "shutBox")
+    # THE CORRUGATION. One flat box would be a grey rectangle; a shutter is
+    # read entirely by the horizontal banding, and at this distance that has to
+    # be real geometry — a normal map on a 24px swatch cannot make ribs.
+    z0, z1 = 0.130, Z1 - 0.395
+    n = max(6, int(round((z1 - z0) / 0.150)))
+    lath = (z1 - z0) / n
+    for i in range(n):
+        zc = z0 + lath * (i + 0.5)
+        # alternate laths step forward a hair: that is the whole corrugation
+        y = _SF_GLASS + (0.014 if i % 2 else -0.014)
+        P.box((0, y, zc), (W - 0.420, 0.052, lath * 0.86), "shutter")
+    # bottom rail, its hasp, and the concrete channel it lands in
+    P.box((0, _SF_GLASS, z0 - 0.030), (W - 0.420, 0.080, 0.105), "shutRail")
+    P.box((0, _SF_GLASS - 0.045, z0 + 0.020), (0.115, 0.055, 0.085), "shopIron")
+    for sx in (-1, 1):
+        P.box((sx * (W / 2 - 0.290), _SF_GLASS + 0.020, (z0 + z1) / 2),
+              (0.055, 0.070, z1 - z0 + 0.10), "shutBox")
+    return P.finish(bevel=0.005, segments=1, smooth_deg=36)
+
+
+def build_shop_open():
+    """A unit that is still trading: stall riser, display glass, a lit back.
+
+    This is the one that does the lighting work. The measured problem with the
+    ground band was never that it lacked detail, it was that it was DARK — so
+    the unit that earns its place is the one that emits.
+    """
+    P = Part("shopOpen")
+    W, Z1 = SHOP_W, SHOP_H
+    _shop_frame(P, pier="shopPier", sign="shopSign")
+    wx, ww = -0.290, W - 1.010          # window centre and width
+    gz0, gz1 = 0.420, Z1 - 0.330
+    gzc = (gz0 + gz1) / 2
+    ry = (_SF_GLASS + _SF_BACK) / 2     # reveal spans back plane -> glass line
+    rd = abs(_SF_BACK - _SF_GLASS)
+    # stall riser: the panelled skirt under the window
+    P.box((wx, _SF_GLASS - 0.070, 0.255), (ww, 0.150, 0.330), "shopRiser")
+    P.box((wx, _SF_GLASS - 0.100, 0.255), (ww - 0.220, 0.045, 0.215), "shopPier")
+    # 🔆 THE LIT PANEL *IS* THE WINDOW. The first pass put a `shopGlass` pane in
+    # front of an emissive interior, which is the §15 ledger row verbatim:
+    # NOTHING IN THIS RENDERER IS TRANSPARENT, so "glass over a light" is an
+    # opaque black box over a light nobody will ever see. The lit plane is the
+    # opening; the joinery stands in front of it and the goods stand on it.
+    P.box((wx, _SF_BACK - 0.020, gzc), (ww - 0.050, 0.045, gz1 - gz0), "shopLit")
+    P.box((wx, _SF_BACK - 0.055, gz1 - 0.090), (ww - 0.190, 0.040, 0.070), "shopLitC")
+    # the reveal: jambs and head standing between that plane and the frame, so
+    # the opening has real depth and the light has something to fall on
+    for sx in (-1, 1):
+        P.box((wx + sx * (ww / 2 - 0.045), ry, gzc), (0.090, rd, gz1 - gz0), "shopPier")
+    P.box((wx, ry, gz1 - 0.045), (ww, rd, 0.090), "shopPier")
+    # goods in the window: dark silhouettes standing IN FRONT of the light, so
+    # it reads as a shop and not as a glowing rectangle
+    for ox, ow, oh in ((-0.640, 0.300, 0.330), (-0.040, 0.230, 0.450), (0.540, 0.340, 0.260)):
+        P.box((wx + ox, _SF_GLASS + 0.045, gz0 + oh / 2), (ow, 0.110, oh), "shopVoid")
+    # mullion + transom bar, in front of the light
+    P.box((wx, _SF_GLASS - 0.025, gzc), (0.048, 0.060, gz1 - gz0), "shopPier")
+    P.box((wx, _SF_GLASS - 0.025, gz1 - 0.190), (ww, 0.060, 0.042), "shopPier")
+    # a cill that stands proud and drips
+    P.box((wx, _SF_GLASS - 0.115, gz0 - 0.020), (ww + 0.080, 0.140, 0.055), "shopCorn")
+    # the door: a REAL recess on the right. Jambs and a head, with the leaf at
+    # the back of it — not a solid void box with the leaf buried inside.
+    dx, dw = W / 2 - 0.520, 0.680
+    dz1 = Z1 - 0.330
+    lz = dz1 - 0.195                       # leaf height: the head and fanlight above it
+    P.box((dx, _SF_BACK + 0.010, lz / 2 + 0.020), (dw - 0.110, 0.050, lz), "shopDoorL")
+    P.box((dx, _SF_BACK + 0.010, lz + 0.095), (dw - 0.110, 0.052, 0.110), "shopFan")
+    for sx in (-1, 1):
+        P.box((dx + sx * (dw / 2 - 0.035), ry, dz1 / 2), (0.070, rd, dz1), "shopPier")
+    P.box((dx, ry, dz1 - 0.035), (dw, rd, 0.070), "shopPier")
+    P.box((dx, _SF_GLASS - 0.055, 0.045), (dw + 0.060, 0.200, 0.090), "shopCorn")
+    P.box((dx + 0.195, _SF_BACK - 0.030, 0.900), (0.055, 0.055, 0.060), "shopIron")
+    return P.finish(bevel=0.005, segments=1, smooth_deg=36)
+
+
+def build_shop_door():
+    """A private entrance: a recessed porch, a panelled door, a bracket lamp.
+
+    Not every ground floor is a shop. Two of these in fourteen bays is what
+    stops the terrace reading as a row of identical retail units, and the porch
+    is the only place on this wall with real depth in shadow.
+    """
+    P = Part("shopDoor")
+    W, Z1 = SHOP_W, SHOP_H
+    _shop_frame(P, pier="shopPierB", sign="shopSignD")
+    # brick between the porch and the piers — this unit is mostly WALL, which
+    # is the contrast that makes the trading units read as openings
+    for sx in (-1, 1):
+        P.box((sx * (W / 2 - 0.560), _SF_GLASS + 0.045, (Z1 - 0.300) / 2),
+              (0.580, 0.180, Z1 - 0.300), "shopPierB")
+    # THE PORCH. A recess is jambs + a head + a leaf at the back of it. Built
+    # as one "void" box with the door inside, the box IS the door and every
+    # detail is buried in it — which is what the first pass shipped and what
+    # the preview render caught before any of it reached the browser.
+    pz1 = Z1 - 0.320
+    py = (_SF_GLASS + _SF_BACK) / 2
+    pd = abs(_SF_BACK - _SF_GLASS)
+    lz = pz1 - 0.210                       # leaf height under the fanlight and head
+    P.box((0, _SF_BACK + 0.010, lz / 2 + 0.020), (0.720, 0.050, lz), "shopDoorL")
+    # four raised panels on the leaf, proportioned to it
+    for f, hh in ((0.30, 0.30), (0.70, 0.34)):
+        for sx in (-1, 1):
+            P.box((sx * 0.165, _SF_BACK - 0.022, 0.020 + lz * f), (0.250, 0.032, lz * hh), "shopPier")
+    # fanlight over the leaf, then the reveal that makes it a porch
+    P.box((0, _SF_BACK + 0.010, lz + 0.105), (0.720, 0.052, 0.120), "shopFan")
+    for sx in (-1, 1):
+        P.box((sx * 0.430, py, pz1 / 2), (0.080, pd, pz1), "shopPierB")
+    P.box((0, py, pz1 - 0.040), (0.940, pd, 0.080), "shopPierB")
+    # letterbox and knob
+    P.box((-0.245, _SF_BACK - 0.032, 0.940), (0.060, 0.048, 0.060), "shopIron")
+    P.box((0, _SF_BACK - 0.028, 0.760), (0.200, 0.036, 0.045), "shopIron")
+    # the step, and a bracket lamp over the head that lights it
+    P.box((0, _SF_GLASS - 0.070, 0.045), (1.000, 0.230, 0.090), "shopCorn")
+    P.box((0, _SF_FRONT + 0.060, Z1 - 0.235), (0.075, 0.075, 0.055), "bladeArm")
+    P.box((0, _SF_FRONT - 0.055, Z1 - 0.250), (0.230, 0.170, 0.090), "shopLamp")
+    return P.finish(bevel=0.005, segments=1, smooth_deg=36)
+
+
+def build_shop_blade():
+    """A projecting neon blade on a bracket — the silhouette-breaker.
+
+    Everything else on this wall is FLAT to it. One object hanging out over the
+    pavement is worth more to a street's read than any amount of relief, and
+    because the street shadow map bakes off the static buffers this one throws
+    a real bar of shadow down the brick behind it.
+
+    $BLADE is a sentinel: the call site remaps it per unit so the terrace does
+    not grow fourteen identical pink signs.
+
+    ORIGIN AND HEIGHT: this one does NOT sit on the ground — origin is the
+    BOTTOM of the blade and the whole sign is 0.57 tall, so the call site
+    places it with an explicit `y`. It hangs in the SPANDREL between the two
+    facadeBay windows (2.80..3.50), which is both where a real projecting sign
+    goes and the only band on that wall with nothing already in it.
+    """
+    P = Part("shopBlade")
+    # (all z below are relative to the blade's own bottom)
+    # wall plate, the arm out over the pavement, and a stay under it
+    P.box((0, -0.030, 0.430), (0.140, 0.085, 0.300), "bladeArm")
+    P.box((0, -0.300, 0.545), (0.050, 0.570, 0.050), "bladeArm")
+    P.box((0, -0.175, 0.395), (0.038, 0.300, 0.038), "bladeArm")
+    for oy in (-0.145, -0.485):
+        P.box((0, oy, 0.530), (0.032, 0.032, 0.075), "bladeArm")
+    # the blade itself. A CLOSED box: an open shell here gets its facing
+    # guessed by signed volume and half the signs in the street vanish.
+    P.box((0, -0.315, 0.255), (0.070, 0.480, 0.505), "bladeFace")
+    # The tube. ONE box, wider in x than the blade it sits in, so it stands
+    # proud on BOTH faces — you read this sign walking either way down the
+    # road, and a tube on one side only is a sign that is off half the time.
+    P.box((0, -0.315, 0.255), (0.096, 0.360, 0.375), "bladeGlow")
+    return P.finish(bevel=0.005, segments=1, smooth_deg=36)
+
+
+MODELS.update({
+    "shopShut": build_shop_shut,
+    "shopOpen": build_shop_open,
+    "shopDoor": build_shop_door,
+    "shopBlade": build_shop_blade,
 })
 
 

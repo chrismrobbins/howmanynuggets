@@ -3169,7 +3169,7 @@ void main() {
     wallX(ST, 21.5, 0, 9.0, 0, 6, suv.brick, 2.2, 2.2, {});
     wallX(ST, 21.5, 12.8, 13.9, 0, 6, suv.brick, 2.2, 2.2, {});
     wallX(ST, 21.5, 9.0, 12.8, 3.6, 6, suv.brick, 2.2, 2.2, {}); // archway header
-    wallZ(ST, 13.9, 21.5, -21.5, 0, 5.4, suv.across, 21.5, 5.4, { e: 0.22 }); // faces -z
+    wallZ(ST, 13.9, 21.5, -21.5, 0, 5.96, suv.across, 21.5, 5.96, { e: 0.22 }); // faces -z
     // THE BLOCK ACROSS THE ROAD. That one quad above is 43 metres of wall with
     // windows PAINTED on it — no reveals, so nothing ever catches a shadow and
     // the whole far side of the street reads as wallpaper. These bays stand
@@ -3178,6 +3178,10 @@ void main() {
     // get the old flat wall.
     {
       const BAY = 3.0, z = 13.9;
+      // 🏪 how far the masonry is lifted to make room for the shop storey.
+      // Must match SHOP_H in blender/hallmesh.py minus facadeBay's own blank
+      // band (1.46), and the backdrop wall above must cover 5.4 + this.
+      const TERR_Y = 0.56;
       // 🧱 THE TERRACE IS TWO BUILDINGS NOW. Fourteen bays all wore the same
       // brick, tiled 2.2x2.2 — a repeat every 1.4m along 42m of wall — and the
       // measured verdict on this street was "big flat brick with one tone".
@@ -3201,11 +3205,12 @@ void main() {
         // wall (the shops are at z=0.04, on the arcade's own side of the
         // street). A bay over the top of them buries the club entrance.
         if (bx > -9.0 && bx < -3.0) continue;
-        if (!ST.model('facadeBay', suv, { x: bx, z, yaw: Math.PI, remap: wallFor(i) })) break;
+        // 🏪 lifted 0.56m: the ground floor under it is a real storey now
+        if (!ST.model('facadeBay', suv, { x: bx, y: TERR_Y, z, yaw: Math.PI, remap: wallFor(i) })) break;
         // a few of them wear an air conditioner over the lower window
         if ((i * 7) % 5 === 0) {
-          ST.model('acUnit', suv, { x: bx + 0.55, y: 1.42, z: z - 0.16, yaw: Math.PI });
-          H.glows.push({ p: [bx, 4.3, z - 0.35], c: [1, 0.86, 0.55], s: 0.7, a: 0.05, k: 'sign' });
+          ST.model('acUnit', suv, { x: bx + 0.55, y: TERR_Y + 1.42, z: z - 0.16, yaw: Math.PI });
+          H.glows.push({ p: [bx, TERR_Y + 4.3, z - 0.35], c: [1, 0.86, 0.55], s: 0.7, a: 0.05, k: 'sign' });
         }
         // 🪜 FIRE ESCAPES. The other half of "no wear" was that this wall had
         // nothing ON it: 42 metres of terrace carrying four air conditioners
@@ -3214,8 +3219,74 @@ void main() {
         // this is static — drops a real ladder of shadow down the brick behind
         // it. Two of them, on bays that are not already wearing an AC unit.
         if (i === 2 || i === 10) {
-          ST.model('fireEscape', suv, { x: bx, z: z - 0.02, yaw: Math.PI });
-          H.propBoxes.push({ min: [bx - 1.1, 0, z - 1.3], max: [bx + 1.1, 5.4, z] });
+          ST.model('fireEscape', suv, { x: bx, y: TERR_Y, z: z - 0.02, yaw: Math.PI });
+          H.propBoxes.push({ min: [bx - 1.1, 0, z - 1.3], max: [bx + 1.1, TERR_Y + 5.4, z] });
+        }
+      }
+
+      // 🏪 THE GROUND FLOOR. The bottom 1.46m of all fourteen bays was ONE
+      // brick panel per bay and not a single opening in 42 metres — the last
+      // thing on this street that still read as a backdrop rather than a
+      // place. Three units (shutter down / trading / private entrance) picked
+      // per bay, plus blade signs hanging over the pavement.
+      //
+      // 🚨 GATED ON 32-BIT INDICES, and this is not paranoia. These add ~24k
+      // vertices to a street buffer already at 59209, which puts it well past
+      // the 65535 a Uint16 index can address — and an overflow does not error,
+      // it WRAPS (§14/§15, twice). On WebGL2 H.uintIndex is true and the buffer
+      // is Uint32; on WebGL1 without the extension the honest answer is the
+      // brick band that shipped, which is a wall, not a hole.
+      if (H.uintIndex) {
+        // Stable per-bay choice: a street that reshuffles itself every reload
+        // is a bug, and a repeating ABCABC is a pattern rather than a terrace.
+        const UNITS = ['shopShut', 'shopOpen', 'shopDoor'];
+        const BLADES = [{ $BLADE: 'sw_party1' }, { $BLADE: 'sw_party2' }, { $BLADE: 'sw_amber' }];
+        // Fourteen amber fascias in a row is a 42-metre light fitting, not a
+        // parade of shops. $SIGN deals a colour per unit.
+        const SIGNS = ['sw_amber', 'sw_white', 'sw_red', 'sw_party2', 'sw_badge'];
+        for (let i = 0; i < 14; i++) {
+          const bx = -20.0 + i * BAY;
+          if (bx > -9.0 && bx < -3.0) continue;   // the club door owns this stretch
+          const k = (i * 5 + ((i / 3) | 0)) % 7;
+          const unit = UNITS[k === 0 || k === 4 ? 1 : (k === 2 || k === 6 ? 2 : 0)];
+          const sign = SIGNS[(i * 3 + 1) % SIGNS.length];
+          if (!ST.model(unit, suv, { x: bx, z, yaw: Math.PI, remap: { $SIGN: sign } })) break;
+          H.propBoxes.push({ min: [bx - 1.5, 0, z - 0.45], max: [bx + 1.5, 2.1, z] });
+          // Every unit gets a little light of its own regardless of type. The
+          // streetlamps stand on the CURB at z 6.9 and the terrace is at 13.9,
+          // so seven metres of road separate this whole band from the nearest
+          // fixture — modelling it beautifully and leaving it unlit is how the
+          // first pass came back as murk.
+          LIGHTS.push({ p: [bx, 1.86, z - 0.70], c: [0.30, 0.26, 0.20], k: 'lamp' });
+          if (unit === 'shopOpen') {
+            // The unit that EARNS its place: it emits. The measured problem
+            // with this band was never a lack of detail, it was that the whole
+            // strip was near-dead — so the lit window has to be a real world
+            // light, spilling onto the pavement in front of it, not a bright
+            // texel that stops at its own edge.
+            //
+            // `lamp`, NOT `sign`: kind 'sign' is wired to signLevel(), which is
+            // the ARCADE's own neon warm-up — a shop window that sputters on
+            // in sync with the marquee across the road is a continuity bug.
+            LIGHTS.push({ p: [bx - 0.29, 1.15, z - 0.62], c: [0.62, 0.47, 0.25], k: 'lamp' });
+            H.glows.push({ p: [bx - 0.29, 1.05, z - 0.44], c: [1, 0.82, 0.46], s: 1.9, a: 0.11, k: 'sign' });
+          } else if (unit === 'shopDoor') {
+            LIGHTS.push({ p: [bx, 1.86, z - 0.50], c: [0.34, 0.30, 0.22], k: 'lamp' });
+          }
+          // 🪧 blade signs, in the spandrel between the two windows (2.80..3.50
+          // — the only band on that wall with nothing already in it, and where
+          // a real projecting sign goes). Not on every bay: four of them read
+          // as a street, fourteen read as a trade fair.
+          if (k === 1 || k === 4) {
+            const blade = BLADES[(i + 1) % 3];
+            if (ST.model('shopBlade', suv, { x: bx + 0.9, y: TERR_Y + 2.88, z: z - 0.02, yaw: Math.PI, remap: blade })) {
+              const c = blade.$BLADE === 'sw_party2' ? [0.30, 0.86, 1.0]
+                : blade.$BLADE === 'sw_amber' ? [1.0, 0.74, 0.22] : [1.0, 0.36, 0.70];
+              LIGHTS.push({ p: [bx + 0.9, TERR_Y + 3.14, z - 0.66], k: 'neon',
+                c: [c[0] * 0.52, c[1] * 0.52, c[2] * 0.52] });
+              H.glows.push({ p: [bx + 0.9, TERR_Y + 3.14, z - 0.70], c, s: 1.1, a: 0.16, k: 'neon' });
+            }
+          }
         }
       }
     }
@@ -3347,6 +3418,11 @@ void main() {
       // The shelter stands BEHIND the pole rather than replacing it — the bus
       // hotspot and its stand coordinate are a contract with the hall, and the
       // sign is what the player actually aims at.
+      // The shelter's backlit advert is a real light: `10-busstop` has been
+      // the worst tile in the game all night and the crop said why — the right
+      // third of that frame was this thing, unlit, against a night street.
+      LIGHTS.push({ p: [sx - 3.1, 1.35, sz + 0.10], c: [0.52, 0.42, 0.26], k: 'lamp' });
+      LIGHTS.push({ p: [sx - 2.1, 2.28, sz + 0.20], c: [0.40, 0.42, 0.44], k: 'tube' });
       if (ST.model('busShelter', suv, { x: sx - 2.1, z: sz + 0.30, yaw: Math.PI })) {
         H.propBoxes.push({ min: [sx - 3.7, 0, sz - 0.35], max: [sx - 0.5, 2.6, sz + 0.95] });
         H.glows.push({ p: [sx - 2.1, 2.29, sz + 0.28], c: [0.85, 0.92, 1], s: 1.15, a: 0.10, k: 'tube' });
