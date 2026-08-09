@@ -1840,6 +1840,14 @@ void main() {
     const SGN = new Builder();    // neon signs (flicker via uBoost)
     const DL = new Builder(), DR = new Builder(); // door leaves
     const DEC = new Builder();    // dark contact-shadow decals
+    // 👣 one unit blob, drawn once per mover with a model matrix. Its UV is the
+    // WHOLE of the glow texture (a 128px radial alpha ramp), not an atlas
+    // region — the softness has to come from the texture, because the lit
+    // shader's alpha is tex.a * uAlpha and a hard quad would put a black
+    // rectangle under everybody. tint 0 makes it black regardless of the light
+    // falling on it, which is what a shadow is.
+    const BLOB = new Builder();
+    BLOB.quad([-1, 0, 1], [1, 0, 1], [1, 0, -1], [-1, 0, -1], [0, 0, 1, 1], { e: 1, tint: 0 });
     const SCR = new Builder();    // all cabinet screens (one quad each)
     const SB = new Builder();     // live leaderboard scoreboard (own texture)
     const DISCO = new Builder();  // mirror ball (own model matrix — it spins)
@@ -2245,7 +2253,7 @@ void main() {
     return {
       static: B.upload(gl), floor: F.upload(gl), sign: SGN.upload(gl),
       doorL: DL.upload(gl), doorR: DR.upload(gl),
-      decals: DEC.upload(gl), screens: SCR.upload(gl),
+      decals: DEC.upload(gl), blob: BLOB.upload(gl), screens: SCR.upload(gl),
       board: SB.upload(gl),
       disco: DISCO.upload(gl), flora: FLORA.upload(gl),
     };
@@ -5444,6 +5452,52 @@ void main() {
     gl.vertexAttribPointer(H.attrS.aUV, 2, gl.FLOAT, false, 36, 12);
     gl.vertexAttribPointer(H.attrS.aColor, 4, gl.FLOAT, false, 36, 20);
     gl.drawArrays(gl.TRIANGLES, 0, arr.length / 9);
+
+    // 👣 THE REGULARS CAST. Since the street was built, five people have stood
+    // on it with nothing underneath them. The shadow maps bake ONCE at boot off
+    // the STATIC buffers (§12, deliberately — this hall does not move), so
+    // every caster in the world is bolted down and the only things that are not
+    // are the only things a player walks up to and talks to.
+    //
+    // A character with no contact shadow does not read as unlit, it reads as
+    // NOT STANDING THERE. The eye catches it instantly and cannot say why.
+    //
+    // It rides the SPRITE pass, not the lit pass. The first attempt built it as
+    // a dark quad through the same path the static cabinet smudges use, and it
+    // drew — 180 draws a run, six indices each, correct transform — and put
+    // nothing on the screen at any size or opacity. The sprite pass already
+    // samples this exact texture's alpha correctly every frame, so it goes
+    // where the machinery is known to work.
+    //
+    // The blend is the trick: ZERO / ONE_MINUS_SRC_COLOR multiplies the
+    // framebuffer by (1 - blob), which is a shadow. The same buffer, the same
+    // shader, one blend mode apart from the glows it was written for.
+    if (H.shadows !== false) {
+      const sh = [];
+      for (const n of NPCS) {
+        if (n.hidden) continue;
+        const b = n.bobAmp ? Math.sin(H.t * n.bobSpd + n.phase) * n.bobAmp : 0;
+        // A shadow does not bob WITH its owner — it shrinks and fades as the
+        // owner rises. That difference is most of what sells contact.
+        const lift = 1 - Math.min(0.30, Math.max(0, b) * 12);
+        const r = (n.h || 1) * 0.46 * lift;
+        pushSprite(sh, n.x, (n.yBase || 0) + 0.02, n.z, r, r * 0.84,
+          0.62, 0.60, 0.66, 0.86 * lift, FLAT_RIGHT, FLAT_FWD);
+      }
+      if (sh.length) {
+        gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_COLOR);
+        // uGlowGain exists to push the additive glows past white in the float
+        // buffer. A shadow that gets 1.7x brighter is 1.7x DARKER, so it has
+        // to be neutralised for this one draw.
+        gl.uniform1f(H.uniS.uGlowGain, 1);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(sh), gl.DYNAMIC_DRAW);
+        gl.vertexAttribPointer(H.attrS.aPos, 3, gl.FLOAT, false, 36, 0);
+        gl.vertexAttribPointer(H.attrS.aUV, 2, gl.FLOAT, false, 36, 12);
+        gl.vertexAttribPointer(H.attrS.aColor, 4, gl.FLOAT, false, 36, 20);
+        gl.drawArrays(gl.TRIANGLES, 0, sh.length / 9);
+        gl.blendFunc(gl.ONE, gl.ONE);
+      }
+    }
 
     gl.depthMask(true);
     gl.disable(gl.BLEND);

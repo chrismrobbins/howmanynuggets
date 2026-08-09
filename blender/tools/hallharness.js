@@ -63,6 +63,12 @@ const RAW = [
   ['15-pier',      31.4,  10.9,  [32.6, 10.9],  0.02],  // the pier gate
   // --- the lid ---------------------------------------------------------
   ['16-skyward',   -4.2,   6.1,  [-4.2, 20],    0.45],  // sky + the block across
+  // --- the people ------------------------------------------------------
+  // ADDED 2026-08-09 (ROUND 2). Nothing in this harness had ever looked at a
+  // regular, and that is precisely why five of them stood on the pavement with
+  // no contact shadow for four sessions without it showing up in a number.
+  // A spot table only measures what it points at.
+  ['17-regular',    2.5,   4.60, [2.5, 1.2],   -0.20],  // Big Crumb, FULL LENGTH (feet in frame)
 ];
 
 const SPOTS = RAW.map(([name, x, z, look, pitch]) => ({
