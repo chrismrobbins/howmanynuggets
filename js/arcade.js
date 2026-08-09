@@ -43,6 +43,7 @@ const NuggetArcade = (() => {
   // the wet road's bounce below — derived from the palette itself, so retuning
   // the look retunes the lighting with it and the two can never disagree.
   const SKY_AMB_MUL = 0.62, GND_AMB_MUL = 0.95;
+  const SHADOW_AMT = 0.86;  // full black under a cabinet is a hole, not a shadow
   const SKY_REFL = 0.62;   // how much of the sky a polished outdoor surface returns
   // The hall's own two-lobe ambient. UP = what an upward-facing surface
   // collects (the dark ceiling); DOWN = what a downward-facing one collects
@@ -406,12 +407,33 @@ void main() {
 precision highp float;
 in vec3 vWorld, vNormal; in vec2 vUV, vExtra;
 uniform sampler2D uTex, uNrm, uOrm;
+uniform highp sampler2DShadow uShadowH, uShadowS;
+uniform mat4 uShadowMatH, uShadowMatS;
+uniform float uShadowAmt;
 uniform vec3 uLightPos[16]; uniform vec3 uLightColor[16];
 uniform vec3 uAmbUp, uAmbDown, uFogColor, uCamPos, uSkyAmb, uGndAmb;
 uniform float uFogDensity, uAlpha, uMirror, uBoost, uNrmScale, uSpecAmt, uWet, uTime, uSkyAmt, uSkyRefl;
 out vec4 fragColor;
 ` + GLSL_SKY + `
 const float PI = 3.14159265;
+
+// One overhead map per zone, chosen by which zone the fragment stands in. Four
+// rotated taps on top of the hardware's own 2x2 comparison: soft enough that a
+// cabinet's shadow has an edge worth looking at, cheap enough that it is four
+// texture fetches and no branch worth mentioning.
+float zoneShadow(mat4 m, highp sampler2DShadow smp, vec3 world, float bias) {
+  vec4 lp = m * vec4(world, 1.0);
+  vec3 q = lp.xyz / lp.w * 0.5 + 0.5;
+  if (q.x < 0.002 || q.x > 0.998 || q.y < 0.002 || q.y > 0.998 || q.z > 1.0) return 1.0;
+  q.z -= bias;
+  const float T = 1.35 / 2048.0;
+  float sSum = texture(smp, q);
+  sSum += texture(smp, q + vec3(T, 0.0, 0.0));
+  sSum += texture(smp, q + vec3(-T, 0.0, 0.0));
+  sSum += texture(smp, q + vec3(0.0, T, 0.0));
+  sSum += texture(smp, q + vec3(0.0, -T, 0.0));
+  return sSum * 0.2;
+}
 
 // A tangent basis with no tangent attribute: the classic cotangent frame.
 mat3 cotangent(vec3 N, vec3 p, vec2 uv) {
@@ -479,14 +501,28 @@ void main() {
   // read as nothing. Now it gets a hemisphere — the overcast above, the wet
   // road's bounce below, blended by which way the surface faces. Indoors is
   // untouched, and uSkyAmt = 0 collapses this back to the shipped equation.
+  // OVERHEAD OCCLUSION: how much of the ceiling — or the sky — this point can
+  // actually see. Offsetting along the GEOMETRIC normal before the lookup is
+  // what stops a floor from shadowing itself; a depth bias on its own either
+  // acnes or peters the contact point away, and the offset costs one madd.
+  float shadow = 1.0;
+  if (uShadowAmt > 0.001) {
+    vec3 sp = vWorld + Ng * 0.035;
+    shadow = vWorld.z < 0.2 ? zoneShadow(uShadowMatH, uShadowH, sp, 0.0016)
+                            : zoneShadow(uShadowMatS, uShadowS, sp, 0.0012);
+    shadow = mix(1.0, shadow, uShadowAmt);
+  }
+
   float outside = smoothstep(-0.6, 2.6, vWorld.z) * uSkyAmt;
   // Indoors is a hemisphere as well, and its poles are inverted: in this room
   // the bright environment is the carpet and the dark one is the ceiling, so a
   // downward-facing surface collects the FLOOR's bounce. The ceiling was the
   // blackest plane in the hall precisely because nothing was pointed at it.
   float dome = clamp(0.5 + 0.5 * Ng.y, 0.0, 1.0);
+  // The SKY lobe is the one an awning, a bus shelter or a lamp head actually
+  // blocks. The ground lobe bounces in from the side and does not care.
   vec3 light = mix(uAmbDown, uAmbUp, dome)
-    + outside * mix(uGndAmb, uSkyAmb, dome);
+    + outside * mix(uGndAmb, uSkyAmb * mix(0.30, 1.0, shadow), dome);
   vec3 spec = vec3(0.0);
   for (int i = 0; i < 16; i++) {
     vec3 d = uLightPos[i] - vWorld;
@@ -494,7 +530,12 @@ void main() {
     vec3 L = d / max(dist, 0.001);
     float att = 1.0 / (1.0 + 0.13 * dist + 0.026 * dist * dist);
     float NdotL = max(dot(Ng, L), 0.0);
-    light += uLightColor[i] * max(dot(N, L), 0.0) * att;
+    // A light is shadowed by the overhead map in proportion to how far ABOVE
+    // the surface it sits. A ceiling tube is fully occluded by the cabinet in
+    // the way; a neon strip at eye level casts nothing, correctly, and never
+    // needed a map of its own to say so.
+    float occ = mix(1.0, shadow, smoothstep(0.12, 0.62, L.y));
+    light += uLightColor[i] * max(dot(N, L), 0.0) * att * occ;
     if (pbr > 0.004 && NdotL > 0.0) {
       vec3 Hv = normalize(V + L);
       float NdotH = max(dot(N, Hv), 0.0);
@@ -505,7 +546,7 @@ void main() {
       float k = (rough + 1.0) * (rough + 1.0) / 8.0;
       float G = (NL / (NL * (1.0 - k) + k)) * (NdotV / (NdotV * (1.0 - k) + k));
       vec3 F = F0 + (1.0 - F0) * pow(1.0 - max(dot(Hv, V), 0.0), 5.0);
-      spec += min(uLightColor[i] * att * NL * D * G * F, vec3(2.2));
+      spec += min(uLightColor[i] * att * NL * D * G * F, vec3(2.2)) * occ;
     }
   }
 
@@ -537,6 +578,129 @@ void main() {
   col = mix(col, fogCol, fog * (1.0 - 0.7 * e));
   fragColor = vec4(col * uMirror, tex.a * uAlpha);
 }`;
+
+  // ---- SHADOWS ------------------------------------------------------------------
+  // Nothing in this hall has ever cast one. Baked AO gave crevices and the
+  // decal buffer faked a smudge under each cabinet, but no object has ever
+  // occluded a light from another object — which is why a room with sixty
+  // fixtures in it still read as evenly-lit rather than as LIT.
+  //
+  // Two decisions make this affordable:
+  //
+  // 1. THE MAPS ARE BAKED ONCE, at build time, from the static buffers. This
+  //    hall does not move. The mirror ball spins and the regulars breathe, but
+  //    the cabinets, the walls, the ducts, the awnings and the shelter — every
+  //    caster that matters — are bolted down. So the shadow pass costs two
+  //    depth renders at boot and exactly nothing per frame.
+  //
+  // 2. THEY ARE OVERHEAD MAPS, one per zone, and a light is shadowed in
+  //    PROPORTION TO HOW FAR ABOVE THE SURFACE IT IS. No per-light map, no
+  //    cube maps: a tube on the ceiling and a lamp on the street both cast
+  //    downward, and a neon strip at eye level correctly casts nothing. The
+  //    hall's camera sits UNDER its own ceiling (y=3.9) so the ceiling plane
+  //    does not shadow the entire room it is the lid of, which is the trap
+  //    that makes a single world-space top-down map useless indoors.
+  //
+  // WebGL2 only. WebGL1 keeps the unshadowed room, per the house rule.
+
+  const SHADOW_RES = 2048;
+  // [name, centre x, centre z, half-width, half-depth, eye y, depth range]
+  const SHADOW_ZONES = [
+    { k: 'hall', cx: 0, cz: -10, hx: 8.2, hz: 10.6, eye: 3.90, far: 4.2 },
+    { k: 'street', cx: 0, cz: 7.0, hx: 22.5, hz: 7.6, eye: 6.60, far: 6.9 },
+  ];
+
+  const VS_DEPTH = `#version 300 es
+in vec3 aPos;
+uniform mat4 uLightMat, uModel;
+void main() { gl_Position = uLightMat * uModel * vec4(aPos, 1.0); }`;
+
+  const FS_DEPTH = `#version 300 es
+precision highp float;
+void main() {}`;
+
+  function mOrtho(l, r, b, t, n, f) {
+    const m = new Float32Array(16);
+    m[0] = 2 / (r - l); m[5] = 2 / (t - b); m[10] = -2 / (f - n); m[15] = 1;
+    m[12] = -(r + l) / (r - l); m[13] = -(t + b) / (t - b); m[14] = -(f + n) / (f - n);
+    return m;
+  }
+
+  // Straight down: camFwd(yaw 0, pitch -PI/2) is (0,-1,0), so the view is the
+  // ordinary camera construction with the pitch pinned.
+  function lightMatrix(z) {
+    const view = mMul(mRotX(Math.PI / 2), mTrans(-z.cx, -z.eye, -z.cz));
+    return mMul(mOrtho(-z.hx, z.hx, -z.hz, z.hz, 0.02, z.far), view);
+  }
+
+  function bakeShadows(gl) {
+    H.shadow = null;
+    if (!H.pbr || !H.progDepth) return;
+    try {
+      const zones = [];
+      for (const z of SHADOW_ZONES) {
+        const tex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, SHADOW_RES, SHADOW_RES,
+          0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        // hardware comparison: one sample gives 2x2 PCF for free
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL);
+        const fbo = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, tex, 0);
+        gl.drawBuffers([gl.NONE]);
+        gl.readBuffer(gl.NONE);
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
+          throw new Error('shadow framebuffer incomplete');
+        zones.push({ fbo, tex, mat: lightMatrix(z) });
+      }
+
+      gl.useProgram(H.progDepth);
+      const aPos = H.aDepth;
+      gl.viewport(0, 0, SHADOW_RES, SHADOW_RES);
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthMask(true);
+      gl.disable(gl.BLEND);
+      // Cast from the BACK faces. Front-face casting on single-sided walls
+      // puts the acne on the lit surface, where it shows; back-face casting
+      // puts the bias error inside the solid, where nothing can see it.
+      gl.enable(gl.CULL_FACE);
+      gl.cullFace(gl.FRONT);
+      gl.enable(gl.POLYGON_OFFSET_FILL);
+      gl.polygonOffset(2.4, 5.0);
+      const I = mIdent();
+      for (const zn of zones) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, zn.fbo);
+        gl.clear(gl.DEPTH_BUFFER_BIT);
+        gl.uniformMatrix4fv(H.uniDepth.uLightMat, false, zn.mat);
+        gl.uniformMatrix4fv(H.uniDepth.uModel, false, I);
+        for (const buf of [H.bufs.static, H.bufs.sign, H.bufsStreet.solid]) {
+          if (!buf || !buf.count) continue;
+          gl.bindBuffer(gl.ARRAY_BUFFER, buf.vbo);
+          gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buf.ibo);
+          gl.enableVertexAttribArray(aPos);
+          gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 40, 0);
+          gl.drawElements(gl.TRIANGLES, buf.count, buf.type || gl.UNSIGNED_SHORT, 0);
+        }
+      }
+      gl.disable(gl.POLYGON_OFFSET_FILL);
+      gl.polygonOffset(0, 0);
+      gl.cullFace(gl.BACK);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      H.shadow = zones;
+    } catch (err) {
+      console.warn('Nugget Arcade: shadows unavailable', err);
+      H.shadow = null;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.disable(gl.POLYGON_OFFSET_FILL);
+      gl.cullFace(gl.BACK);
+    }
+  }
 
   // ---- the dome ---------------------------------------------------------------
   // There is no dome. There is a fullscreen quad pinned to the far plane with
@@ -854,6 +1018,9 @@ void main() {
     gl.generateMipmap(gl.TEXTURE_2D);
     registerMaps(gl, H.texAtlas, atlas);
     registerMaps(gl, H.texStreet, street);
+    // Baked ONCE, here, off the static buffers. Nothing that casts a shadow
+    // worth having in this hall ever moves.
+    bakeShadows(gl);
     H.builtHallArt = (typeof HallArt !== 'undefined' && HallArt.on() ? 'a' : '-') +
       (typeof HallMaps !== 'undefined' && HallMaps.on() ? 'm' : '-');
   }
@@ -3262,7 +3429,8 @@ void main() {
       'uAmbUp', 'uAmbDown', 'uFogColor', 'uCamPos', 'uFogDensity', 'uAlpha', 'uMirror', 'uBoost',
       'uNrm', 'uOrm', 'uNrmScale', 'uSpecAmt', 'uWet', 'uTime',
       'uSkyAmb', 'uGndAmb', 'uSkyAmt', 'uSkyRefl', 'uSkyHorizon', 'uSkyZenith', 'uSkyGlow',
-      'uSkyGround', 'uMoonDir', 'uSkyT'])
+      'uSkyGround', 'uMoonDir', 'uSkyT',
+      'uShadowH', 'uShadowS', 'uShadowMatH', 'uShadowMatS', 'uShadowAmt'])
       H.uni[name] = gl.getUniformLocation(H.progLit, name);
     H.uniS = {};
     for (const name of ['uProj', 'uView', 'uTex'])
@@ -3272,6 +3440,20 @@ void main() {
     // so one program serves both contexts and there is no second sky to keep
     // in sync with the first. If it fails to build, H.progSky stays null and
     // the hall renders exactly as it did before tonight (clear colour and all).
+    // The depth-only program for the baked shadow maps. WebGL2 only — the
+    // house rule is that WebGL1 keeps the room that shipped.
+    H.progDepth = null;
+    if (H.pbr) {
+      H.progDepth = makeProgram(gl, VS_DEPTH, FS_DEPTH, true);
+      if (H.progDepth) {
+        H.aDepth = gl.getAttribLocation(H.progDepth, 'aPos');
+        H.uniDepth = {
+          uLightMat: gl.getUniformLocation(H.progDepth, 'uLightMat'),
+          uModel: gl.getUniformLocation(H.progDepth, 'uModel'),
+        };
+      } else console.warn('Nugget Arcade: no depth program — running unshadowed');
+    }
+
     H.progSky = makeProgram(gl, VS_SKY, FS_SKY);
     if (!H.progSky) console.warn('Nugget Arcade: no sky program — rendering the old void');
     H.uniSky = {};
@@ -3317,6 +3499,9 @@ void main() {
     H.bufsStreet = buildStreet(gl, street.uv);
     registerMaps(gl, H.texAtlas, atlas);
     registerMaps(gl, H.texStreet, street);
+    // Baked ONCE, here, off the static buffers. Nothing that casts a shadow
+    // worth having in this hall ever moves.
+    bakeShadows(gl);
     H.builtHallArt = (typeof HallArt !== 'undefined' && HallArt.on() ? 'a' : '-') +
       (typeof HallMaps !== 'undefined' && HallMaps.on() ? 'm' : '-');
 
@@ -4306,6 +4491,17 @@ void main() {
       gl.uniform1f(H.uni.uSpecAmt, SPEC_AMT);
       gl.uniform1f(H.uni.uWet, WET_AMT);
       gl.uniform1f(H.uni.uTime, H.t);
+      const sh = H.shadow && H.shadows !== false;
+      gl.uniform1f(H.uni.uShadowAmt, sh ? SHADOW_AMT : 0);
+      if (sh) {
+        gl.uniformMatrix4fv(H.uni.uShadowMatH, false, H.shadow[0].mat);
+        gl.uniformMatrix4fv(H.uni.uShadowMatS, false, H.shadow[1].mat);
+        gl.uniform1i(H.uni.uShadowH, 3);
+        gl.uniform1i(H.uni.uShadowS, 4);
+        gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, H.shadow[0].tex);
+        gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, H.shadow[1].tex);
+        gl.activeTexture(gl.TEXTURE0);
+      }
     }
     useTex(H.texAtlas);
 
