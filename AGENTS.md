@@ -436,9 +436,11 @@ Things to know before you touch it:
   collapses to the old equation exactly. Everything unmapped is 0. That is how
   a region-by-region migration is possible at all — see `PBR_OFF` and
   `ROUGH_FIX` in `blender/pack_maps.py`, and `MAP_DEFAULTS` in arcade-art.js.
-- **The albedo is still PRE-LIT** (hallrig bakes a 44° key into it). Specular
-  and relief are real; diffuse is baked. Do not add a second diffuse term on
-  top or every surface double-lights.
+- **The albedo is FLAT BASE COLOUR now** (THE RELIGHT, 2026-08-09). `hallrig`
+  used to bake a 44° key into every texture; `_flatten()` kills the lamps and
+  renders under a uniform dome instead, so what ships is base colour × ambient
+  occlusion. Regenerate with `render_flat --res 2` and pack from
+  `blender/render_hall/flat`. The old lit set is still on disk to A/B against.
 - **`makeAtlas()` returns `{canvas, uv, nrm, orm}`.** The material pages are
   painted by the SAME `alloc()` sequence — never write a second packer, and
   never reorder allocs on one page only.
@@ -451,8 +453,9 @@ Things to know before you touch it:
 - **The ground past the doors is WET in the fragment shader** (`uWet`), keyed on
   normal.y, world.y and world.z. If you add ground geometry outside, it becomes
   wet automatically; if you add an indoor floor at z > 0.6 it will too, so check.
-- **Regenerate:** `blender --background --python hallrig.py -- render_maps` then
-  `python blender/pack_maps.py`.
+- **Regenerate:** `blender --background --python hallrig.py -- render_maps --res 2`
+  then `python blender/pack_maps.py`. Colour is
+  `... -- render_flat --res 2` then `python blender/pack_hall.py blender/render_hall/flat`.
 
 **Packers never regenerate their loaders.** `pack_mesh.py` used to write
 `js/hallMesh.js` and silently reverted the boot-ledger wiring the first time
@@ -464,3 +467,45 @@ fallback contract.
 waiting happens. Anything heavy you add should `HallBoot.job(...)` before it
 loads and `HallBoot.inject(...)` to fetch, so the bar stays honest — and it must
 NOT go in index.html. The converter is the product; it paints first, always.
+
+
+## 🌃 THE FOUR MOVEMENTS — sky, relight, ceiling, shadows (2026-08-09, late)
+
+Nearly two-fifths of every frame used to be *nothing* — not dark, absent. Four
+changes took dead black from 18.1% to 1.0% and near-dead from 55.4% to 14.1%
+with the blown fraction going DOWN to zero. Read `blender/HANDOFF.md` §12 for
+the full ledger; the parts that will bite a future change:
+
+- **There is a SKY** (`GLSL_SKY` in arcade.js): a fullscreen quad pinned to the
+  far plane, plus a procedural cloud deck, moon and compass-bearing skyline.
+  One GLSL chunk written in the subset both ES 1.00 and ES 3.00 accept, so the
+  dome, the fog and the WebGL1 shader all read the SAME palette (`SKY`). Change
+  the palette and the whole night changes together. `H.sky = false` collapses
+  the ambient AND the fog back to the shipped equation — that is the A/B seam.
+- **Fog outdoors is aerial perspective**, not a constant. Use `skyFog()` and
+  NOT `skyBase()` for it: at eye level a street ray does not travel through
+  open sky, and using the dome's own colour paints the far wall orange.
+- **Ambient is a hemisphere, and indoors its poles are INVERTED.** In the hall
+  the bright environment is the carpet and the dark one is the ceiling, so a
+  downward-facing surface collects `uAmbDown`. The ceiling was the blackest
+  plane in the building because nothing was pointed at it.
+- **The composite has a SHOULDER.** Highlights roll off instead of clipping.
+  Before adding brightness anywhere, remember the sum lands in an 8-bit buffer:
+  a texture capped at 178/255 still went flat white once bloom landed on it.
+- **The atlas is 2× and it is ONE knob** (`AS` in arcade-art.js). `alloc()`
+  scales the context and hands painters their ORIGINAL dimensions, so every
+  hard-coded pixel offset in that file still lands. Gated on
+  `MAX_TEXTURE_SIZE >= 4096`; a GPU that can't take it gets 1× and not a
+  broken hall.
+- **Emissive geometry lights the room** via `installEmissiveLights()`, derived
+  from `PLACEMENT` — add a cabinet and it lights itself. A long fixture needs a
+  RUN of point lights; one in the middle of a 6m tube lights a disc.
+- **The ceiling is real geometry** (`ceilBeam` / `ceilLight` / `ceilDuct` /
+  `hangSign` / `vestibule`, all MAIN atlas). Each is a 1m module stretched by
+  its call site — the `trimBase` pattern. The flat ceiling plane stays as the
+  coffer pan and as the fallback.
+- **Shadows are BAKED ONCE at boot**, two overhead maps (hall + street) off the
+  static buffers, and a light is occluded in proportion to how far above the
+  surface it sits. The hall's map is shot from y=3.9, *under* its own ceiling —
+  a world-space top-down map finds the ceiling first and shadows the whole
+  room. WebGL2 only; `H.shadows = false` is the seam. Nothing dynamic casts.

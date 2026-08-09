@@ -636,3 +636,96 @@ shadows under props and NPCs.
   review environment and asking costs him a round trip. Do not ask.
 - The A/B harness pattern and the ten camera spots from the last session are
   worth rebuilding first — they are what turns "looks better" into a number.
+
+---
+
+## 12. 🌃 THE FOUR MOVEMENTS (2026-08-09, late) — all four shipped
+
+§11's brief, executed in order, in three commits on prod: `33e3c72` THE SKY,
+`86d97bd` THE RELIGHT (+ THE CEILING), `c0a37de` SHADOWS.
+
+### The number
+
+Ten fixed spots at 1280×760, art ON, same harness every run:
+
+| | dead black (<8) | near-dead (<20) | blown (>246) | mean |
+|---|---|---|---|---|
+| baseline (this session's own) | 18.11% | 55.43% | 0.33% | 29.17 |
+| after THE SKY | 10.18% | 39.79% | 0.34% | 33.47 |
+| after RELIGHT + CEILING | 0.95% | 13.27% | **0.00%** | 48.54 |
+| after SHADOWS (shipped) | **1.00%** | **14.09%** | **0.00%** | 47.82 |
+
+Target was near-dead under 20 and dead under 5 **without the blown fraction
+rising**. All three, with room to spare, and nothing in the frame clips at all.
+
+**The absolute numbers are NOT comparable to §11's table** — those ten camera
+spots were lost with the old scratchpad and rebuilt from scratch, and these
+ones look at more sky. Only same-harness deltas mean anything. The harness is
+`shoot.js` (rebuild it; it is ~180 lines: a PNG-histogram decoder with no image
+library, ten spots, `H.state = 'idle'` to freeze the camera, `H.t` pinned).
+
+### The diagnosis that actually mattered
+
+Not the lighting. **`hall_targets.json` "ceiling": [9.6, 8.7, 18.3].** A 3.8%
+reflectance on the largest surface in the building. hall_targets was measured
+off the ORIGINAL PROCEDURAL PAINTERS in a room whose only ambient was a flat
+0.22 — so what it encodes is not a set of albedos, it is a set of FINISHED
+PIXELS, and every light added in two sessions had been multiplying into a
+number that was already the answer. Anything times 0.038 is nothing.
+
+### New tools, in the order you will want them
+
+- **`shoot.js`** — the darkness harness. dead / near-dead / blown / mean / sd.
+- **`where.py <png>`** — flags blown magenta and dead cyan and lists the worst
+  40px cells. Two guesses about the marquee were wrong; this answered it in one
+  run. **Use it before theorising.**
+- **`crop.py`** — `zoom` / `ab` / `probe` / `sheet`. §1 says open the crops.
+- **`fallbacks.js`** — webgl2 / webgl1 / sky-off / art-off / pbr-off in one go.
+
+### Pipeline changes
+
+- `hallrig._flatten(sc)` + `render_flat` → **base colour × ambient occlusion**,
+  no directional key, into `render_hall/flat/`. The lit set stays on disk.
+- `hallrig.RES_MUL` / `--res 2` multiplies **pixels only, never ortho_scale**.
+- `arcade-art.js` has **one** scale knob, `AS`: `alloc()` scales the 2d context
+  and hands each painter its ORIGINAL dimensions, so every hard-coded offset in
+  that file (vending y36, change y26, the shop sign strips — the §5b text
+  contract) still lands. Gated on `MAX_TEXTURE_SIZE >= 4096`.
+- `pack_hall.ALBEDO_LUMA` moves a region's LUMA to a real reflectance and
+  leaves its HUE alone — the palette contract survives. `ALBEDO_FLOOR` stops
+  AO plus contrast expansion pushing crevices through zero. `ART_CEIL` brings
+  artwork white points down now that the room is bright.
+
+### New ledger rows (§9) — each cost real time
+
+| Question | Answer | Why |
+|---|---|---|
+| Why did 30 lights move the mean 4%? | **The albedo was 0.038** | Not a lighting bug. A palette measured as finished pixels and then used as reflectance. Check `hall_targets.json` before adding a light. |
+| Raise albedo, keep the lights? | **No — retune in the same step** | First pass put wall panels at 52: the room came back a washed lavender box with blown UP from 0.37% to 0.85%. Brighter and WORSE. Shipped values are ~⅔ of that. |
+| The marquee is blown, so the texture is too bright? | **No — the compositor had no shoulder** | marq_knight caps at 178/255 and still came out a white slab; the bloom landed on top and the 8-bit buffer clipped the sum. `where.py` found it; two texture repacks changed the blown count by exactly zero pixels first. |
+| One world-space top-down shadow map? | **Never indoors** | It finds the CEILING first and shadows the entire room the ceiling is the lid of. One map per zone, eye under the ceiling at y=3.9. |
+| Which faces cast? | **Back faces (`cullFace(FRONT)`)** | Puts the bias error inside the solid instead of on the lit surface where it shows. Plus a geometric-normal offset on the lookup — a depth bias alone either acnes the floor or peters the contact away. |
+| Sky colour for fog? | **Not the dome's** | A ray at eye level down a street does not travel through open sky. Using `skyBase` for fog painted the whole block across the road traffic-cone orange. `skyFog` gates the glow on elevation. |
+| Emissive geometry as a light source? | **Derive it from PLACEMENT** | Ten marquees, ten CRTs, ten panels, four tubes and 80m of trim threw FOUR lights between them. Derived, so the 11th cabinet lights itself. Long fixtures need a RUN — one point in a 6m tube lights a disc. |
+| Nearest-N lights by distance? | **By CONTRIBUTION** | With 60 fixtures, three dim panel glows crowded out the streetlamp lighting the road. Weight by the shader's own attenuation so ranking and rendering agree. |
+| A comment inside a template literal | **No backticks** | ``` `outside` ``` in a GLSL comment terminated the JS string. `node --check js/arcade.js` catches it in a second — run it after every shader edit. |
+| `bin` exported as `bin.001` | **Wipe `bpy.data.objects`, not just the scene** | `hallmesh.wipe()` clears the HALLMESH collection; a stale datablock elsewhere still owns the name. A `.001` suffix silently breaks that model's lookup. |
+| MCP for a long build+export? | **Go headless** | `build_all()` + `export_all()` over the socket returned "No data received" and the export did NOT happen — while leaving a plausible-looking mesh dir. Verify by reading a vertex range out of the JSON, not by trusting the call. |
+
+### Still open, in value order
+
+1. **The sky is procedural, not Blender.** Deliberate: the dome, the deck, the
+   moon and the skyline are a GLSL function — zero payload, tunable by uniform,
+   no atlas pressure. A Blender-rendered equirect panorama with real modelled
+   towers is the upgrade, and it is a self-contained one.
+2. **NPCs and the regulars do not cast.** The maps are baked off the STATIC
+   buffers. A second small dynamic map, or projected blobs, would finish it.
+3. **The hall's own reflections.** The floor mirrors by re-drawing the world
+   scaled (1,-1,1); nothing else reflects. A screen-space pass on the wet
+   street is the next big look item.
+4. `hall_targets.json` is still a lit-world measurement everywhere `ALBEDO_LUMA`
+   does not override it. Re-measuring it properly, off the flat pass, would let
+   `ALBEDO_LUMA` be deleted rather than layered on top.
+5. The §7 model list minus the ceiling: vending/change/jukebox, the five street
+   doors, a fire escape variant for `facadeBay`.
+6. The bump-grain normal graph (§10 ledger row 1) is still unbuilt.
