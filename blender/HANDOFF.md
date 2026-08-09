@@ -1021,3 +1021,107 @@ comment.** Worth checking the others.
 7. The hall is at 69863 vertices on 32-bit indices now — the 16-bit cliff is
    gone, but `upload()` still warns from 62000 and that warning is whitelisted
    in `fallbacks.js`. If the buffer ever needs splitting, that is the signal.
+
+---
+
+## 16. 🎬 SIX ACTS (2026-08-09, latest) — the walk, the edge, the street and the room
+
+Beau's brief, in two messages: *"one thing to erase is the walking. walking
+back and forth is not a fun feeling to see and should be removed"*, then
+*"read the handoff and find more graphics to upgrade. I think you're also
+forgetting about Blender. Lean into making this a video game and not something
+that is free to play. this being on a webpage shouldn't scare you. it's 2026
+and we have the machines to run great stuff"*, then *"pick multiple things to
+do next and add it to the queue, then execute that queue. Repeat that five
+times total."*
+
+Six commits: `929a8b9` THE GLIDE, `aff0b4a` THE EDGE, `c474345` THE GROUND
+FLOOR, `05d6a0e` THE WET ROAD, `684fb61` THE FLOOR PLAN, `e18a593` THE
+PAVEMENT.
+
+### The number
+
+| | dead | near | blown | mean | chroma | hard | fps |
+|---|---|---|---|---|---|---|---|
+| start of session (18 spots) | 0.49 | 11.47 | 0.01 | 58.18 | 50.35 | — | 60.5 |
+| THE EDGE (18) | 0.50 | 11.39 | 0.01 | 58.24 | 50.33 | 0.621 | 59.9 |
+| THE GROUND FLOOR (18) | 0.42 | 10.05 | 0.00 | 60.71 | 49.92 | 0.650 | 55.7 |
+| THE WET ROAD (18) | 0.42 | 10.13 | 0.00 | 61.10 | 49.93 | 0.655 | 60.4 |
+| THE FLOOR PLAN (20) | 0.38 | 8.83 | 0.01 | 63.65 | 49.85 | 0.782 | 59.2 |
+| THE PAVEMENT (20) | 0.38 | 8.42 | 0.01 | 64.80 | 49.35 | 0.777 | 58.8 |
+
+The spot table grew 18 → 20, so ALL is only comparable within a block. The
+comparable half is per-spot: `08-ceiling` 17.72 → 8.43, `02-aisle` 11.19 →
+7.85, `13-drain` 25.14 → 17.40, `09-doorway` 13.50 → 10.61, `04-eastwall` mean
+80.63 → 91.46, and **`10-busstop` 29.63 → 19.47 with dead black 0.74 → 0.04**
+— the tile §15 signed off as "has not moved all night".
+
+### The three findings worth more than the acts they came from
+
+**1. `antialias: true` has been a lie since THE FLOAT BUFFER.** That flag only
+multisamples the DEFAULT framebuffer and every pixel of this hall goes through
+an offscreen RGBA16F attachment. Three sessions of lighting, geometry and
+material work went onto a frame with no antialiasing at all.
+
+**And nothing in the kit could see it.** dead / near / blown / mean / sd /
+chroma are all HISTOGRAM statistics — they describe the distribution of colour
+in a frame and are completely blind to how that colour is ARRANGED. A staircase
+and a smooth ramp have the same histogram. `png.staircase()` (the `hard`
+column) is the kit's first arrangement metric; the class of defect it catches —
+aliasing, texture shimmer, a mip chain gone to mush, a normal map swimming — is
+exactly the class that makes a frame look free-to-play.
+
+**2. NOTHING IN THIS RENDERER IS TRANSPARENT, and it caught me three times in
+one session** — the shop window, the crane cabinet's prize box, and (before
+that, in §15) the jukebox title cards. Building "glass" in front of a light is
+building an opaque box in front of a light nobody will ever see. **If you want
+to see INTO something, do not build the thing you would be seeing through.**
+Corner posts and a lit interior read as glass; the eye supplies the pane.
+
+**3. The metric is a proxy and twice this session it was wrong.** THE WET ROAD
+moved near-dead 10.05 → 10.13 — flat — while the road went from reflecting
+nothing to carrying the whole terrace down its length; near-dead punishes a
+reflective surface for reflecting a night sky, which is the correct thing for
+it to do. THE PAVEMENT's horizon fix moved `15-pier` near-dead 32.02 → 33.88
+because it DELETED a solid bright bar that the metric had been counting as
+"not dark". Both times the crop was right and the table was not. Same family as
+§13's `blown 0.00%`.
+
+### Ledger rows (§9)
+
+| Question | Answer | Why |
+|---|---|---|
+| Movement feels weightless — add head-bob? | **No. Add momentum.** | Bob is the 1998 patch for a camera that snaps 0→3.4m/s in one frame. `glide()` ramps velocity in over ~90ms and out over ~130ms; a blocked axis loses its momentum or you build a shove against a wall and slingshot off it. `motion.js` has a `no-bob` ANTI-channel that fails if `cam.y` moves while walking. |
+| Raise the terrace for a proper 2.6m storey? | **0.56m, and measure what survives** | The arcade door sees that wall across ~60° of vertical FOV, so every metre eats ~66px of the sky above it — and the sky above it is THE SKYLINE. |
+| Modelled it beautifully, why is it murk? | **Nothing was lighting it** | The streetlamps are on the kerb at z 6.9 and the terrace is at 13.9. Seven metres of road between the band and the nearest fixture. Tints 0.5-0.7 → 1.05-1.35 AND a light per unit. |
+| Why does the wet road reflect nothing? | **It was never in `bufs.floor`** | Reflections are a MIRROR PASS; the road was in the opaque set, drawn after the mirror, on top of it. It needs its own translucent floor buffer (different atlas). |
+| A dark machine in a dark room? | **Out-read the floor** | `furnBody` at the cabinets' 0.92 was a black slab cut out of the carpet — the carpet is the brightest thing in that room. |
+| A prop looks fine, place it anywhere? | **Check `H.hotspots[].stand`** | A planter on a stand is a hotspot the player can no longer reach, and that does not read as a bug, it reads as the game ignoring you. |
+| The horizon bar again? | **Ramp the OTHER way** | Sea top at the 70m clip is d.y −0.029; the panorama's towers stand on a plane at the camera's own height so their feet are at −0.006. The sky must still be GROUND at −0.029 and only reach full sodium above the city's feet. |
+| Trust the comment next to the constant? | **No** | `aberration: 0.0035, // ~1px at the corners` was 3.6px. |
+| Bare `NPCS` in a `new Function` probe? | **`NuggetArcade._NPCS`** | `new Function` bodies run in GLOBAL scope; a const inside the IIFE throws inside the rAF tick and playwright reports "promise was garbage collected". |
+| Measure motion the instant the key goes down? | **Pre-roll it** | The idle breath fades over ~150ms and its tail reads as head-bob. |
+
+### Still open, in value order
+
+1. **`15-pier` (33.9 near-dead) is the worst tile and the metric is lying about
+   it** — that frame is a night harbour and dark water is correct. Either give
+   it something to look at (a moving vessel, a channel buoy wake, a gull) or
+   stop reading its near-dead number.
+2. **The root fix for the horizon:** `blender/skyline.py` should render the
+   towers standing on a plane BELOW the camera so the panorama's bottom rows
+   carry silhouette instead of empty alpha. The `skyBase` ramp is a seam over it.
+3. **The carpet is the highest `hard` in the game** (2.17 at `02-aisle`): a
+   uniform full-brightness confetti with no wear paths and no falloff. It is
+   also the biggest surface in the hall.
+4. **Screen-space reflections.** The mirror pass is planar and only reflects
+   about y=0 — so nothing reflects in a shop window, a puddle on the pavement
+   or the crane cabinets' own glass.
+5. **The regulars have a rigid-body idle now, not an articulated one.** Splitting
+   each model into body + head parts (two objects per NPC through the existing
+   exporter) would buy a real head turn for very little.
+6. `hall_targets.json` re-measure off the flat pass, to delete `ALBEDO_LUMA`.
+7. Audit the remaining capability probes for the §15 ordering bug.
+8. Buffers: hall static **85528**, street **110505**, both on `bytes: 4`
+   (verified off the live buffers). `upload()` still warns from 62000 and that
+   warning is whitelisted in `fallbacks.js`.
