@@ -84,6 +84,55 @@ def _wipe(sc=None):
             bpy.data.curves.remove(cu)
 
 
+# How many pixels a region is rendered at, relative to the atlas size it will
+# occupy. 1 = the density that shipped; 2 = THE RELIGHT's texel density. Set by
+# the CLI so the batch and the packer can never disagree about it.
+RES_MUL = 1
+
+
+def _flatten(sc, dome=(1.0, 1.0, 1.0), strength=1.0):
+    """Kill every lamp in the scene and replace the world with a uniform dome.
+
+    THE RELIGHT, in one function. `rig()` bakes a 44-degree raking key into the
+    COLOUR of every texture, which is why the hall's lights never truly lit
+    anything: the diffuse response was already frozen into the albedo, and
+    raising the light count from 8 to 30 moved the mean by four percent.
+
+    A base-colour pass wants no direction at all. What it does want is CONTACT
+    — a uniform dome plus raytracing gives ambient occlusion, so the mortar
+    courses, the panel gaps and the crevices stay dark. Base colour times AO is
+    what a game albedo map actually is; base colour times a sun is a mistake
+    you cannot undo at runtime.
+
+    Returns an undo record for _unflatten.
+    """
+    saved = {"lights": [], "world": sc.world, "hidden": []}
+    for ob in list(sc.collection.all_objects):
+        if ob.type == "LIGHT":
+            saved["lights"].append((ob, ob.hide_render))
+            ob.hide_render = True
+    w = bpy.data.worlds.get("HallFlat") or bpy.data.worlds.new("HallFlat")
+    w.use_nodes = True
+    bg = w.node_tree.nodes.get("Background")
+    bg.inputs[0].default_value = (*dome, 1.0)
+    bg.inputs[1].default_value = strength
+    sc.world = w
+    try:
+        sc.eevee.use_raytracing = True
+    except Exception:
+        pass
+    return saved
+
+
+def _unflatten(sc, saved):
+    for ob, hid in saved["lights"]:
+        try:
+            ob.hide_render = hid
+        except ReferenceError:
+            pass
+    sc.world = saved["world"]
+
+
 def rig(key_deg=44, key_energy=3.4, key_color=(1.0, 0.93, 0.82),
         fill_energy=0.9, fill_color=(0.5, 0.62, 1.0), world=(0.004, 0.006, 0.014)):
     """Camera on +Z, warm raking key from the image top, cool fill. The 44°
@@ -170,8 +219,11 @@ def shot(name, w_px, h_px, render_dir):
     cam = sc.camera
     cam.data.ortho_scale = w_px
     cam.location = (0, 0, 600)
-    sc.render.resolution_x = w_px * SS
-    sc.render.resolution_y = h_px * SS
+    # RES_MUL multiplies PIXELS ONLY — ortho_scale stays put, so the framing is
+    # identical and a 2x render is the same picture with twice the texels. Move
+    # ortho_scale instead and every region silently re-frames itself.
+    sc.render.resolution_x = int(w_px * SS * RES_MUL)
+    sc.render.resolution_y = int(h_px * SS * RES_MUL)
     sc.render.resolution_percentage = 100
     os.makedirs(render_dir, exist_ok=True)
     sc.render.filepath = os.path.join(render_dir, name + ".png")
@@ -1339,19 +1391,25 @@ ASSETS = {
 }
 
 
-def render_one(name, out_dir=None):
+def render_one(name, out_dir=None, flat=False):
     out_dir = out_dir or OUT_DEFAULT
     fn, w, h = ASSETS[name]
     _wipe()
     _noise_maps()
     fn()
-    path = shot(name, w, h, out_dir)
-    # panelBase also emits the tint masks for pack_hall.py
-    if name == "panelBase":
-        for tag, targets in (("ball", {"PANEL_BALL"}), ("b1", {"PANEL_B1"}), ("b2", {"PANEL_B2"})):
-            saved = _iso_mask(targets)
-            shot(f"panelBase_mask_{tag}", w, h, out_dir)
-            _restore_mask(saved)
+    sc = _scene()
+    saved = _flatten(sc) if flat else None
+    try:
+        path = shot(name, w, h, out_dir)
+        # panelBase also emits the tint masks for pack_hall.py
+        if name == "panelBase":
+            for tag, targets in (("ball", {"PANEL_BALL"}), ("b1", {"PANEL_B1"}), ("b2", {"PANEL_B2"})):
+                m = _iso_mask(targets)
+                shot(f"panelBase_mask_{tag}", w, h, out_dir)
+                _restore_mask(m)
+    finally:
+        if saved:
+            _unflatten(sc, saved)
     return path
 
 
@@ -1560,12 +1618,12 @@ def render_maps(out_dir=None, only=None):
     return os.path.join(out_dir, "mat")
 
 
-def render_all(out_dir=None):
+def render_all(out_dir=None, flat=False):
     out_dir = out_dir or OUT_DEFAULT
     done = []
     for name in ASSETS:
-        done.append(render_one(name, out_dir))
-        print("rendered", name)
+        done.append(render_one(name, out_dir, flat=flat))
+        print("rendered", name, flush=True)
     print(f"render_all: {len(done)} assets -> {out_dir}")
     return done
 
@@ -1603,11 +1661,22 @@ def build_library(out_dir=None):
 if __name__ == "__main__":
     # headless: blender --background --python hallrig.py -- [render_all|render_one <name>|library]
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+    # --res N applies to every mode below; THE RELIGHT batch runs at 2.
+    if "--res" in argv:
+        i = argv.index("--res")
+        RES_MUL = float(argv[i + 1])
+        argv = argv[:i] + argv[i + 2:]
     if not argv or argv[0] == "render_all":
         render_all()
     elif argv[0] == "render_one":
         for n in argv[1:]:
             render_one(n)
+    elif argv[0] == "render_flat":
+        # THE RELIGHT: base colour x ambient occlusion, no directional key,
+        # into its own directory so the lit set stays on disk to A/B against.
+        out = os.path.join(OUT_DEFAULT, "flat")
+        render_all(out, flat=True) if not argv[1:] else [
+            render_one(n, out, flat=True) for n in argv[1:]]
     elif argv[0] == "render_maps":
         render_maps(only=argv[1:] or None)
     elif argv[0] == "library":

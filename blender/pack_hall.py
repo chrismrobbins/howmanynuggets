@@ -101,6 +101,83 @@ CEIL_TOO = {"across"}
 
 JPEG_QUALITY = 87
 
+# ---- THE RELIGHT -----------------------------------------------------------
+# hall_targets.json was measured off the ORIGINAL procedural painters, in a hall
+# whose only ambient was a flat 0.22 and whose textures already had a 44-degree
+# key baked into them. So the palette it encodes is not a set of ALBEDOS — it is
+# a set of FINISHED PIXELS, and treating them as albedos is why this room could
+# not be lit. The ceiling's entry is 9.6 out of 255: a 3.8% reflectance, darker
+# than coal, on the single largest surface in the building. Thirty lights moved
+# it by nothing, because anything times 0.038 is nothing.
+#
+# ALBEDO_LUMA is a real reflectance per region. The HUE still comes from the
+# measured target, so the palette contract that S2.12/S2.13 fought for survives
+# intact — only the brightness moves, and it moves to something a surface could
+# actually have. Regions not listed keep their measured target exactly.
+#
+# Everything here is paired with the light retune in js/arcade.js: raising the
+# albedo without lowering the lighting just blows the room out, which is the
+# other half of the same mistake.
+# TUNED DOWN ONCE, on evidence. The first pass at these numbers put the wall
+# panels at 52 and the room came back a washed lavender box with its blown
+# fraction up from 0.37% to 0.85% — brighter, and WORSE. That is the §5c
+# mistake wearing a different coat of paint: darkness fixed by blowing out the
+# highlights. These are about two-thirds of that, which leaves the room dark
+# enough to still be a neon arcade at night while giving every surface in it
+# something that can actually respond to a light.
+ALBEDO_LUMA = {
+    # the architecture — the surfaces that are most of the frame
+    "ceiling": 32.0, "wall": 33.0, "wainscot": 30.0, "carpet": 26.0,
+    "brick": 34.0, "sidewalk": 29.0, "road": 23.0, "dark": 13.0,
+    # fittings
+    "metal": 44.0, "cabFront": 34.0, "bezel": 26.0, "door": 36.0,
+    "change": 34.0, "vending": 34.0, "pierWood": 30.0,
+    # The shopfronts are drawn with e:0.3 and the block across the road with
+    # e:0.22 — they are part TEXTURE and part LIGHT, so pulling their albedo to
+    # architecture levels dims the signage itself. They sit higher on purpose.
+    "shopNoodle": 47.0, "shopLaundro": 47.0, "shopGarage": 47.0,
+    "across": 31.0,
+}
+LUMA = np.array([0.2126, 0.7152, 0.0722])
+
+# NOTHING REAL REFLECTS NOTHING. The flat pass bakes ambient occlusion into the
+# albedo, and then the contrast expansion above pushes the darkest part of that
+# AO — mortar joints, panel gaps, the shadow under a sill — clean through zero.
+# Which is a texture that is BLACK BY CONSTRUCTION, in a session whose entire
+# job is deleting black by construction. A brick's mortar is dim; it is not a
+# hole. The floor is applied to architecture only: neon keeps its black box.
+ALBEDO_FLOOR = 7.0
+FLOOR_REGIONS = {"ceiling", "wall", "wainscot", "carpet", "brick", "sidewalk",
+                 "road", "metal", "cabFront", "bezel", "door", "change",
+                 "vending", "pierWood", "dark", "sideBase", "across",
+                 "shopNoodle", "shopLaundro", "shopGarage"}
+
+# The room is much brighter than the room these were drawn for, so ARTWORK —
+# marquees, posters, control panels — now clips where it used to merely glow.
+# Their white point comes down instead. This is §5c applied to a lit surface
+# rather than an emissive one: brightness is the bloom's job, not the texel's.
+ART_CEIL = {
+    "marqBase": (206.0, 148.0), "panelBase": (214.0, 158.0),
+    "sideBase": (222.0, 172.0), "posterGolden": (214.0, 158.0),
+    "posterBrawl": (218.0, 164.0), "posterKnight": (218.0, 164.0),
+    "posterPlay": (218.0, 164.0), "nugGold": (224.0, 176.0),
+}
+
+
+def lift_black(arr, floor=ALBEDO_FLOOR):
+    return floor + arr * ((255.0 - floor) / 255.0)
+
+
+def relight_target(name, rgb):
+    """Scale a measured target to a real reflectance, keeping its hue."""
+    if rgb is None or name not in ALBEDO_LUMA:
+        return rgb
+    cur = float(np.dot(np.array(rgb, dtype=np.float64), LUMA))
+    if cur < 1e-3:
+        return rgb
+    k = ALBEDO_LUMA[name] / cur
+    return [min(255.0, c * k) for c in rgb]
+
 
 def hex_rgb(h):
     h = h.lstrip("#")
@@ -192,7 +269,7 @@ def main():
         if atlas is None:
             return None
         t = targets.get(atlas, {}).get(key)
-        return t[:3] if t else None
+        return relight_target(name, t[:3] if t else None)
 
     sprites = {}
 
@@ -219,7 +296,11 @@ def main():
                 # original highlights back on top so it still reads backlit
                 hot = np.clip((base - 0.72) / 0.28, 0, 1)[..., None] * 255
                 tinted = 255 - (255 - tinted) * (255 - hot * 0.5) / 255
-                add("marq_" + mode, tinted)
+                # cabMarq is drawn at e=0.72, so the shader multiplies this by
+                # ~1.14 on the wall: anything over ~224 clips to a white slab,
+                # which is precisely what the deluxe cabinet's marquee did.
+                c, k = ART_CEIL["marqBase"]
+                add("marq_" + mode, soft_ceiling(tinted, ceil=c, knee=k))
             continue
         elif name == "panelBase":
             masks = {}
@@ -244,12 +325,17 @@ def main():
                             protect=100 if name == 'carpet' else 0)
         if name in CEIL_TOO:
             arr = soft_ceiling(arr, ceil=200, knee=150)
+        if name in ART_CEIL and name != "marqBase":
+            c, k = ART_CEIL[name]
+            arr = soft_ceiling(arr, ceil=c, knee=k)
+        if name in FLOOR_REGIONS:
+            arr = lift_black(arr)
         if name in GRAINY:
             arr = grain(arr, hash(name) & 0xFFFF)
         add(name, arr)
 
     # ---- shelf pack ----
-    PAD, AW = 2, 2048
+    PAD, AW = 2, 4096   # regions are 2x since THE RELIGHT
     items = sorted(sprites.items(), key=lambda kv: (-kv[1].height, kv[0]))
     regions, x, y, shelf_h = {}, PAD, PAD, 0
     for name, im in items:

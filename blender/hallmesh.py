@@ -124,6 +124,28 @@ MATS = {
     "btnWhite": ("sw_white", [0, 0, 1, 1], 0.06, 0.9),
     "cabLight": ("sw_warm", [0, 0, 1, 1], 0.55, 1.0),
     "coinSlot": ("sw_black", [0, 0, 1, 1], 0.0, 0.35),
+    # -- THE CEILING (MAIN atlas only — checked against the sheet before
+    #    modelling, which is the lampHot trap and it has been walked into twice)
+    "ceilRib":  ("metal", [0.06, 0.06, 0.94, 0.94], 0.0, 0.74),
+    "ceilRod":  ("sw_black", [0, 0, 1, 1], 0.0, 0.55),
+    "fixBody":  ("metal", [0.06, 0.06, 0.94, 0.94], 0.0, 0.92),
+    "fixEnd":   ("dark", [0.1, 0.1, 0.9, 0.9], 0.0, 1.0),
+    # 0.62 and NOT 1.0. sw_tube is 207/255 and the shader does
+    # mix(light, 1.45, e), so e=1 puts it at 300 and it clips to a flat white
+    # slab — which is exactly what the old three-quad tube did. At 0.62 it
+    # lands around 209: still the hottest thing on the ceiling, still well
+    # under the blown line, and the BLOOM does the glowing (HANDOFF 5c).
+    "fixDiff":  ("sw_tube", [0, 0, 1, 1], 0.62, 1.0),
+    "duct":     ("metal", [0.06, 0.06, 0.94, 0.94], 0.0, 0.80),
+    "ductBand": ("metal", [0.06, 0.06, 0.94, 0.94], 0.0, 0.58),
+    # `dark` was the obvious pick and it was wrong: a near-black face on a dark
+    # ceiling means only the lit edge survives, and the sign reads as a stray
+    # neon line floating in the room. A blade sign is a PHYSICAL object first.
+    "signFace": ("metal", [0.06, 0.06, 0.94, 0.94], 0.0, 0.86),
+    "signGlow": ("sw_cyan", [0, 0, 1, 1], 0.55, 1.0),
+    "vestBody": ("wainscot", [0.05, 0.05, 0.95, 0.95], 0.0, 0.88),
+    "vestLip":  ("metal", [0.06, 0.06, 0.94, 0.94], 0.0, 0.70),
+    "vestGlow": ("sw_warm", [0, 0, 1, 1], 0.50, 1.0),
     # -- street furniture and architecture (STREET atlas) ----------------------------
     "iron":     ("sw_iron", [0, 0, 1, 1], 0.0, 1.0),
     "ironD":    ("sw_iron", [0, 0, 1, 1], 0.0, 0.60),
@@ -1578,6 +1600,126 @@ def build_trim_crown():
     return P.finish(bevel=0.004, segments=1, smooth_deg=34)
 
 
+# ---- THE CEILING: the interior's sky ---------------------------------------------
+# Measured across ten fixed camera spots, the hall's dead-black fraction sat at
+# 22% and essentially ALL of it was one surface: a 15 x 20 metre plane at y=4.2
+# with an albedo of 0.038 and two white bars painted on it. No lighting fixes an
+# albedo of four percent, and no amount of light fills a plane that has nothing
+# on it to catch any.
+#
+# So the ceiling gets what the street got: geometry. Ribs to break the plane
+# into coffers, luminaires with actual bodies instead of glowing rectangles,
+# a duct run, and signage hanging off it. Every one of these is a metre-long
+# module stretched by its call site — the trimBase/trimCrown pattern, which is
+# already proven and means arcade.js can re-lay the whole grid by editing a
+# loop instead of a mesh.
+#
+# All origins sit ON the ceiling line and hang DOWN, so a call site places one
+# with an (x, z) and nothing else. Blender is Z-up and the hall is Y-up, so
+# "hangs down" is negative Z here.
+
+def build_ceil_beam():
+    """One metre of coffer rib.
+
+    The hall's existing flat ceiling plane stays exactly where it is and becomes
+    the PAN of every coffer. These are the edges — and edges are the entire
+    point, because a rib catches a grazing light from the tube beside it while
+    the pan behind it stays dark, which is what makes a ceiling read as a
+    ceiling instead of as the absence of one.
+    """
+    P = Part("ceilBeam")
+    prof = [(-0.092, 0.000), (0.092, 0.000), (0.092, -0.116),
+            (0.058, -0.194), (-0.058, -0.194), (-0.092, -0.116)]
+    rings = [[(x, py, pz) for (py, pz) in prof] for x in (0.0, 1.0)]
+    P.loft(rings, "ceilRib", cap_a=True, cap_b=True)
+    return P.finish(bevel=0.005, segments=1, smooth_deg=34)
+
+
+def build_ceil_light():
+    """A luminaire with a BODY: housing, end caps, a recessed diffuser and the
+    two stems that hold it off the deck.
+
+    What was there before: three quads at y 4.04-4.14 drawn emissive, i.e. a
+    bright rectangle. A bright rectangle is a picture of a light. This one has
+    a metal shell that takes the room's own light on its sides, a diffuser set
+    up INSIDE the shell so the glow has a lip to spill past, and a shadow line
+    where it meets the ceiling. Unit is 1 metre; the call site stretches it.
+    """
+    P = Part("ceilLight")
+    # stems up into the deck
+    for sx in (0.16, 0.84):
+        P.box((sx, 0.0, -0.045), (0.035, 0.035, 0.09), "ceilRod")
+    # the housing: a shallow tray, open at the bottom
+    hw, hd = 0.145, 0.115
+    outer = [(-hw, 0.0), (hw, 0.0), (hw, -hd), (0.104, -hd - 0.028),
+             (-0.104, -hd - 0.028), (-hw, -hd)]
+    rings = [[(x, py, pz) for (py, pz) in outer] for x in (0.0, 1.0)]
+    P.loft(rings, "fixBody", cap_a=True, cap_b=True)
+    # the diffuser, recessed 0.03 inside the tray's mouth so the lip reads
+    P.box((0.5, 0.0, -hd - 0.012), (0.94, 0.176, 0.020), "fixDiff")
+    # end caps, slightly proud
+    for ex in (0.012, 0.988):
+        P.box((ex, 0.0, -0.072), (0.024, 0.31, 0.152), "fixEnd")
+    return P.finish(bevel=0.006, segments=1, smooth_deg=36)
+
+
+def build_ceil_duct():
+    """One metre of rectangular duct on threaded rod.
+
+    Every arcade, bowling alley and diner ceiling in the world has one of these
+    and none of them are flat. It reads instantly, it is cheap, and it puts a
+    horizontal edge across the room at a height nothing else occupies.
+    """
+    P = Part("ceilDuct")
+    for rx in (0.14, 0.86):
+        for ry in (-0.185, 0.185):
+            P.box((rx, ry, -0.135), (0.022, 0.022, 0.27), "ceilRod")
+    P.box((0.5, 0.0, -0.40), (1.0, 0.36, 0.26), "duct")
+    # flanged joint at one end — the seam that makes it read as ductWORK
+    P.box((0.03, 0.0, -0.40), (0.06, 0.40, 0.30), "ductBand")
+    return P.finish(bevel=0.008, segments=1, smooth_deg=34)
+
+
+def build_hang_sign():
+    """A double-sided hanging sign on two rods: dark face, lit edge band.
+
+    Origin at the ceiling line, hanging into the room. One metre wide; the call
+    site scales and remaps nothing — the face texture is the `dark` region and
+    the glow band is a swatch, both of which exist on the MAIN atlas (checking
+    that BEFORE modelling is the lampHot trap, walked into twice).
+    """
+    P = Part("hangSign")
+    for rx in (0.16, 0.84):
+        P.box((rx, 0.0, -0.20), (0.020, 0.020, 0.40), "ceilRod")
+    P.box((0.5, 0.0, -0.575), (1.0, 0.085, 0.40), "signFace")
+    # lit bands top and bottom — the bits that actually throw light
+    P.box((0.5, 0.0, -0.788), (0.96, 0.098, 0.048), "signGlow")
+    P.box((0.5, 0.0, -0.366), (0.96, 0.098, 0.030), "signGlow")
+    return P.finish(bevel=0.006, segments=1, smooth_deg=34)
+
+
+def build_vestibule():
+    """The entry soffit: a dropped header over the doorway with a downlight
+    reveal, plus the two jambs.
+
+    The doorway was a 2.5m hole in a wall with nothing framing it. This is what
+    you actually walk under on the way in, and it is the first geometry the
+    camera sees on the intro dolly.
+    """
+    P = Part("vestibule")
+    # ORIGIN ON THE GROUND, like every other model — the ceiling modules are
+    # the documented exception and this is not one of them. The header sits
+    # ABOVE the 2.6m opening; the jambs stand beside it. Getting this backwards
+    # hangs a beam across the doorway you walk through.
+    W, D, OPEN = 3.10, 0.62, 2.60
+    P.box((0.0, 0.0, OPEN + 0.30), (W, D, 0.60), "vestBody")            # header
+    P.box((0.0, 0.0, OPEN - 0.038), (W - 0.26, D - 0.14, 0.075), "vestLip")
+    P.box((0.0, 0.0, OPEN - 0.088), (W - 0.62, D - 0.30, 0.030), "vestGlow")  # reveal
+    for sx in (-(W / 2 - 0.11), (W / 2 - 0.11)):                        # jambs
+        P.box((sx, 0.0, OPEN / 2), (0.22, D, OPEN), "vestBody")
+    return P.finish(bevel=0.008, segments=1, smooth_deg=36)
+
+
 MODELS = {"compact": build_compact, "cabinet": build_cabinet}
 MODELS.update(REGULARS)
 MODELS.update({
@@ -1587,6 +1729,12 @@ MODELS.update({
     "acUnit": build_ac_unit,
     "trimBase": build_trim_base,
     "trimCrown": build_trim_crown,
+    # THE CEILING (all MAIN atlas)
+    "ceilBeam": build_ceil_beam,
+    "ceilLight": build_ceil_light,
+    "ceilDuct": build_ceil_duct,
+    "hangSign": build_hang_sign,
+    "vestibule": build_vestibule,
 })
 
 

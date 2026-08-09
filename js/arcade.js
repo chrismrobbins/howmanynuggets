@@ -42,8 +42,19 @@ const NuggetArcade = (() => {
   // What the sky is worth as LIGHT. Two hemisphere lobes — the overcast above,
   // the wet road's bounce below — derived from the palette itself, so retuning
   // the look retunes the lighting with it and the two can never disagree.
-  const SKY_AMB_MUL = 0.46, GND_AMB_MUL = 0.85;
+  const SKY_AMB_MUL = 0.62, GND_AMB_MUL = 0.95;
   const SKY_REFL = 0.62;   // how much of the sky a polished outdoor surface returns
+  // The hall's own two-lobe ambient. UP = what an upward-facing surface
+  // collects (the dark ceiling); DOWN = what a downward-facing one collects
+  // (the confetti carpet under ten lit machines, which is the brightest
+  // environment in the room). Their average is close to the flat 0.22/0.21/0.29
+  // this replaces, so the WALLS barely move — the change lands on the ceiling.
+  // Retuned WITH the albedo lift, not after it. The up lobe drops hard — a
+  // floor no longer needs the ambient to carry it, the machines do — while the
+  // down lobe stays, because the ceiling is the one plane in this room with
+  // nothing but bounce pointed at it.
+  const AMB_UP = new Float32Array([0.086, 0.084, 0.119]);
+  const AMB_DOWN = new Float32Array([0.300, 0.246, 0.390]);
   const MOON_DIR = (() => {
     const m = SKY.moon, L = Math.hypot(m[0], m[1], m[2]);
     return new Float32Array([m[0] / L, m[1] / L, m[2] / L]);
@@ -311,7 +322,7 @@ precision mediump float;
 varying vec3 vWorld, vNormal; varying vec2 vUV, vExtra;
 uniform sampler2D uTex;
 uniform vec3 uLightPos[8]; uniform vec3 uLightColor[8];
-uniform vec3 uAmbient, uFogColor, uCamPos, uSkyAmb, uGndAmb;
+uniform vec3 uAmbUp, uAmbDown, uFogColor, uCamPos, uSkyAmb, uGndAmb;
 uniform float uFogDensity, uAlpha, uMirror, uBoost, uSkyAmt;
 ` + GLSL_SKY + `
 void main() {
@@ -324,8 +335,16 @@ void main() {
   // it to 0 collapses BOTH the ambient term and the fog to the exact equation
   // that shipped — the A/B seam this session is measured with.
   float outside = smoothstep(-0.6, 2.6, vWorld.z) * uSkyAmt;
-  vec3 light = uAmbient
-    + outside * mix(uGndAmb, uSkyAmb, clamp(0.5 + 0.5 * n.y, 0.0, 1.0));
+  // INDOORS IS A HEMISPHERE TOO, and the poles are the other way up from the
+  // sky's. In this room the bright environment is the FLOOR — a confetti
+  // carpet under ten lit machines — and the dark one is the ceiling. So a
+  // surface facing DOWN (the ceiling itself) collects the carpet's bounce and
+  // a surface facing UP collects the ceiling's. That is why the ceiling used
+  // to be the blackest thing in the hall: it was the one plane in the room
+  // that nothing at all was pointed at.
+  float dome = clamp(0.5 + 0.5 * n.y, 0.0, 1.0);
+  vec3 light = mix(uAmbDown, uAmbUp, dome)
+    + outside * mix(uGndAmb, uSkyAmb, dome);
   for (int i = 0; i < 8; i++) {
     vec3 d = uLightPos[i] - vWorld;
     float dist = length(d);
@@ -388,7 +407,7 @@ precision highp float;
 in vec3 vWorld, vNormal; in vec2 vUV, vExtra;
 uniform sampler2D uTex, uNrm, uOrm;
 uniform vec3 uLightPos[16]; uniform vec3 uLightColor[16];
-uniform vec3 uAmbient, uFogColor, uCamPos, uSkyAmb, uGndAmb;
+uniform vec3 uAmbUp, uAmbDown, uFogColor, uCamPos, uSkyAmb, uGndAmb;
 uniform float uFogDensity, uAlpha, uMirror, uBoost, uNrmScale, uSpecAmt, uWet, uTime, uSkyAmt, uSkyRefl;
 out vec4 fragColor;
 ` + GLSL_SKY + `
@@ -461,8 +480,13 @@ void main() {
   // road's bounce below, blended by which way the surface faces. Indoors is
   // untouched, and uSkyAmt = 0 collapses this back to the shipped equation.
   float outside = smoothstep(-0.6, 2.6, vWorld.z) * uSkyAmt;
-  vec3 light = uAmbient
-    + outside * mix(uGndAmb, uSkyAmb, clamp(0.5 + 0.5 * Ng.y, 0.0, 1.0));
+  // Indoors is a hemisphere as well, and its poles are inverted: in this room
+  // the bright environment is the carpet and the dark one is the ceiling, so a
+  // downward-facing surface collects the FLOOR's bounce. The ceiling was the
+  // blackest plane in the hall precisely because nothing was pointed at it.
+  float dome = clamp(0.5 + 0.5 * Ng.y, 0.0, 1.0);
+  vec3 light = mix(uAmbDown, uAmbUp, dome)
+    + outside * mix(uGndAmb, uSkyAmb, dome);
   vec3 spec = vec3(0.0);
   for (int i = 0; i < 16; i++) {
     vec3 d = uLightPos[i] - vWorld;
@@ -608,6 +632,24 @@ precision mediump float;
 varying vec2 vUV;
 uniform sampler2D uScene, uBloom;
 uniform float uAmount;
+
+// THE SHOULDER. This renderer has never had one: the composite added bloom to
+// the scene and handed the result straight to an 8-bit framebuffer, so
+// anything over 1.0 did not get brighter, it got FLAT WHITE. That is fine in a
+// room where almost nothing is bright. THE RELIGHT is not that room — the
+// marquee texture caps at 178/255 and still came out a white slab, because the
+// halo landed on top of it and the sum clipped.
+//
+// So roll the top off instead of cutting it. Below the knee nothing moves at
+// all, which is the entire shadow range and most of the midtones; above it the
+// remaining headroom is spent asymptotically, so a light can go on being
+// brighter for ever and never turn into a hole in the picture.
+vec3 shoulder(vec3 x) {
+  const float K = 0.70;                 // everything under this is untouched
+  vec3 hi = max(x - K, vec3(0.0));
+  return min(x, vec3(K)) + (1.0 - K) * hi / (hi + (1.0 - K));
+}
+
 void main() {
   vec3 c = texture2D(uScene, vUV).rgb;
   vec3 b = texture2D(uBloom, vUV).rgb;
@@ -616,7 +658,7 @@ void main() {
   // toward white (the sign blowout lesson, this time in the shader)
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
   c = mix(vec3(l), c, 1.12);
-  gl_FragColor = vec4(c, 1.0);
+  gl_FragColor = vec4(shoulder(max(c, vec3(0.0))), 1.0);
 }`;
 
   // Allocate (or reallocate on resize) the scene target + two ping-pong blur
@@ -1111,6 +1153,7 @@ void main() {
   // ---- scene ---------------------------------------------------------------------------
 
   function buildScene(gl, uv) {
+    installEmissiveLights();
     const B = new Builder();      // static, atlas-textured
     const F = new Builder();      // floor (drawn semi-transparent over reflections)
     const SGN = new Builder();    // neon signs (flicker via uBoost)
@@ -1187,14 +1230,55 @@ void main() {
     };
     strip(B, 'cyan');
 
-    // ceiling light tubes
-    for (const tz of [-4, -9, -14, -17.7]) {
-      const y0 = 4.04, y1 = 4.14, x0 = -3, x1 = 3;
-      B.quad([x0, y0, tz - 0.07], [x1, y0, tz - 0.07], [x1, y0, tz + 0.07], [x0, y0, tz + 0.07], uv.sw_tube, { e: 1 }); // underside
-      B.quad([x0, y0, tz + 0.07], [x1, y0, tz + 0.07], [x1, y1, tz + 0.07], [x0, y1, tz + 0.07], uv.sw_tube, { e: 1 });
-      B.quad([x1, y0, tz - 0.07], [x0, y0, tz - 0.07], [x0, y1, tz - 0.07], [x1, y1, tz - 0.07], uv.sw_tube, { e: 1 });
-      for (let gx = -2.4; gx <= 2.4; gx += 1.2)
-        H.glows.push({ p: [gx, 4.0, tz], c: [0.62, 0.72, 1], s: 0.9, a: 0.16, k: 'tube' });
+    // ---- THE CEILING ------------------------------------------------------
+    // Measured, this plane was 22% of the frame and essentially ALL of the
+    // hall's dead black: fifteen by twenty metres of 0.038-albedo texture with
+    // two glowing bars painted on it. It is the interior's sky, and it had
+    // exactly as much in it as the street's sky did.
+    //
+    // The flat plane above stays — it is the PAN of every coffer. What goes on
+    // it is a rib grid, luminaires with real bodies, a duct run and signage.
+    // Every piece falls back to the old three-quad tube if the mesh is
+    // unavailable, so a failed payload gets the ceiling that shipped.
+    {
+      const RIB = 2.5;                                   // coffer pitch
+      let ribs = false;
+      for (let rz = -RIB; rz > ZB; rz -= RIB)            // ribs across (along x)
+        ribs = B.model('ceilBeam', uv, { x: -X, y: CH, z: rz, sx: 2 * X }) || ribs;
+      for (let rx = -X + RIB; rx < X - 0.1; rx += RIB)   // ribs down the room
+        ribs = B.model('ceilBeam', uv, { x: rx, y: CH, z: ZB, yaw: -Math.PI / 2, sx: -ZB }) || ribs;
+
+      for (const tz of [-4, -9, -14, -17.7]) {
+        // A luminaire is 6m of fixture, built as a 1m module stretched — the
+        // trimBase pattern. Two of them side by side read better than one wide
+        // one because the gap between them is where the ceiling shows through.
+        const lit = B.model('ceilLight', uv, { x: -3, y: CH - 0.02, z: tz, sx: 6 });
+        if (!lit) {
+          const y0 = 4.04, y1 = 4.14, x0 = -3, x1 = 3;
+          B.quad([x0, y0, tz - 0.07], [x1, y0, tz - 0.07], [x1, y0, tz + 0.07], [x0, y0, tz + 0.07], uv.sw_tube, { e: 1 }); // underside
+          B.quad([x0, y0, tz + 0.07], [x1, y0, tz + 0.07], [x1, y1, tz + 0.07], [x0, y1, tz + 0.07], uv.sw_tube, { e: 1 });
+          B.quad([x1, y0, tz - 0.07], [x0, y0, tz - 0.07], [x0, y1, tz - 0.07], [x1, y1, tz - 0.07], uv.sw_tube, { e: 1 });
+        }
+        for (let gx = -2.4; gx <= 2.4; gx += 1.2)
+          H.glows.push({ p: [gx, 4.0, tz], c: [0.62, 0.72, 1], s: 0.9, a: 0.16, k: 'tube' });
+      }
+
+      // A duct run down each side, off the rib line so it crosses them.
+      for (const dx of [-5.6, 5.6])
+        B.model('ceilDuct', uv, { x: dx, y: CH, z: -18.8, yaw: -Math.PI / 2, sx: 17.6 });
+
+      // Hanging signage. Arcades tell you where things are from the ceiling.
+      const hang = (x, z, w, yaw) => B.model('hangSign', uv, { x: x - w / 2, y: CH, z, yaw, sx: w });
+      hang(0, -2.6, 2.6, 0);        // over the entrance floor
+      hang(-4.4, -11.5, 2.2, 0);
+      hang(4.4, -11.5, 2.2, 0);
+      hang(0, -16.4, 3.0, 0);       // the deluxe wall
+
+      // The vestibule: what you actually walk under on the way in. It frames
+      // the doorway from the INSIDE, which is where the intro dolly looks.
+      B.model('vestibule', uv, { x: 0, z: -0.36 });
+
+      if (!ribs) console.warn('arcade: no ceiling ribs — running the flat ceiling');
     }
 
     // posters + wall neon
@@ -3026,20 +3110,12 @@ void main() {
   const LIGHTS = [
     // --- the hall ---
     { p: [0, 3.6, 1.4], c: [1.5, 1.1, 0.5], k: 'sign' },
-    { p: [0, 3.8, -4], c: [0.75, 0.9, 1.35], k: 'tube' },
-    { p: [0, 3.8, -9], c: [0.75, 0.9, 1.35], k: 'tube' },
-    { p: [0, 3.8, -14], c: [0.75, 0.9, 1.35], k: 'tube' },
+    // (the ceiling tubes and the wall neon light themselves too)
     { p: [0, 2.6, -17.9], c: [1.5, 0.85, 0.35], k: 'torch' },
     { p: [-5.8, 2.3, -9.5], c: [1.1, 0.35, 0.75], k: 'neon' },
     { p: [5.8, 2.3, -9.5], c: [0.35, 0.95, 1.15], k: 'neon' },
     { p: [0, 2.8, -1.6], c: [0.6, 0.55, 0.8], k: 'door' },
-    // the cabinet walls: ten CRTs and ten backlit marquees were pure texture
-    // before — bright rectangles that threw nothing onto the carpet
-    { p: [-6.2, 1.7, -5.5], c: [0.34, 0.42, 0.62], k: 'crt' },
-    { p: [-6.2, 1.7, -12.5], c: [0.34, 0.42, 0.62], k: 'crt' },
-    { p: [6.2, 1.7, -5.5], c: [0.34, 0.42, 0.62], k: 'crt' },
-    { p: [6.2, 1.7, -12.5], c: [0.34, 0.42, 0.62], k: 'crt' },
-    { p: [0, 1.75, -17.4], c: [0.7, 0.42, 0.18], k: 'crt' },
+    // (the cabinets light themselves — see installEmissiveLights)
     // --- the street: its own lights, not the hall's on loan ---
     { p: [-15, 3.0, 6.9], c: [1.5, 1.05, 0.55], k: 'lamp' },
     { p: [-5.5, 3.0, 6.9], c: [1.5, 1.05, 0.55], k: 'lamp' },
@@ -3060,6 +3136,75 @@ void main() {
     { p: [40, 3.2, 10.9], c: [0.5, 0.62, 1.0], k: 'moon' },
     { p: [36, 0.3, 10.9], c: [1.0, 0.75, 0.25], k: 'swirl' },
   ];
+
+  // ---- THE RELIGHT: a glowing surface that lights nothing is a PICTURE of a
+  // light ------------------------------------------------------------------
+  // The hall is wall-to-wall emissive: ten backlit marquees, ten live CRTs, ten
+  // lit control panels, four six-metre ceiling tubes and eighty metres of neon
+  // trim. Between them they threw FOUR point lights, hand-placed, and a magenta
+  // marquee did not tint the wall it was bolted to. Every one of them is a
+  // fixture in the world list now.
+  //
+  // Derived from PLACEMENT and from the tube/strip geometry rather than
+  // hand-listed, so the eleventh cabinet lights itself and a tube that moves
+  // takes its light with it. A long tube is not a point — it gets a RUN of
+  // them, because one point in the middle of a six-metre fixture lights a disc
+  // and leaves the rest of the ceiling exactly as black as it was.
+  function hexRgb(h) {
+    return [parseInt(h.slice(1, 3), 16) / 255,
+            parseInt(h.slice(3, 5), 16) / 255,
+            parseInt(h.slice(5, 7), 16) / 255];
+  }
+
+  let emissiveLightsDone = false;
+  function installEmissiveLights() {
+    if (emissiveLightsDone) return;
+    emissiveLightsDone = true;
+    const byMode = {};
+    for (const g of ArcadeArt.GAMES) byMode[g.mode] = g;
+
+    for (const [mode, x, z, yaw] of PLACEMENT) {
+      const g = byMode[mode];
+      if (!g) continue;
+      const fx = Math.sin(yaw), fz = Math.cos(yaw);   // the face it looks out of
+      const s = mode === 'knight' ? 1.18 : 1;         // the deluxe cabinet is bigger
+      const a = hexRgb(g.c1), b = hexRgb(g.c2);
+      const mix2 = (k) => (a[k] + b[k]) * 0.5;
+      // NUGGET CATCH is a taped-off crime scene. Its marquee is dark and has
+      // been since the Incident; lighting it would be a continuity error.
+      const on = mode === 'catch' ? 0.18 : 1;
+      // STAND THEM OFF THE MACHINE. The first pass parked these 0.5m from the
+      // cabinet centre — which is 0.15m from its own front panel — so every
+      // marquee floodlit the box it was bolted to and the deluxe cabinet came
+      // back a white slab. A backlit marquee lights the room IN FRONT of the
+      // machine; it does not light itself.
+      LIGHTS.push({ p: [x + fx * 1.15, 1.95 * s, z + fz * 1.15], k: 'marq',
+        c: [mix2(0) * 0.44 * on, mix2(1) * 0.44 * on, mix2(2) * 0.44 * on] });
+      // the CRT: cooler, flickery, and low enough to reach the carpet
+      LIGHTS.push({ p: [x + fx * 1.0, 1.35 * s, z + fz * 1.0], k: 'crt',
+        c: [0.26 * on, 0.32 * on, 0.48 * on] });
+      // the control panel's underglow — this is the one that puts a pool of
+      // colour on the floor in front of each machine
+      LIGHTS.push({ p: [x + fx * 0.86, 0.88 * s, z + fz * 0.86], k: 'crt',
+        c: [a[0] * 0.17 * on, a[1] * 0.17 * on, a[2] * 0.17 * on] });
+    }
+
+    // the four ceiling tubes, as runs. They sit at y 4.04-4.14 under a 4.2
+    // ceiling; the light goes just UNDER the glass where the light actually
+    // leaves the fixture.
+    for (const tz of [-4, -9, -14, -17.7])
+      for (const tx of [-2.1, 0, 2.1])
+        LIGHTS.push({ p: [tx, 3.94, tz], c: [0.62, 0.74, 1.10], k: 'tube' });
+
+    // the neon trim: cyan down both side walls at y 3.3, magenta across the
+    // back. Eighty metres of it that used to light nothing at all.
+    for (let z = -1.4; z > -19.6; z -= 3.6) {
+      LIGHTS.push({ p: [-RX + 0.22, 3.30, z], c: [0.16, 0.50, 0.62], k: 'neon' });
+      LIGHTS.push({ p: [RX - 0.22, 3.30, z], c: [0.16, 0.50, 0.62], k: 'neon' });
+    }
+    for (const x of [-5, 0, 5])
+      LIGHTS.push({ p: [x, 3.30, RZB + 0.22], c: [0.62, 0.10, 0.34], k: 'neon' });
+  }
 
   // ---- init ---------------------------------------------------------------------------
 
@@ -3114,7 +3259,7 @@ void main() {
     H.progSpr = makeProgram(gl, VS_SPR, FS_SPR);
     H.uni = {};
     for (const name of ['uProj', 'uView', 'uModel', 'uTex', 'uLightPos', 'uLightColor',
-      'uAmbient', 'uFogColor', 'uCamPos', 'uFogDensity', 'uAlpha', 'uMirror', 'uBoost',
+      'uAmbUp', 'uAmbDown', 'uFogColor', 'uCamPos', 'uFogDensity', 'uAlpha', 'uMirror', 'uBoost',
       'uNrm', 'uOrm', 'uNrmScale', 'uSpecAmt', 'uWet', 'uTime',
       'uSkyAmb', 'uGndAmb', 'uSkyAmt', 'uSkyRefl', 'uSkyHorizon', 'uSkyZenith', 'uSkyGlow',
       'uSkyGround', 'uMoonDir', 'uSkyT'])
@@ -3154,6 +3299,14 @@ void main() {
     H.texFlatN = makeSolidTexture(gl, [128, 128, 255, 255]);
     H.texFlatS = makeSolidTexture(gl, [179, 0, 0, 255]);
     H.mapsFor = new Map();
+
+    // THE RELIGHT's texel density, but only if the GPU will take the page. A
+    // 4096 main atlas plus a 2048x4096 street page is well inside every desktop
+    // limit and inside most mobile ones; anything that says otherwise gets the
+    // density that shipped, which is a smaller texture and not a broken hall.
+    const maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 2048;
+    H.atlasScale = maxTex >= 4096 ? 2 : 1;
+    ArcadeArt.setScale(H.atlasScale);
 
     const atlas = ArcadeArt.makeAtlas();
     H.texAtlas = makeTexture(gl, atlas.canvas);
@@ -4128,7 +4281,8 @@ void main() {
     gl.uniformMatrix4fv(H.uni.uProj, false, proj);
     gl.uniformMatrix4fv(H.uni.uView, false, view);
     gl.uniform3f(H.uni.uCamPos, H.cam.x, H.cam.y, H.cam.z);
-    gl.uniform3f(H.uni.uAmbient, 0.22, 0.21, 0.29);
+    gl.uniform3fv(H.uni.uAmbUp, AMB_UP);
+    gl.uniform3fv(H.uni.uAmbDown, AMB_DOWN);
     gl.uniform3fv(H.uni.uFogColor, FOG);
     gl.uniform1f(H.uni.uFogDensity, FOG_DENSITY);
     gl.uniform1i(H.uni.uTex, 0);
@@ -4162,9 +4316,15 @@ void main() {
     const sl = signLevel(H.t);
     const nLights = H.pbr ? MAX_LIGHTS : 8;
     const cx = H.cam.x, cy = H.cam.y, cz = H.cam.z;
+    // Rank by what a fixture is WORTH from here, not by how close it is. With
+    // sixty-odd lights in the room, pure distance let three dim control-panel
+    // glows crowd out the streetlamp actually lighting the road. The weight is
+    // the shader's own attenuation, so the ranking and the rendering agree.
     const pick = LIGHTS.map((L, i) => {
       const dx = L.p[0] - cx, dy = L.p[1] - cy, dz = L.p[2] - cz;
-      return { L, i, d: dx * dx + dy * dy + dz * dz };
+      const d2 = dx * dx + dy * dy + dz * dz, d = Math.sqrt(d2);
+      const w = (L.c[0] + L.c[1] + L.c[2]) / (1 + 0.13 * d + 0.026 * d2);
+      return { L, i, d: -w };
     }).sort((a, b) => a.d - b.d).slice(0, nLights);
     const lp = new Float32Array(nLights * 3), lc = new Float32Array(nLights * 3);
     pick.forEach(({ L, i }, slot) => {

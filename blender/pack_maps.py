@@ -116,7 +116,7 @@ def main():
         return
 
     # ---- shelf pack (tallest first, same discipline as pack_hall) ----
-    PAD, AW = 2, 2048
+    PAD, AW = 2, 4096   # regions are 2x since THE RELIGHT
     items = sorted(pages.items(), key=lambda kv: (-kv[1][0].shape[0], kv[0]))
     regions, x, y, shelf_h = {}, PAD, PAD, 0
     placed = []

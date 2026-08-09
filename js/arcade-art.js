@@ -68,6 +68,19 @@ const ArcadeArt = (() => {
   // can override it before makeAtlas() to A/B a material without a re-bake.
   const FLAT_NORMAL = 'rgb(128,128,255)';   // +Z, i.e. "no relief"
 
+  // ---- THE RELIGHT: atlas scale ------------------------------------------------
+  // Every region size below is written in the ORIGINAL units and multiplied by
+  // AS at allocation time, and alloc() scales the 2d context to match — so a
+  // painter still draws in the coordinates it was written for and every
+  // hard-coded pixel offset in this file (the vending header at y36, the change
+  // header at y26, the shop sign strips) keeps landing where it always did.
+  // That contract is why this is one number and not four hundred edits.
+  //
+  // Set from the GPU's MAX_TEXTURE_SIZE by arcade.js before makeAtlas(): 2 when
+  // the hardware can take a 4096 page, 1 when it cannot.
+  let AS = 2;
+  function setScale(n) { AS = Math.max(1, n | 0); }
+
   const MAP_DEFAULTS = {};
 
   function mapBlit(kind, g, name, w, h) {
@@ -982,7 +995,7 @@ const ArcadeArt = (() => {
   // ---- Atlas assembly -----------------------------------------------------------
 
   function makeAtlas() {
-    const S = 2048;
+    const S = 2048 * AS;
     const c = cv(S, S);
     const g = c.getContext('2d');
     g.fillStyle = '#0a0913';
@@ -995,23 +1008,26 @@ const ArcadeArt = (() => {
     gO.fillStyle = 'rgb(179,0,0)'; gO.fillRect(0, 0, S, S);   // rough 0.7, no metal, PBR off
     const uv = {};
     let cx = 0, cy = 0, rowH = 0;
-    const PAD = 8;
+    const PAD = 8 * AS;
     function alloc(name, w, h, painter) {
-      if (cx + w + PAD > S) { cx = 0; cy += rowH + PAD; rowH = 0; }
-      if (cy + h > S) console.warn('ArcadeArt atlas overflow at', name); // never ship black textures silently
+      const aw = w * AS, ah = h * AS;          // the region in ATLAS pixels
+      if (cx + aw + PAD > S) { cx = 0; cy += rowH + PAD; rowH = 0; }
+      if (cy + ah > S) console.warn('ArcadeArt atlas overflow at', name); // never ship black textures silently
+      // translate THEN scale, and hand the painter its original dimensions: it
+      // draws the same picture it always did, into more texels.
       g.save();
-      g.translate(cx, cy);
+      g.translate(cx, cy); g.scale(AS, AS);
       g.beginPath(); g.rect(0, 0, w, h); g.clip();
       painter(g, w, h);
       g.restore();
-      gN.save(); gN.translate(cx, cy); gN.beginPath(); gN.rect(0, 0, w, h); gN.clip();
-      gO.save(); gO.translate(cx, cy); gO.beginPath(); gO.rect(0, 0, w, h); gO.clip();
+      gN.save(); gN.translate(cx, cy); gN.scale(AS, AS); gN.beginPath(); gN.rect(0, 0, w, h); gN.clip();
+      gO.save(); gO.translate(cx, cy); gO.scale(AS, AS); gO.beginPath(); gO.rect(0, 0, w, h); gO.clip();
       paintMaps(gN, gO, name, w, h);
       gN.restore(); gO.restore();
-      // Inset the uv rect by 1.5px so mipmap bleeding never shows a neighbor.
-      uv[name] = [(cx + 1.5) / S, (cy + 1.5) / S, (cx + w - 1.5) / S, (cy + h - 1.5) / S];
-      cx += w + PAD;
-      rowH = Math.max(rowH, h);
+      // Inset the uv rect by 1.5 ATLAS px so mipmap bleeding never shows a neighbor.
+      uv[name] = [(cx + 1.5) / S, (cy + 1.5) / S, (cx + aw - 1.5) / S, (cy + ah - 1.5) / S];
+      cx += aw + PAD;
+      rowH = Math.max(rowH, ah);
     }
 
     // Shelf-packed tallest-first so everything fits in one 2048² page.
@@ -1414,7 +1430,7 @@ const ArcadeArt = (() => {
     // bottom — the exact black-texture bug the hall atlas notes warn about).
     // Height doubled; both axes stay power-of-two because the hall
     // generateMipmaps this texture (WebGL1 NPOT would silently break it).
-    const SW = 1024, SH = 2048;
+    const SW = 1024 * AS, SH = 2048 * AS;
     const c = cv(SW, SH);
     const g = c.getContext('2d');
     // transparent page: NPC cutouts need alpha; solid regions paint their own bg
@@ -1424,22 +1440,23 @@ const ArcadeArt = (() => {
     gO.fillStyle = 'rgb(179,0,0)'; gO.fillRect(0, 0, SW, SH);
     const uv = {};
     let cx = 0, cy = 0, rowH = 0;
-    const PAD = 8;
+    const PAD = 8 * AS;
     function alloc(name, w, h, painter) {
-      if (cx + w + PAD > SW) { cx = 0; cy += rowH + PAD; rowH = 0; }
-      if (cy + h > SH) console.warn('ArcadeArt street atlas overflow at', name);
+      const aw = w * AS, ah = h * AS;
+      if (cx + aw + PAD > SW) { cx = 0; cy += rowH + PAD; rowH = 0; }
+      if (cy + ah > SH) console.warn('ArcadeArt street atlas overflow at', name);
       g.save();
-      g.translate(cx, cy);
+      g.translate(cx, cy); g.scale(AS, AS);
       g.beginPath(); g.rect(0, 0, w, h); g.clip();
       painter(g, w, h);
       g.restore();
-      gN.save(); gN.translate(cx, cy); gN.beginPath(); gN.rect(0, 0, w, h); gN.clip();
-      gO.save(); gO.translate(cx, cy); gO.beginPath(); gO.rect(0, 0, w, h); gO.clip();
+      gN.save(); gN.translate(cx, cy); gN.scale(AS, AS); gN.beginPath(); gN.rect(0, 0, w, h); gN.clip();
+      gO.save(); gO.translate(cx, cy); gO.scale(AS, AS); gO.beginPath(); gO.rect(0, 0, w, h); gO.clip();
       paintMaps(gN, gO, name, w, h);
       gN.restore(); gO.restore();
-      uv[name] = [(cx + 1.5) / SW, (cy + 1.5) / SH, (cx + w - 1.5) / SW, (cy + h - 1.5) / SH];
-      cx += w + PAD;
-      rowH = Math.max(rowH, h);
+      uv[name] = [(cx + 1.5) / SW, (cy + 1.5) / SH, (cx + aw - 1.5) / SW, (cy + ah - 1.5) / SH];
+      cx += aw + PAD;
+      rowH = Math.max(rowH, ah);
     }
 
     alloc('shopNoodle', 256, 224, (gg, w, h) => pStreetShop(gg, w, h, 'noodle'));
@@ -2526,6 +2543,6 @@ const ArcadeArt = (() => {
     scanlines(g, w, h, t);
   }
 
-  return { GAMES, STREET_GAMES, makeAtlas, makeStreetAtlas, makeGlow, drawAttract, drawScoreboard,
+  return { GAMES, STREET_GAMES, setScale, makeAtlas, makeStreetAtlas, makeGlow, drawAttract, drawScoreboard,
     MAP_DEFAULTS };
 })();
