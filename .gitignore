@@ -26,3 +26,6 @@ blender/*.blend1
 blender/render_hall/
 blender/contact.png
 blender/sheet_preview.jpg
+
+# Verification shots (blender/tools/*.js writes here) — images, not source
+blender/tools/_shots/

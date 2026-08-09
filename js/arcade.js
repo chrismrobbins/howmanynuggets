@@ -23,6 +23,38 @@ const NuggetArcade = (() => {
   const NRM_SCALE = 1.0;
   const SPEC_AMT = 1.15;
   const WET_AMT = 1.0;
+  // 🎞 THE FLOAT BUFFER dial. How bright a fully-emissive texel is allowed to
+  // be, in a buffer that no longer stops at 1.0. Everything above 1.0 is
+  // headroom the bloom threshold and the tonemap can actually see, so this is
+  // the number that decides whether neon is a coloured rectangle or a light.
+  // Only applied when the half-float target exists; the 8-bit path keeps 1.45,
+  // which is what it always clipped to anyway.
+  // 2.2, not the 4.0 the first pass reached for. Swept against the two spots
+  // in this building with READING on them — the entrance marquee and the
+  // scoreboard — because a gain that flatters a neon tube turns lettering into
+  // a white slab, which is the §12 marquee lesson arriving from the opposite
+  // direction. At 4.0 "NUGGET ARCADE" is an illegible glowing bar; at 2.2 it
+  // is legible AND the tube behind it has a hot core with the colour still in
+  // its halo. Emissive range is not the same thing as emissive brightness.
+  const EMIS_GAIN = 2.2;
+  const GLOW_GAIN = 1.7;   // the additive sprite pass (blinkers, votives, sparks)
+  // THE TUNING SEAM. Every number the float pipeline is sensitive to, in one
+  // object a harness can poke between frames. This exists because the first
+  // pass at ACT I was tuned by edit-reload-measure at ~90s a round, and the
+  // interesting region turned out to be a 4-D box: gain against threshold
+  // against bloom against saturation, where moving any one of them moves what
+  // the other three should be. blender/tools/tune.js sweeps it in one browser
+  // session. Defaults here are the shipped values; nothing reads them but the
+  // renderer, and nothing writes them but a test.
+  const TUNE = {
+    emisGain: EMIS_GAIN,
+    glowGain: GLOW_GAIN,
+    bloomAmt: 0.38,
+    bloomThresh: 0.80,
+    bloomKnee: 0.55,
+    exposure: 1.0,
+    sat: 1.10,
+  };
 
   // ---- THE SKY -------------------------------------------------------------
   // Nuggetown is under a low sodium-lit overcast. Every street lamp and every
@@ -413,6 +445,7 @@ uniform float uShadowAmt;
 uniform vec3 uLightPos[16]; uniform vec3 uLightColor[16];
 uniform vec3 uAmbUp, uAmbDown, uFogColor, uCamPos, uSkyAmb, uGndAmb;
 uniform float uFogDensity, uAlpha, uMirror, uBoost, uNrmScale, uSpecAmt, uWet, uTime, uSkyAmt, uSkyRefl;
+uniform float uEmisGain;
 out vec4 fragColor;
 ` + GLSL_SKY + `
 const float PI = 3.14159265;
@@ -565,7 +598,12 @@ void main() {
   }
 
   float e = clamp(vExtra.x * uBoost, 0.0, 1.0);
-  vec3 col = tex.rgb * mix(light, vec3(1.45), e) * vExtra.y;
+  // uEmisGain used to be the literal 1.45, into a buffer that saturated at 1.0
+  // — so every emissive above 69% grey arrived at the bloom pass as the same
+  // pixel and the room had no highlight range at all. In the float buffer this
+  // is a real intensity: a marquee capped at 178/255 lands near 2.5, a neon
+  // core goes past 4, and the DIFFERENCE survives.
+  vec3 col = tex.rgb * mix(light, vec3(uEmisGain), e) * vExtra.y;
   // Neon does not get a highlight painted on it, and neither does anything the
   // region table has not signed off on.
   col += (spec * uSpecAmt * pbr + env) * (1.0 - e) * vExtra.y;
@@ -750,97 +788,175 @@ void main() {
 precision mediump float;
 varying vec2 vUV; varying vec4 vColor;
 uniform sampler2D uTex;
+uniform float uGlowGain;
 void main() {
-  // additive pass uses blend(ONE, ONE): bake color × intensity into rgb
+  // additive pass uses blend(ONE, ONE): bake color × intensity into rgb.
+  // uGlowGain is 1.0 in the 8-bit room — there is nowhere above white to put
+  // it. In the float buffer the blinkers, votives and sparks are LIGHTS, and a
+  // light that tops out at exactly white never reaches the bloom threshold.
   float t = texture2D(uTex, vUV).a;
-  gl_FragColor = vec4(vColor.rgb * vColor.a * t, 1.0);
+  gl_FragColor = vec4(vColor.rgb * vColor.a * t * uGlowGain, 1.0);
 }`;
 
   // ---- post chain: the reason a dark neon room reads as LIGHT -----------------
   // The hall used to draw straight to the screen, so every emissive quad was
-  // just a bright rectangle. Now the scene renders into an FBO, the hot pixels
-  // get extracted and blurred at quarter res, and the halo is added back —
-  // neon, CRTs, the carpet confetti and the marquees actually throw light.
+  // just a bright rectangle. Then the scene got an FBO, a bright pass and a
+  // quarter-res blur, and neon started throwing light.
+  //
+  // 🎞 THE FLOAT BUFFER. That FBO was RGBA8, and that turned out to be the
+  // ceiling on everything above it. The lit shader's brightest possible
+  // emissive was `tex.rgb * 1.45`, written into a buffer that saturates at
+  // 1.0 — so a dim backlit panel at 0.72 and a neon tube at full tilt arrived
+  // at the bright pass as THE SAME PIXEL. The room had no highlight range at
+  // all: every measured frame came back `blown 0.00%`, which reads like a win
+  // and is actually the symptom. Flat pastel rectangles where the light
+  // sources should be.
+  //
+  // So the scene target is half-float now (WebGL2 + EXT_color_buffer_half_float
+  // — anything less keeps the 8-bit path verbatim, per the house rule), and
+  // three things follow from that one change:
+  //
+  //   1. Emissives get a real intensity. `uEmisGain` is ~4, so a marquee that
+  //      caps at 178/255 lands near 2.5 and a neon core goes past 4 — and the
+  //      DIFFERENCE between them survives into the bloom pass.
+  //   2. The bloom threshold means something. At 1.0 it selects things that
+  //      are actually brighter than white instead of "the top third of an
+  //      already-clipped image", so lit walls stop hazing.
+  //   3. There is something left to tonemap. `shoulder()` was doing the job an
+  //      8-bit buffer left it — rolling off a signal that had already been
+  //      cut. A real curve gets the whole range.
+  //
+  // 🌸 THE PYRAMID. One quarter-res gaussian gives one halo size, which reads
+  // as a sticker around bright things. Real bloom is scale-free: a tight core
+  // AND a wide atmospheric haze at once. Standard fix, five mips down with a
+  // 13-tap filter and back up with a 9-tap tent, accumulating on the way — so
+  // the halo has energy at every radius from 2px to a quarter of the screen.
 
   const VS_POST = `
 attribute vec2 aPos;
 varying vec2 vUV;
 void main() { vUV = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }`;
 
-  const FS_BRIGHT = `
+  // Downsample by half. On the FIRST tap (uFirst = 1) it also applies the
+  // highlight knee, so the pyramid never needs a separate bright pass.
+  const FS_DOWN = `
 precision mediump float;
 varying vec2 vUV;
 uniform sampler2D uTex;
-uniform float uThreshold, uKnee;
+uniform vec2 uTexel;
+uniform float uThreshold, uKnee, uFirst;
+vec3 t(vec2 o) { return max(texture2D(uTex, vUV + o * uTexel).rgb, vec3(0.0)); }
 void main() {
-  vec3 c = texture2D(uTex, vUV).rgb;
-  float l = max(max(c.r, c.g), c.b);
-  float f = clamp((l - uThreshold) / max(uKnee, 0.001), 0.0, 1.0);
-  gl_FragColor = vec4(c * f * f, 1.0);   // squared: soft knee, no hard edge
+  // 13 taps in the dual-density pattern: four corner groups plus a centre
+  // group, which is what keeps a half-res chain from pumping when the camera
+  // moves. A naive 4-tap box crawls.
+  vec3 a = t(vec2(-2.0, 2.0)), b = t(vec2(0.0, 2.0)), c = t(vec2(2.0, 2.0));
+  vec3 d = t(vec2(-2.0, 0.0)), e = t(vec2(0.0, 0.0)), f = t(vec2(2.0, 0.0));
+  vec3 g = t(vec2(-2.0, -2.0)), h = t(vec2(0.0, -2.0)), i = t(vec2(2.0, -2.0));
+  vec3 j = t(vec2(-1.0, 1.0)), k = t(vec2(1.0, 1.0));
+  vec3 l = t(vec2(-1.0, -1.0)), m = t(vec2(1.0, -1.0));
+  vec3 s = e * 0.125
+         + (a + c + g + i) * 0.03125
+         + (b + d + f + h) * 0.0625
+         + (j + k + l + m) * 0.125;
+  if (uFirst > 0.5) {
+    float lum = max(max(s.r, s.g), s.b);
+    float q = clamp((lum - uThreshold) / max(uKnee, 0.001), 0.0, 1.0);
+    s *= q * q;                          // squared: soft knee, no hard edge
+  }
+  gl_FragColor = vec4(s, 1.0);
 }`;
 
-  const FS_BLUR = `
+  // 9-tap tent upsample. Drawn with blend(ONE, ONE) so each level ADDS its
+  // radius to the one below it — that accumulation is the whole trick.
+  const FS_UP = `
 precision mediump float;
 varying vec2 vUV;
 uniform sampler2D uTex;
-uniform vec2 uDir;
+uniform vec2 uTexel;
+uniform float uScale;
+vec3 t(vec2 o) { return texture2D(uTex, vUV + o * uTexel).rgb; }
 void main() {
-  vec3 s = texture2D(uTex, vUV).rgb * 0.2270270;
-  s += (texture2D(uTex, vUV + uDir * 1.3846).rgb + texture2D(uTex, vUV - uDir * 1.3846).rgb) * 0.3162162;
-  s += (texture2D(uTex, vUV + uDir * 3.2308).rgb + texture2D(uTex, vUV - uDir * 3.2308).rgb) * 0.0702703;
-  gl_FragColor = vec4(s, 1.0);
+  vec3 s = t(vec2(-1.0, 1.0)) + t(vec2(0.0, 1.0)) * 2.0 + t(vec2(1.0, 1.0))
+         + t(vec2(-1.0, 0.0)) * 2.0 + t(vec2(0.0, 0.0)) * 4.0 + t(vec2(1.0, 0.0)) * 2.0
+         + t(vec2(-1.0, -1.0)) + t(vec2(0.0, -1.0)) * 2.0 + t(vec2(1.0, -1.0));
+  gl_FragColor = vec4(s * (uScale / 16.0), 1.0);
 }`;
 
   const FS_COMP = `
 precision mediump float;
 varying vec2 vUV;
 uniform sampler2D uScene, uBloom;
-uniform float uAmount;
+uniform float uAmount, uExposure, uHdr, uSat;
 
-// THE SHOULDER. This renderer has never had one: the composite added bloom to
-// the scene and handed the result straight to an 8-bit framebuffer, so
-// anything over 1.0 did not get brighter, it got FLAT WHITE. That is fine in a
-// room where almost nothing is bright. THE RELIGHT is not that room — the
-// marquee texture caps at 178/255 and still came out a white slab, because the
-// halo landed on top of it and the sum clipped.
-//
-// So roll the top off instead of cutting it. Below the knee nothing moves at
-// all, which is the entire shadow range and most of the midtones; above it the
-// remaining headroom is spent asymptotically, so a light can go on being
-// brighter for ever and never turn into a hole in the picture.
+// THE SHOULDER, kept for the 8-bit path. This renderer had none: the composite
+// added bloom to the scene and handed the result straight to an 8-bit
+// framebuffer, so anything over 1.0 did not get brighter, it got FLAT WHITE.
+// Below the knee nothing moves at all — the entire shadow range and most of the
+// midtones; above it the headroom is spent asymptotically.
 vec3 shoulder(vec3 x) {
-  const float K = 0.70;                 // everything under this is untouched
+  const float K = 0.70;
   vec3 hi = max(x - K, vec3(0.0));
   return min(x, vec3(K)) + (1.0 - K) * hi / (hi + (1.0 - K));
 }
 
+// THE CURVE, for the float path. Khronos "PBR Neutral", chosen over ACES on
+// purpose: two sessions of palette work (the S2.12 hue contract, then the
+// RELIGHT's keep-the-HUE-move-the-LUMA albedos) are sitting in this room, and
+// ACES rotates hues hard enough in the highlights to undo it. This one leaves
+// everything below the compression point EXACTLY where it was — so the shadows
+// and midtones that were tuned against the shoulder do not move — and only
+// starts desaturating toward white at the very top, which is precisely what a
+// neon core does when it overexposes. Colored halo, hot white centre.
+// NOTE the one deletion from the reference curve: its black-offset term, which
+// subtracts up to 0.04 from the darkest channel to "put the black back in the
+// blacks". Measured, it cost this room dead 0.63% -> 8.45% and turned the
+// drain wall from 0.3% black to 30% black in one run. Two sessions of work
+// went into getting those numbers down; a contrast trick is not worth undoing
+// them. Without it everything below START passes through UNTOUCHED, so the
+// shadows and midtones are bit-identical to what shipped and only the
+// highlights — the entire point of this act — are re-shaped.
+vec3 filmic(vec3 c) {
+  const float START = 0.76, DESAT = 0.16;
+  float peak = max(c.r, max(c.g, c.b));
+  if (peak < START) return c;
+  float d = 1.0 - START;
+  float newPeak = 1.0 - d * d / (peak + d - START);
+  c *= newPeak / max(peak, 1e-5);
+  return mix(c, vec3(newPeak), 1.0 - 1.0 / (DESAT * (peak - newPeak) + 1.0));
+}
+
 void main() {
-  vec3 c = texture2D(uScene, vUV).rgb;
-  vec3 b = texture2D(uBloom, vUV).rgb;
-  c += b * uAmount;
+  vec3 c = max(texture2D(uScene, vUV).rgb, vec3(0.0));
+  c += max(texture2D(uBloom, vUV).rgb, vec3(0.0)) * uAmount;
+  c *= uExposure;
   // a touch of extra saturation so the halos stay COLORED instead of washing
   // toward white (the sign blowout lesson, this time in the shader)
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
-  c = mix(vec3(l), c, 1.12);
-  gl_FragColor = vec4(shoulder(max(c, vec3(0.0))), 1.0);
+  c = mix(vec3(l), c, uSat);
+  gl_FragColor = vec4(uHdr > 0.5 ? filmic(c) : shoulder(c), 1.0);
 }`;
 
-  // Allocate (or reallocate on resize) the scene target + two ping-pong blur
-  // buffers. Returns false if the GPU won't give us a complete FBO — the hall
-  // then renders exactly as it always did.
+  const BLOOM_MIPS = 5;
+
+  // Allocate (or reallocate on resize) the scene target + the bloom pyramid.
+  // Returns false if the GPU won't give us a complete FBO — the hall then
+  // renders exactly as it always did.
   function postSetup(gl, w, h) {
-    if (H.post && H.post.w === w && H.post.h === h) return true;
+    const wantHdr = H.hdr !== false && !!H.hdrCap;
+    if (H.post && H.post.w === w && H.post.h === h && H.post.hdr === wantHdr) return true;
     if (H.post === false) return false;
     try {
       if (H.post) {
         gl.deleteFramebuffer(H.post.fbo); gl.deleteTexture(H.post.tex);
         gl.deleteRenderbuffer(H.post.depth);
-        for (const b of H.post.blur) { gl.deleteFramebuffer(b.fbo); gl.deleteTexture(b.tex); }
+        for (const b of H.post.mips) { gl.deleteFramebuffer(b.fbo); gl.deleteTexture(b.tex); }
       }
-      const target = (tw, th, depth) => {
+      const target = (tw, th, depth, float) => {
         const tex = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, tex);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, tw, th, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        if (float) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, tw, th, 0, gl.RGBA, gl.HALF_FLOAT, null);
+        else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, tw, th, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -856,15 +972,24 @@ void main() {
           gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, rb);
         }
         const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
-        return ok ? { fbo, tex, depth: rb } : null;
+        return ok ? { fbo, tex, depth: rb, w: tw, h: th } : null;
       };
-      const bw = Math.max(1, w >> 2), bh = Math.max(1, h >> 2);
-      const scene = target(w, h, true);
-      const b0 = target(bw, bh, false);
-      const b1 = target(bw, bh, false);
+      let scene = wantHdr ? target(w, h, true, true) : null;
+      // A driver can advertise the extension and still refuse the attachment.
+      // Ask, check, and fall back rather than trusting the capability bit.
+      const hdr = !!scene;
+      if (!scene) scene = target(w, h, true, false);
+      const mips = [];
+      for (let i = 0, mw = w, mh = h; i < BLOOM_MIPS; i++) {
+        mw = Math.max(1, mw >> 1); mh = Math.max(1, mh >> 1);
+        const m = target(mw, mh, false, hdr);
+        if (!m) throw new Error('incomplete bloom mip ' + i);
+        mips.push(m);
+      }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      if (!scene || !b0 || !b1) throw new Error('incomplete framebuffer');
-      H.post = { ...scene, w, h, bw, bh, blur: [b0, b1] };
+      if (!scene) throw new Error('incomplete framebuffer');
+      if (wantHdr && !hdr) console.warn('Nugget Arcade: no float target, 8-bit post');
+      H.post = { ...scene, w, h, hdr, mips };
       return true;
     } catch (err) {
       console.warn('Nugget Arcade: bloom unavailable, rendering direct', err);
@@ -885,29 +1010,49 @@ void main() {
       gl.enableVertexAttribArray(aLoc);
       gl.vertexAttribPointer(aLoc, 2, gl.FLOAT, false, 0, 0);
     };
-
-    // 1) bright pass, straight into the quarter-res buffer
-    gl.bindFramebuffer(gl.FRAMEBUFFER, P.blur[0].fbo);
-    gl.viewport(0, 0, P.bw, P.bh);
-    bind(H.progBright, H.aBright);
-    gl.uniform1i(H.uniBright.uTex, 0);
-    gl.uniform1f(H.uniBright.uThreshold, 0.74);
-    gl.uniform1f(H.uniBright.uKnee, 0.30);
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, P.tex);
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-    // 2) separable blur, twice, for a halo wide enough to read as light
-    bind(H.progBlur, H.aBlur);
-    gl.uniform1i(H.uniBlur.uTex, 0);
-    for (let pass = 0; pass < 2; pass++) {
-      for (const [dx, dy, src, dst] of [[1, 0, 0, 1], [0, 1, 1, 0]]) {
-        gl.bindFramebuffer(gl.FRAMEBUFFER, P.blur[dst].fbo);
-        gl.uniform2f(H.uniBlur.uDir, (dx * (1 + pass)) / P.bw, (dy * (1 + pass)) / P.bh);
-        gl.bindTexture(gl.TEXTURE_2D, P.blur[src].tex);
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-      }
+    // 1) down the pyramid. The first step carries the highlight knee — in HDR
+    //    the threshold is ABOVE white, so only things that are genuinely
+    //    brighter than paper bloom. In the 8-bit fallback it stays where it
+    //    shipped, because there nothing is ever brighter than paper.
+    bind(H.progDown, H.aDown);
+    gl.uniform1i(H.uniDown.uTex, 0);
+    for (let i = 0; i < P.mips.length; i++) {
+      const src = i === 0 ? P : P.mips[i - 1], dst = P.mips[i];
+      gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fbo);
+      gl.viewport(0, 0, dst.w, dst.h);
+      gl.uniform2f(H.uniDown.uTexel, 1 / src.w, 1 / src.h);
+      gl.uniform1f(H.uniDown.uFirst, i === 0 ? 1 : 0);
+      // The threshold does TWO jobs, and the first run here only noticed one.
+      // Obviously it picks what blooms. Less obviously, a wide blur of
+      // everything above it is the only thing lifting the dim end of this
+      // picture — set to 1.0 (a principled "brighter than white") the street
+      // lost its haze and went from 0.3% black to 30% black. So it sits just
+      // under where lit-but-not-emissive surfaces land: the atmosphere stays,
+      // and the emissives, now running to 4.0, tower over it instead of
+      // sharing a clipped ceiling with it.
+      gl.uniform1f(H.uniDown.uThreshold, P.hdr ? TUNE.bloomThresh : 0.74);
+      gl.uniform1f(H.uniDown.uKnee, P.hdr ? TUNE.bloomKnee : 0.30);
+      gl.bindTexture(gl.TEXTURE_2D, src.tex);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
+
+    // 2) back up, ADDING each level into the one below it
+    bind(H.progUp, H.aUp);
+    gl.uniform1i(H.uniUp.uTex, 0);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    for (let i = P.mips.length - 1; i > 0; i--) {
+      const src = P.mips[i], dst = P.mips[i - 1];
+      gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fbo);
+      gl.viewport(0, 0, dst.w, dst.h);
+      gl.uniform2f(H.uniUp.uTexel, 1 / src.w, 1 / src.h);
+      gl.uniform1f(H.uniUp.uScale, 1.0);
+      gl.bindTexture(gl.TEXTURE_2D, src.tex);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+    gl.disable(gl.BLEND);
 
     // 3) composite to the screen
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -915,11 +1060,16 @@ void main() {
     bind(H.progComp, H.aComp);
     gl.uniform1i(H.uniComp.uScene, 0);
     gl.uniform1i(H.uniComp.uBloom, 1);
-    gl.uniform1f(H.uniComp.uAmount, 0.92);
-    gl.activeTexture(gl.TEXTURE0);
+    // The pyramid carries roughly one full copy of the highlights per level,
+    // so the same visual weight as the old single blur needs a much smaller
+    // number here. Measured, not guessed: see the ACT I table in HANDOFF §13.
+    gl.uniform1f(H.uniComp.uAmount, P.hdr ? TUNE.bloomAmt : 0.34);
+    gl.uniform1f(H.uniComp.uExposure, P.hdr ? TUNE.exposure : 1.0);
+    gl.uniform1f(H.uniComp.uHdr, P.hdr ? 1 : 0);
+    gl.uniform1f(H.uniComp.uSat, P.hdr ? TUNE.sat : 1.12);
     gl.bindTexture(gl.TEXTURE_2D, P.tex);
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, P.blur[0].tex);
+    gl.bindTexture(gl.TEXTURE_2D, P.mips[0].tex);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     gl.activeTexture(gl.TEXTURE0);
     gl.disableVertexAttribArray(H.aComp);
@@ -3414,6 +3564,13 @@ void main() {
     // to the shader instead of a call site).
     H.pbr = !!gl2;
     H.sky = true;   // harness seam: false = the void the hall shipped with
+    // 🎞 THE FLOAT BUFFER. RGBA16F is only COLOR-RENDERABLE with this
+    // extension, even on WebGL2 where the format itself is core — asking for
+    // the texture always works, attaching it does not. Probe here, verify the
+    // attachment in postSetup, and keep the 8-bit chain if either says no.
+    H.hdrCap = !!(gl2 && (gl.getExtension('EXT_color_buffer_half_float')
+      || gl.getExtension('EXT_color_buffer_float')));
+    H.hdr = H.hdrCap;   // harness seam: false = the 8-bit room, tonemap and all
     let progLit = null;
     if (H.pbr) {
       progLit = makeProgram(gl, VS_LIT2, FS_LIT2, true);
@@ -3427,13 +3584,13 @@ void main() {
     H.uni = {};
     for (const name of ['uProj', 'uView', 'uModel', 'uTex', 'uLightPos', 'uLightColor',
       'uAmbUp', 'uAmbDown', 'uFogColor', 'uCamPos', 'uFogDensity', 'uAlpha', 'uMirror', 'uBoost',
-      'uNrm', 'uOrm', 'uNrmScale', 'uSpecAmt', 'uWet', 'uTime',
+      'uNrm', 'uOrm', 'uNrmScale', 'uSpecAmt', 'uWet', 'uTime', 'uEmisGain',
       'uSkyAmb', 'uGndAmb', 'uSkyAmt', 'uSkyRefl', 'uSkyHorizon', 'uSkyZenith', 'uSkyGlow',
       'uSkyGround', 'uMoonDir', 'uSkyT',
       'uShadowH', 'uShadowS', 'uShadowMatH', 'uShadowMatS', 'uShadowAmt'])
       H.uni[name] = gl.getUniformLocation(H.progLit, name);
     H.uniS = {};
-    for (const name of ['uProj', 'uView', 'uTex'])
+    for (const name of ['uProj', 'uView', 'uTex', 'uGlowGain'])
       H.uniS[name] = gl.getUniformLocation(H.progSpr, name);
 
     // The dome. GLSL ES 1.00 on purpose — WebGL2 compiles it just as happily,
@@ -3525,26 +3682,20 @@ void main() {
     H.sprVbo = gl.createBuffer();
 
     // post chain: programs + the fullscreen triangle pair
-    H.progBright = makeProgram(gl, VS_POST, FS_BRIGHT);
-    H.progBlur = makeProgram(gl, VS_POST, FS_BLUR);
+    H.progDown = makeProgram(gl, VS_POST, FS_DOWN);
+    H.progUp = makeProgram(gl, VS_POST, FS_UP);
     H.progComp = makeProgram(gl, VS_POST, FS_COMP);
-    H.aBright = gl.getAttribLocation(H.progBright, 'aPos');
-    H.aBlur = gl.getAttribLocation(H.progBlur, 'aPos');
+    H.aDown = gl.getAttribLocation(H.progDown, 'aPos');
+    H.aUp = gl.getAttribLocation(H.progUp, 'aPos');
     H.aComp = gl.getAttribLocation(H.progComp, 'aPos');
-    H.uniBright = {
-      uTex: gl.getUniformLocation(H.progBright, 'uTex'),
-      uThreshold: gl.getUniformLocation(H.progBright, 'uThreshold'),
-      uKnee: gl.getUniformLocation(H.progBright, 'uKnee'),
+    const unis = (prog, names) => {
+      const o = {};
+      for (const n of names) o[n] = gl.getUniformLocation(prog, n);
+      return o;
     };
-    H.uniBlur = {
-      uTex: gl.getUniformLocation(H.progBlur, 'uTex'),
-      uDir: gl.getUniformLocation(H.progBlur, 'uDir'),
-    };
-    H.uniComp = {
-      uScene: gl.getUniformLocation(H.progComp, 'uScene'),
-      uBloom: gl.getUniformLocation(H.progComp, 'uBloom'),
-      uAmount: gl.getUniformLocation(H.progComp, 'uAmount'),
-    };
+    H.uniDown = unis(H.progDown, ['uTex', 'uTexel', 'uThreshold', 'uKnee', 'uFirst']);
+    H.uniUp = unis(H.progUp, ['uTex', 'uTexel', 'uScale']);
+    H.uniComp = unis(H.progComp, ['uScene', 'uBloom', 'uAmount', 'uExposure', 'uHdr', 'uSat']);
     H.quadVbo = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, H.quadVbo);
     gl.bufferData(gl.ARRAY_BUFFER,
@@ -4491,6 +4642,10 @@ void main() {
       gl.uniform1f(H.uni.uSpecAmt, SPEC_AMT);
       gl.uniform1f(H.uni.uWet, WET_AMT);
       gl.uniform1f(H.uni.uTime, H.t);
+      // In an 8-bit buffer anything over 1.0 was thrown away, so this stayed at
+      // the value that just barely clipped. With somewhere to put it, neon can
+      // be brighter than paper — which is the only way it reads as a light.
+      gl.uniform1f(H.uni.uEmisGain, H.post && H.post.hdr ? TUNE.emisGain : 1.45);
       const sh = H.shadow && H.shadows !== false;
       gl.uniform1f(H.uni.uShadowAmt, sh ? SHADOW_AMT : 0);
       if (sh) {
@@ -4628,6 +4783,7 @@ void main() {
     gl.uniformMatrix4fv(H.uniS.uProj, false, proj);
     gl.uniformMatrix4fv(H.uniS.uView, false, view);
     gl.uniform1i(H.uniS.uTex, 0);
+    gl.uniform1f(H.uniS.uGlowGain, H.post && H.post.hdr ? TUNE.glowGain : 1);
     gl.bindTexture(gl.TEXTURE_2D, H.texGlow);
     gl.blendFunc(gl.ONE, gl.ONE);
     gl.depthMask(false);
@@ -5083,5 +5239,6 @@ void main() {
     exit,
     get active() { return H.active; },
     _H: H, // dev hook: lets test drivers position the camera deterministically
+    _TUNE: TUNE, // dev hook: the float-pipeline dials, sweepable between frames
   };
 })();
