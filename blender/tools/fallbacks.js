@@ -27,7 +27,7 @@ const EXPECTED = [
 
 // Two spots: one deep in the hall (all the material work) and one on the
 // street (sky, wet ground, fog). A seam that only breaks outdoors has shipped.
-const CHECK = ['03-westwall', '11-gta'];
+const CHECK = ['03-westwall', '11-gta', '15-pier'];
 
 const MATRIX = [
   { name: 'shipped', off: [] },
@@ -36,10 +36,11 @@ const MATRIX = [
   { name: 'no-shadows', off: ['shadows'], why: 'depth FBO refused' },
   { name: 'no-sky', off: ['sky'], why: 'the void the hall shipped with' },
   { name: 'no-lens', off: ['lens'], why: 'no vignette/aberration/grain/gait' },
+  { name: 'no-city', off: ['city'], why: 'skyline panorama never decoded: the hashed ridge' },
   { name: 'no-hallart', off: ['art'], why: 'the paint sheet never decoded' },
   { name: 'no-maps', off: ['maps'], why: 'normal/ORM pages never decoded' },
   { name: 'no-mesh', off: ['mesh'], why: 'Blender geometry never decoded: procedural boxes' },
-  { name: 'no-anything', off: ['hdr', 'pbr', 'shadows', 'sky', 'art', 'maps', 'mesh'], why: 'the 2026-08-07 hall' },
+  { name: 'no-anything', off: ['hdr', 'pbr', 'shadows', 'sky', 'lens', 'city', 'art', 'maps', 'mesh'], why: 'the 2026-08-07 hall' },
   { name: 'webgl1', off: [], webgl1: true, why: 'no WebGL2 context at all' },
 ];
 

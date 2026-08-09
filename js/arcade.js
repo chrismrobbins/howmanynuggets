@@ -312,7 +312,10 @@ vec3 skyRidge(vec3 col, float az, float el, float n, float lo, float hi, float h
   return body;
 }
 
-vec3 skyColor(vec3 d) {
+// The dome WITHOUT the city: gradient, cloud deck, moon. Split out so the
+// skyline can be swapped for the Blender panorama without duplicating any of
+// this — the procedural city below stays as the fallback, byte for byte.
+vec3 skyDome(vec3 d) {
   vec3 col = skyBase(d);
   if (d.y > 0.012) {
     // The deck is projected onto a plane overhead rather than smeared across
@@ -338,7 +341,11 @@ vec3 skyColor(vec3 d) {
     col = mix(col, uSkyHorizon * 1.30 + uSkyGlow * 0.32, cloud * 0.60);
   }
 
-  // The city, last: it stands in FRONT of its own weather.
+  return col;
+}
+
+// The city, last: it stands in FRONT of its own weather.
+vec3 skyCityProc(vec3 col, vec3 d) {
   float el = d.y / max(length(d.xz), 1e-4);
   if (el > -0.02 && el < 0.78) {
     float az = atan(d.z, d.x) * 0.15915494 + 0.5;
@@ -346,7 +353,9 @@ vec3 skyColor(vec3 d) {
     col = skyRidge(col, az, el, 43.0, 0.03, 0.30, 0.34, 57.0);   // near blocks, darker
   }
   return col;
-}`;
+}
+
+vec3 skyColor(vec3 d) { return skyCityProc(skyDome(d), d); }`;
 
   const VS_LIT = `
 attribute vec3 aPos; attribute vec3 aNormal; attribute vec2 aUV; attribute vec2 aExtra;
@@ -766,13 +775,74 @@ attribute vec2 aPos;
 varying vec2 vNdc;
 void main() { vNdc = aPos; gl_Position = vec4(aPos, 1.0, 1.0); }`;
 
+  // 🏙 THE SKYLINE. The city was `skyRidge` above — a bearing, a hash for the
+  // height, a second hash for which windows are on. Genuinely clever: no mesh,
+  // no texture, no pole, no seam where atan comes back around. It also looked
+  // like a bar chart, because that is what it was, and §12 listed it as the
+  // single weakest surface in the build.
+  //
+  // It is modelled now (blender/skyline.py): 156 towers on three rings with
+  // setbacks, water tanks on legs, masts, deco crowns and rooftop plant,
+  // rendered as an equirectangular panorama.
+  //
+  // WHAT IS AND IS NOT BAKED — this is the whole design. A baked RGB panorama
+  // would freeze the skyline out of the palette contract: `SKY` in this file is
+  // one table that the dome, the fog, the hemisphere ambient and the wet road
+  // all read, and a picture of the old palette would keep the old palette for
+  // ever. So the render carries DATA, and the colour is still mixed here:
+  //
+  //   R haze     how much air is in front of this pixel (from camera depth)
+  //   G window   the lit-pane mask, carrying per-pane brightness
+  //   B shade    surface orientation against a fixed key — the reason to model
+  //              it at all, because a tower has SIDES and a rectangle does not
+  //   A          the silhouette
+  //
+  // Only the SHAPE is frozen. Retune SKY and the city retunes with it.
+  //
+  // The channels arrive sRGB-encoded (Blender writes an 8-bit PNG through the
+  // display transform even with a Standard view transform), so they are
+  // decoded here. It is one fullscreen quad — the lit shader reads skyBase and
+  // skyFog, never this — so three pow() are free.
   const FS_SKY = `
 precision highp float;
 varying vec2 vNdc;
 uniform vec3 uSkyFwd, uSkyRight, uSkyUp;
 uniform vec2 uSkyScale;
-uniform float uSkyFlip;
+uniform float uSkyFlip, uCity;
+uniform sampler2D uCityTex;
+uniform vec2 uCityLat;
 ` + GLSL_SKY + `
+// az->u measured, not guessed: blender/skyline.py calibrate() renders four
+// markers at known bearings and reads their columns back out. The answer is
+// u = 0.75 - az/2pi with az taken in BLENDER's frame, and Blender is Z-up
+// while the hall is Y-up (hall = bx, bz, -by), so the hall's +Z is Blender's
+// -Y. v is linear in LATITUDE, which is an angle — not in el = tan(elevation),
+// which is what the procedural ridge used.
+vec3 skyCityTex(vec3 col, vec3 d) {
+  float lat = atan(d.y, max(length(d.xz), 1e-5));
+  float v = (lat - uCityLat.x) / (uCityLat.y - uCityLat.x);
+  if (v < -0.02 || v > 1.02) return col;
+  float u = fract(0.75 - atan(-d.z, d.x) * 0.15915494);
+  // 1.0 - v, and it is not a taste call. This renderer never sets
+  // UNPACK_FLIP_Y_WEBGL, so row 0 of the PNG — the HIGHEST latitude — lands at
+  // t = 0. Without the flip the city hangs off the zenith by its roofs, which
+  // is exactly what the first crop showed.
+  vec4 s = texture2D(uCityTex, vec2(u, 1.0 - clamp(v, 0.0, 1.0)));
+  if (s.a < 0.004) return col;
+  vec3 e = pow(s.rgb, vec3(2.2));
+  // the body is the haze it stands in — that is what makes a distant tower
+  // read as DISTANT rather than as a hole punched in the sky
+  // The near end of the ring is NOT black. A building 170m away at 1am is lit
+  // by the streetlights under it and by the same overcast everything else is
+  // under — dropping it to a silhouette put 14% of the pier view into pure
+  // black in one run. It bottoms out at the ground bounce and climbs to the
+  // horizon palette as the air in front of it thickens.
+  vec3 body = mix(uSkyGround * 1.35, skyTint(vec3(0.0, max(d.y, 0.02), 0.0)), e.r);
+  body *= 0.34 + 1.22 * e.b;                       // b is SHADE
+  // windows dim with distance too: a lit pane 500m back is behind the same air
+  body += vec3(0.60, 0.44, 0.20) * e.g * (1.35 - e.r * 0.75);   // g is WINDOW
+  return mix(col, body, s.a);
+}
 void main() {
   vec3 d = normalize(uSkyFwd + uSkyRight * vNdc.x * uSkyScale.x
                              + uSkyUp * vNdc.y * uSkyScale.y);
@@ -781,7 +851,9 @@ void main() {
   // BANDS — visible contour steps right across the frame, which reads cheap
   // no matter how good the colour is. One hash worth of noise under half a
   // level breaks the contours and is invisible on its own.
-  vec3 c = skyColor(d) + (skyHash(gl_FragCoord.xy) - 0.5) * (1.6 / 255.0);
+  vec3 c = skyDome(d);
+  c = uCity > 0.5 ? skyCityTex(c, d) : skyCityProc(c, d);
+  c += (skyHash(gl_FragCoord.xy) - 0.5) * (1.6 / 255.0);
   gl_FragColor = vec4(c, 1.0);
 }`;
 
@@ -1234,6 +1306,36 @@ void main() {
   }
 
   // Rebuild both atlas sets from scratch and re-upload all six pages. Called
+  // 🏙 the skyline panorama, uploaded once and idempotent — it is called both
+  // from build() and from rebakeAtlases(), because the panorama can equally
+  // land BEFORE the hall is built (boot screen waited for it) or AFTER (the
+  // player clicked through on a slow line and the hall came up hashed).
+  //
+  // WRAP_S is REPEAT, not CLAMP: u is a compass bearing and it comes back
+  // around to itself, so clamping smears the last column of the city across
+  // due north. WRAP_T stays CLAMP — the band has a top and a bottom and they
+  // are not each other.
+  //
+  // No mipmaps. The dome draws at one screen scale with no minification worth
+  // the name, and a mip chain on an alpha silhouette bleeds sky into every
+  // roofline at every level.
+  function ensureCityTexture(gl) {
+    if (H.cityTex || typeof HallSky === 'undefined' || !HallSky.on()) return;
+    try {
+      const t = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, HallSky.img);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      H.cityTex = t;
+    } catch (err) {
+      console.warn('Nugget Arcade: skyline texture failed, hashing the city', err);
+      H.cityTex = null;
+    }
+  }
+
   // when a Blender payload lands after the hall has already been built.
   function rebakeAtlases() {
     const gl = H.gl;
@@ -1247,6 +1349,7 @@ void main() {
     gl.generateMipmap(gl.TEXTURE_2D);
     registerMaps(gl, H.texAtlas, atlas);
     registerMaps(gl, H.texStreet, street);
+    ensureCityTexture(gl);
     // Baked ONCE, here, off the static buffers. Nothing that casts a shadow
     // worth having in this hall ever moves.
     bakeShadows(gl);
@@ -3695,7 +3798,8 @@ void main() {
     H.uniSky = {};
     if (H.progSky) {
       for (const name of ['uSkyFwd', 'uSkyRight', 'uSkyUp', 'uSkyScale', 'uSkyFlip',
-        'uSkyHorizon', 'uSkyZenith', 'uSkyGlow', 'uSkyGround', 'uMoonDir', 'uSkyT'])
+        'uSkyHorizon', 'uSkyZenith', 'uSkyGlow', 'uSkyGround', 'uMoonDir', 'uSkyT',
+        'uCity', 'uCityTex', 'uCityLat'])
         H.uniSky[name] = gl.getUniformLocation(H.progSky, name);
       H.aSky = gl.getAttribLocation(H.progSky, 'aPos');
     }
@@ -3735,6 +3839,7 @@ void main() {
     H.bufsStreet = buildStreet(gl, street.uv);
     registerMaps(gl, H.texAtlas, atlas);
     registerMaps(gl, H.texStreet, street);
+    ensureCityTexture(gl);
     // Baked ONCE, here, off the static buffers. Nothing that casts a shadow
     // worth having in this hall ever moves.
     bakeShadows(gl);
@@ -4149,6 +4254,7 @@ void main() {
       typeof HallMesh !== 'undefined' && HallMesh,
       typeof HallArt !== 'undefined' && HallArt,
       typeof HallMaps !== 'undefined' && HallMaps,
+      typeof HallSky !== 'undefined' && HallSky,
     ];
     return waits.some((m) => m && m.settled && !m.settled());
   }
@@ -4168,7 +4274,8 @@ void main() {
       if (typeof HallBoot !== 'undefined') HallBoot.whenAll(go);
       for (const m of [typeof HallMesh !== 'undefined' && HallMesh,
         typeof HallArt !== 'undefined' && HallArt,
-        typeof HallMaps !== 'undefined' && HallMaps])
+        typeof HallMaps !== 'undefined' && HallMaps,
+        typeof HallSky !== 'undefined' && HallSky])
         if (m && m.whenReady) m.whenReady(go);
       return;
     }
@@ -4695,6 +4802,18 @@ void main() {
     gl.uniform3fv(U.uSkyGround, SKY.ground);
     gl.uniform3fv(U.uMoonDir, MOON_DIR);
     gl.uniform1f(U.uSkyT, H.t);
+    // 🏙 the modelled city, if its panorama decoded. If it did not, uCity stays
+    // 0 and the shader runs the procedural ridge it always had — the sky is
+    // never missing, it is just hashed again.
+    const city = H.cityTex && H.city !== false;
+    gl.uniform1f(U.uCity, city ? 1 : 0);
+    if (city) {
+      gl.uniform1i(U.uCityTex, 5);
+      gl.uniform2f(U.uCityLat, HallSky.lat[0], HallSky.lat[1]);
+      gl.activeTexture(gl.TEXTURE5);
+      gl.bindTexture(gl.TEXTURE_2D, H.cityTex);
+      gl.activeTexture(gl.TEXTURE0);
+    }
     gl.depthMask(false);
     gl.disable(gl.CULL_FACE);
     if (bg) gl.disable(gl.DEPTH_TEST);

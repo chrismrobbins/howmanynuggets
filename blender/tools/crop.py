@@ -46,7 +46,11 @@ def _label(img, text, sz=15):
 
 def _shots(tag):
     d = _p(tag)
-    return sorted(f for f in os.listdir(d) if f.endswith('.png'))
+    # skip the derived crops zoom() drops next to the originals — they are
+    # outputs of this tool, not spots, and they turn a contact sheet into a
+    # sheet of whatever was last inspected
+    return sorted(f for f in os.listdir(d)
+                  if f.endswith('.png') and '_zoom_' not in f and not f.startswith('_'))
 
 
 def sheet(tag, cols=4, tw=430):

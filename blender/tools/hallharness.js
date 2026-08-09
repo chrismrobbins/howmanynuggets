@@ -86,6 +86,7 @@ const SEAMS = {
   pbr:     { when: 'post', src: 'H.pbr = false;' },
   hdr:     { when: 'post', src: 'H.hdr = false;' },
   lens:    { when: 'post', src: 'H.lens = false;' },
+  city:    { when: 'post', src: 'H.city = false;' },
   // read once, while enter() builds the atlas and the buffers.
   //
   // `typeof X !== 'undefined'`, NOT `window.X`. HallArt / HallMaps / GtaArt are
