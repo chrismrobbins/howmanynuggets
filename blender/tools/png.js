@@ -121,4 +121,34 @@ function diff(a, b, tol = 2) {
   return (100 * n) / (a.w * a.h);
 }
 
-module.exports = { decode, stats, chroma, luma, diff };
+// ✂️ THE STAIRCASE. Percentage of adjacent pixel PAIRS whose luma differs by
+// more than `step` — i.e. how much of this frame is a hard edge.
+//
+// THE FINDING THIS EXISTS FOR: the hall rendered with NO antialiasing for three
+// sessions and not one number in this kit could see it. `antialias: true` on
+// the context only multisamples the DEFAULT framebuffer, and every pixel here
+// goes through an offscreen RGBA16F attachment instead — so the flag was
+// decorative from the day THE FLOAT BUFFER shipped. dead / near / blown / mean
+// / sd / chroma are all HISTOGRAM statistics: they describe the distribution of
+// colour in a frame and are completely blind to how that colour is arranged.
+// Aliasing is arrangement. So is texture shimmer, so is a mip chain going to
+// mush, so is a normal map swimming.
+//
+// Lower is smoother, but NOT monotonically better: real detail is hard edges
+// too, and a change that adds a neon tube will raise this honestly. Read it as
+// a same-frame A/B (msaa on vs off, aniso 4 vs 16), never as an absolute.
+function staircase(img, step = 34) {
+  const { w, h, channels: c, data } = img;
+  const L = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) L[i] = luma(data[i * c], data[i * c + 1], data[i * c + 2]);
+  let n = 0, tot = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w - 1; x++) {
+    tot++; if (Math.abs(L[y * w + x] - L[y * w + x + 1]) > step) n++;
+  }
+  for (let y = 0; y < h - 1; y++) for (let x = 0; x < w; x++) {
+    tot++; if (Math.abs(L[y * w + x] - L[(y + 1) * w + x]) > step) n++;
+  }
+  return (100 * n) / tot;
+}
+
+module.exports = { decode, stats, chroma, luma, diff, staircase };

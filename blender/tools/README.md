@@ -18,7 +18,7 @@ export PW_PATH=/path/to/node_modules  # (or install playwright next to the repo)
 
 | | what it answers |
 |---|---|
-| `shoot.js` | *Did the picture get better, and by how much?* Sixteen fixed spots, pinned clock, canvas-only screenshots, and a dead/near-dead/blown/mean/sd/chroma table. |
+| `shoot.js` | *Did the picture get better, and by how much?* Eighteen fixed spots, pinned clock, canvas-only screenshots, and a dead/near-dead/blown/mean/sd/chroma/**hard** table. |
 | `crop.py` | *What actually changed?* `sheet` (one page, all spots), `ab` (two runs side by side), `zoom` (NEAREST crop), `probe` (the literal pixel value), `tunesheet`. |
 | `tune.js` | *What should this number be?* Sweeps `NuggetArcade._TUNE` between frames in ONE browser session instead of edit-reload-measure. |
 | `fallbacks.js` | *Does it still draw a room when things fail?* The whole degrade matrix — no HDR, no PBR, no shadows, no sky, no art, no maps, no mesh, WebGL1. |
@@ -52,6 +52,17 @@ coordinates rather than at a guessed heading.
 **2. Only same-harness deltas mean anything.** The absolute numbers are not
 comparable across revisions of the spot table. When you change `SPOTS`, every
 earlier table in the handoff becomes historical.
+
+**3b. Every statistic here was a HISTOGRAM, and that is a blind spot with a
+shape.** dead / near / blown / mean / sd / chroma all describe the distribution
+of colour in a frame; none of them can see how that colour is ARRANGED. The
+hall rendered with no antialiasing whatsoever for three sessions and every
+table in the handoff reported a clean sweep, because a staircase and a smooth
+ramp have the same histogram. `png.staircase()` — the `hard` column — is the
+first arrangement metric in the kit, and the class of bug it catches (aliasing,
+texture shimmer, a mip chain going to mush, a normal map swimming) is exactly
+the class that makes a frame look free-to-play. Read it as a same-frame A/B,
+never as an absolute: real detail is hard edges too.
 
 **3. A fallback that renders an identical frame is not a passing test.** It is
 a seam that never fired. `fallbacks.js` diffs every degraded path against the

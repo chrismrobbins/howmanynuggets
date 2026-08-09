@@ -1249,14 +1249,67 @@ void main() {
   // Allocate (or reallocate on resize) the scene target + the bloom pyramid.
   // Returns false if the GPU won't give us a complete FBO — the hall then
   // renders exactly as it always did.
+  // ✂️ THE EDGE. `getContext('webgl2', { antialias: true })` has been a lie
+  // since THE FLOAT BUFFER shipped: that flag only ever multisamples the
+  // DEFAULT framebuffer, and every pixel of this hall goes through an offscreen
+  // RGBA16F attachment instead. So the room has been rendering with no
+  // antialiasing at all — every cabinet corner, every brick edge, every roofline
+  // on the skyline a hard staircase, and the crawl is worst exactly where the
+  // picture is best, because a half-float buffer holds neon far above white and
+  // an aliased sub-pixel of it survives the whole bloom pyramid as a firefly.
+  //
+  // The fix is the WebGL2 path the flag pretends to be: render into a
+  // MULTISAMPLED renderbuffer, then `blitFramebuffer` it down into the texture
+  // post already reads. Two rules the spec is unforgiving about — a multisample
+  // resolve blit must use NEAREST, and the driver has to be asked whether it
+  // can multisample THIS format rather than trusted to.
+  function msTarget(gl, w, h, hdr) {
+    if (!H.gl2 || H.msaa === false) return null;
+    const fmt = hdr ? gl.RGBA16F : gl.RGBA8;
+    let n = 0;
+    try {
+      // getInternalformatParameter returns the supported counts DESCENDING;
+      // MAX_SAMPLES alone is not an answer for a float format.
+      const list = gl.getInternalformatParameter(gl.RENDERBUFFER, fmt, gl.SAMPLES);
+      n = list && list.length ? Math.min(4, list[0], gl.getParameter(gl.MAX_SAMPLES)) : 0;
+    } catch (e) { return null; }
+    if (n < 2) return null;
+    const color = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, color);
+    gl.renderbufferStorageMultisample(gl.RENDERBUFFER, n, fmt, w, h);
+    const depth = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, depth);
+    // 24-bit while we are here: the resolve path used DEPTH_COMPONENT16, and
+    // the hall is full of decal quads sitting 3cm off a wall.
+    gl.renderbufferStorageMultisample(gl.RENDERBUFFER, n, gl.DEPTH_COMPONENT24, w, h);
+    const fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, color);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depth);
+    const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (!ok) {
+      gl.deleteFramebuffer(fbo); gl.deleteRenderbuffer(color); gl.deleteRenderbuffer(depth);
+      return null;
+    }
+    return { fbo, color, depth, samples: n };
+  }
+
   function postSetup(gl, w, h) {
     const wantHdr = H.hdr !== false && !!H.hdrCap;
-    if (H.post && H.post.w === w && H.post.h === h && H.post.hdr === wantHdr) return true;
+    const wantMs = H.msaa !== false;
+    if (H.post && H.post.w === w && H.post.h === h && H.post.hdr === wantHdr
+      && H.post.msWanted === wantMs) return true;
     if (H.post === false) return false;
     try {
       if (H.post) {
         gl.deleteFramebuffer(H.post.fbo); gl.deleteTexture(H.post.tex);
         gl.deleteRenderbuffer(H.post.depth);
+        if (H.post.ms) {
+          gl.deleteFramebuffer(H.post.ms.fbo);
+          gl.deleteRenderbuffer(H.post.ms.color);
+          gl.deleteRenderbuffer(H.post.ms.depth);
+        }
         for (const b of H.post.mips) { gl.deleteFramebuffer(b.fbo); gl.deleteTexture(b.tex); }
       }
       const target = (tw, th, depth, float) => {
@@ -1296,7 +1349,8 @@ void main() {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       if (!scene) throw new Error('incomplete framebuffer');
       if (wantHdr && !hdr) console.warn('Nugget Arcade: no float target, 8-bit post');
-      H.post = { ...scene, w, h, hdr, mips };
+      const ms = wantMs ? msTarget(gl, w, h, hdr) : null;
+      H.post = { ...scene, w, h, hdr, mips, ms, msWanted: wantMs };
       return true;
     } catch (err) {
       console.warn('Nugget Arcade: bloom unavailable, rendering direct', err);
@@ -1308,6 +1362,16 @@ void main() {
 
   function postDraw(gl) {
     const P = H.post;
+    // ✂️ resolve first. A multisample blit MUST be NEAREST and must cover the
+    // whole rect; the bloom pyramid downsamples from the resolved texture, so
+    // doing this after the pyramid would bloom the aliased frame.
+    if (P.ms) {
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, P.ms.fbo);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, P.fbo);
+      gl.blitFramebuffer(0, 0, P.w, P.h, 0, 0, P.w, P.h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    }
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.BLEND);
     gl.bindBuffer(gl.ARRAY_BUFFER, H.quadVbo);
@@ -1436,8 +1500,17 @@ void main() {
     if (mips) {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
       gl.generateMipmap(gl.TEXTURE_2D);
+      // 🔍 Anisotropy was pinned at 4 with no reason recorded. The hall is a
+      // FLOOR game — carpet, road and sidewalk are the biggest things on
+      // screen and they are all seen at a grazing angle, which is precisely
+      // the case where a trilinear mip chain hands you a grey smear two metres
+      // out. Ask the driver for its ceiling (16 on anything since 2010) and
+      // take it: it is a sampler bit, not a draw call.
       const aniso = gl.getExtension('EXT_texture_filter_anisotropic');
-      if (aniso) gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, 4);
+      if (aniso) {
+        gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT,
+          Math.min(16, gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT) || 4));
+      }
     } else {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     }
@@ -4048,6 +4121,13 @@ void main() {
     const gl = gl2 || H.canvas.getContext('webgl', { antialias: true });
     if (!gl) return false;
     H.gl = gl;
+    // `antialias: true` above only ever multisampled the DEFAULT framebuffer,
+    // and the hall draws into an offscreen target — so it does nothing at all
+    // on the path that ships. It stays for the no-bloom fallback, which really
+    // does render straight to the canvas. THE EDGE (postSetup/msTarget) is the
+    // real antialiasing, and it needs the WebGL2 handle to do it.
+    H.gl2 = gl2 || null;
+    H.msaa = true;  // harness seam: false = the aliased frame that shipped
 
     // THE POWER PLANT: a WebGL2 context gets the material shader; WebGL1 keeps
     // the renderer that shipped, verbatim. `H.pbr = false` in a harness gives
@@ -5180,7 +5260,10 @@ void main() {
     const gl = H.gl;
     resize();
     const bloom = postSetup(gl, H.canvas.width, H.canvas.height);
-    if (bloom) gl.bindFramebuffer(gl.FRAMEBUFFER, H.post.fbo);
+    // ✂️ everything the player sees is drawn into the MULTISAMPLED buffer when
+    // there is one; postDraw still reads the single-sample texture, which the
+    // resolve blit below fills.
+    if (bloom) gl.bindFramebuffer(gl.FRAMEBUFFER, H.post.ms ? H.post.ms.fbo : H.post.fbo);
     gl.viewport(0, 0, H.canvas.width, H.canvas.height);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 

@@ -39,12 +39,13 @@ const MATRIX = [
   { name: 'no-pbr', off: ['pbr'], why: 'WebGL2 material shader failed to link' },
   { name: 'no-shadows', off: ['shadows'], why: 'depth FBO refused' },
   { name: 'no-sky', off: ['sky'], why: 'the void the hall shipped with' },
-  { name: 'no-lens', off: ['lens'], why: 'no vignette/aberration/grain/gait' },
+  { name: 'no-lens', off: ['lens'], why: 'no vignette/aberration/grain/idle breath' },
+  { name: 'no-msaa', off: ['msaa'], why: 'driver refuses a multisampled RGBA16F: the aliased frame' },
   { name: 'no-city', off: ['city'], why: 'skyline panorama never decoded: the hashed ridge' },
   { name: 'no-hallart', off: ['art'], why: 'the paint sheet never decoded' },
   { name: 'no-maps', off: ['maps'], why: 'normal/ORM pages never decoded' },
   { name: 'no-mesh', off: ['mesh'], why: 'Blender geometry never decoded: procedural boxes' },
-  { name: 'no-anything', off: ['hdr', 'pbr', 'shadows', 'sky', 'lens', 'city', 'art', 'maps', 'mesh'], why: 'the 2026-08-07 hall' },
+  { name: 'no-anything', off: ['hdr', 'pbr', 'shadows', 'sky', 'lens', 'city', 'msaa', 'art', 'maps', 'mesh'], why: 'the 2026-08-07 hall' },
   { name: 'webgl1', off: [], webgl1: true, why: 'no WebGL2 context at all' },
 ];
 

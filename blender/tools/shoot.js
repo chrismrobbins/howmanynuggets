@@ -5,7 +5,7 @@
 //   node blender/tools/shoot.js --tag quick --spots 01-entrance,07-street
 //
 // Stands at ten fixed spots, pins the clock, screenshots the CANVAS (not the
-// page), and reports dead / near-dead / blown / mean / sd / chroma per spot and
+// page), and reports dead / near-dead / blown / mean / sd / chroma / hard per spot and
 // for the run. Writes PNGs + a stats.json to blender/tools/_shots/<tag>/.
 //
 // THE RULE THIS EXISTS FOR (handoff §1): "measure before painting". Two
@@ -20,7 +20,7 @@
 const fs = require('fs');
 const path = require('path');
 const { openHall, stand, shotBuffer, fps, SPOTS, SEAMS } = require('./hallharness');
-const { decode, stats, chroma } = require('./png');
+const { decode, stats, chroma, staircase } = require('./png');
 
 function arg(name, def) {
   const i = process.argv.indexOf('--' + name);
@@ -55,7 +55,7 @@ const OUT = path.join(__dirname, '_shots', TAG);
     const drift = Math.hypot(actual.x - spot.x, actual.z - spot.z);
     rows.push({
       name: spot.name, ...st, hist: undefined,
-      chroma: chroma(img), drift: +drift.toFixed(2), actual,
+      chroma: chroma(img), hard: staircase(img), drift: +drift.toFixed(2), actual,
     });
     if (drift > 0.35) console.warn(`  !! ${spot.name}: collision moved the camera ${drift.toFixed(2)}m — spot is inside geometry`);
   }
@@ -69,16 +69,19 @@ const OUT = path.join(__dirname, '_shots', TAG);
     dead: +agg('dead').toFixed(2), near: +agg('near').toFixed(2),
     blown: +agg('blown').toFixed(2), mean: +agg('mean').toFixed(2),
     sd: +agg('sd').toFixed(2), chroma: +agg('chroma').toFixed(2),
+    hard: +agg('hard').toFixed(3),
     errors: [...new Set(errors)].slice(0, 25),
   };
   fs.writeFileSync(path.join(OUT, 'stats.json'), JSON.stringify({ summary, rows }, null, 2));
 
   const pad = (s, n) => String(s).padEnd(n);
   const num = (v, n = 7) => String(v.toFixed(2)).padStart(n);
-  console.log(`\n  ${pad('spot', 15)}${'dead'.padStart(7)} ${'near'.padStart(7)} ${'blown'.padStart(7)} ${'mean'.padStart(7)} ${'sd'.padStart(7)} ${'chroma'.padStart(7)}`);
-  for (const r of rows) console.log(`  ${pad(r.name, 15)}${num(r.dead)} ${num(r.near)} ${num(r.blown)} ${num(r.mean)} ${num(r.sd)} ${num(r.chroma)}`);
+  // `hard` lives in the 0.2-2.5 band, so two decimals throws away the signal
+  const num3 = (v, n = 7) => String(v.toFixed(3)).padStart(n);
+  console.log(`\n  ${pad('spot', 15)}${'dead'.padStart(7)} ${'near'.padStart(7)} ${'blown'.padStart(7)} ${'mean'.padStart(7)} ${'sd'.padStart(7)} ${'chroma'.padStart(7)} ${'hard'.padStart(7)}`);
+  for (const r of rows) console.log(`  ${pad(r.name, 15)}${num(r.dead)} ${num(r.near)} ${num(r.blown)} ${num(r.mean)} ${num(r.sd)} ${num(r.chroma)} ${num3(r.hard)}`);
   console.log(`  ${pad('-'.repeat(15), 15)}${'-'.repeat(48)}`);
-  console.log(`  ${pad('ALL (' + TAG + ')', 15)}${num(summary.dead)} ${num(summary.near)} ${num(summary.blown)} ${num(summary.mean)} ${num(summary.sd)} ${num(summary.chroma)}`);
+  console.log(`  ${pad('ALL (' + TAG + ')', 15)}${num(summary.dead)} ${num(summary.near)} ${num(summary.blown)} ${num(summary.mean)} ${num(summary.sd)} ${num(summary.chroma)} ${num3(summary.hard)}`);
   console.log(`\n  fps ${framerate}   seams off: ${OFF.join(',') || '(none)'}   -> ${path.relative(process.cwd(), OUT)}`);
   if (summary.errors.length) {
     console.log('\n  console:');

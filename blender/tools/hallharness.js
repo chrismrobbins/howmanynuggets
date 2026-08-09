@@ -99,6 +99,8 @@ const SEAMS = {
   hdr:     { when: 'post', src: 'H.hdr = false;' },
   lens:    { when: 'post', src: 'H.lens = false;' },
   city:    { when: 'post', src: 'H.city = false;' },
+  // ✂️ THE EDGE. postSetup rebuilds when this flips, so it is safe post-boot.
+  msaa:    { when: 'post', src: 'H.msaa = false;' },
   // read once, while enter() builds the atlas and the buffers.
   //
   // `typeof X !== 'undefined'`, NOT `window.X`. HallArt / HallMaps / GtaArt are

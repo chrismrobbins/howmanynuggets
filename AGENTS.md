@@ -672,3 +672,45 @@ own hotspot `stand` values**, never from imagination.
   walls, cabinets, roads and sky are why five characters had no contact shadow
   for four sessions without any number moving. `17-regular` and `18-vending`
   exist now. If you add something a player goes TO, add a spot that looks AT it.
+
+## ✂️ THE EDGE — the hall had no antialiasing at all (2026-08-09)
+
+`H.canvas.getContext('webgl2', { antialias: true })` has been in this file
+since the hall shipped, and it has done **nothing** since THE FLOAT BUFFER:
+that flag only multisamples the **default** framebuffer, and every pixel of
+this room is drawn into an offscreen `RGBA16F` attachment instead. Three
+sessions of lighting, geometry and material work went onto a frame whose every
+silhouette was a hard staircase.
+
+- **`postSetup` builds a MULTISAMPLED renderbuffer** (`msTarget`) and the frame
+  binds *that*; `postDraw` resolves it into the single-sample texture with
+  `blitFramebuffer` before the bloom pyramid runs. Resolving after the pyramid
+  would bloom the aliased frame, which is the same class of mistake as
+  tonemapping twice.
+- **A multisample resolve blit must be `NEAREST`.** `LINEAR` is an INVALID
+  OPERATION on a multisampled read buffer, and the failure is a silently black
+  frame, not an exception.
+- **Ask the driver about the FORMAT, not `MAX_SAMPLES`.** `RGBA16F` is
+  colour-renderable only via `EXT_color_buffer_*` and multisample support for
+  it is a separate question:
+  `getInternalformatParameter(RENDERBUFFER, RGBA16F, SAMPLES)` returns the
+  supported counts descending. `MAX_SAMPLES` says 8 on machines that will not
+  give you 8 of *this*. Anything under 2× is treated as no MSAA.
+- The MSAA depth buffer is `DEPTH_COMPONENT24`, not the 16 the resolve target
+  used. The hall is full of decal quads sitting 3cm off a wall.
+- Seam: `H.msaa = false` → the aliased frame, verbatim. In `fallbacks.js` as
+  `no-msaa`, and it changes 6–91% of pixels depending on the spot.
+- **Anisotropy was pinned at 4 with no reason recorded**; it asks the driver
+  for its ceiling now. This is a floor game — carpet, road and sidewalk are the
+  biggest things on screen and all are seen at a grazing angle.
+
+**The lesson worth more than the fix: every statistic in the kit was blind to
+this.** dead / near / blown / mean / sd / chroma are all *histogram* statistics
+— they describe the distribution of colour in a frame and cannot see how that
+colour is ARRANGED. So can a spot table full of aliased edges report a clean
+sweep? It did, all night, for three sessions. `png.staircase()` (the `hard`
+column in `shoot.js`) is the first arrangement metric in the kit: the
+percentage of adjacent pixel pairs whose luma differs by more than 34. MSAA
+moved it −10.1% overall and −30% on the street spots. Read it as a same-frame
+A/B only — real detail is hard edges too, so a change that adds a neon tube
+raises it honestly.
