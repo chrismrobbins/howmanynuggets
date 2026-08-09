@@ -632,3 +632,36 @@ own hotspot `stand` values**, never from imagination.
   a hard edge on a big flat surface reads as cardboard, but 20mm bar seen from
   eight metres does not need it — and the bevel tripled the fire escape to 6576
   verts against a buffer with 575 to spare.
+
+## 🔁 FOUR ROUNDS — harbour, shadows, jukebox, vending (2026-08-09, latest)
+
+- **🚨 A CAPABILITY PROBE THAT RUNS AFTER THE THING IT GATES IS NOT A PROBE.**
+  `H.uintIndex` was fixed once (it tested a WebGL1-only extension) and left at
+  the END of `build()` — seventy lines after `buildScene()` uploads every
+  buffer. Still undefined where it is read. It only measured as fixed because
+  nothing had crossed 65535 yet; the jukebox took the hall to 69863 and the
+  room rendered as diagonal shards. It lives next to `hdrCap` at context
+  creation now. **Worth auditing the others.**
+- **The sea has its OWN shader path** (`sea`, gated on `vWorld.y` below the
+  waterline). Before that it satisfied every wet-street test and was getting
+  asphalt ripple and puddles. Do not merge them: a road is a rough surface with
+  a film on it and smears; open water is smooth with SHAPE and stays sharp.
+  The harbour plane deliberately runs past the far clip so fog closes it into
+  the horizon, and `skyBase`'s ground→sky transition is TIGHT (-0.055..0.010)
+  because a wide one paints bright sky below the horizon line.
+- **Contact shadows ride the SPRITE pass with `ZERO / ONE_MINUS_SRC_COLOR`**,
+  not the lit pass. Neutralise `uGlowGain` for that draw or a shadow that
+  should be 1.0 comes out 1.7× darker. The lit-path version drew correctly and
+  produced no pixels at any size; do not retry it.
+- **Nothing in the model pass is transparent.** A "glass" box is an opaque box.
+  Backlight the panel behind and stand the detail proud of it.
+- **A flat panel inside a carcass must be a CLOSED SOLID** (§7 trap 2): an open
+  shell has no inside, `_orient()` guesses from the part centre, guesses wrong,
+  and the hall culls it. The vending machine's face rendered as a hole.
+- **Do not re-map a region that carries baked text** (§5b): `vending`'s header,
+  side and bin labels sit at fixed places in its rect. Its model wears the
+  WHOLE region and the geometry goes around it.
+- **A spot table only measures what it points at.** Sixteen spots aimed at
+  walls, cabinets, roads and sky are why five characters had no contact shadow
+  for four sessions without any number moving. `17-regular` and `18-vending`
+  exist now. If you add something a player goes TO, add a spot that looks AT it.

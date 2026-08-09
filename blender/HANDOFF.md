@@ -939,3 +939,85 @@ the next session is told while there is still room to react.
 6. `hall_targets.json` re-measure off the flat pass, to delete `ALBEDO_LUMA`.
 7. The §7 model list minus the ceiling and the fire escape: vending/change/
    jukebox, the five street doors.
+
+## 15. 🔁 FOUR ROUNDS (2026-08-09, latest) — pick the next thing, do it, repeat
+
+Beau's brief: *"figure out what to work on next and do it. Then the next time
+you write a 'what's next', add that to your existing queue and do that as well.
+Repeat that four total times."* Four commits, each chosen from the previous
+one's own measurements: `b84ef7b` THE HARBOR, `0a35ba6` THE REGULARS CAST,
+`8b8c1d7` THE JUKEBOX, `c9abbdc` THE SAUCE-O-MATIC.
+
+| | dead | near | blown | mean | chroma | fps |
+|---|---|---|---|---|---|---|
+| THE GRIME (16 spots) | 0.39 | 12.63 | 0.01 | 57.71 | 51.49 | 60.2 |
+| THE HARBOR (16) | 0.56 | 12.12 | 0.01 | 57.45 | 51.04 | 60.1 |
+| THE REGULARS CAST (17) | 0.53 | 11.80 | 0.01 | 57.35 | 50.34 | 60.3 |
+| THE JUKEBOX (17) | 0.53 | 11.85 | 0.01 | 57.54 | 50.27 | 60.5 |
+| THE SAUCE-O-MATIC (18) | 0.51 | 11.46 | 0.01 | 58.22 | 50.40 | 60.3 |
+
+**The spot table grew from 16 to 18**, so the ALL row is only comparable within
+a block. `15-pier` alone went 39.82 → 32.17.
+
+### The through-line: a spot table only measures what it points at
+
+Round 2 started as "the regulars have no contact shadow" and turned into a
+finding about the KIT. Nothing in the verification suite had ever pointed a
+camera at a person — every one of the sixteen spots was aimed at a wall, a
+cabinet, a road or the sky. That is exactly why five characters stood on the
+pavement with no shadow for four sessions without it appearing in a number.
+
+Two spots were added as a result, and both immediately earned their place:
+- `17-regular` — Big Crumb full length from his own hotspot stand.
+- `18-vending` — the golden nug's hotspot stand.
+
+Between them the hall's two walk-to props and its people are now measured. If
+you add a thing a player goes TO, add a spot that looks AT it.
+
+### 🚨 The 32-bit index bug, second half
+
+§14 found that `H.uintIndex` tested `OES_element_index_uint` — a WebGL**1**
+extension that returns null on WebGL2 — and fixed the value.
+
+**It left the assignment at the END of `build()`, seventy lines AFTER
+`buildScene()` has already uploaded every buffer in the hall.** So it was still
+`undefined` at the only moment it is read. The fix measured as working purely
+because nothing had yet crossed 65535: street 59209, hall 64960.
+
+Adding the jukebox took the hall to **69863** and the room came back as
+diagonal shards across the entire frame. It is now next to `hdrCap` at context
+creation, and the hall is the first buffer in this project's history actually
+running on 32-bit indices (`bytes: 4`, read back off the live buffer).
+
+**A capability probe that runs after the thing it gates is not a probe, it is a
+comment.** Worth checking the others.
+
+### New ledger rows (§9)
+
+| Question | Answer | Why |
+|---|---|---|
+| The sea is dark, so light it? | **It was not reaching the horizon** | The harbour was a 24×18m apron; you could see the END of it, and the bare sky between its edge and the skyline was a solid orange slab across a fifth of the frame. Extend the plane past the far clip and let the fog close it. |
+| Bright sky below the horizon? | **Tighten `skyBase`** | The ground→sky transition spanned -0.30..0.015, i.e. 17 degrees of full-brightness sodium BELOW the horizon line. |
+| The sea can use the wet-street path? | **It was, and it had PUDDLES** | The sea plane is outside, faces up and is low, so it passed every test the road uses. A road is a rough surface with a film on it and smears its reflection; open water is smooth with SHAPE and its reflection is sharp. Opposite materials. |
+| Contact shadows on the lit pass? | **Sprite pass, multiply blend** | The lit-path version drew — 180 draws a run, right transform, right winding — and put nothing on screen at any size or opacity. `ZERO / ONE_MINUS_SRC_COLOR` on the sprite pass multiplies the framebuffer by (1 - blob), which IS a shadow. Neutralise `uGlowGain` for that draw or the shadow gets 1.7× darker. |
+| A swept arch is a crown? | **Not without its faces** | Left the tympanum open, so it read as a bent ribbon with the wall showing through. |
+| Put glass over the title cards? | **Nothing here is transparent** | A "glass" box is an OPAQUE box; it turned the whole jukebox face into a white slab. The lit backing IS the window and the cards stand proud of it. |
+| A flat panel deep inside a carcass? | **Build it as a closed solid** | §7 trap 2 again: an open shell has no inside, `_orient()` guesses its facing from the part centre, guesses wrong, and the hall culls it. The vending machine's face came back as a hole through to the wall. |
+| Re-map a region across a modelled front? | **Not if it carries baked text** | §5b bakes header/side/bin labels into fixed places in `vending`. The face wears the WHOLE region and the geometry goes around it. |
+
+### Still open, in value order
+
+1. **`10-busstop` (29.7) has not moved all night** and is now the worst tile.
+   Diagnosed but not fixed: it stands 1.2m from a sign, so part of the number
+   is the spot — but the right third of it is a genuinely featureless dark slab.
+2. **The terrace's GROUND floor is blank brick end to end.** Shutters,
+   doorways, bins. Visible in every street view.
+3. **The change machine** is the last procedural box in the hall (no hotspot,
+   which is why it went last). `build_vending` is the pattern.
+4. Screen-space reflections: the puddles mirror the sky and the city, but not
+   the street — the parked car does not appear in the water under it.
+5. `hall_targets.json` re-measure off the flat pass, to delete `ALBEDO_LUMA`.
+6. **Audit the other capability probes for the ordering bug above.**
+7. The hall is at 69863 vertices on 32-bit indices now — the 16-bit cliff is
+   gone, but `upload()` still warns from 62000 and that warning is whitelisted
+   in `fallbacks.js`. If the buffer ever needs splitting, that is the signal.
