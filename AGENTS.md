@@ -586,3 +586,49 @@ tunesheet), `tune.js` (sweep `NuggetArcade._TUNE` between frames), `motion.js`
 Two rules it enforces that nothing else can: **a fallback that renders an
 identical frame is a seam that never fired**, and **spots come from the game's
 own hotspot `stand` values**, never from imagination.
+
+## 🧱 THE GRIME — the street's walls (2026-08-09, latest)
+
+- **🚨 `H.uintIndex` WAS WRONG AND IT NEARLY COST THE HALL.**
+  `OES_element_index_uint` is a WebGL**1** extension; on WebGL2 32-bit indices
+  are core and `getExtension` returns null. So it read false on every WebGL2
+  context and `Builder.upload` fell back to `Uint16`, where an overflow does
+  not error — it **WRAPS**. It never fired because nothing had crossed 65535.
+  Two fire escapes took the street to 67765 and the block across the road
+  rendered as a black smear (69% dead). **The hall's own static buffer is at
+  64960 of 65535.** `upload()` warns from 62000 up now; if you see that
+  warning, you are near the cliff.
+- **`facadeBay` wears `$BRICK` sentinels**, remapped per bay by the call site in
+  `buildStreet` — the §7 cabinet trick applied to a terrace. Runs of 3–5 bays,
+  derived from the index so the street does not re-shuffle itself every reload.
+  A missing remap makes `Builder.model()` bail to the flat painted wall behind,
+  which is what the street looked like before — not a hole.
+- **`brick2` is painted RENDER, not a second brick.** Two bricks side by side
+  are still two bricks; the first attempt read as a chessboard. If you add a
+  third wall, make it a third MATERIAL.
+- **All brick wear must TILE.** The picks are functions of `(col mod 4, row mod
+  8)`. A building's wear is a vertical story and a vertical gradient in a tile
+  that repeats 2.2× up a wall is a set of stripes — the vertical story is told
+  by geometry (sills, fire escapes, AC units) instead. And keep conspicuous
+  features rare: this texture repeats every 1.4m, so 1-in-16 is a polka dot.
+- **`mapmat()` has a `stain` channel** — mixes base colour toward a stain by the
+  same wrapped map that drives the bump. That is where the soot comes from, and
+  it works on anything that has been outside.
+- **`pack_hall.py` reads `render_hall/FLAT`**, not the lit set. Pass it
+  explicitly (`python blender/pack_hall.py blender/render_hall/flat`). Packing
+  from the lit set silently re-grades the entire hall; the way to check is to
+  repack and diff a region you did NOT touch.
+- **`blender --background --python blender/hallmesh.py -- build_all` does
+  NOTHING.** That file has no `__main__` block, so the command succeeds and
+  exits. Drive it with a script that calls `build_all()` / `export_all()` and
+  prints the per-model vertex counts — §12's "verify by reading a vertex range
+  out of the JSON, not by trusting the call", one layer up.
+- **The rig shoots a top-down ortho**, so anything whose top sits below a
+  panel's face is INSIDE that panel and renders as nothing. Detail meant to
+  read as recessed has to sit a hair PROUD with a wide bevel; the raking key
+  does the rest. Same reason a "stain" plane standing proud renders BRIGHTER
+  than the wall it is dirtying.
+- **Thin ironwork gets `bevel=0.0`.** Everything else here is bevelled because
+  a hard edge on a big flat surface reads as cardboard, but 20mm bar seen from
+  eight metres does not need it — and the bevel tripled the fire escape to 6576
+  verts against a buffer with 575 to spare.

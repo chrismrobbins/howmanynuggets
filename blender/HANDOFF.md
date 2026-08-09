@@ -841,3 +841,101 @@ swept in one browser session instead of edit → reload → 16-spot run.
 6. The bump-grain normal graph (§10 ledger row 1) is still unbuilt.
 7. The skyline panorama is 4096×512. At 1280 wide with a 62° FOV, 1:1 would be
    ~7400px around, so it is soft if you walk right up to the pier rail.
+
+## 14. 🧱 THE GRIME (2026-08-09, latest) — the street, and a bug that was going to eat the hall
+
+§13's still-open list had one item at the top: the street is the weak half, and
+its two worst views are both large flat brick with one tone and no wear on it.
+Shipped as `58eb3ef`.
+
+### The number
+
+| eight street spots, near-dead | before | after |
+|---|---|---|
+| 09-doorway | 14.70 | 13.56 |
+| 10-busstop | 30.41 | 29.73 |
+| 11-gta | 17.23 | **13.74** |
+| 12-club | 0.38 | 0.38 |
+| 13-drain | 32.26 | **25.65** |
+| 14-croft | 16.73 | **9.54** |
+| 15-pier | 39.80 | 39.82 |
+| 16-skyward | 19.49 | 19.55 |
+| **street average** | **21.4** | **19.0** |
+| all sixteen | 13.85 | 12.63 |
+
+mean 57.17 → 57.71, chroma 51.88 → 51.49, 60.2fps. The hall's eight spots are
+untouched to two decimal places — every change here is gated outside the doors.
+
+**15-pier (39.8) is now the worst tile in the build and it is not brick** — it
+is the sea, the sky and the harbour rail. That is where the next art night
+should look, not at another wall.
+
+### Three things were wrong and only one of them was the texture
+
+1. **ONE TONE.** `t_brick` was four shades, uniformly random — every brick the
+   same colour as every other brick of its shade. Relief cannot rescue that.
+   Eight shades now, over a much wider spread, with two burnt headers (nearly
+   black, which every real stock wall has), spalled faces sitting RECESSED with
+   the bevel opened up, and the occasional brick replaced in fresh mortar.
+   `mapmat()` grew a **`stain`** channel so the coarse wrapped map drives BASE
+   COLOUR as well as bump — that is where the soot comes from, and it is
+   reusable on anything else that needs to look like it has been outside.
+
+2. **ONE WALL, FOURTEEN TIMES.** `facadeBay`'s brick materials are `$BRICK`
+   sentinels now, remapped per bay by the call site — the §7 cabinet trick
+   applied to a terrace. Runs of 3-5 bays, so the street reads as premises with
+   party walls rather than as an alternating pattern.
+
+3. **NOTHING ON IT.** 42 metres of wall carrying four air conditioners and a
+   neon sign. Two `fireEscape` models: landings, stringers, open grating,
+   rails, a zigzag flight and a drop ladder hanging short of the pavement.
+
+### New ledger rows (§9)
+
+| Question | Answer | Why |
+|---|---|---|
+| A second BRICK to break the repeat? | **A different MATERIAL** | Two bricks side by side are still two bricks: the first attempt came back a grey-and-red chessboard of near-square blocks that read as tiling, not as a building. `t_brick2` is painted render over brick — big scored panels with no unit rhythm at all. |
+| Bake the wear as a vertical gradient? | **It cannot tile** | A building's wear is a vertical story — soot at the top, damp at the bottom — and a vertical gradient in a tile that repeats 2.2x up a wall is a set of stripes. The picks are functions of (col mod 4, row mod 8); the vertical story is told by GEOMETRY (sills, fire escapes, AC units). |
+| One repaired brick in sixteen? | **One in forty** | This texture repeats every 1.4m across the terrace. Anything conspicuous at 1-in-16 comes back as a polka dot. |
+| Patches inside a panel box? | **They vanish** | The rig shoots a top-down ortho: anything whose top sits below the panel face is INSIDE the panel and renders as nothing at all. Put them a hair PROUD with a wide bevel so the raking key finds the edge. |
+| Vertical stain planes for a downpipe? | **They render as PILLARS** | Standing proud of the panels they catch the raking key, so the streak comes out BRIGHTER than the wall it is supposed to be dirtying. Damp rises at a horizontal joint anyway, and a joint already tiles. |
+| Which render set does `pack_hall` read? | **`render_hall/flat`** | Confirmed, not assumed: repack, then diff six regions the change does not touch. All matched to within JPEG noise (0.30–0.55) while `brick` moved 5.51. Packing from the lit set would silently re-grade the entire hall. |
+| `blender --background --python hallmesh.py -- build_all` | **Does nothing** | `hallmesh.py` has no `__main__` block, so that command imports the module and exits successfully. Drive it with a `--python` driver that calls `build_all()`/`export_all()` and PRINTS the per-model vertex counts. |
+| A new model, so bevel it like the rest? | **Not thin ironwork** | Every other model gets a bevel because a hard edge on a large flat surface reads as cardboard. A fire escape is 20mm bar seen from eight metres, and the bevel tripled it to 6576 verts. `bevel=0.0` → 2298. |
+
+### 🚨 THE BUG THIS FOUND, which was going to take the whole hall down
+
+**`OES_element_index_uint` is a WebGL*1* extension.** On WebGL2, 32-bit indices
+are CORE and `getExtension` returns null for it — so `H.uintIndex` has been
+**false on every WebGL2 context in the world** since §7, and `Builder.upload`
+has been quietly falling back to `Uint16`, where an overflow does not error, it
+**WRAPS**, stitching triangles between unrelated vertices.
+
+It never fired because nothing had crossed 65535. Adding two fire escapes took
+the street buffer to 67765 and the block across the road turned into a black
+smear — 69% dead pixels — which is how it was found.
+
+**The hall's own static buffer measured 64960.** That is 575 vertices of
+headroom, 99.1% of the limit, on a renderer that believed it could not address
+past it. One more ceiling module, one more trim run, and every browser would
+have rendered the arcade as black spikes with no error anywhere.
+
+Fixed. `upload()` now warns from 62000 up with the number of vertices left, so
+the next session is told while there is still room to react.
+
+### Still open, in value order
+
+1. **`15-pier` is the worst tile in the build now (39.8) and it is not a wall.**
+   Sea, sky and the harbour rail. The water is a single tiled region with a
+   baked swell; the rail is four boxes.
+2. **`10-busstop` (29.7) barely moved** — it is not brick-dominated, it is a
+   bright sign against a dark shopfront, and the dark side is the shop, not the
+   wall.
+3. The terrace's GROUND floor is still blank brick end to end. Real streets put
+   shutters, doorways and bins down there.
+4. Nothing dynamic casts a shadow (§12, §13 — still deliberate).
+5. Screen-space reflections: the puddles mirror the sky and the city, but not
+   the street itself. The parked car does not appear in the water under it.
+6. `hall_targets.json` re-measure off the flat pass, to delete `ALBEDO_LUMA`.
+7. The §7 model list minus the ceiling and the fire escape: vending/change/
+   jukebox, the five street doors.
