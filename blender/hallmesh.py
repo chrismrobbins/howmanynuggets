@@ -271,6 +271,43 @@ MATS = {
     "ironCast":   ("sw_iron", [0, 0, 1, 1], 0.0, 0.42),
     "ironRib":    ("sw_iron", [0, 0, 1, 1], 0.0, 0.58),
     "ironRim":    ("sw_curb", [0, 0, 1, 1], 0.0, 0.62),
+    # -- 🎱 THE FLOOR PLAN (MAIN atlas ONLY — these stand INSIDE the hall).
+    #    Checked against the main sheet before modelling, which is the lampHot
+    #    trap and it has now been walked into three times: sw_iron, sw_curb and
+    #    sw_woodDark are STREET swatches and naming one here makes
+    #    Builder.model() bail for the whole prop, silently.
+    # 1.30 and not 0.92: cabFront is a DARK region and this carpet is the
+    # brightest thing in the room, so a body at the cabinets' own value came
+    # back as a black slab cut out of the floor. A machine has to out-read the
+    # carpet it is standing on.
+    "furnBody":   ("cabFront", [0.05, 0.05, 0.95, 0.95], 0.0, 1.30),
+    "furnDark":   ("sw_black", [0, 0, 1, 1], 0.0, 1.0),
+    "furnRail":   ("metal", [0.06, 0.06, 0.94, 0.94], 0.0, 1.05),
+    "furnChrome": ("metal", [0.06, 0.06, 0.94, 0.94], 0.0, 1.35),
+    "furnTrim":   ("sw_white", [0, 0, 1, 1], 0.0, 0.58),
+    "furnPad":    ("wainscot", [0.10, 0.10, 0.90, 0.90], 0.0, 0.85),
+    # The rink is the point of the air hockey table: a big pale lit plane at
+    # waist height in the middle of a dark room. 0.30 and not higher — §5c, a
+    # white swatch at high e clips to a flat slab and the BLOOM does the rest.
+    "rink":       ("sw_white", [0, 0, 1, 1], 0.30, 0.95),
+    "rinkLine":   ("sw_cyan", [0, 0, 1, 1], 0.34, 1.0),
+    "rinkGoal":   ("sw_black", [0, 0, 1, 1], 0.0, 1.0),
+    "scoreFace":  ("dark", [0.1, 0.1, 0.9, 0.9], 0.0, 1.0),
+    "scoreLit":   ("sw_red", [0, 0, 1, 1], 0.46, 1.0),
+    # the claw cabinet
+    "clawGlass":  ("sw_glass", [0, 0, 1, 1], 0.0, 1.45),
+    "clawLit":    ("sw_warm", [0, 0, 1, 1], 0.46, 1.0),
+    # The flanks are dimmer than the back on purpose. Lighting all three
+    # equally turned the cabinet into a paper lantern: an even slab with no
+    # depth and no prizes visible in it. A box you look INTO needs its far
+    # wall to be the brightest thing in it.
+    "clawLitS":   ("sw_warm", [0, 0, 1, 1], 0.22, 0.92),
+    "clawHead":   ("sw_magenta", [0, 0, 1, 1], 0.42, 1.0),
+    "clawNug":    ("nugGold", [0.1, 0.1, 0.9, 0.9], 0.0, 1.15),
+    "clawPlush":  ("sw_cyan", [0, 0, 1, 1], 0.0, 0.95),
+    "clawPlushB": ("sw_magenta", [0, 0, 1, 1], 0.0, 0.90),
+    "chgFace":    ("change", [0, 0, 1, 1], 0.16, 1.0),
+    "chgLit":     ("sw_green", [0, 0, 1, 1], 0.40, 1.0),
 }
 
 # preview-only colours, so the Blender viewport isn't a grey blob
@@ -337,6 +374,17 @@ _PREVIEW = {
     "shelterMap": (0.88, 0.90, 0.94), "shelterAd": (1.0, 0.74, 0.28),
     "ironCast": (0.09, 0.10, 0.13), "ironRib": (0.14, 0.15, 0.19),
     "ironRim": (0.20, 0.20, 0.24),
+    "furnBody": (0.10, 0.10, 0.14), "furnDark": (0.02, 0.02, 0.03),
+    "furnRail": (0.34, 0.36, 0.43), "furnChrome": (0.58, 0.60, 0.68),
+    "furnTrim": (0.58, 0.60, 0.64), "furnPad": (0.26, 0.20, 0.10),
+    "rink": (0.92, 0.94, 0.98), "rinkLine": (0.15, 0.88, 1.0),
+    "rinkGoal": (0.02, 0.02, 0.03), "scoreFace": (0.05, 0.05, 0.07),
+    "scoreLit": (1.0, 0.24, 0.24),
+    "clawGlass": (0.04, 0.09, 0.15), "clawLit": (1.0, 0.85, 0.63),
+    "clawLitS": (0.85, 0.72, 0.53),
+    "clawHead": (1.0, 0.18, 0.63), "clawNug": (0.85, 0.62, 0.22),
+    "clawPlush": (0.15, 0.88, 1.0), "clawPlushB": (1.0, 0.18, 0.63),
+    "chgFace": (0.20, 0.22, 0.28), "chgLit": (0.22, 1.0, 0.48),
 }
 
 
@@ -2534,6 +2582,192 @@ def build_gully():
         y = -D / 2 + D * (i + 0.5) / 5
         P.box((0, y, 0.042), (W - 0.070, D / 11, 0.016), "ironRib")
     return P.finish(bevel=0.003, segments=1, smooth_deg=40)
+
+
+# ---- 🎱 THE FLOOR PLAN ------------------------------------------------------
+# The hall is 15m x 20m with ten cabinets pushed against its walls and NOTHING
+# in between. Twelve metres by eighteen of empty carpet is not a room you have
+# been in; it is a lobby waiting for a room. Every act so far has been the
+# street, and the hall is where the games are.
+#
+# Constraint that shapes all of this: the main atlas is FULL (10 cabinets), so
+# none of these can have artwork of their own. They are built from regions that
+# already exist — cabFront, metal, wainscot, dark, change, nugGold and the main
+# swatch set — exactly the way the jukebox and the SAUCE-O-MATIC were.
+# sw_iron / sw_curb / sw_woodDark are STREET swatches; naming one here makes
+# Builder.model() bail for the whole prop, silently. That trap has now cost
+# three separate props.
+
+
+def build_air_hockey():
+    """An air hockey table: rink, rails, goal mouths, a score head on a post.
+
+    The centrepiece, and it was chosen for its LIGHT before its shape. A big
+    pale lit plane at waist height is the one thing this room has never had:
+    every other emissive in the hall is at eye level or above (marquees, CRTs,
+    the neon trim, the ceiling tubes), so the floor is lit only by what spills
+    down onto it. This lights the room from the middle, low down, which is
+    where an arcade actually glows from.
+    """
+    P = Part("airHockey")
+    L, W, Hh = 2.34, 1.32, 0.79     # a real table is 2.13 x 1.07; this reads bigger
+    hl, hw = L / 2, W / 2
+    P.box((0, 0, Hh / 2 + 0.055), (L, W, Hh - 0.110), "furnBody", taper=1.04)
+    P.box((0, 0, 0.055), (L - 0.180, W - 0.180, 0.110), "furnDark")
+    # the playing surface, inset inside the rails
+    P.box((0, 0, Hh + 0.004), (L - 0.150, W - 0.150, 0.030), "rink")
+    # centre line + three face-off circles, as flat inlays proud of the rink
+    P.box((0, 0, Hh + 0.021), (0.030, W - 0.170, 0.006), "rinkLine")
+    for sx in (-1, 0, 1):
+        P.cyl((sx * (hl - 0.520), 0, Hh + 0.021), "z", 0.185, 0.185, 0.006, "rinkLine", slices=20)
+        P.cyl((sx * (hl - 0.520), 0, Hh + 0.025), "z", 0.150, 0.150, 0.006, "rink", slices=20)
+    # rails all round, standing proud of the surface
+    for sy in (-1, 1):
+        P.box((0, sy * (hw - 0.045), Hh + 0.055), (L, 0.090, 0.110), "furnRail")
+    for sx in (-1, 1):
+        for oy in (-1, 1):
+            P.box((sx * (hl - 0.045), oy * (hw - 0.330), Hh + 0.055),
+                  (0.090, W - 0.660, 0.110), "furnRail")
+        # the goal mouth between them: a dark void, which is the shape that
+        # says "air hockey" from the other side of a room
+        P.box((sx * (hl - 0.060), 0, Hh + 0.040), (0.075, 0.560, 0.085), "rinkGoal")
+    # a puck and two mallets, left where the last players left them
+    P.cyl((0.62, 0.24, Hh + 0.032), "z", 0.042, 0.042, 0.020, "furnDark", slices=14)
+    for sx, oy in ((-1, -0.30), (1, 0.26)):
+        P.cyl((sx * 0.78, oy, Hh + 0.035), "z", 0.075, 0.075, 0.026, "clawPlush", slices=16)
+        P.cyl((sx * 0.78, oy, Hh + 0.072), "z", 0.030, 0.026, 0.048, "clawPlush", slices=12)
+    # Score head on a post. At the END and not the middle of the long rail:
+    # the first build centred it and the post stood straight through the one
+    # thing on this table worth looking at.
+    px = hl - 0.130
+    P.box((px, -hw - 0.010, Hh + 0.560), (0.070, 0.070, 1.010), "furnChrome")
+    P.box((px, -hw - 0.055, Hh + 1.010), (0.620, 0.150, 0.330), "furnBody")
+    P.box((px, -hw - 0.135, Hh + 1.010), (0.520, 0.030, 0.230), "scoreFace")
+    for sx in (-1, 1):
+        P.box((px + sx * 0.125, -hw - 0.152, Hh + 1.010), (0.150, 0.020, 0.160), "scoreLit")
+    return P.finish(bevel=0.008, segments=1, smooth_deg=38)
+
+
+def build_claw():
+    """A crane cabinet: lit prize box, gantry, claw, chute, control panel.
+
+    A tall lit box is the cheapest silhouette there is, and this room has
+    exactly one shape in it repeated ten times. Two of these break the skyline
+    of the floor.
+
+    The prize box is built the same way the shopfronts were and for the same
+    reason: nothing in this renderer is transparent, so the "glass" is an
+    opaque dark box and the LIT BACK PANEL is what you actually see, with the
+    prizes standing in front of it as silhouettes.
+    """
+    P = Part("claw")
+    W, D, Hh = 0.96, 0.94, 2.06
+    hw, hd = W / 2, D / 2
+    P.box((0, 0, 0.470), (W, D, 0.940), "furnBody")
+    P.box((0, 0, 0.040), (W - 0.140, D - 0.140, 0.080), "furnDark")
+    P.box((-0.230, -hd + 0.055, 0.300), (0.360, 0.110, 0.330), "furnDark")
+    P.box((-0.230, -hd + 0.020, 0.470), (0.400, 0.055, 0.045), "furnRail")
+    # Control panel: a shelf standing PROUD of the front, at the top of the
+    # base. The first build sank it at z 0.985, which is exactly where the
+    # prize box starts, and it vanished behind the box's own bottom rail.
+    P.box((0.180, -hd - 0.075, 0.905), (0.480, 0.230, 0.070), "furnRail")
+    P.cyl((0.100, -hd - 0.080, 0.965), "z", 0.026, 0.020, 0.115, "furnChrome", slices=10)
+    P.ovoid((0.100, -hd - 0.080, 1.032), (0.045, 0.045, 0.042), "clawPlushB", stacks=6, slices=12)
+    P.cyl((0.300, -hd - 0.080, 0.952), "z", 0.048, 0.048, 0.030, "clawHead", slices=12)
+    # THE PRIZE BOX, and the front of it is OPEN.
+    #
+    # First build put a dark `clawGlass` pane across the front with the lit
+    # panel at the BACK — which is a crane machine seen from behind a sheet of
+    # black card, because nothing in this renderer is transparent. That is the
+    # third time this session (shop window, jukebox before it, now this). The
+    # rule: if you want to see INTO something, do not build the thing you would
+    # be seeing through. Corner posts and a lit interior read as glass on their
+    # own; the eye supplies the pane.
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            P.box((sx * (hw - 0.038), sy * (hd - 0.038), 1.520), (0.070, 0.070, 1.020), "furnRail")
+    # The interior is lit on THREE sides, not just the back. First build put
+    # dark `clawGlass` panels down both flanks, and from any three-quarter view
+    # — which is every view of a machine standing in a room — the flank is most
+    # of what you see, so the cabinet came back as a black hole with a pink hat
+    # on. A crane is glazed all round; the light has to be too.
+    P.box((0, hd - 0.030, 1.520), (W - 0.130, 0.045, 1.000), "clawLit")
+    for sx in (-1, 1):
+        P.box((sx * (hw - 0.048), 0, 1.520), (0.040, D - 0.150, 0.980), "clawLitS")
+    P.box((0, 0, 1.035), (W - 0.130, D - 0.130, 0.045), "furnRail")   # the box floor
+    P.box((0, -hd + 0.026, 1.075), (W - 0.130, 0.038, 0.115), "furnRail")  # front kick rail
+    # the heap of prizes, standing in front of the lit back
+    for px, py, pz, r, mat in (
+        (-0.235, -0.075, 1.135, 0.118, "clawNug"), (0.010, -0.145, 1.125, 0.102, "clawPlush"),
+        (0.245, -0.055, 1.140, 0.122, "clawPlushB"), (-0.115, 0.095, 1.145, 0.104, "clawPlush"),
+        (0.180, 0.135, 1.150, 0.108, "clawNug"), (-0.270, 0.170, 1.145, 0.098, "clawPlushB"),
+        (0.055, 0.055, 1.330, 0.096, "clawNug"), (-0.170, -0.020, 1.335, 0.088, "clawPlush"),
+    ):
+        P.ovoid((px, py, pz), (r, r * 0.86, r * 0.94), mat, stacks=7, slices=12)
+    # gantry rail across the top, the trolley, and the claw hanging off it
+    P.box((0, 0.060, 2.000), (W - 0.180, 0.055, 0.045), "furnChrome")
+    P.box((-0.090, 0.060, 1.950), (0.180, 0.130, 0.090), "furnRail")
+    P.cyl((-0.090, 0.060, 1.845), "z", 0.008, 0.008, 0.130, "furnChrome", slices=8)
+    for i in range(3):
+        a = i * math.tau / 3
+        P.box((-0.090 + math.cos(a) * 0.052, 0.060 + math.sin(a) * 0.052, 1.760),
+              (0.030, 0.030, 0.130), "furnChrome")
+    # marquee header
+    P.box((0, 0, 2.030), (W + 0.070, D + 0.070, 0.060), "furnBody")
+    P.box((0, -hd - 0.010, 2.170), (W, 0.075, 0.230), "clawHead")
+    P.box((0, 0, 2.300), (W + 0.050, D + 0.050, 0.050), "furnRail")
+    return P.finish(bevel=0.006, segments=1, smooth_deg=36)
+
+
+def build_change_machine():
+    """The change machine, and it is the last procedural box in the hall.
+
+    A 0.6 x 0.48 x 1.5 slab with a painting on it since the room opened,
+    standing next to the door where everybody walks past it. `change` is a real
+    atlas region, so the FACE stays exactly as painted and the geometry goes
+    around it — the same contract §5b sets for the SAUCE-O-MATIC's vendFace.
+    """
+    P = Part("changeMachine")
+    W, D, Hh = 0.62, 0.44, 1.56
+    hw, hd = W / 2, D / 2
+    P.box((0, 0, 0.055), (W - 0.070, D - 0.070, 0.110), "furnDark")
+    P.box((0, 0, 0.780), (W, D, 1.340), "furnBody")
+    P.box((0, 0, 1.500), (W + 0.045, D + 0.045, 0.120), "furnRail")
+    # the painted face, inset behind a proud bezel
+    P.box((0, -hd - 0.008, 0.900), (W - 0.120, 0.030, 0.980), "chgFace")
+    for sx in (-1, 1):
+        P.box((sx * (hw - 0.032), -hd - 0.020, 0.900), (0.060, 0.055, 1.020), "furnRail")
+    P.box((0, -hd - 0.020, 1.415), (W, 0.055, 0.060), "furnRail")
+    # a lit CHANGE strip in the crown, the bill slot, and the coin cup
+    P.box((0, -hd - 0.030, 1.500), (W - 0.130, 0.040, 0.070), "chgLit")
+    P.box((0, -hd - 0.026, 0.640), (0.230, 0.030, 0.028), "furnDark")
+    P.box((0, -hd - 0.024, 0.660), (0.260, 0.026, 0.014), "furnChrome")
+    P.box((0, -hd + 0.060, 0.330), (0.300, 0.150, 0.190), "furnDark")
+    P.box((0, -hd - 0.012, 0.435), (0.340, 0.055, 0.040), "furnRail")
+    return P.finish(bevel=0.006, segments=1, smooth_deg=36)
+
+
+def build_stool():
+    """A fixed stool: padded disc, chrome column, weighted base, foot ring.
+
+    Nobody plays a two-hour session standing up, and a cabinet with no seat in
+    front of it reads as a display piece rather than a machine somebody uses.
+    """
+    P = Part("stool")
+    P.cyl((0, 0, 0.020), "z", 0.230, 0.215, 0.040, "furnRail", slices=18)
+    P.cyl((0, 0, 0.330), "z", 0.042, 0.038, 0.580, "furnChrome", slices=14)
+    P.revolve([(0.190, 0.230), (0.196, 0.244), (0.190, 0.258)], "furnChrome", slices=18)
+    P.cyl((0, 0, 0.640), "z", 0.250, 0.262, 0.075, "furnPad", slices=20)
+    P.revolve([(0.262, 0.678), (0.255, 0.692), (0.180, 0.700), (0.0, 0.702)], "furnPad", slices=20)
+    return P.finish(bevel=0.005, segments=1, smooth_deg=40)
+
+
+MODELS.update({
+    "airHockey": build_air_hockey,
+    "claw": build_claw,
+    "changeMachine": build_change_machine,
+    "stool": build_stool,
+})
 
 
 MODELS.update({

@@ -848,3 +848,62 @@ keep doing so.** This box renders through SwiftShader and WILL trip the
 governor; unpinned, an eighteen-spot run photographs the first six spots at 4×
 and the rest at 2× and then reports the difference as a change. Exactly the
 same class of bug as an unpinned clock. Seam name: `msaaauto`.
+
+## 🎱 THE FLOOR PLAN — the hall had ten cabinets and an empty room (2026-08-09)
+
+Fifteen metres by twenty, ten cabinets pushed against the walls, and twelve by
+eighteen of empty carpet between them. Every other act this session was the
+STREET; the hall is where the games are.
+
+Four Blender models, all from MAIN-atlas regions because that sheet is FULL:
+`airHockey`, `claw` (×2), `changeMachine` (the last procedural box in the room)
+and `stool` (×5).
+
+- **The air hockey table was chosen for its LIGHT before its shape.** Every
+  other emissive in this room is at eye level or above — marquees, CRTs, neon
+  trim, ceiling tubes — so the floor only ever got spill. A big pale lit plane
+  at waist height in the middle is how an arcade actually glows, and it is why
+  `08-ceiling` moved 17.72 → 8.29 near-dead without anything on the ceiling
+  changing.
+- 🚨 **Gated on `H.uintIndex`**, same as the shopfronts. The hall's static
+  buffer was at 69863 and these take it to **85044**; the street is at 93959.
+  Both are on `bytes: 4` — read off the live buffers, not assumed.
+- **Kept out of the central aisle (|x| < 2) deliberately.** Click-to-walk
+  drives straight at its target with no pathfinding, so the run from the door
+  to the deluxe cabinet at (0, −18.7) has to stay clear or it wedges.
+- Two new spots, `19-hockey` and `20-cranes`. **Third time this rule has paid:**
+  the existing table aimed at walls, cabinets, roads and sky, and could not have
+  photographed the middle of this room even in principle.
+
+**Three tuning findings, all the same shape — a thing that is dark in a dark
+room is not "moody", it is missing:**
+
+1. `furnBody` at the cabinets' own 0.92 came back as **black slabs cut out of
+   the carpet**. `cabFront` is a dark region and that carpet is the brightest
+   thing in the room. 1.30. A machine has to out-read the floor it stands on.
+2. The crane's prize box shipped with a dark `clawGlass` pane across the FRONT
+   and the lit panel at the back — i.e. a crane machine seen through black
+   card, because **nothing in this renderer is transparent**. That is the third
+   time this session (shop window, jukebox before it, now this). *If you want
+   to see INTO something, do not build the thing you would be seeing through.*
+   Corner posts and a lit interior read as glass; the eye supplies the pane.
+3. Then the flanks were lit **equally** with the back and it became a paper
+   lantern — an even slab with no depth and no prizes visible. `clawLitS` at
+   0.22 against the back's 0.46: a box you look into needs its far wall to be
+   the brightest thing in it.
+
+| | dead | near | blown | mean | chroma | hard | fps |
+|---|---|---|---|---|---|---|---|
+| THE WET ROAD (18 spots) | 0.42 | 10.13 | 0.00 | 61.10 | 49.93 | 0.655 | 60.4 |
+| THE FLOOR PLAN (20) | 0.38 | 8.83 | 0.01 | 63.65 | 49.85 | 0.782 | 59.2 |
+
+Spot-level, which is the comparable half: `02-aisle` 11.19 → 7.70 near-dead,
+`08-ceiling` 17.72 → 8.29, `04-eastwall` mean 80.63 → 91.68, `07-jukebox` 4.94
+→ 3.89, `18-vending` mean 71.17 → 79.97.
+
+**On fps, honestly:** re-sampled five times a spot, this box reads **60.2 flat
+with `--off msaa`** and 44–60 with 4× MSAA on. That is a software rasteriser
+(ANGLE/SwiftShader), where multisampling is priced completely differently from
+a real GPU. THE GOVERNOR exists for exactly this and would step such a machine
+down to 2× and then off; the harness pins it, so these tables are always the
+4× picture.

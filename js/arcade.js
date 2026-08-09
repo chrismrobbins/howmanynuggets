@@ -2151,8 +2151,60 @@ void main() {
     // change machine (left of the doors) — free play forever
     {
       const cx2 = -3.0, cz = -0.5;
-      boxProp(cx2, cz, 0.3, 0.24, 1.5, uv.change, 0.1);
-      H.propBoxes.push({ min: [cx2 - 0.4, 0, cz - 0.35], max: [cx2 + 0.4, 1.5, cz + 0.35] });
+      // The last procedural box in the hall. `change` is a real atlas region,
+      // so the FACE is unchanged and the carcass is built around it — the same
+      // contract the SAUCE-O-MATIC's vendFace has.
+      if (!B.model('changeMachine', uv, { x: cx2, z: cz, yaw: Math.PI })) {
+        boxProp(cx2, cz, 0.3, 0.24, 1.5, uv.change, 0.1);
+      } else {
+        LIGHTS.push({ p: [cx2, 1.62, cz - 0.42], c: [0.10, 0.34, 0.18], k: 'neon' });
+        H.glows.push({ p: [cx2, 1.60, cz - 0.30], c: [0.30, 1, 0.55], s: 0.42, a: 0.14, k: 'neon' });
+      }
+      H.propBoxes.push({ min: [cx2 - 0.4, 0, cz - 0.35], max: [cx2 + 0.4, 1.6, cz + 0.35] });
+    }
+
+    // ---- 🎱 THE FLOOR PLAN -----------------------------------------------------
+    // Ten cabinets against the walls and twelve metres by eighteen of empty
+    // carpet between them. Every act this session has been the STREET, and the
+    // hall is where the games are — so this is the room getting furniture.
+    //
+    // 🚨 Gated on H.uintIndex like the shopfronts: the hall's static buffer was
+    // already at 69863 and these add ~11k. Uint16 does not error on overflow,
+    // it WRAPS (§14, §15). Without it you get the room exactly as it shipped.
+    //
+    // Kept OUT of the central aisle (|x| < 2) on purpose: click-to-walk drives
+    // straight at its target with no pathfinding, so the walk from the door to
+    // the deluxe cabinet at (0, -18.7) has to stay clear or it wedges.
+    if (H.uintIndex) {
+      // The air hockey table is here for its LIGHT before its shape. Every
+      // other emissive in this room is at eye level or above — marquees, CRTs,
+      // neon trim, ceiling tubes — so the floor only ever got spill. A big
+      // pale lit plane at waist height in the middle is how an arcade actually
+      // glows, and the carpet has never had anything to catch.
+      const ax = -3.0, az = -7.6;
+      if (B.model('airHockey', uv, { x: ax, z: az })) {
+        H.propBoxes.push({ min: [ax - 1.28, 0, az - 0.78], max: [ax + 1.28, 0.95, az + 0.78] });
+        LIGHTS.push({ p: [ax, 1.02, az], c: [0.72, 0.80, 0.95], k: 'tube' });
+        LIGHTS.push({ p: [ax + 0.95, 1.95, az - 0.70], c: [0.55, 0.10, 0.10], k: 'crt' });
+        H.glows.push({ p: [ax, 0.86, az], c: [0.80, 0.90, 1], s: 2.6, a: 0.09, k: 'pool' });
+      }
+      // Two crane cabinets facing the door. A tall lit box is the cheapest
+      // silhouette there is and this room has exactly one shape in it, ten
+      // times over.
+      for (const [cx3, cz3] of [[3.5, -6.5], [3.5, -8.35]]) {
+        if (!B.model('claw', uv, { x: cx3, z: cz3 })) break;
+        H.propBoxes.push({ min: [cx3 - 0.55, 0, cz3 - 0.54], max: [cx3 + 0.55, 2.35, cz3 + 0.54] });
+        LIGHTS.push({ p: [cx3, 1.52, cz3 - 0.55], c: [0.60, 0.48, 0.30], k: 'marq' });
+        LIGHTS.push({ p: [cx3, 2.22, cz3 - 0.50], c: [0.52, 0.10, 0.32], k: 'neon' });
+        H.glows.push({ p: [cx3, 2.17, cz3 - 0.52], c: [1, 0.20, 0.66], s: 0.9, a: 0.13, k: 'neon' });
+      }
+      // Stools. A cabinet with no seat in front of it reads as a display
+      // piece rather than a machine somebody uses. Not at every cabinet —
+      // half of them, so the room looks lived in and not laid out.
+      for (const [sx3, sz3] of [[-5.72, -5.5], [-5.72, -13.5], [5.72, -9.5], [5.72, -2.2], [0.62, -17.5]]) {
+        if (!B.model('stool', uv, { x: sx3, z: sz3, yaw: sx3 < 0 ? 1.6 : -1.6 })) break;
+        H.propBoxes.push({ min: [sx3 - 0.28, 0, sz3 - 0.28], max: [sx3 + 0.28, 0.72, sz3 + 0.28] });
+      }
     }
 
     // ---- the JUKEBOX (further left) — three loops and an OFF switch ------------

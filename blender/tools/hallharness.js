@@ -75,6 +75,14 @@ const RAW = [
   // The SAUCE-O-MATIC carries the golden nug, which is a lore item people
   // hunt, and nothing in this kit had ever photographed it.
   ['18-vending',    3.1,  -1.85, [3.1, -0.55],  0.06],  // the nug hotspot's own stand
+  // --- the floor ------------------------------------------------------
+  // ADDED (THE FLOOR PLAN). Same rule for the third time: sixteen spots aimed
+  // at walls could not see that five people had no shadow, could not see the
+  // two walk-to props, and could not have seen the middle of this room either
+  // — because until now there was nothing in the middle of this room. These
+  // two stand in the aisle and look ACROSS the floor, not down it.
+  ['19-hockey',     0.4,  -4.2,  [-3.0, -7.6], -0.10],  // the air hockey table
+  ['20-cranes',     0.4,  -4.2,  [3.5, -7.4],  -0.02],  // the two crane cabinets
 ];
 
 const SPOTS = RAW.map(([name, x, z, look, pitch]) => ({
