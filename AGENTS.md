@@ -545,10 +545,17 @@ Five acts on top of THE FOUR MOVEMENTS, all on prod. What will bite you:
 - **Rack focus is released in the frame loop, not in `stepZoom`.** Coming back
   out of a game lands in `'return'`, so releasing it inside the zoom step
   strands the hall permanently soft at the edges.
-- **`H.camSway` is CAMERA-space** and rotates into the world through the
-  camera's right vector; `H.camRoll` goes outermost, after pitch. The gait's
-  rise is at 2× the step rate and the sway at 1× — running only the vertical
-  term is why the old bob read as a lift and not as a walk.
+- **🚶 THERE IS NO HEAD-BOB, AND PUTTING ONE BACK IS A REGRESSION.** The hall
+  shipped a full gait (31mm rise at 2× the step rate, 26mm lateral sway at 1×,
+  a degree of roll) and Beau's verdict from prod was *"walking back and forth
+  is not a fun feeling to see and should be removed."* Movement is a VELOCITY
+  now — `glide()` ramps `H.vel` in over ~90ms and out over ~130ms, a blocked
+  axis loses its momentum, and the only camera effect left is a 0.028 FOV
+  widen keyed to real speed. Nothing periodic touches the camera while you
+  move. `blender/tools/motion.js` has a `no-bob` anti-channel that FAILS if
+  `H.cam.y` sweeps more than 4mm while walking; it exists because "movement
+  feels weightless, add bob" is the reflex fix and this project already made
+  it once. The right fix is momentum, not oscillation.
 - **The skyline is a DATA panorama, not a picture** (`js/hallSky.js` +
   `blender/skyline.py`). R = haze, G = lit-window mask, B = surface shade,
   A = silhouette; the shader still mixes `SKY`. **Do not bake colour into it** —

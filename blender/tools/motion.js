@@ -13,12 +13,19 @@
 
 const { openHall } = require('./hallharness');
 
+// [name, expr, minRange, windowMs, which] — `which` picks WHICH of the two
+// samples the threshold is applied to. That column exists because THE GLIDE
+// deleted the head-bob: `cam.y` is now deliberately a flat line while you walk
+// and only moves when you stand still, so testing it against the walking
+// sample would fail a channel that is behaving exactly as designed.
 const CHANNELS = [
-  ['cam.y', 'H.cam.y', 0.02],
-  ['camRoll', 'H.camRoll', 0.004],
-  ['camSway', 'H.camSway', 0.008],
-  ['gaitAmt', 'H.gaitAmt', 0.5],
-  ['breath', 'H.breath', 0.5],
+  // Thresholds are RANGES, and the first sample lands a frame or two after the
+  // key goes down — so a channel that ramps 0 -> 3.4 reports ~2.8, not 3.4.
+  // Do not "fix" that by raising the bar; it is the sampler, not the glide.
+  ['cam.y(idle)', 'H.cam.y', 0.004, 2600, 'still'],
+  ['speed', 'H.speed', 2.5, 1400, 'walk'],
+  ['vel.z', 'H.vel.z', 2.5, 1400, 'walk'],
+  ['breath', 'H.breath', 0.5, 1400, 'still'],
   // 🌫 the motion layer. A plume that never rises and a splash that never
   // expands both photograph perfectly, which is exactly why they need a
   // channel here rather than an eyeball.
@@ -59,17 +66,30 @@ const CHANNELS = [
 
   console.log(`\n  ${'channel'.padEnd(12)}${'walking'.padStart(12)}${'standing'.padStart(12)}   verdict`);
   let bad = 0;
-  for (const [name, expr, minRange, ms] of CHANNELS) {
+  for (const [name, expr, minRange, ms, which] of CHANNELS) {
     const win = ms || 1400;
     const walk = await sample(expr, win, ['f']);
     await page.waitForTimeout(700);          // let the ramp settle
     const still = await sample(expr, win, []);
     const rng = (a) => Math.max(...a) - Math.min(...a);
     const rw = rng(walk), rs = rng(still);
-    const ok = rw >= minRange;
+    const ok = (which === 'still' ? rs : rw) >= minRange;
     if (!ok) bad++;
     console.log(`  ${name.padEnd(12)}${rw.toFixed(4).padStart(12)}${rs.toFixed(4).padStart(12)}   `
-      + (ok ? 'ok' : `DEAD (want >= ${minRange})`));
+      + (ok ? 'ok' : `DEAD (${which || 'walk'} want >= ${minRange})`));
+  }
+
+  // 🚶 THE ANTI-CHANNEL. Every other row here fails when a number STOPS
+  // moving; this one fails when the head-bob comes back. It is a real risk —
+  // bob is the reflex fix for "movement feels weightless" and this project
+  // has already shipped it once.
+  {
+    const walk = await sample('H.cam.y', 1400, ['f']);
+    const rng = Math.max(...walk) - Math.min(...walk);
+    const ok = rng < 0.004;
+    if (!ok) bad++;
+    console.log(`  ${'no-bob'.padEnd(12)}${rng.toFixed(4).padStart(12)}${''.padStart(12)}   `
+      + (ok ? 'ok (flat while moving)' : 'HEAD-BOB IS BACK (want < 0.004)'));
   }
 
   // the frame itself: two shots a few frames apart must not be identical

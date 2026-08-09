@@ -152,7 +152,6 @@ const NuggetArcade = (() => {
     cam: { x: 0, y: EYE, z: 6.4, yaw: 0, pitch: 0 },
     keys: {},
     drag: null,
-    bob: 0,
     doorsOpen: 0, // 0..1
     auto: null,   // { x, z, cab, launch }
     zoomAnim: null,
@@ -181,7 +180,8 @@ const NuggetArcade = (() => {
     dlg: null, dlgName: null, dlgText: null, dlgOpts: null, dlgHint: null,
     wentOutside: false,     // first-steps-outside toast fired this session
     stepAcc: 0,             // footstep distance accumulator
-    gaitAmt: 0, breath: 0, camRoll: 0, camSway: 0,   // 🚶 THE GAIT (see gait())
+    vel: { x: 0, z: 0 },    // 🚶 world-space velocity — see glide()
+    speed: 0, breath: 0,    // speed feeds the FOV widen; breath is the idle only
     prevZ: 99,
     lastChime: -9,
   };
@@ -4819,9 +4819,12 @@ void main() {
     if (it > 2.6 && !H.introFlags.door) { H.introFlags.door = true; sfxDoor(); }
     H.doorsOpen = it < 2.6 ? 0 : Math.min(1, (it - 2.6) / 1.0);
     if (it >= 2.8) {
+      // A clean dolly through the doors. This used to carry two full sine
+      // cycles of vertical bob to sell it as "someone walking in"; it is a
+      // CAMERA MOVE, and it reads better as one.
       const p = easeInOut(Math.min(1, (it - 2.8) / 3.3));
       H.cam.z = 6.4 + (-2.6 - 6.4) * p;
-      H.cam.y = EYE + Math.sin(p * Math.PI * 4) * 0.022;
+      H.cam.y = EYE;
       H.cam.pitch = 0.02 - 0.02 * p;
     }
     if (!H.introFlags.buzz && it > 0.9) { H.introFlags.buzz = true; sfxBuzz(); }
@@ -4832,74 +4835,99 @@ void main() {
     // pointer lock has no cursor — release it whenever the UI needs one
     if (H.plock && (H.dialog || modalOpen())) document.exitPointerLock();
     // feet stay planted mid-conversation — but the chest still moves
-    if (H.dialog) { gait(dt, false); return; }
+    if (H.dialog) { glide(dt, 0, 0); return; }
     // arrow keys steer the view, so you can turn a corner without stopping
     if (H.keys.yl) H.cam.yaw += 2.1 * dt;
     if (H.keys.yr) H.cam.yaw -= 2.1 * dt;
     if (H.keys.pu) H.cam.pitch = Math.min(0.7, H.cam.pitch + 1.4 * dt);
     if (H.keys.pd) H.cam.pitch = Math.max(-0.7, H.cam.pitch - 1.4 * dt);
-    const sp = 3.1 * dt;
     let mx = 0, mz = 0;
     if (H.keys.f) mz += 1;
     if (H.keys.b) mz -= 1;
     if (H.keys.l) mx -= 1;
     if (H.keys.r) mx += 1;
+    let wx = 0, wz = 0;
     if (mx || mz) {
+      // input is camera-relative; velocity lives in WORLD space so that
+      // turning while moving curves the path instead of teleporting it
       const len = Math.hypot(mx, mz);
-      moveCam((mz / len) * sp, (mx / len) * sp);
-      H.bob += dt * 7;
+      const f = (mz / len) * WALK_SPD, s = (mx / len) * WALK_SPD;
+      const sy = Math.sin(H.cam.yaw), cy = Math.cos(H.cam.yaw);
+      wx = -sy * f + cy * s;
+      wz = -cy * f + -sy * s;
       H.auto = null;
     }
-    gait(dt, !!(mx || mz));
+    glide(dt, wx, wz);
   }
 
-  // 🚶 THE GAIT. This was one sine wave on cam.y, 28mm of it, and that is the
-  // difference between a camera that is moving and a PERSON who is walking.
-  // Three things a head actually does, none of which cost anything:
+  // 🚶 THE GAIT IS GONE, AND THAT IS THE POINT.
   //
-  //   - the RISE is at twice the step rate (both feet push), the SWAY is at
-  //     once (the body falls onto alternate legs). Running only the vertical
-  //     term is why the old bob read as a lift, not a walk.
-  //   - the head ROLLS a little into the sway. Sub-degree; you notice its
-  //     absence, never its presence.
-  //   - standing still is not standing still. A slow breath keeps the frame
-  //     alive, which is most of why the hall used to feel like a screenshot
-  //     whenever the player stopped to look at something.
+  // What shipped here was textbook FPS head-bob: a 31mm rise at twice the step
+  // rate, a 26mm lateral sway at once, and a degree of head roll into it. It is
+  // deleted — not tuned down, deleted — because Beau's verdict from prod was
+  // that watching yourself sway back and forth is the opposite of fun, and he
+  // is right: bob is a 1998 solution to a problem you fix properly with
+  // momentum. Nothing periodic touches the camera while you move any more.
   //
-  // `amt` ramps rather than switching, so letting go of W settles instead of
-  // snapping, and everything is scaled by H.lens so the whole effect has one
-  // seam. Dialogue plants the feet — see the caller.
-  function gait(dt, moving) {
+  // What replaced it is the thing bob was standing in for. A camera that snaps
+  // from 0 to full speed and back in one frame reads as a CURSOR, and that is
+  // what the bob was papering over. So movement is a velocity: it ramps in over
+  // ~90ms, coasts out over ~130ms, curves when you turn mid-stride, and the
+  // frame widens with REAL speed instead of with an on/off ramp. Weight without
+  // oscillation.
+  //
+  // The one sine wave left is the idle breath, and it only runs when you are
+  // standing still — 6mm at 0.9rad/s, which is why the hall does not read as a
+  // screenshot the moment you stop. That is presence, not walking.
+  const WALK_SPD = 3.4;      // m/s cruise. Was 3.1 + bob; the bob read as speed.
+  const ACC_IN = 11, ACC_OUT = 7.6;   // exponential rates, not m/s²
+
+  function glide(dt, tx, tz) {
+    const moving = !!(tx || tz);
+    const k = Math.min(1, dt * (moving ? ACC_IN : ACC_OUT));
+    H.vel.x += (tx - H.vel.x) * k;
+    H.vel.z += (tz - H.vel.z) * k;
+    let sp = Math.hypot(H.vel.x, H.vel.z);
+    if (sp < 0.015) { H.vel.x = H.vel.z = 0; sp = 0; }
+    else {
+      const bx = H.cam.x, bz = H.cam.z;
+      tryMove(bx + H.vel.x * dt, bz + H.vel.z * dt);
+      // A blocked axis has to lose its velocity. Without this you build up a
+      // shove against a wall while holding W, and the instant you turn away
+      // the stored momentum slingshots you across the room.
+      if (Math.abs(H.cam.x - bx) < Math.abs(H.vel.x * dt) * 0.5) H.vel.x = 0;
+      if (Math.abs(H.cam.z - bz) < Math.abs(H.vel.z * dt) * 0.5) H.vel.z = 0;
+    }
+    H.speed = sp;
+    H.breath += dt * 0.9;
     const on = H.lens !== false;
-    H.gaitAmt += ((moving ? 1 : 0) - H.gaitAmt) * Math.min(1, dt * (moving ? 7 : 4));
-    H.breath += dt * 1.15;
-    const a = on ? H.gaitAmt : 0;
-    const rise = Math.sin(H.bob * 2) * 0.031 * a;
-    const sway = Math.sin(H.bob) * 0.026 * a;
-    const breathe = Math.sin(H.breath) * 0.008 * (1 - a * 0.8) * (on ? 1 : 0);
-    H.cam.y = EYE + rise + breathe;
-    // sway is lateral in CAMERA space, so it has to be rotated into the world
-    H.camRoll = -Math.sin(H.bob) * 0.011 * a;
-    H.camSway = sway;
+    const idle = Math.max(0, 1 - sp / (WALK_SPD * 0.5));
+    H.cam.y = EYE + (on ? Math.sin(H.breath) * 0.006 * idle : 0);
   }
 
   function stepAuto(dt) {
     const a = H.auto;
-    if (!a) { H.state = 'walk'; return; }
+    if (!a) { H.state = 'walk'; H.vel.x = H.vel.z = 0; return; }
     const dx = a.x - H.cam.x, dz = a.z - H.cam.z;
     const dist = Math.hypot(dx, dz);
     if (dist < 0.14) {
       H.state = 'walk';
       const cab = a.cab, spot = a.spot;
       H.auto = null;
+      H.vel.x = H.vel.z = 0;
       if (cab && a.launch && H.isTouch) startZoom(cab);
       else if (spot && a.launch && H.isTouch) spot.act();
       return;
     }
-    const sp = Math.min(3.4 * dt, dist);
+    // 🏃 The old auto-walk crossed the hall at 3.4m/s no matter how far it had
+    // to go, so clicking a cabinet from the door was six seconds of watching a
+    // corridor go by. It TRAVELS now: a long trip cruises, and every trip eases
+    // into its mark instead of stopping dead on it.
+    const cruise = Math.min(8.4, 3.4 + dist * 0.85);
+    const sp = Math.min(cruise, 2.2 + dist * 4.2);   // ease-out over the last ~1.5m
     const beforeX = H.cam.x, beforeZ = H.cam.z;
-    tryMove(H.cam.x + (dx / dist) * sp, H.cam.z + (dz / dist) * sp);
-    if (Math.abs(H.cam.x - beforeX) + Math.abs(H.cam.z - beforeZ) < sp * 0.2) {
+    glide(dt, (dx / dist) * sp, (dz / dist) * sp);
+    if (Math.hypot(H.cam.x - beforeX, H.cam.z - beforeZ) < sp * dt * 0.2) {
       H.auto = null; H.state = 'walk'; // wedged on a corner — give up gracefully
     }
     // steer the view toward the target as we go
@@ -4907,9 +4935,7 @@ void main() {
     let dy = wantYaw - H.cam.yaw;
     while (dy > Math.PI) dy -= Math.PI * 2;
     while (dy < -Math.PI) dy += Math.PI * 2;
-    H.cam.yaw += dy * Math.min(1, dt * 5);
-    H.bob += dt * 7;
-    gait(dt, true);
+    H.cam.yaw += dy * Math.min(1, dt * 6);
   }
 
   function stepZoom(dt) {
@@ -5159,21 +5185,16 @@ void main() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     const aspect = H.canvas.width / H.canvas.height;
-    // The frame widens a hair while walking. Every driving game does this and
+    // The frame widens a hair while moving. Every driving game does this and
     // nobody ever consciously sees it; what they see is that moving feels like
-    // moving. 1.5° at full stride, eased by the same ramp as the gait.
-    const proj = mPersp(FOV * (1 + 0.026 * H.gaitAmt), aspect, 0.05, 70);
-    // 🚶 the gait's lateral term is in CAMERA space, so it rotates into the
-    // world through the camera's own right vector before it becomes a
-    // translation. The roll goes outermost, after pitch, or it tilts the
-    // horizon around the wrong axis.
-    const swx = Math.cos(H.cam.yaw) * H.camSway, swz = -Math.sin(H.cam.yaw) * H.camSway;
+    // moving. It is keyed to REAL speed now rather than to a gait ramp, so an
+    // auto-walk cruising at 8m/s opens further than a nudge off the wall — and
+    // it is the only camera effect movement has left.
+    const spd = Math.min(1.35, H.speed / WALK_SPD);
+    const proj = mPersp(FOV * (1 + 0.028 * spd), aspect, 0.05, 70);
     const view = mMul(
-      mRotZ(H.camRoll),
-      mMul(
-        mRotX(-H.cam.pitch),
-        mMul(mRotY(-H.cam.yaw), mTrans(-H.cam.x - swx, -H.cam.y, -H.cam.z - swz))
-      )
+      mRotX(-H.cam.pitch),
+      mMul(mRotY(-H.cam.yaw), mTrans(-H.cam.x, -H.cam.y, -H.cam.z))
     );
     const basis = camBasis(aspect);
 
