@@ -341,9 +341,23 @@ def emis(name, color, strength=1.0):
 
 
 def mapmat(name, color, map_name, bump=0.35, rough=0.7, metallic=0.0,
-           rough_span=0.0, scale=1.0, emit=None, emit_str=0.0):
+           rough_span=0.0, scale=1.0, emit=None, emit_str=0.0,
+           stain=None, stain_amt=0.0):
     """Principled material driven by one of the wrapped-fBm maps: bump always,
-    roughness variation optionally (rough_span spreads rough +/- span/2)."""
+    roughness variation optionally (rough_span spreads rough +/- span/2), and
+    BASE COLOUR variation optionally (stain / stain_amt).
+
+    `stain` is what a surface has been through, and it is why THE GRIME session
+    exists: a wall built from four flat shades reads as one tone no matter how
+    good its relief is, because every brick in it is the same colour as every
+    other brick of its shade. Mixing the base colour toward a stain by the same
+    wrapped map that drives the bump gives soot, damp and lime wash for free,
+    and — critically — it TILES, because the map does.
+
+    The map is on Generated coordinates, so on a per-brick box the variation is
+    per-BRICK and on a full-tile plane it is across the whole tile. Both are
+    wanted; which one you get is decided by what you put the material on.
+    """
     m = bpy.data.materials.get(name)
     if m:
         return m
@@ -380,6 +394,23 @@ def mapmat(name, color, map_name, bump=0.35, rough=0.7, metallic=0.0,
         ramp.inputs["To Max"].default_value = min(1.0, rough + rough_span / 2)
         nt.links.new(img.outputs["Color"], ramp.inputs["Value"])
         nt.links.new(ramp.outputs["Result"], bsdf.inputs["Roughness"])
+    if stain is not None and stain_amt > 0:
+        # Contrast the map first: raw fBm hovers around the middle, so mixing
+        # straight off it gives an even wash rather than patches. (Same shape
+        # as the puddle-mask lesson in js/arcade.js — the interesting part of
+        # a noise field is its tails, and you have to go and get them.)
+        cr = nt.nodes.new("ShaderNodeMapRange")
+        cr.inputs["From Min"].default_value = 0.34
+        cr.inputs["From Max"].default_value = 0.72
+        cr.clamp = True
+        nt.links.new(img.outputs["Color"], cr.inputs["Value"])
+        mixn = nt.nodes.new("ShaderNodeMix")
+        mixn.data_type = "RGBA"
+        mixn.inputs["A"].default_value = (*color, 1.0)
+        mixn.inputs["B"].default_value = (*stain, 1.0)
+        nt.links.new(cr.outputs["Result"], mixn.inputs["Factor"])
+        nt.links.new(mixn.outputs["Result"], bsdf.inputs["Base Color"])
+        mixn.inputs["Factor"].default_value = stain_amt
     return m
 
 
@@ -630,12 +661,51 @@ def t_ceiling(W=256, H=256):
 
 
 def t_brick(W=256, H=256):
-    """Real bricks, raked. 4 columns x 8 rows to match the painter's 64x32."""
+    """Real bricks, raked, and WEATHERED. 4 columns x 8 rows (the painter's 64x32).
+
+    THE GRIME (2026-08-09). The measured verdict on the street was that its two
+    worst views are both large flat brick with one tone and no wear on it, and
+    the reason was in here: four shades, uniformly random, every brick the same
+    colour as every other brick of its shade. Relief alone cannot fix that —
+    the wall had good mortar shadows and still read as wallpaper.
+
+    Everything below has to TILE (§3), which rules out the obvious move: a
+    building's wear is mostly a VERTICAL story — soot at the top, damp at the
+    bottom, streaks under the sills — and a vertical gradient in a tile that
+    repeats 2.2x up a wall is a set of stripes. So the wear here is the part
+    that is genuinely per-brick and periodic:
+
+      - EIGHT shades over a much wider spread, including two burnt headers
+        (over-fired bricks, nearly black, which every real stock wall has) and
+        one pale replacement.
+      - PATCHES: a few bricks replaced at some point, sitting proud in fresh
+        pale mortar. Chosen on a wrapping index so the patch survives tiling.
+      - SPALLED faces: a few bricks recessed instead of proud, with their
+        bevel opened up, which reads as a face that has come off.
+      - The mortar plane is STAINED by the coarse wrapped map, so the joints
+        are not one flat colour either.
+
+    The vertical story is told by the geometry instead: js/arcade.js hangs fire
+    escapes and air conditioners on this wall, and blender/hallmesh.py's
+    facadeBay puts real sills on it that catch real shadows.
+    """
     rig(key_deg=44, key_energy=3.6, fill_energy=0.8)
-    plane("mortar", W * 1.2, H * 1.2, mapmat("HALL_mortar", (0.05, 0.035, 0.04), "grain_fine", bump=0.5, rough=0.95), z=-3)
-    shades = [(0.145, 0.085, 0.075), (0.12, 0.07, 0.065), (0.17, 0.1, 0.085), (0.10, 0.06, 0.06)]
-    mats = [mapmat(f"HALL_brick{i}", s, "grain_fine", bump=0.8, rough=0.85, scale=1.5)
+    plane("mortar", W * 1.2, H * 1.2,
+          mapmat("HALL_mortar", (0.05, 0.035, 0.04), "grain_coarse", bump=0.5,
+                 rough=0.95, scale=0.9, stain=(0.085, 0.075, 0.070), stain_amt=0.85),
+          z=-3)
+    # fresh mortar around a replaced brick — lime, not soot
+    fresh = mat("HALL_mortarNew", (0.092, 0.088, 0.082), rough=0.92)
+    shades = [
+        (0.145, 0.085, 0.075), (0.120, 0.070, 0.065), (0.170, 0.100, 0.085),
+        (0.100, 0.060, 0.060), (0.190, 0.115, 0.092), (0.082, 0.052, 0.052),
+        (0.046, 0.032, 0.034), (0.038, 0.028, 0.030),   # burnt headers
+    ]
+    mats = [mapmat(f"HALL_brick{i}", s, "grain_fine", bump=0.8, rough=0.85, scale=1.5,
+                   stain=(s[0] * 0.42, s[1] * 0.44, s[2] * 0.52), stain_amt=0.55)
             for i, s in enumerate(shades)]
+    patch = mapmat("HALL_brickPatch", (0.168, 0.120, 0.104), "grain_fine",
+                   bump=0.7, rough=0.80, scale=1.5)
     bw, bh = 64, 32
     rng = np.random.default_rng(9)
     for row in range(8):
@@ -643,9 +713,94 @@ def t_brick(W=256, H=256):
         for col in range(-1, 5):
             x = col * bw + off + bw / 2 - W / 2
             y = row * bh + bh / 2 - H / 2
-            b = box(f"br{row}_{col}", bw - 5, bh - 5, 5 + float(rng.uniform(0, 1.6)),
-                    x, y, 0, mats[int(rng.integers(0, 4))], bevel=2.2)
-            b.rotation_euler = (0, 0, float(rng.uniform(-0.012, 0.012)))
+            # WRAPPING index: the picks have to be a function of (col mod 4,
+            # row mod 8) or the tile does not match itself at the seam.
+            k = ((col % 4) * 8 + row) % 32
+            r = ((k * 2654435761) % 1000) / 1000.0
+            r2 = ((k * 40503 + 17) % 1000) / 1000.0
+            # ONE replacement per tile, not two. This texture repeats 2.2x
+            # across a 3m bay, so anything conspicuous at 1-in-16 comes back
+            # every 1.4 metres and reads as a polka dot rather than as repair.
+            if r > 0.975:                      # replaced, in fresh mortar
+                box(f"pm{row}_{col}", bw - 1, bh - 1, 3.0, x, y, 0, fresh, bevel=1.0)
+                b = box(f"br{row}_{col}", bw - 7, bh - 7, 7.4, x, y, 0, patch, bevel=2.4)
+            elif r > 0.86:                     # spalled: sunk, edges gone soft
+                b = box(f"br{row}_{col}", bw - 4, bh - 4, 2.6, x, y, 0,
+                        mats[6 if r2 > 0.5 else 5], bevel=3.4)
+            else:
+                b = box(f"br{row}_{col}", bw - 5, bh - 5, 5 + r2 * 1.9,
+                        x, y, 0, mats[int(r2 * 8) % 8], bevel=2.2)
+            b.rotation_euler = (0, 0, (r2 - 0.5) * 0.028)
+
+
+def t_brick2(W=256, H=256):
+    """THE OTHER BUILDING — and it is not brick at all, on purpose.
+
+    Fourteen bays of facade across the road all wore ONE brick, tiled 2.2x2.2:
+    a repeat every 1.4 metres along a 42-metre terrace. No amount of wear on a
+    single tile fixes that. The fix is a second wall a bay can be built from
+    instead, picked per instance (see $BRICK in hallmesh.py).
+
+    The first attempt at that was a second BRICK — different bond, different
+    tone — and it came back as a grey-and-red chessboard of near-square blocks
+    that read as tiling, not as a building. Two bricks side by side are still
+    two bricks. A real terrace mixes MATERIALS: somewhere in every row there is
+    one that was rendered over in the sixties and has been going off ever since.
+
+    So this is painted render on top of brick:
+      - big flat panels scored on the horizontal, no unit rhythm at all, which
+        is the whole point of standing next to a wall made of units
+      - the render has come off in a few places, and there is brick under it
+      - damp rising at the joints, and the stain carried by the coarse wrapped
+        map rather than by geometry, because render has no courses to shade
+    """
+    rig(key_deg=46, key_energy=3.1, fill_energy=1.0)
+    # brick showing through wherever the render has gone
+    under = mapmat("HALL_bk2under", (0.108, 0.068, 0.058), "grain_fine",
+                   bump=0.9, rough=0.9, scale=1.6,
+                   stain=(0.055, 0.038, 0.036), stain_amt=0.7)
+    plane("under", W * 1.2, H * 1.2, under, z=-4)
+    # a hint of the courses beneath, so the patches have something to reveal
+    cm = mat("HALL_bk2joint", (0.045, 0.032, 0.030), rough=0.95)
+    for i in range(8):
+        plane(f"course{i}", W * 1.2, 3, cm, 0, i * 32 + 16 - H / 2, -2.4)
+    rmat = mapmat("HALL_render", (0.168, 0.163, 0.150), "grain_coarse",
+                  bump=0.65, rough=0.88, scale=0.55, rough_span=0.3,
+                  stain=(0.050, 0.049, 0.054), stain_amt=1.0)
+    # THE PANELS. Four scored bands; each is one slab of render, and the score
+    # lines are the only rhythm on the whole wall.
+    ph = H / 4.0
+    for i in range(4):
+        y = i * ph + ph / 2 - H / 2
+        b = box(f"panel{i}", W * 1.25, ph - 3.5, 6.0, 0, y, 0, rmat, bevel=1.6)
+        b.rotation_euler = (0, 0, 0.0015 * (1 if i % 2 else -1))
+    # WHERE IT HAS COME OFF. ONE blown area per tile, built from three
+    # overlapping boxes so its outline is irregular — the first pass used two
+    # neat rectangles and they read as brown stickers stuck on a wall, because
+    # a rectangle is the one shape falling render never makes. Recessed BELOW
+    # the panel face, so the render's own edge overhangs it and casts.
+    # DEPTH MATTERS AND IT IS NOT INTUITIVE: this rig shoots a top-down ortho,
+    # so anything whose top sits below the panel face is INSIDE the panel and
+    # renders as nothing at all. The first version put the patches at z 0.6 in
+    # a 6-unit panel and they disappeared completely. They sit a hair PROUD
+    # instead, with a wide bevel, so the raking key finds their edge and the
+    # exposed brick reads as a scab rather than as a decal.
+    for (px, py, pw, phh, rot) in ((-52.0, 30.0, 40.0, 26.0, 0.07),
+                                   (-30.0, 20.0, 26.0, 30.0, -0.19),
+                                   (-64.0, 12.0, 22.0, 20.0, 0.31)):
+        b = box(f"blown{px:.0f}_{py:.0f}", pw, phh, 6.5, px, py, 0.15, under, bevel=3.4)
+        b.rotation_euler = (0, 0, rot)
+    # DAMP, at the joints. The vertical streaks the first pass used sat proud
+    # of the panels and caught the raking key, so a downpipe stain rendered as
+    # a pale PILLAR — brighter than the wall it was supposed to be dirtying.
+    # Damp rises at a horizontal joint anyway, and a joint already tiles.
+    # TWO of them, narrow. Four wide dark bands plus four score lines turned
+    # the whole wall into a set of stripes, which is a different wallpaper.
+    dm = mat("HALL_bk2damp", (0.082, 0.079, 0.080), rough=0.97)
+    for i in (1, 3):
+        y = i * ph - H / 2
+        p2 = plane(f"damp{i}", W * 1.25, 7, dm, 0, y + 5.0, 3.04)
+        p2.rotation_euler = (0, 0, 0.002)
 
 
 def t_sidewalk(W=256, H=256):
@@ -1355,6 +1510,7 @@ ASSETS = {
     "wainscot": (t_wainscot, 256, 128),
     "ceiling": (t_ceiling, 256, 256),
     "brick": (t_brick, 256, 256),
+    "brick2": (t_brick2, 256, 256),
     "sidewalk": (t_sidewalk, 256, 256),
     "metal": (t_metal, 128, 128),
     "dark": (t_dark, 128, 128),

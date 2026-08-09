@@ -310,6 +310,36 @@ const ArcadeArt = (() => {
     speckle(g, w, h, 700, '#000', 0.35, 2);
   }
 
+  // THE OTHER BUILDING: painted render over brick, going off. Fallback only —
+  // the real one is Blender (blender/hallrig.py t_brick2). It exists so that a
+  // terrace built from two wall materials still has two wall materials when
+  // the Blender sheet fails to decode; without it every other bay would fall
+  // back to a region that does not exist and render black.
+  function pBrick2(g, w, h) {
+    if (hallBlit(g, 'brick2', w, h)) return;
+    g.fillStyle = '#2b2926';
+    g.fillRect(0, 0, w, h);
+    const ph = h / 4;
+    for (let i = 0; i < 4; i++) {
+      const v = 0.86 + (i % 2) * 0.12;
+      g.fillStyle = `rgb(${(56 * v) | 0},${(54 * v) | 0},${(50 * v) | 0})`;
+      g.fillRect(0, i * ph + 2, w, ph - 4);
+    }
+    // blotchy damp, then one place the render has come off
+    for (let i = 0; i < 26; i++) {
+      const r = 14 + Math.random() * 34;
+      g.fillStyle = 'rgba(20,19,21,0.20)';
+      g.beginPath();
+      g.arc(Math.random() * w, Math.random() * h, r, 0, 7);
+      g.fill();
+    }
+    g.fillStyle = '#40241d';
+    g.beginPath();
+    g.ellipse(w * 0.28, h * 0.36, 26, 17, 0.2, 0, 7);
+    g.fill();
+    speckle(g, w, h, 520, '#000', 0.28, 2);
+  }
+
   // Rain-slick pavement for the intro exterior.
   function pSidewalk(g, w, h) {
     if (hallBlit(g, 'sidewalk', w, h)) return;
@@ -1463,6 +1493,7 @@ const ArcadeArt = (() => {
     alloc('shopLaundro', 256, 224, (gg, w, h) => pStreetShop(gg, w, h, 'laundro'));
     alloc('shopGarage', 256, 224, (gg, w, h) => pStreetShop(gg, w, h, 'garage'));
     alloc('brick', 256, 256, pBrick);
+    alloc('brick2', 256, 256, pBrick2);
     alloc('across', 512, 192, pAcross);
     alloc('road', 192, 192, pRoad);
     alloc('busSign', 96, 128, pBusSign);

@@ -50,7 +50,7 @@ GAMES = {
 # about the target mean AFTER the grade (the midpoint law).
 GRADE = {
     "carpet": 1.45, "wall": 1.4, "wainscot": 1.35, "ceiling": 1.35,
-    "brick": 1.5, "sidewalk": 1.4, "metal": 1.3, "dark": 1.2,
+    "brick": 1.5, "brick2": 1.45, "sidewalk": 1.4, "metal": 1.3, "dark": 1.2,
     "cabFront": 1.3, "bezel": 1.25, "door": 1.25, "vending": 1.2,
     "change": 1.2, "road": 1.5, "pierWood": 1.45, "water": 1.6,
     "shopNoodle": 1.2, "shopLaundro": 1.2, "shopGarage": 1.2,
@@ -93,7 +93,7 @@ EMISSIVE_CEIL = 172.0
 EMISSIVE_KNEE = 120.0
 
 # Tileables get wrap-safe grain (masks JPEG blocking, adds tooth).
-GRAINY = {"carpet", "wall", "wainscot", "ceiling", "brick", "sidewalk",
+GRAINY = {"carpet", "wall", "wainscot", "ceiling", "brick", "brick2", "sidewalk",
           "metal", "dark", "road", "pierWood", "nugSkin", "hoodCloth",
           "henWhite", "pickle"}
 # Anything the hall draws on an emissive quad also needs the ceiling.
@@ -128,7 +128,7 @@ JPEG_QUALITY = 87
 ALBEDO_LUMA = {
     # the architecture — the surfaces that are most of the frame
     "ceiling": 32.0, "wall": 33.0, "wainscot": 30.0, "carpet": 26.0,
-    "brick": 34.0, "sidewalk": 29.0, "road": 23.0, "dark": 13.0,
+    "brick": 34.0, "brick2": 36.0, "sidewalk": 29.0, "road": 23.0, "dark": 13.0,
     # fittings
     "metal": 44.0, "cabFront": 34.0, "bezel": 26.0, "door": 36.0,
     "change": 34.0, "vending": 34.0, "pierWood": 30.0,
@@ -147,7 +147,7 @@ LUMA = np.array([0.2126, 0.7152, 0.0722])
 # job is deleting black by construction. A brick's mortar is dim; it is not a
 # hole. The floor is applied to architecture only: neon keeps its black box.
 ALBEDO_FLOOR = 7.0
-FLOOR_REGIONS = {"ceiling", "wall", "wainscot", "carpet", "brick", "sidewalk",
+FLOOR_REGIONS = {"ceiling", "wall", "wainscot", "carpet", "brick", "brick2", "sidewalk",
                  "road", "metal", "cabFront", "bezel", "door", "change",
                  "vending", "pierWood", "dark", "sideBase", "across",
                  "shopNoodle", "shopLaundro", "shopGarage"}

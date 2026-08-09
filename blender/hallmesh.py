@@ -159,8 +159,17 @@ MATS = {
     # a model that names one it cannot reach makes Builder.model() bail to the
     # fallback, silently, for the whole prop.
     "lampHot":  ("sw_white", [0, 0, 1, 1], 1.0, 1.0),
-    "brick":    ("brick", [0.02, 0.02, 0.98, 0.98], 0.0, 1.0),
-    "brickD":   ("brick", [0.02, 0.02, 0.98, 0.98], 0.0, 0.72),
+    # $BRICK / $BRICKD are SENTINELS, exactly like $MARQ above. js/arcade.js
+    # remaps them per bay (xf.remap) to brick/brickD or brick2/brick2D, so one
+    # facadeBay model builds a terrace out of two different buildings instead
+    # of fourteen copies of one. A missing remap resolves to nothing and the
+    # call site falls back to the flat painted wall behind, which is what the
+    # street looked like before any of this — not a hole.
+    "brick":    ("$BRICK", [0.02, 0.02, 0.98, 0.98], 0.0, 1.0),
+    "brickD":   ("$BRICK", [0.02, 0.02, 0.98, 0.98], 0.0, 0.72),
+    # the fire escape's open grating: dark, and darker than its ironwork,
+    # because you are mostly looking through it at the wall behind
+    "grate":    ("sw_iron", [0, 0, 1, 1], 0.0, 0.46),
     "stone":    ("sw_curb", [0, 0, 1, 1], 0.0, 1.35),
     "glassDark": ("sw_black", [0, 0, 1, 1], 0.0, 1.0),
     # -- street furniture, round two -------------------------------------------------
@@ -210,6 +219,7 @@ _PREVIEW = {
     "btnCyan": (0.1, 0.8, 0.95), "btnWhite": (0.85, 0.85, 0.8),
     "cabLight": (1.0, 0.86, 0.62), "coinSlot": (0.02, 0.02, 0.03),
     "iron": (0.22, 0.25, 0.33), "ironD": (0.13, 0.15, 0.20),
+    "grate": (0.10, 0.11, 0.14),
     "metalD": (0.19, 0.21, 0.27), "metalG": (0.30, 0.33, 0.40),
     "lampGlass": (1.0, 0.72, 0.25), "lampHot": (1.0, 0.90, 0.70),
     "brick": (0.32, 0.16, 0.13), "brickD": (0.20, 0.10, 0.08),
@@ -1818,6 +1828,99 @@ def build_awning():
     return P.finish(bevel=0.004, segments=1, smooth_deg=34)
 
 
+def build_fire_escape():
+    """A two-storey fire escape: landings, stringers, rails, and a drop ladder.
+
+    THE GRIME session's brief was that the block across the road is "big flat
+    brick with one tone and no wear", and half of that is a TEXTURE problem
+    (see t_brick / t_brick2) but the other half is that the wall has nothing on
+    it. Forty-two metres of terrace carried fourteen identical bays, four air
+    conditioners and a neon sign. A fire escape is the single biggest thing you
+    can bolt to a wall like that: it breaks the silhouette at every storey, it
+    throws a real shadow across the brick behind it (the street shadow map is
+    baked off the static buffers, and this is static), and it says the building
+    has an inside.
+
+    Origin at the pavement, on the wall plane, front facing -Y as every model
+    here does. Built as ONE part so a bay costs one draw and one lookup.
+
+    The stair runs alternate direction per storey, which is what makes a fire
+    escape read as a fire escape rather than as a shelf: the zigzag IS the
+    silhouette. Everything is open — no solid treads — so the wall behind stays
+    visible through it, which is most of why it reads as ironwork.
+    """
+    P = Part("fireEscape")
+    W = 2.10                 # landing width, a hair under the 3m bay
+    D = 1.05                 # how far it stands off the wall
+    hw = W / 2
+    STOREY = 2.10
+    LEVELS = (2.30, 4.40)    # landing heights: over each of the bay's windows
+
+    def landing(z, sx):
+        # deck: open grating, drawn as a run of flats with gaps between them
+        for i in range(5):
+            y = -0.10 - D * (i + 0.5) / 5
+            P.box((0, y, z), (W, D / 5 * 0.60, 0.028), "grate")
+        # stringers front and back
+        P.box((0, -0.10 - D, z - 0.020), (W, 0.055, 0.130), "ironD")
+        P.box((0, -0.12, z - 0.020), (W, 0.045, 0.110), "ironD")
+        for ex in (-1, 1):
+            P.box((ex * hw, -0.10 - D / 2, z - 0.020), (0.050, D, 0.110), "ironD")
+        # railing: two rails and the uprights between them
+        for rz, rr in ((z + 0.44, 0.019), (z + 0.86, 0.022)):
+            P.cyl((0, -0.10 - D, rz), "x", rr, rr, W, "iron", slices=6)
+            for ex in (-1, 1):
+                P.cyl((ex * hw, -0.10 - D / 2, rz), "y", rr, rr, D, "iron", slices=6)
+        for i in range(6):
+            ux = -hw + W * i / 5
+            P.cyl((ux, -0.10 - D, z + 0.45), "z", 0.011, 0.011, 0.90, "iron", slices=5)
+        for ex in (-1, 1):
+            P.cyl((ex * hw, -0.10 - D / 2, z + 0.45), "z", 0.014, 0.014, 0.90, "iron", slices=6)
+        # the brackets that actually hold it up — a fire escape with no visible
+        # fixing floats, and floating is the one thing ironwork must not do
+        for ex in (-1, 1):
+            P.limb((ex * (hw - 0.10), -0.02, z - 0.02),
+                   (ex * (hw - 0.10), -0.10 - D + 0.08, z - 0.02), 0.022, 0.018, "ironD", slices=6)
+            P.limb((ex * (hw - 0.10), -0.10 - D + 0.08, z - 0.04),
+                   (ex * (hw - 0.10), -0.06, z - 0.62), 0.020, 0.016, "ironD", slices=6)
+
+    def flight(z0, z1, sx):
+        """One run of stair, sx = which side it climbs from."""
+        n = 7
+        for i in range(n):
+            t0 = i / n
+            x = sx * (hw - 0.28) * (1.0 - t0) + -sx * (hw - 0.28) * t0
+            z = z0 + (z1 - z0) * (i + 0.5) / n
+            P.box((x, -0.10 - D * 0.55, z), (W / n * 0.92, 0.34, 0.026), "grate")
+        # the two stringers the treads sit on
+        for ey in (-0.10 - D * 0.30, -0.10 - D * 0.80):
+            P.limb((sx * (hw - 0.10), ey, z0 - 0.05), (-sx * (hw - 0.10), ey, z1 - 0.05),
+                   0.030, 0.030, "ironD", slices=6)
+        # a handrail over the outer stringer
+        P.limb((sx * (hw - 0.10), -0.10 - D * 0.80, z0 + 0.86),
+               (-sx * (hw - 0.10), -0.10 - D * 0.80, z1 + 0.86), 0.018, 0.018, "iron", slices=6)
+        for i in range(4):
+            t0 = (i + 0.5) / 4
+            x = sx * (hw - 0.10) * (1.0 - t0) + -sx * (hw - 0.10) * t0
+            P.cyl((x, -0.10 - D * 0.80, z0 + (z1 - z0) * t0 + 0.43), "z",
+                  0.011, 0.011, 0.86, "iron", slices=6)
+
+    for i, z in enumerate(LEVELS):
+        landing(z, 1 if i % 2 == 0 else -1)
+    flight(LEVELS[0], LEVELS[1], 1)
+    # THE DROP LADDER, hanging short of the pavement the way they always do.
+    for sx in (-1, 1):
+        P.limb((sx * 0.30, -0.10 - D * 0.86, LEVELS[0] - 0.06),
+               (sx * 0.30, -0.10 - D * 0.86, 0.95), 0.020, 0.020, "iron", slices=6)
+    for i in range(5):
+        P.cyl((0, -0.10 - D * 0.86, 1.05 + i * 0.28), "x", 0.014, 0.014, 0.60, "iron", slices=5)
+    # NO BEVEL. Every other model here gets one because a hard edge on a large
+    # flat surface reads as untextured cardboard — but this is 20mm bar seen
+    # from eight metres, and the bevel was tripling the vertex count of the
+    # heaviest prop on the street to soften an edge nobody can resolve.
+    return P.finish(bevel=0.0, segments=1, smooth_deg=38)
+
+
 def build_bin():
     """A municipal litter bin: slatted drum, domed lid, chunky rim.
 
@@ -1878,6 +1981,7 @@ def build_bus_shelter():
 MODELS.update({
     "hydrant": build_hydrant,
     "awning": build_awning,
+    "fireEscape": build_fire_escape,
     "bin": build_bin,
     "busShelter": build_bus_shelter,
 })

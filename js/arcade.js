@@ -1576,7 +1576,17 @@ void main() {
     let type = gl.UNSIGNED_SHORT, bytes = 2;
     if (this.n > 65535) {
       if (H.uintIndex) { type = gl.UNSIGNED_INT; bytes = 4; }
-      else console.warn('arcade: ' + this.n + ' vertices with no OES_element_index_uint — geometry will wrap');
+      else console.warn('arcade: ' + this.n + ' vertices and no 32-bit indices — geometry will wrap');
+    } else if (this.n > 62000) {
+      // THE CLIFF EDGE, and it is worth shouting about before somebody walks
+      // off it. When THE GRIME measured this, the hall's static buffer was at
+      // 64960 of 65535 — 99.1% — and H.uintIndex was WRONG on every WebGL2
+      // context in the world (it tested for a WebGL1 extension). One more
+      // ceiling module would have wrapped the entire hall into black spikes on
+      // every browser, with no error anywhere. The check is fixed; this says
+      // so out loud while there is still room to react.
+      console.warn('arcade: ' + this.n + ' vertices — ' +
+        (65535 - this.n) + ' left before this buffer needs 32-bit indices');
     }
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,
       bytes === 4 ? new Uint32Array(this.i) : new Uint16Array(this.i), gl.STATIC_DRAW);
@@ -2987,17 +2997,44 @@ void main() {
     // get the old flat wall.
     {
       const BAY = 3.0, z = 13.9;
+      // 🧱 THE TERRACE IS TWO BUILDINGS NOW. Fourteen bays all wore the same
+      // brick, tiled 2.2x2.2 — a repeat every 1.4m along 42m of wall — and the
+      // measured verdict on this street was "big flat brick with one tone".
+      // facadeBay's materials are $BRICK sentinels (blender/hallmesh.py, the
+      // same trick that lets one cabinet model wear ten games' artwork), so a
+      // bay can be built out of the weathered red stock OR the painted render
+      // that has been going off since the sixties.
+      //
+      // Buildings, not stripes: the run length is 3-5 bays, so the terrace
+      // reads as premises with party walls between them rather than as an
+      // alternating pattern. Derived from the index so it is stable across
+      // reloads — a street that re-shuffles itself every visit is a bug.
+      const WALLS = [
+        { $BRICK: 'brick' },
+        { $BRICK: 'brick2' },
+      ];
+      const wallFor = (i) => WALLS[(((i + 1) / 4) | 0) % 2];
       for (let i = 0; i < 14; i++) {
         const bx = -20.0 + i * BAY;
         // DIP HOP's basement door and its neon are the only things ON this
         // wall (the shops are at z=0.04, on the arcade's own side of the
         // street). A bay over the top of them buries the club entrance.
         if (bx > -9.0 && bx < -3.0) continue;
-        if (!ST.model('facadeBay', suv, { x: bx, z, yaw: Math.PI })) break;
+        if (!ST.model('facadeBay', suv, { x: bx, z, yaw: Math.PI, remap: wallFor(i) })) break;
         // a few of them wear an air conditioner over the lower window
         if ((i * 7) % 5 === 0) {
           ST.model('acUnit', suv, { x: bx + 0.55, y: 1.42, z: z - 0.16, yaw: Math.PI });
           H.glows.push({ p: [bx, 4.3, z - 0.35], c: [1, 0.86, 0.55], s: 0.7, a: 0.05, k: 'sign' });
+        }
+        // 🪜 FIRE ESCAPES. The other half of "no wear" was that this wall had
+        // nothing ON it: 42 metres of terrace carrying four air conditioners
+        // and a neon sign. A fire escape breaks the silhouette at every storey
+        // and — because the street shadow map bakes off the static buffers and
+        // this is static — drops a real ladder of shadow down the brick behind
+        // it. Two of them, on bays that are not already wearing an AC unit.
+        if (i === 2 || i === 10) {
+          ST.model('fireEscape', suv, { x: bx, z: z - 0.02, yaw: Math.PI });
+          H.propBoxes.push({ min: [bx - 1.1, 0, z - 1.3], max: [bx + 1.1, 5.4, z] });
         }
       }
     }
@@ -4038,7 +4075,16 @@ void main() {
     // 32-bit element indices: the Blender geometry pushes the static buffer well
     // past 65535 vertices. Universally supported in practice; if it is ever
     // missing, upload() warns and the hall still runs on 16-bit.
-    H.uintIndex = !!gl.getExtension('OES_element_index_uint');
+    // 32-BIT INDICES. `OES_element_index_uint` is a WebGL**1** extension; on
+    // WebGL2 they are CORE and getExtension returns null for it. So this check
+    // reported "no 32-bit indices" on every WebGL2 context in the world, and
+    // Builder.upload quietly fell back to Uint16 — where an overflow does not
+    // error, it WRAPS, stitching triangles between unrelated vertices.
+    //
+    // It never fired because no buffer had crossed 65535. Adding two fire
+    // escapes to the street took it to 67765 and the block across the road
+    // turned into a black smear. Latent since §7 of the handoff.
+    H.uintIndex = !!gl2 || !!gl.getExtension('OES_element_index_uint');
     gl.enable(gl.CULL_FACE);
     gl.clearColor(FOG[0], FOG[1], FOG[2], 1);
 
