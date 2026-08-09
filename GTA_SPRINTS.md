@@ -1364,3 +1364,58 @@ mark, 1★ heat. Screenshots eyeballed at every stop.
   quantized pearl, but do NOT feed it a continuously-varying color string.
 - Interiors (10.8) still draw their own art; FRESH PAINT deliberately
   stops at the door.
+
+---
+
+## S2.13 — 🏙 THE ZONING VARIANCE (2026-08-08, the Blender night pt. 2)
+
+Beau reviewed FRESH PAINT on prod and said the quiet part loud: it didn't
+LOOK upgraded. He was right, and the A/B harness proved it — grading every
+tile's mean to the old palette preserved the night mood so faithfully that
+downtown's luminance stddev moved 23.2 → 24.2. A 4% change. Invisible.
+Lesson learned in numbers: **palette fidelity is not the same thing as
+looking good.** So this sprint measures first and paints second.
+
+**The assessment harness (scratchpad `assess.js` + `compose.py`, recipe
+below):** identical camera spots (downtown / arcade / harbor / park),
+GtaArt ON vs OFF (OFF = the byte-identical fillRect fallbacks), weather
+pinned clear, side-by-side composites + 2× crops + per-shot luminance
+stats. v2 overshot (contrast 2.0 → cracked-concrete wallpaper, every road
+tile a lightning bolt); v3 landed it: downtown 23.2 → **25.1**, park 18.9 →
+**21.8**, and the delta is STRUCTURED (curbs, shadows, pools) not noise.
+
+**What shipped:**
+- **THE ZONING VARIANCE** (in gtaBuildCity, after every existing claim):
+  plazas with fountains + benches around arcade/NPD/general/strip; park
+  paths, 2×2 ponds (big parks) or fountains (fancy hash); alleys cut
+  through deep blocks with dumpsters; 3×3 vacant rubble lots with a
+  stripped wreck. **Append-only discipline: ZERO rnd() calls — pure
+  gtaHash — placed after doors, so roads, landmarks, carts, booths,
+  evidence, and doors did not move.** Claimed tiles guarded via a Set.
+  New `gta.deco` grid (1 plaza / 2 alley / 3 lot / 4 path) + `gta.decor`
+  prop list (fountain/bench/dumpster/junkwreck).
+- **The depth pass** (procedural, works with art OFF too): curb highlights
+  + dark gutters where pavement meets tarmac, building shadows leaning
+  over sidewalks, mid-block lamp pools (hash % 11), puddles on roads
+  (hash % 13 — last night's rain), stronger intersection pools, water foam
+  grew an east edge (ponds have east shores; the bay never did).
+- **Tiles v3:** raking-light rig (44°, not v2's 58°), displaced-geometry
+  relief, FOUR road variants hash-picked mostly-clean (`'ccacbccd'[hsh%8]`)
+  so nothing wallpapers, 4 roof variants with furniture (AC/hatch+vents/
+  skylight/pipe run), textured footprint slab (`tile_found`, also the
+  vacant-lot ground). Sidewalks lifted to #383843/#343440 — one step
+  brighter than the road so the curb hierarchy reads.
+- **GTA_RISE 0.055 → 0.075** — downtown finally towers.
+
+**Gotchas for whoever's next:**
+- TILE_CONTRAST in pack_atlas.py: 1.0 was invisible, 2.0 was wallpaper.
+  The v3 values are the midpoint — tune in small steps and LOOK at crops.
+- Road variants are hash-picked, not checker-picked; keep the pick string
+  mostly 'c' (clean) or the pattern repetition comes back.
+- The zoning pass MUST stay after all rnd() placements and must never eat
+  a claimed tile — the guard Set is load-bearing, not decoration.
+- The pond is REAL water (GT_WATER): solid to cars, skipped by peds. A
+  teleporting test can still park in it. That is a feature of tests.
+- assess/compose recipe: serve the repo, drive `assess.js on <dir>` /
+  `off <dir>`, then `compose.py <old> <new> <out>` — keep using it before
+  claiming anything "looks better". Numbers first, adjectives second.

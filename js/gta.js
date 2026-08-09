@@ -568,6 +568,136 @@ function gtaBuildCity() {
     }
   }
 
+  // THE ZONING VARIANCE (S2.13): plazas, park ponds + paths, alleys, and
+  // vacant lots — the grid stops being wall-to-wall building. Deterministic
+  // (gtaHash only, ZERO rnd() calls) and placed after every earlier claim,
+  // so the city does not move: roads, landmarks, carts, booths, evidence,
+  // and doors all sit exactly where they always did.
+  gta.deco = new Uint8Array(GTA_W * GTA_H); // 0 none, 1 plaza, 2 alley, 3 lot, 4 path
+  gta.decor = [];
+  const claimedT = new Set();
+  for (const c2 of gta.noodleCarts) claimedT.add(c2.c + ',' + c2.r);
+  for (const b2 of gta.booths) claimedT.add(b2.c + ',' + b2.r);
+  for (const ev of gta.evidence) claimedT.add(ev.c + ',' + ev.r);
+  for (const d2 of gta.doors) claimedT.add(Math.floor(d2.mx / GTA_TILE) + ',' + Math.floor(d2.my / GTA_TILE));
+  const freeB = (tc2, tr2) => tc2 > 2 && tc2 < SHORE - 1 && tr2 > 2 && tr2 < GTA_H - 3 &&
+    map[tr2 * GTA_W + tc2] === GT_BLDG && !gta.lmGrid[tr2 * GTA_W + tc2] &&
+    !claimedT.has(tc2 + ',' + tr2);
+
+  // Plazas: four landmarks trade their back-lot bulk for a public forecourt
+  // with a fountain and somewhere to sit. Peds stroll them automatically
+  // (they're WALK tiles); so can your car, which is very Nuggetown.
+  for (const key of ['arcade', 'npd', 'general', 'strip']) {
+    const L2 = gta.landmarks[key];
+    if (!L2) continue;
+    const ring = [];
+    for (let tr2 = L2.r - 2; tr2 < L2.r + L2.h + 2; tr2++) {
+      for (let tc2 = L2.c - 2; tc2 < L2.c + L2.w + 2; tc2++) {
+        if (!freeB(tc2, tr2)) continue;
+        map[tr2 * GTA_W + tc2] = GT_WALK;
+        gta.deco[tr2 * GTA_W + tc2] = 1;
+        ring.push([tc2, tr2]);
+      }
+    }
+    if (ring.length > 2) {
+      const fh = gtaHash(L2.c * 7, L2.r * 11);
+      const fi = fh % ring.length;
+      gta.decor.push({ kind: 'fountain', c: ring[fi][0], r: ring[fi][1] });
+      for (let bi2 = 1; bi2 <= 2 && bi2 < ring.length; bi2++) {
+        const pi = (fi + 1 + ((fh >> (bi2 * 3)) % (ring.length - 1))) % ring.length;
+        if (pi === fi) continue;
+        gta.decor.push({ kind: 'bench', c: ring[pi][0], r: ring[pi][1] });
+      }
+    }
+  }
+
+  // Park makeover: every park worth the name gets a path; the big ones get
+  // a pond (or a fountain, if the zoning hash felt fancy). Evidence tiles
+  // are sacrosanct — nothing paves over the case.
+  const BXz = Math.ceil(GTA_W / 10), BYz = Math.ceil(GTA_H / 9);
+  for (let by = 0; by < BYz; by++) {
+    for (let bx = 0; bx < BXz; bx++) {
+      const gs = [];
+      for (let tr2 = by * 9; tr2 < Math.min(by * 9 + 9, GTA_H); tr2++) {
+        for (let tc2 = bx * 10; tc2 < Math.min(bx * 10 + 10, GTA_W); tc2++) {
+          if (tc2 >= SHORE) continue;
+          if (map[tr2 * GTA_W + tc2] === GT_GRASS && !claimedT.has(tc2 + ',' + tr2)) gs.push([tc2, tr2]);
+        }
+      }
+      if (gs.length < 12) continue;
+      const h2 = gtaHash(bx * 31 + 5, by * 17 + 9);
+      let r0 = Infinity, r1 = -Infinity, c0 = Infinity, c1 = -Infinity;
+      for (const [tc2, tr2] of gs) {
+        if (tr2 < r0) r0 = tr2; if (tr2 > r1) r1 = tr2;
+        if (tc2 < c0) c0 = tc2; if (tc2 > c1) c1 = tc2;
+      }
+      const pr2 = Math.floor((r0 + r1) / 2);
+      for (const [tc2, tr2] of gs) { // the path: grass -> pavement, mid-row
+        if (tr2 !== pr2) continue;
+        map[tr2 * GTA_W + tc2] = GT_WALK;
+        gta.deco[tr2 * GTA_W + tc2] = 4;
+      }
+      const pc = c0 + 2 + (h2 % Math.max(1, c1 - c0 - 3));
+      if (gs.length >= 20) { // the pond (cars respect it; the bay taught them)
+        for (let tr2 = pr2 - 2; tr2 <= pr2 - 1; tr2++) {
+          for (let tc2 = pc; tc2 <= pc + 1; tc2++) {
+            if (tr2 < r0 || tr2 > r1 || map[tr2 * GTA_W + tc2] !== GT_GRASS ||
+                claimedT.has(tc2 + ',' + tr2)) continue;
+            map[tr2 * GTA_W + tc2] = GT_WATER;
+          }
+        }
+      } else if (h2 % 3 === 0) {
+        gta.decor.push({ kind: 'fountain', c: pc, r: pr2 - 1 });
+      }
+      // benches along the path, facing the action
+      let benches = 0;
+      for (const [tc2, tr2] of gs) {
+        if (benches >= 2) break;
+        if (tr2 === pr2 + 1 && map[tr2 * GTA_W + tc2] === GT_GRASS &&
+            gtaHash(tc2, tr2) % 3 === 0) {
+          gta.decor.push({ kind: 'bench', c: tc2, r: tr2 });
+          benches++;
+        }
+      }
+    }
+  }
+
+  // Alleys + vacant lots: the deep blocks crack open. An alley cuts through
+  // to the parallel street (dumpsters included); a lot is where a building
+  // never happened — rubble and something stripped for parts.
+  for (let bi3 = 0; bi3 < blocks.length; bi3++) {
+    if (used.has(bi3)) continue;
+    const b3 = blocks[bi3];
+    const bh = gtaHash(b3.c0 * 5 + 1, b3.r0 * 3 + 7);
+    if (b3.c1 - b3.c0 >= 4 && bh % 3 === 0) {
+      const ac = Math.floor((b3.c0 + b3.c1) / 2);
+      let cut = 0;
+      for (let tr2 = b3.r0; tr2 <= b3.r1; tr2++) {
+        if (!freeB(ac, tr2)) continue;
+        map[tr2 * GTA_W + ac] = GT_WALK;
+        gta.deco[tr2 * GTA_W + ac] = 2;
+        cut++;
+        if (cut % 3 === 2) gta.decor.push({ kind: 'dumpster', c: ac, r: tr2 });
+      }
+    } else if (bh % 4 === 1) {
+      let lot = 0;
+      for (let tr2 = b3.r0; tr2 < b3.r0 + 3 && tr2 <= b3.r1; tr2++) {
+        for (let tc2 = b3.c0; tc2 < b3.c0 + 3 && tc2 <= b3.c1; tc2++) {
+          if (!freeB(tc2, tr2)) continue;
+          map[tr2 * GTA_W + tc2] = GT_GRASS;
+          gta.deco[tr2 * GTA_W + tc2] = 3;
+          lot++;
+        }
+      }
+      if (lot >= 4) {
+        gta.decor.push({
+          kind: 'junkwreck', c: b3.c0 + 1, r: b3.r0 + 1,
+          a: (bh % 7) * 0.9, cls: ['sedan', 'compact', 'van'][bh % 3],
+        });
+      }
+    }
+  }
+
   // The minimap is painted once at gen time, 1px per tile; the HUD blits a
   // radar window from it every frame. Never repaint this per frame.
   const mini = document.createElement('canvas');
@@ -5324,7 +5454,7 @@ function gtaStepWorld(dt) {
 // harbor warehouses hug the ground, landmarks stand a uniform 2. Draw order:
 // ALL walls first, then roofs from low to high, so a tall section correctly
 // overhangs a shorter neighbor instead of hiding under it.
-const GTA_RISE = 0.055;
+const GTA_RISE = 0.075; // S2.13: downtown grew a skyline — was 0.055
 
 function gtaBldgH(tc, tr) {
   if (tc < 0 || tr < 0 || tc >= GTA_W || tr >= GTA_H) return 0;
@@ -5468,7 +5598,7 @@ function gtaDrawBuildings(g, ox, oy, c0, c1, r0, r1) {
         // so a scaled blit covers it exactly.
         const roofC = gtaRoofCol(tc, tr);
         const roofCv = (typeof GtaArt !== 'undefined' && GtaArt.on())
-          ? GtaArt.tintedAll(((tc + tr) & 1) ? 'tile_roof_a' : 'tile_roof_b', roofC) : null;
+          ? GtaArt.tintedAll('tile_roof_' + 'abcd'[gtaHash(tc * 3 + 1, tr * 5 + 2) & 3], roofC) : null;
         if (roofCv) {
           g.drawImage(roofCv, pTL[0], pTL[1], pTR[0] - pTL[0], pBL[1] - pTL[1]);
         } else {
@@ -5520,8 +5650,10 @@ function gtaDraw() {
       if (k === GT_ROAD) {
         const crossing = gta.vRoad[tc] && gta.hRoad[tr];
         // FRESH PAINT: Blender asphalt, with the odd manhole where the hash wills it
+        // mostly clean slab, the odd seam/patch/stain, hash-picked so the
+        // pattern never wallpapers (v2 lesson)
         const roadSpr = !crossing && hsh % 29 === 0 ? 'tile_road_manhole'
-          : ((tc + tr) & 1) ? 'tile_road_a' : 'tile_road_b';
+          : 'tile_road_' + 'ccacbccd'[hsh % 8];
         if (!(artOn && GtaArt.draw(g, roadSpr, x + T / 2, y + T / 2))) {
           g.fillStyle = ((tc + tr) & 1) ? '#232330' : '#26262e';
           g.fillRect(x, y, T, T);
@@ -5543,6 +5675,20 @@ function gtaDraw() {
             if (gta.hDash[tr] && gta.hRoad[tr] && (tc & 1) === 0) g.fillRect(x + 3, y, T - 10, 2);
           }
         }
+        // gutters: a dark seam where the tarmac meets the curb (S2.13)
+        g.fillStyle = 'rgba(0,0,0,0.35)';
+        if (gtaTile(tc - 1, tr) === GT_WALK) g.fillRect(x, y, 1, T);
+        if (gtaTile(tc + 1, tr) === GT_WALK) g.fillRect(x + T - 1, y, 1, T);
+        if (gtaTile(tc, tr - 1) === GT_WALK) g.fillRect(x, y, T, 1);
+        if (gtaTile(tc, tr + 1) === GT_WALK) g.fillRect(x, y + T - 1, T, 1);
+        if (!crossing && hsh % 13 === 5) { // last night's rain never really leaves
+          const pw = 5 + (hsh % 5), ph2 = 2.5 + (hsh % 3);
+          const pcx = x + 4 + (hsh % 9) + pw / 2, pcy = y + 5 + ((hsh >> 4) % 11);
+          g.fillStyle = 'rgba(95,135,215,0.11)';
+          g.beginPath(); g.ellipse(pcx, pcy, pw, ph2, 0, 0, Math.PI * 2); g.fill();
+          g.fillStyle = 'rgba(185,215,255,0.12)';
+          g.fillRect(pcx - pw / 2, pcy - ph2, pw, 1);
+        }
       } else if (k === GT_WALK) {
         if (tc >= GTA_W - 14) {
           // harbor boardwalk + piers: planks over the bay
@@ -5552,11 +5698,40 @@ function gtaDraw() {
             g.fillStyle = 'rgba(0,0,0,0.3)';
             for (let py = 0; py < T; py += 6) g.fillRect(x, y + py, T, 1);
           }
-        } else if (!(artOn && GtaArt.draw(g, ((tc + tr) & 1) ? 'tile_walk_a' : 'tile_walk_b', x + T / 2, y + T / 2))) {
-          g.fillStyle = ((tc + tr) & 1) ? '#33333e' : '#303039';
-          g.fillRect(x, y, T, T);
-          g.fillStyle = 'rgba(0,0,0,0.25)';
-          g.fillRect(x, y, T, 1); g.fillRect(x, y, 1, T); // pavement seams
+        } else {
+          if (!(artOn && GtaArt.draw(g, ((tc + tr) & 1) ? 'tile_walk_a' : 'tile_walk_b', x + T / 2, y + T / 2))) {
+            g.fillStyle = ((tc + tr) & 1) ? '#33333e' : '#303039';
+            g.fillRect(x, y, T, T);
+            g.fillStyle = 'rgba(0,0,0,0.25)';
+            g.fillRect(x, y, T, 1); g.fillRect(x, y, 1, T); // pavement seams
+          }
+          const dec = gta.deco ? gta.deco[tr * GTA_W + tc] : 0;
+          if (dec === 2) { // alley grime, worn down the middle
+            g.fillStyle = 'rgba(0,0,0,0.2)';
+            g.fillRect(x + 7, y, T - 14, T);
+          }
+          // the curb catches the streetlight where pavement meets tarmac
+          g.fillStyle = 'rgba(205,215,235,0.13)';
+          if (gtaTile(tc - 1, tr) === GT_ROAD) g.fillRect(x, y, 1, T);
+          if (gtaTile(tc + 1, tr) === GT_ROAD) g.fillRect(x + T - 1, y, 1, T);
+          if (gtaTile(tc, tr - 1) === GT_ROAD) g.fillRect(x, y, T, 1);
+          if (gtaTile(tc, tr + 1) === GT_ROAD) g.fillRect(x, y + T - 1, T, 1);
+          // buildings lean their shadows over the pavement (S2.13 depth)
+          g.fillStyle = 'rgba(0,0,0,0.2)';
+          if (gtaBldgH(tc - 1, tr)) g.fillRect(x, y, 5, T);
+          if (gtaBldgH(tc + 1, tr)) g.fillRect(x + T - 5, y, 5, T);
+          if (gtaBldgH(tc, tr - 1)) g.fillRect(x, y, T, 5);
+          if (gtaBldgH(tc, tr + 1)) g.fillRect(x, y + T - 5, T, 5);
+          // mid-block lamps pool warm light on the pavement
+          if (hsh % 11 === 0 && dec !== 2) {
+            const lg2 = g.createRadialGradient(x + T / 2, y + T / 2, 1, x + T / 2, y + T / 2, T * 0.95);
+            lg2.addColorStop(0, 'rgba(255,222,150,0.16)');
+            lg2.addColorStop(1, 'rgba(255,222,150,0)');
+            g.fillStyle = lg2;
+            g.fillRect(x - 8, y - 8, T + 16, T + 16);
+            g.fillStyle = '#ffe9b0';
+            g.fillRect(x + T / 2 - 1, y + T / 2 - 1, 2, 2);
+          }
         }
       } else if (k === GT_WATER) {
         if (!(artOn && GtaArt.draw(g, ((tc + tr) & 1) ? 'tile_water_a' : 'tile_water_b', x + T / 2, y + T / 2))) {
@@ -5571,8 +5746,15 @@ function gtaDraw() {
         // foam where the water meets anything that isn't water
         g.fillStyle = 'rgba(200,230,255,0.12)';
         if (gtaTile(tc - 1, tr) !== GT_WATER) g.fillRect(x, y, 2, T);
+        if (gtaTile(tc + 1, tr) !== GT_WATER) g.fillRect(x + T - 2, y, 2, T); // ponds have east shores
         if (gtaTile(tc, tr - 1) !== GT_WATER) g.fillRect(x, y, T, 2);
         if (gtaTile(tc, tr + 1) !== GT_WATER) g.fillRect(x, y + T - 2, T, 2);
+      } else if (k === GT_GRASS && gta.deco && gta.deco[tr * GTA_W + tc] === 3) {
+        // a vacant lot: rubble where a building never quite happened (S2.13)
+        if (!(artOn && GtaArt.draw(g, 'tile_found', x + T / 2, y + T / 2))) {
+          g.fillStyle = '#15151d';
+          g.fillRect(x, y, T, T);
+        }
       } else if (k === GT_GRASS) {
         if (!(artOn && GtaArt.draw(g, ((tc + tr) & 1) ? 'tile_grass_a' : 'tile_grass_b', x + T / 2, y + T / 2))) {
           g.fillStyle = ((tc + tr) & 1) ? '#122016' : '#101c14';
@@ -5597,13 +5779,15 @@ function gtaDraw() {
       } else {
         // building FOOTPRINT only — the roof floats overhead in the
         // extrusion pass; this is the dark foundation the walls rise from
-        g.fillStyle = '#0b0b10';
-        g.fillRect(x, y, T, T);
+        if (!(artOn && GtaArt.draw(g, 'tile_found', x + T / 2, y + T / 2))) {
+          g.fillStyle = '#0b0b10';
+          g.fillRect(x, y, T, T);
+        }
       }
       // street lamps pool light on intersections
       if (k === GT_ROAD && gta.vRoad[tc] && gta.hRoad[tr] && hsh % 4 === 0) {
         const lg = g.createRadialGradient(x + T / 2, y + T / 2, 2, x + T / 2, y + T / 2, T * 1.1);
-        lg.addColorStop(0, 'rgba(255,220,140,0.13)');
+        lg.addColorStop(0, 'rgba(255,220,140,0.19)');
         lg.addColorStop(1, 'rgba(255,220,140,0)');
         g.fillStyle = lg;
         g.fillRect(x - T, y - T, T * 3, T * 3);
@@ -5724,6 +5908,49 @@ function gtaDraw() {
     g.fillRect(px - 4, py - 3, 4, 2);
     g.fillStyle = '#8a2a2a'; // CONFIDENTIAL, in 1px type
     g.fillRect(px - 2.5, py - 0.5, 5, 1);
+  }
+
+  // S2.13 street furniture: plaza fountains, benches, alley dumpsters, and
+  // the lots' stripped wrecks. Sprites with crude fallbacks; motion stays
+  // procedural (fountain water never sits still).
+  for (const dc of gta.decor || []) {
+    const px = (dc.c + 0.5) * T - ox, py = (dc.r + 0.5) * T - oy;
+    if (px < -T * 2 || px > W + T * 2 || py < -T * 2 || py > Hh + T * 2) continue;
+    if (dc.kind === 'fountain') {
+      g.fillStyle = 'rgba(0,0,0,0.3)';
+      g.beginPath(); g.arc(px + 1, py + 1, 11, 0, Math.PI * 2); g.fill();
+      if (!(artOn && GtaArt.draw(g, 'prop_fountain', px, py))) {
+        g.fillStyle = '#3a3a44';
+        g.beginPath(); g.arc(px, py, 10, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#16324e';
+        g.beginPath(); g.arc(px, py, 7, 0, Math.PI * 2); g.fill();
+      }
+      const rr4 = 3 + ((gta.t * 6 + dc.c) % 6);
+      g.strokeStyle = 'rgba(150,210,255,' + (0.22 * (1 - rr4 / 6)).toFixed(2) + ')';
+      g.lineWidth = 1;
+      g.beginPath(); g.arc(px, py, rr4, 0, Math.PI * 2); g.stroke();
+    } else if (dc.kind === 'bench') {
+      if (!(artOn && GtaArt.draw(g, 'prop_bench', px, py))) {
+        g.fillStyle = '#4a3420';
+        g.fillRect(px - 4, py - 2, 8, 4);
+      }
+    } else if (dc.kind === 'dumpster') {
+      if (!(artOn && GtaArt.draw(g, 'prop_dumpster', px, py))) {
+        g.fillStyle = '#1c3a2e';
+        g.fillRect(px - 6, py - 4, 12, 8);
+        g.fillStyle = '#0e1e18';
+        g.fillRect(px - 6, py - 4, 12, 2);
+      }
+    } else if (dc.kind === 'junkwreck') {
+      g.save();
+      g.translate(px, py);
+      g.rotate(dc.a);
+      if (!(artOn && GtaArt.draw(g, 'car_' + dc.cls + '_wreck', 0, 0))) {
+        g.fillStyle = '#16161c';
+        g.fillRect(-9, -5, 18, 10);
+      }
+      g.restore();
+    }
   }
 
   // Noodle Nug carts: awning, counter glow, and steam that never stops.

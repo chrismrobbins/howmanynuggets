@@ -101,6 +101,17 @@ def rig_setup():
     return sc.render.engine
 
 
+def rig_tiles():
+    """Tile-pass lighting: a lower, raking key so ground relief casts real
+    shadows. v2 lesson: 58-degree rake made wallpaper; 44 is the sweet spot."""
+    rig_setup()
+    key = bpy.data.objects["NugKey"]
+    key.rotation_euler = (math.radians(44), math.radians(-12), 0)
+    key.data.energy = 4.2
+    key.data.angle = math.radians(8)
+    bpy.data.objects["NugFill"].data.energy = 1.0
+
+
 def shot(name, w_px, h_px, render_dir):
     sc = bpy.context.scene
     cam = bpy.data.objects["NugCam"]
@@ -227,6 +238,58 @@ def plane(name, s, m, x=0, y=0, z=0):
     if m:
         o.data.materials.append(m)
     return o
+
+
+def gridplane(name, s, m, subdiv=48, disp=0.0, disp_scale=6.0, z=0):
+    """Subdivided plane with clouds displacement — real relief, not just bump."""
+    bpy.ops.mesh.primitive_grid_add(x_subdivisions=subdiv, y_subdivisions=subdiv,
+                                    size=1, location=(0, 0, z))
+    o = bpy.context.active_object
+    o.name = name
+    o.scale = (s, s, 1)
+    bpy.ops.object.transform_apply(scale=True)
+    if disp > 0:
+        tex = bpy.data.textures.get("disp_" + name) or bpy.data.textures.new("disp_" + name, "CLOUDS")
+        tex.noise_scale = disp_scale
+        md = o.modifiers.new("disp", "DISPLACE")
+        md.texture = tex
+        md.strength = disp
+        md.mid_level = 0.5
+    if m:
+        o.data.materials.append(m)
+    return o
+
+
+def stain_mat(name, dark=0.15, alpha_max=0.45):
+    """Soft radial stain decal (oil, grime): dark center fading to nothing."""
+    m = bpy.data.materials.get(name)
+    if m:
+        return m
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    m.blend_method = "BLEND"
+    try:
+        m.shadow_method = "NONE"
+    except Exception:
+        pass
+    nt = m.node_tree
+    bsdf = nt.nodes.get("Principled BSDF")
+    bsdf.inputs["Base Color"].default_value = (dark * 0.2, dark * 0.18, dark * 0.16, 1)
+    bsdf.inputs["Roughness"].default_value = 0.25
+    grad = nt.nodes.new("ShaderNodeTexGradient")
+    grad.gradient_type = "SPHERICAL"
+    mapn = nt.nodes.new("ShaderNodeMapping")
+    coord = nt.nodes.new("ShaderNodeTexCoord")
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].position = 0.0
+    ramp.color_ramp.elements[0].color = (0, 0, 0, 0)
+    ramp.color_ramp.elements[1].position = 0.9
+    ramp.color_ramp.elements[1].color = (alpha_max, alpha_max, alpha_max, 1)
+    nt.links.new(coord.outputs["Object"], mapn.inputs["Vector"])
+    nt.links.new(mapn.outputs["Vector"], grad.inputs["Vector"])
+    nt.links.new(grad.outputs["Fac"], ramp.inputs["Fac"])
+    nt.links.new(ramp.outputs["Color"], bsdf.inputs["Alpha"])
+    return m
 
 
 # ---- mask / wreck passes -------------------------------------------------------
@@ -498,7 +561,10 @@ def make_cap():
 # ---- the ground -----------------------------------------------------------------
 
 def make_tile(kind, variant="a", seed=0):
-    """One 24px ground tile's geometry (plus apron, cropped by the camera)."""
+    """One 24px ground tile's geometry (plus apron, cropped by the camera).
+    Render under rig_tiles(). Road variants: a=tar seam, b=repair patch,
+    c=clean slab (the common one), d=oil stain — the engine hash-picks
+    mostly c so nothing wallpapers."""
     random.seed(seed)
     objs = []
 
@@ -506,38 +572,53 @@ def make_tile(kind, variant="a", seed=0):
         objs.append(o)
         return o
 
-    if kind == "road":
-        asph = bumpmat("T_ASPH_" + variant, (0.32, 0.32, 0.36), rough=0.85,
-                       noise_scale=7 + seed % 3, bump=0.5)
-        track(plane("ground", 30, asph, z=0))
-        dark = bumpmat("T_ASPHD_" + variant, (0.24, 0.24, 0.27), rough=0.9,
-                       noise_scale=11, bump=0.4)
-        for i in range(3):
-            track(box("patch" + str(i), random.uniform(4, 9), random.uniform(3, 7), 0.05,
-                      x=random.uniform(-9, 9), y=random.uniform(-9, 9), m=dark))
-    elif kind == "road_manhole":
-        track(plane("ground", 30, bumpmat("T_ASPH_a", (0.32, 0.32, 0.36), rough=0.85,
-                                          noise_scale=7, bump=0.5), z=0))
-        mrim = mat("T_MANRIM", (0.1, 0.1, 0.11), rough=0.8)
-        track(cyl("rim", 4.7, 0.06, z=0.01, m=mrim, verts=28))
-        track(cyl("manhole", 4.2, 0.12, z=0.02,
-                  m=mat("T_MANHOLE", (0.28, 0.26, 0.22), metallic=0.7, rough=0.5), verts=28))
-        for i in range(5):
-            track(box("slot" + str(i), 0.7, 2.6, 0.06, x=-2.4 + i * 1.2, z=0.14, m=mrim))
+    if kind in ("road", "road_manhole"):
+        asph = bumpmat("T_ASPH_" + variant, (0.3, 0.3, 0.34), rough=0.8,
+                       noise_scale=10, bump=0.7, detail=8)
+        track(gridplane("ground", 30, asph, subdiv=56, disp=0.28, disp_scale=5))
+        if variant == "a":  # one shallow tar seam, not a lightning bolt
+            drk = mat("T_SEAM", (0.17, 0.17, 0.2), rough=0.55)
+            b = box("seam", random.uniform(9, 14), 0.6, 0.06, x=random.uniform(-5, 5),
+                    y=random.uniform(-8, 8), z=0.3, m=drk)
+            b.rotation_euler = (0, 0, random.uniform(0, math.pi))
+            track(b)
+        if variant == "b":  # a repair patch, gently darker
+            patch = bumpmat("T_PATCH", (0.25, 0.25, 0.28), rough=0.85, noise_scale=13, bump=0.4)
+            track(box("patch", random.uniform(6, 9), random.uniform(5, 7), 0.08,
+                      x=random.uniform(-6, 6), y=random.uniform(-6, 6), z=0.16, m=patch))
+        if variant == "d":  # an oil stain, faint
+            track(plane("stain", random.uniform(5, 8), stain_mat("T_STAIN"),
+                        x=random.uniform(-6, 6), y=random.uniform(-6, 6), z=0.32))
+        if kind == "road_manhole":
+            mrim = mat("T_MANRIM", (0.09, 0.09, 0.1), rough=0.8)
+            track(cyl("rim", 4.9, 0.16, z=0.22, m=mrim, verts=28))
+            track(cyl("manhole", 4.3, 0.3, z=0.24,
+                      m=mat("T_MANHOLE", (0.3, 0.27, 0.2), metallic=0.75, rough=0.45), verts=28))
+            for i in range(5):
+                track(box("slot" + str(i), 0.7, 2.8, 0.08, x=-2.4 + i * 1.2, z=0.55, m=mrim))
     elif kind == "walk":
-        conc = bumpmat("T_CONC_" + variant, (0.42, 0.42, 0.47), rough=0.9,
-                       noise_scale=15, bump=0.35)
-        track(plane("under", 30, mat("T_GAP", (0.06, 0.06, 0.08), rough=0.95), z=-0.1))
-        n = 2
-        s = TILE / n
-        for gy in range(-1, n + 1):
-            for gx in range(-1, n + 1):
-                b = box("pav_%d_%d" % (gx, gy), s - 0.9, s - 0.9, 0.5,
-                        x=(gx - (n - 1) / 2) * s + random.uniform(-0.1, 0.1),
-                        y=(gy - (n - 1) / 2) * s + random.uniform(-0.1, 0.1),
-                        m=conc, bevel=0.25)
-                b.rotation_euler = (random.uniform(-0.01, 0.01), random.uniform(-0.01, 0.01), 0)
+        shades = [bumpmat("T_CONC%s_%d" % (variant, i),
+                          (0.39 + i * 0.025, 0.39 + i * 0.025, 0.44 + i * 0.025),
+                          rough=0.9, noise_scale=17, bump=0.4, detail=6) for i in range(3)]
+        track(plane("under", 30, mat("T_GAP", (0.1, 0.1, 0.12), rough=0.95), z=-0.1))
+        s = TILE / 2
+        for gy in range(-1, 3):
+            for gx in range(-1, 3):
+                b = box("pav_%d_%d" % (gx, gy), s - 0.8, s - 0.8, 0.55,
+                        x=(gx - 0.5) * s + random.uniform(-0.1, 0.1),
+                        y=(gy - 0.5) * s + random.uniform(-0.1, 0.1),
+                        m=random.choice(shades), bevel=0.22)
+                b.rotation_euler = (random.uniform(-0.008, 0.008), random.uniform(-0.008, 0.008), 0)
                 track(b)
+    elif kind == "found":  # building footprint / vacant-lot rubble slab
+        fc = bumpmat("T_FOUND", (0.22, 0.22, 0.26), rough=0.95, noise_scale=14, bump=0.5, detail=6)
+        track(gridplane("slab", 30, fc, subdiv=40, disp=0.18, disp_scale=6))
+        drk = mat("T_FSEAM", (0.12, 0.12, 0.14), rough=0.9)
+        for i in range(2):
+            b = box("crack" + str(i), random.uniform(5, 9), 0.4, 0.06,
+                    x=random.uniform(-7, 7), y=random.uniform(-7, 7), z=0.14, m=drk)
+            b.rotation_euler = (0, 0, random.uniform(0, math.pi))
+            track(b)
     elif kind == "board":
         track(plane("under", 30, mat("T_VOID", (0.01, 0.015, 0.03), rough=1.0), z=-0.3))
         for i in range(5):
@@ -560,24 +641,43 @@ def make_tile(kind, variant="a", seed=0):
         wm = bumpmat("T_WATER_" + variant, (0.1, 0.22, 0.34), rough=0.15,
                      noise_scale=4 + seed % 4, bump=0.7, detail=5, metallic=0.3)
         track(plane("sea", 30, wm, z=0))
-    elif kind == "roof":
+    elif kind == "roof":  # gray gravel, tinted per district block at runtime
         rg = bumpmat("T_ROOF_" + variant, (0.5, 0.5, 0.5), rough=0.95,
-                     noise_scale=22, bump=0.7, detail=7)
-        track(plane("roof", 30, rg, z=0))
-        if variant == "a":
-            track(box("vent", 4.5, 3.5, 1.2, x=4.5, y=-4,
-                      m=mat("T_VENT", (0.35, 0.35, 0.37), metallic=0.6, rough=0.6), bevel=0.3))
+                     noise_scale=26, bump=0.9, detail=8)
+        track(gridplane("roof", 30, rg, subdiv=40, disp=0.2, disp_scale=8))
+        gray = mat("T_ROOFBOX", (0.42, 0.42, 0.44), metallic=0.5, rough=0.55)
+        gdark = mat("T_ROOFDARK", (0.16, 0.16, 0.17), rough=0.8)
+        if variant == "a":  # AC unit + pipe run
+            track(box("ac", 5.5, 4.5, 2.2, x=4, y=-3.5, m=gray, bevel=0.3))
+            track(cyl("fan", 1.6, 0.2, x=4, y=-3.5, z=2.35, m=gdark, verts=16))
+            track(cyl("pipe", 0.55, 14, x=-6, y=2, z=0.6, m=gray, rot=(math.pi / 2, 0, 0.4)))
+        elif variant == "b":  # access hatch + vents
+            track(box("hatch", 4.5, 4.5, 1.0, x=-4.5, y=4, m=gray, bevel=0.25))
+            for i in range(3):
+                track(cyl("vent" + str(i), 0.9, 1.4, x=3 + i * 2.6, y=-5 + i * 3, z=0.7,
+                          m=gdark, verts=12))
+        elif variant == "c":  # skylight
+            track(box("skyframe", 7.3, 5.8, 0.5, x=2, y=2, m=gdark, bevel=0.2))
+            track(box("sky", 6.5, 5, 1.2, x=2, y=2,
+                      m=mat("T_SKYGLASS", (0.06, 0.1, 0.2), metallic=0.9, rough=0.15), bevel=0.3))
+        else:  # d: gravel border + lone pipe
+            track(box("border", 26, 1.6, 0.5, y=10.5, m=gdark))
+            track(box("border2", 1.6, 26, 0.5, x=-10.5, m=gdark))
+            track(cyl("pipe2", 0.7, 10, x=4, y=-4, z=0.7, m=gray, rot=(math.pi / 2, 0, -0.7)))
     return objs
 
 
 TILE_BUILDS = [  # (region name, kind, variant, seed)
-    ("tile_road_a", "road", "a", 11), ("tile_road_b", "road", "b", 47),
-    ("tile_road_manhole", "road_manhole", "a", 99),
-    ("tile_walk_a", "walk", "a", 5), ("tile_walk_b", "walk", "b", 23),
-    ("tile_board_a", "board", "a", 7), ("tile_board_b", "board", "b", 31),
-    ("tile_grass_a", "grass", "a", 13), ("tile_grass_b", "grass", "b", 41),
-    ("tile_water_a", "water", "a", 3), ("tile_water_b", "water", "b", 29),
-    ("tile_roof_a", "roof", "a", 17), ("tile_roof_b", "roof", "b", 53),
+    ("tile_road_a", "road", "a", 211), ("tile_road_b", "road", "b", 247),
+    ("tile_road_c", "road", "c", 251), ("tile_road_d", "road", "d", 263),
+    ("tile_road_manhole", "road_manhole", "c", 299),
+    ("tile_walk_a", "walk", "a", 205), ("tile_walk_b", "walk", "b", 223),
+    ("tile_board_a", "board", "a", 107), ("tile_board_b", "board", "b", 131),
+    ("tile_grass_a", "grass", "a", 113), ("tile_grass_b", "grass", "b", 141),
+    ("tile_water_a", "water", "a", 103), ("tile_water_b", "water", "b", 129),
+    ("tile_roof_a", "roof", "a", 117), ("tile_roof_b", "roof", "b", 153),
+    ("tile_roof_c", "roof", "c", 161), ("tile_roof_d", "roof", "d", 171),
+    ("tile_found", "found", "a", 277),
 ]
 
 
@@ -635,6 +735,41 @@ def make_prop(name):
         track(n)
         track(sph("lump1", 1.6, x=2.2, y=1.4, z=3.0, m=gold))
         track(sph("lump2", 1.4, x=-2.0, y=-1.6, z=2.8, m=gold))
+    elif name == "prop_fountain":  # plaza centerpiece (S2.13)
+        stone = bumpmat("P_STONE", (0.4, 0.4, 0.44), rough=0.85, noise_scale=10, bump=0.5)
+        stone2 = bumpmat("P_STONE2", (0.3, 0.3, 0.34), rough=0.9, noise_scale=12, bump=0.4)
+        wat = mat("P_FWATER", (0.1, 0.3, 0.5), rough=0.1, metallic=0.3,
+                  emit=(0.2, 0.5, 0.8), emit_str=0.5)
+        track(cyl("basin", 10.5, 2.2, z=1.1, m=stone, verts=32))
+        track(cyl("bowl", 9.0, 0.6, z=2.4, m=stone2, verts=32))
+        track(cyl("water", 8.4, 0.3, z=2.6, m=wat, verts=32))
+        track(cyl("pillar", 1.6, 4.4, z=2.2, m=stone, verts=16))
+        track(cyl("cup", 3.2, 0.8, z=5.0, m=stone2, verts=20))
+        track(cyl("cupwater", 2.7, 0.3, z=5.6, m=wat, verts=20))
+    elif name == "prop_bench":  # park/plaza bench: slats on iron legs
+        iron = mat("P_IRON", (0.04, 0.04, 0.05), rough=0.6, metallic=0.6)
+        for i in range(3):
+            wcol = 0.34 + i * 0.03
+            track(box("slat" + str(i), 9, 1.15, 0.5, y=1.4 - i * 1.4, z=2.2,
+                      m=bumpmat("P_BWOOD" + str(i), (wcol, wcol * 0.68, wcol * 0.4),
+                                rough=0.8, noise_scale=3, bump=0.6), bevel=0.15))
+        track(box("back", 9, 0.9, 0.5, y=2.6, z=3.4,
+                  m=bumpmat("P_BWOOD0", (0.34, 0.23, 0.14), rough=0.8, noise_scale=3, bump=0.6), bevel=0.15))
+        for x in (-3.8, 3.8):
+            track(box("legF" + str(x), 0.7, 0.7, 2.2, x=x, y=-1.4, m=iron))
+            track(box("legB" + str(x), 0.7, 0.7, 3.2, x=x, y=2.2, m=iron))
+    elif name == "prop_dumpster":  # NPD's least favorite hiding spot
+        metal = bumpmat("P_DUMP", (0.1, 0.3, 0.24), rough=0.7, noise_scale=8, bump=0.3, metallic=0.4)
+        dark = mat("P_DUMPDARK", (0.03, 0.03, 0.04), rough=0.8)
+        track(box("bin", 13, 8.5, 5.5, m=metal, bevel=0.5))
+        track(box("lidL", 6.0, 8.9, 0.7, x=-3.2, z=5.5, m=metal, bevel=0.3))
+        b = box("lidR", 6.0, 8.9, 0.9, x=3.4, z=5.6, m=dark, bevel=0.3)
+        b.rotation_euler = (0, math.radians(-7), 0)  # one lid never closes
+        track(b)
+        for x in (-5.5, 5.5):
+            track(box("wheel" + str(x), 1.2, 1.2, 1.0, x=x, y=3.4, z=-0.4, m=dark))
+        track(box("sticker", 2.6, 0.2, 1.6, y=-4.35, z=2.6,
+                  m=mat("P_TAG", (0.7, 0.62, 0.2), rough=0.6)))
     elif name.startswith("prop_tree"):
         variant = name[-1]
         seed = 9 if variant == "a" else 27
@@ -655,9 +790,10 @@ def make_prop(name):
 
 
 PROPS = ("prop_cart", "prop_booth", "prop_crate", "prop_goldnug",
-         "prop_tree_a", "prop_tree_b")
+         "prop_tree_a", "prop_tree_b", "prop_fountain", "prop_bench", "prop_dumpster")
 PROP_CANVAS = {"prop_cart": (24, 24), "prop_booth": (15, 23), "prop_crate": (12, 12),
-               "prop_goldnug": (12, 12), "prop_tree_a": (18, 18), "prop_tree_b": (18, 18)}
+               "prop_goldnug": (12, 12), "prop_tree_a": (18, 18), "prop_tree_b": (18, 18),
+               "prop_fountain": (24, 24), "prop_bench": (12, 9), "prop_dumpster": (16, 12)}
 
 
 # ---- entry points ----------------------------------------------------------------
@@ -684,7 +820,7 @@ def render_all(render_dir):
     shot("ped_cap", PED_CV, PED_CV, render_dir)
     for name, kind, variant, seed in TILE_BUILDS:
         clear_scene()
-        rig_setup()
+        rig_tiles()  # tiles get the raking key; entities keep the overhead rig
         make_tile(kind, variant, seed)
         shot(name, TILE, TILE, render_dir)
     for name in PROPS:

@@ -189,6 +189,19 @@ already bitten someone.
 > city degrades to rectangles, never to invisible. The .blend sources +
 > regen recipe live in `blender/` (README has the Unreal export path).
 > Verified headless: 61fps, zero pageerrors. Sprint note: GTA_SPRINTS S2.12.
+> **Same night, pt. 2 — 🏙 THE ZONING VARIANCE (GTN S2.13):** Beau reviewed
+> S2.12 on prod and correctly called it invisible (A/B harness: +4% contrast
+> — palette fidelity ≠ looking good). The fix, measured this time (+8–15%
+> STRUCTURED contrast, verified by side-by-side crops): plazas w/ fountains
+> + benches at four landmarks, park paths/ponds, alleys w/ dumpsters, vacant
+> rubble lots w/ stripped wrecks — all APPEND-ONLY in gtaBuildCity (zero
+> rnd(), pure gtaHash, after every existing claim: the city did not move);
+> plus the procedural depth pass (curbs/gutters, building shadows on
+> pavement, lamp pools, puddles), tiles v3 under a 44° raking rig with four
+> hash-picked road variants (2.0 contrast = wallpaper, 1.5 = right), 4
+> furniture roofs, and GTA_RISE 0.055→0.075. New state: `gta.deco` +
+> `gta.decor`. Sprint note S2.13 has the tuning gotchas + the assess.js
+> recipe — measure before calling anything prettier.
 > **2026-07-21 — THE OVEN RELIGHT:** the first five games got deep upgrades
 > (build log in `UPGRADE_SPRINTS.md`). 🐤 Flappy (biomes + finale), 🥣 Dunk
 > (multi-sauce shifts), 🔫 Blaster (wave defense + Batter Bomber boss; now

@@ -29,19 +29,27 @@ SS = 8
 TILE_TARGETS = {
     "tile_road_a": "#232330",
     "tile_road_b": "#26262e",
-    "tile_road_manhole": ("like", "tile_road_a"),
-    "tile_walk_a": "#33333e",
-    "tile_walk_b": "#303039",
-    "tile_board_a": "#3a2c1c",
-    "tile_board_b": "#342818",
+    "tile_road_c": "#242431",   # the clean slab most tiles wear (hash-picked)
+    "tile_road_d": "#25252f",
+    "tile_road_manhole": ("like", "tile_road_c"),
+    "tile_walk_a": "#383843",     # sidewalks sit a step brighter than the road
+    "tile_walk_b": "#343440",     # so the curb hierarchy reads at night
+    "tile_board_a": "#40311f",
+    "tile_board_b": "#3a2c1b",
     "tile_grass_a": "#122016",
     "tile_grass_b": "#101c14",
     "tile_water_a": "#0d2438",
     "tile_water_b": "#0b2032",
+    "tile_found": "#101018",      # footprints recede; texture, not spotlight
 }
-ROOF_TILES = {"tile_roof_a", "tile_roof_b"}  # grayscale, runtime-tinted
+ROOF_TILES = {"tile_roof_a", "tile_roof_b", "tile_roof_c", "tile_roof_d"}
 ROOF_MEAN = 225.0
-ENTITY_DIM = 0.94  # gentle night dim on cars/peds/props
+ROOF_CONTRAST = 1.4
+# v3: contrast expansion about the target mean. v1 (1.0) was invisible,
+# v2 (2.0) was cracked-concrete wallpaper — these live at the midpoint.
+TILE_CONTRAST = {"tile_road": 1.5, "tile_walk": 1.35, "tile_board": 1.5,
+                 "tile_grass": 1.6, "tile_water": 2.0, "tile_found": 1.3}
+ENTITY_DIM = 1.0  # entities keep their full Blender lighting
 
 
 def hex_rgb(h):
@@ -69,18 +77,30 @@ def mean_rgb(arr):
     return np.maximum(arr[..., :3][al].mean(axis=0), 1e-3)
 
 
-def grade_to(arr, target, factors=None):
+def grade_to(arr, target, factors=None, contrast=1.0):
     if factors is None:
         factors = np.array(hex_rgb(target), dtype=np.float64) / mean_rgb(arr)
     arr = arr.copy()
     arr[..., :3] = np.clip(arr[..., :3] * factors, 0, 255)
+    if contrast != 1.0:
+        m = mean_rgb(arr)
+        arr[..., :3] = np.clip(m + (arr[..., :3] - m) * contrast, 0, 255)
     return arr, factors
 
 
-def to_gray(arr, target_mean):
+def contrast_for(name):
+    for prefix, k in TILE_CONTRAST.items():
+        if name.startswith(prefix):
+            return k
+    return 1.0
+
+
+def to_gray(arr, target_mean, contrast=1.0):
     lum = arr[..., 0] * 0.299 + arr[..., 1] * 0.587 + arr[..., 2] * 0.114
     m = lum[arr[..., 3] > 32].mean()
     lum = np.clip(lum * (target_mean / max(m, 1e-3)), 0, 255)
+    if contrast != 1.0:
+        lum = np.clip(target_mean + (lum - target_mean) * contrast, 0, 255)
     out = arr.copy()
     out[..., 0] = out[..., 1] = out[..., 2] = lum
     return out
@@ -108,13 +128,13 @@ def main():
         if name in TILE_TARGETS:
             t = TILE_TARGETS[name]
             if isinstance(t, tuple):
-                arr, _ = grade_to(arr, None, factors_bank[t[1]])
+                arr, _ = grade_to(arr, None, factors_bank[t[1]], contrast=contrast_for(name))
             else:
-                arr, f = grade_to(arr, t)
+                arr, f = grade_to(arr, t, contrast=contrast_for(name))
                 factors_bank[name] = f
             arr[..., 3] = 255
         elif name in ROOF_TILES:
-            arr = to_gray(arr, ROOF_MEAN)
+            arr = to_gray(arr, ROOF_MEAN, contrast=ROOF_CONTRAST)
             arr[..., 3] = 255
         elif name.endswith("_mask"):
             arr = mask_to_stencil(arr)
