@@ -23,6 +23,41 @@ const NuggetArcade = (() => {
   const NRM_SCALE = 1.0;
   const SPEC_AMT = 1.15;
   const WET_AMT = 1.0;
+
+  // ---- THE SKY -------------------------------------------------------------
+  // Nuggetown is under a low sodium-lit overcast. Every street lamp and every
+  // sign in the city throws its light UP into that cloud deck and it comes
+  // back down warm, which is why the HORIZON is the brightest part of this sky
+  // and the zenith is the dimmest — the opposite of a clear night, and the
+  // reason the rain, the skyline and the roofline have anything to be seen
+  // against. One palette, read by three places: the dome, the distance fog and
+  // the ambient term. Change it here and the whole night changes together.
+  const SKY = {
+    horizon: [0.335, 0.198, 0.124],   // the deck right above the roofline
+    zenith: [0.104, 0.098, 0.137],    // straight up: still not black
+    glow: [0.285, 0.135, 0.046],      // the sodium core, piled on at the skyline
+    ground: [0.052, 0.043, 0.054],    // what a downward ray sees: wet asphalt
+    moon: [0.545, 0.420, 0.726],      // direction, normalised below
+  };
+  // What the sky is worth as LIGHT. Two hemisphere lobes — the overcast above,
+  // the wet road's bounce below — derived from the palette itself, so retuning
+  // the look retunes the lighting with it and the two can never disagree.
+  const SKY_AMB_MUL = 0.46, GND_AMB_MUL = 0.85;
+  const SKY_REFL = 0.62;   // how much of the sky a polished outdoor surface returns
+  const MOON_DIR = (() => {
+    const m = SKY.moon, L = Math.hypot(m[0], m[1], m[2]);
+    return new Float32Array([m[0] / L, m[1] / L, m[2] / L]);
+  })();
+  // The sky lobe is the deck a little above the roofline (where most of the
+  // hemisphere's solid angle actually is), not the hot sodium core.
+  const SKY_AMB = new Float32Array([
+    (SKY.horizon[0] * 0.55 + SKY.zenith[0] * 0.45 + SKY.glow[0] * 0.22) * SKY_AMB_MUL,
+    (SKY.horizon[1] * 0.55 + SKY.zenith[1] * 0.45 + SKY.glow[1] * 0.22) * SKY_AMB_MUL,
+    (SKY.horizon[2] * 0.55 + SKY.zenith[2] * 0.45 + SKY.glow[2] * 0.22) * SKY_AMB_MUL,
+  ]);
+  const GND_AMB = new Float32Array([
+    SKY.ground[0] * GND_AMB_MUL, SKY.ground[1] * GND_AMB_MUL, SKY.ground[2] * GND_AMB_MUL,
+  ]);
   // room shell: |x| < RX, RZB < z < 0 (doors at z=0), ceiling at RCH
   const RX = 7.5, RZB = -20, RCH = 4.2;
 
@@ -138,6 +173,127 @@ const NuggetArcade = (() => {
 
   // ---- shaders --------------------------------------------------------------------
 
+  // THE SKY, as GLSL. Deliberately written in the subset both ES 1.00 and
+  // ES 3.00 accept (no texture fetches, no keywords that moved) so the SAME
+  // source string compiles into the WebGL1 shader, the WebGL2 material shader
+  // and the dome program. Three consumers, one definition of what the night
+  // looks like — the alternative is a sky that does not match its own fog.
+  //
+  // skyBase() is the cheap half: gradient, sodium core, ground bounce. It runs
+  // per-fragment on EVERY lit surface (it is the fog colour now), so it costs
+  // no noise at all. skyColor() adds the cloud deck and the moon and only ever
+  // runs on pixels the dome actually covers.
+  const GLSL_SKY = `
+uniform vec3 uSkyHorizon, uSkyZenith, uSkyGlow, uSkyGround, uMoonDir;
+uniform float uSkyT;
+
+vec3 skyTint(vec3 d) {
+  float up = clamp(d.y, 0.0, 1.0);
+  return mix(uSkyHorizon, uSkyZenith, pow(up, 0.42)) + uSkyGlow * exp(-up * 6.5);
+}
+
+// What the dome and the reflection see. Below the horizon there is no sky,
+// there is the city's own bounce off wet ground.
+vec3 skyBase(vec3 d) {
+  return mix(uSkyGround, skyTint(d), smoothstep(-0.30, 0.015, d.y));
+}
+
+// FOG IS NOT THE DOME, and conflating them cost a pass. A ray at eye level
+// down a street does not travel through open sky — it travels past buildings —
+// so it must not pick up the full sodium horizon. The first version did, and
+// painted the entire block across the road traffic-cone orange. Haze only
+// earns the glow once the ray is clear of the roofline.
+vec3 skyFog(vec3 d) {
+  return mix(uSkyGround * 1.55, skyTint(d) * 0.66, smoothstep(-0.10, 0.46, d.y));
+}
+
+float skyHash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+float skyNoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(skyHash(i), skyHash(i + vec2(1.0, 0.0)), f.x),
+             mix(skyHash(i + vec2(0.0, 1.0)), skyHash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+float skyFbm(vec2 p) {
+  float s = 0.0, a = 0.5;
+  for (int i = 0; i < 4; i++) { s += a * skyNoise(p); p *= 2.07; a *= 0.5; }
+  return s;
+}
+
+// ---- THE SKYLINE ------------------------------------------------------------
+// Nuggetown does not stop at the end of the street. This is the rest of it,
+// written as a function of COMPASS BEARING rather than built as geometry: one
+// hash decides how tall the block at this bearing is, a second decides which
+// of its windows are still on at this hour. No mesh, no texture, no pole, and
+// — because the slot index is an integer taken from a bearing that wraps to
+// itself — no seam where atan(z, x) comes back around to where it started.
+//
+// It is drawn INSIDE the dome, so the street's own walls occlude it for free:
+// the city appears exactly where a roofline stops and not one pixel lower.
+vec3 skyRidge(vec3 col, float az, float el, float n, float lo, float hi, float haze, float seed) {
+  float u = az * n;
+  float i = floor(u), f = u - i;
+  float h = lo + (hi - lo) * pow(skyHash(vec2(i, seed)), 2.2);   // mostly low, a few towers
+  float crown = skyHash(vec2(i, seed + 3.0));
+  if (crown > 0.70 && abs(f - 0.5) < 0.16) h += (hi - lo) * 0.6 * crown;  // a slim crown on some
+  if (el > h) return col;
+
+  // The body is not black — it is the haze it is standing in, which is what
+  // makes a distant building read as DISTANT instead of as a hole.
+  vec3 body = mix(uSkyGround * 0.5, skyTint(vec3(0.0, el, 0.0)), haze);
+
+  // WINDOWS. The first pass filled a whole grid cell when a cell was lit,
+  // which is not a window, it is a billboard — the building read as a stack
+  // of tan slabs. A pane has to be smaller than its cell so there is wall
+  // between the lights. They also stay well under the deck above them: a
+  // window at full brightness is a hole punched in the city, not a light.
+  vec2 g = vec2(f * 11.0, el * 96.0);
+  vec2 gi = floor(g), gf = g - gi;
+  float pane = step(0.22, gf.x) * step(gf.x, 0.78) * step(0.24, gf.y) * step(gf.y, 0.76);
+  float on = step(0.80, skyHash(vec2(i * 11.0 + gi.x, gi.y + seed * 5.0)))
+           * pane * step(0.07, f) * step(f, 0.93) * step(0.013, h - el);
+  body += vec3(0.32, 0.238, 0.108) * on * (1.0 - haze * 0.5);
+  return body;
+}
+
+vec3 skyColor(vec3 d) {
+  vec3 col = skyBase(d);
+  if (d.y > 0.012) {
+    // The deck is projected onto a plane overhead rather than smeared across
+    // the screen, so it has real perspective — it streams away toward the
+    // roofline instead of sliding past like a decal.
+    vec2 cp = d.xz / max(d.y, 0.115);
+    float t = uSkyT * 0.0065;
+    float f = skyFbm(cp * 0.82 + vec2(t, t * 0.42));
+    f = f * 0.72 + skyFbm(cp * 2.35 - vec2(t * 1.9, t * 0.7)) * 0.28;
+    float cloud = clamp((f - 0.345) * 2.45, 0.0, 1.0) * smoothstep(0.03, 0.34, d.y);
+
+    // The moon sits BEHIND the deck and is dimmed by whatever drifts over it.
+    // It peaks at 0.87, not 1.0, on purpose: the bloom pass turns it into the
+    // brightest thing in the frame without a single clipped pixel. Painting it
+    // white instead is how a blown-out sign shipped two sessions ago.
+    float m = dot(d, uMoonDir);
+    float disc = smoothstep(0.99936, 0.99972, m);
+    float halo = pow(max(m, 0.0), 260.0) * 0.42 + pow(max(m, 0.0), 11.0) * 0.055;
+    float gap = 1.0 - cloud * 0.88;
+    col += (vec3(0.87, 0.86, 0.79) * disc + vec3(0.60, 0.64, 0.78) * halo) * gap;
+
+    // lit from underneath, so the cloud BELLIES are the warm bit
+    col = mix(col, uSkyHorizon * 1.30 + uSkyGlow * 0.32, cloud * 0.60);
+  }
+
+  // The city, last: it stands in FRONT of its own weather.
+  float el = d.y / max(length(d.xz), 1e-4);
+  if (el > -0.02 && el < 0.78) {
+    float az = atan(d.z, d.x) * 0.15915494 + 0.5;
+    col = skyRidge(col, az, el, 27.0, 0.05, 0.44, 0.63, 11.0);   // far ridge, hazy
+    col = skyRidge(col, az, el, 43.0, 0.03, 0.30, 0.34, 57.0);   // near blocks, darker
+  }
+  return col;
+}`;
+
   const VS_LIT = `
 attribute vec3 aPos; attribute vec3 aNormal; attribute vec2 aUV; attribute vec2 aExtra;
 uniform mat4 uProj, uView, uModel;
@@ -155,12 +311,21 @@ precision mediump float;
 varying vec3 vWorld, vNormal; varying vec2 vUV, vExtra;
 uniform sampler2D uTex;
 uniform vec3 uLightPos[8]; uniform vec3 uLightColor[8];
-uniform vec3 uAmbient, uFogColor, uCamPos;
-uniform float uFogDensity, uAlpha, uMirror, uBoost;
+uniform vec3 uAmbient, uFogColor, uCamPos, uSkyAmb, uGndAmb;
+uniform float uFogDensity, uAlpha, uMirror, uBoost, uSkyAmt;
+` + GLSL_SKY + `
 void main() {
   vec4 tex = texture2D(uTex, vUV);
   vec3 n = normalize(vNormal);
-  vec3 light = uAmbient;
+  // OUTSIDE-NESS. The hall is a closed box with its own ceiling; the sky is
+  // not allowed to light it. Beyond the doors it is the only thing lighting
+  // anything that a lamp cannot reach. z is the whole test — the doorway is
+  // at z=0 and the room runs negative. uSkyAmt folds in here so that setting
+  // it to 0 collapses BOTH the ambient term and the fog to the exact equation
+  // that shipped — the A/B seam this session is measured with.
+  float outside = smoothstep(-0.6, 2.6, vWorld.z) * uSkyAmt;
+  vec3 light = uAmbient
+    + outside * mix(uGndAmb, uSkyAmb, clamp(0.5 + 0.5 * n.y, 0.0, 1.0));
   for (int i = 0; i < 8; i++) {
     vec3 d = uLightPos[i] - vWorld;
     float dist = length(d);
@@ -170,7 +335,13 @@ void main() {
   float e = clamp(vExtra.x * uBoost, 0.0, 1.0);
   vec3 col = tex.rgb * mix(light, vec3(1.45), e) * vExtra.y;
   float fog = clamp(1.0 - exp(-uFogDensity * distance(uCamPos, vWorld)), 0.0, 1.0);
-  col = mix(col, uFogColor, fog * (1.0 - 0.7 * e)); // lit signage punches through fog
+  // AERIAL PERSPECTIVE. Distance used to fade everything toward a near-black
+  // constant, which is why the far end of the street dissolved into a hole.
+  // Outside, distance now fades toward the SKY IN THAT DIRECTION, so the far
+  // wall meets the horizon it is standing in front of. Indoors keeps the old
+  // dark haze — a room does not have aerial perspective.
+  vec3 fogCol = mix(uFogColor, skyFog(normalize(vWorld - uCamPos)), outside);
+  col = mix(col, fogCol, fog * (1.0 - 0.7 * e)); // lit signage punches through fog
   gl_FragColor = vec4(col * uMirror, tex.a * uAlpha);
 }`;
 
@@ -217,10 +388,10 @@ precision highp float;
 in vec3 vWorld, vNormal; in vec2 vUV, vExtra;
 uniform sampler2D uTex, uNrm, uOrm;
 uniform vec3 uLightPos[16]; uniform vec3 uLightColor[16];
-uniform vec3 uAmbient, uFogColor, uCamPos;
-uniform float uFogDensity, uAlpha, uMirror, uBoost, uNrmScale, uSpecAmt, uWet, uTime;
+uniform vec3 uAmbient, uFogColor, uCamPos, uSkyAmb, uGndAmb;
+uniform float uFogDensity, uAlpha, uMirror, uBoost, uNrmScale, uSpecAmt, uWet, uTime, uSkyAmt, uSkyRefl;
 out vec4 fragColor;
-
+` + GLSL_SKY + `
 const float PI = 3.14159265;
 
 // A tangent basis with no tangent attribute: the classic cotangent frame.
@@ -283,9 +454,15 @@ void main() {
   vec3 V = normalize(uCamPos - vWorld);
   float NdotV = max(dot(N, V), 1e-3);
 
-  // The diffuse term is the ORIGINAL equation, unchanged, so an unmapped
-  // surface is pixel-for-pixel what it always was. Specular is added on top.
-  vec3 light = uAmbient;
+  // The diffuse term is the ORIGINAL equation plus one thing it never had: a
+  // SKY. Outdoors, every surface out of reach of a lamp used to get one flat
+  // constant and nothing else, which is most of why two-fifths of the frame
+  // read as nothing. Now it gets a hemisphere — the overcast above, the wet
+  // road's bounce below, blended by which way the surface faces. Indoors is
+  // untouched, and uSkyAmt = 0 collapses this back to the shipped equation.
+  float outside = smoothstep(-0.6, 2.6, vWorld.z) * uSkyAmt;
+  vec3 light = uAmbient
+    + outside * mix(uGndAmb, uSkyAmb, clamp(0.5 + 0.5 * Ng.y, 0.0, 1.0));
   vec3 spec = vec3(0.0);
   for (int i = 0; i < 16; i++) {
     vec3 d = uLightPos[i] - vWorld;
@@ -308,14 +485,68 @@ void main() {
     }
   }
 
+  // THE SKY AS A MIRROR. The street had a glow above it and a wet lobe below
+  // it and nothing connecting the two, so the road stayed black under a lit
+  // sky — which is not what a wet road does. It is mostly a reflection of
+  // whatever is burning overhead. One skyBase along the reflection vector,
+  // weighted by Fresnel and by how polished the surface is; grazing angles
+  // down the road get almost all of it, which is exactly where real asphalt
+  // turns into a mirror. Costs nothing indoors — the outside term gates it.
+  vec3 env = vec3(0.0);
+  if (outside > 0.003 && pbr > 0.004) {
+    float fres = 0.045 + 0.955 * pow(1.0 - NdotV, 5.0);
+    env = skyBase(reflect(-V, N)) * uSkyRefl * outside * pbr
+        * mix(fres, 1.0, metal) * (1.0 - rough * 0.72);
+  }
+
   float e = clamp(vExtra.x * uBoost, 0.0, 1.0);
   vec3 col = tex.rgb * mix(light, vec3(1.45), e) * vExtra.y;
   // Neon does not get a highlight painted on it, and neither does anything the
   // region table has not signed off on.
-  col += spec * uSpecAmt * pbr * (1.0 - e) * vExtra.y;
+  col += (spec * uSpecAmt * pbr + env) * (1.0 - e) * vExtra.y;
   float fog = clamp(1.0 - exp(-uFogDensity * distance(uCamPos, vWorld)), 0.0, 1.0);
-  col = mix(col, uFogColor, fog * (1.0 - 0.7 * e));
+  // AERIAL PERSPECTIVE: outside, distance fades toward the sky IN THAT
+  // DIRECTION instead of toward a near-black constant. The far end of the
+  // street now meets the horizon it is standing in front of, and anything
+  // parked beyond the lamps silhouettes instead of dissolving into a hole.
+  vec3 fogCol = mix(uFogColor, skyFog(normalize(vWorld - uCamPos)), outside);
+  col = mix(col, fogCol, fog * (1.0 - 0.7 * e));
   fragColor = vec4(col * uMirror, tex.a * uAlpha);
+}`;
+
+  // ---- the dome ---------------------------------------------------------------
+  // There is no dome. There is a fullscreen quad pinned to the far plane with
+  // depthFunc LEQUAL, so it paints exactly the pixels nothing else reached and
+  // costs nothing where the hall already drew. A real sphere would need a mesh,
+  // a seam, a pole, and a radius that has to stay inside the far plane; a
+  // reconstructed view ray needs none of those and is exact in every direction.
+  //
+  // uSkyFlip mirrors the ray about y for the reflection pass. A pixel showing
+  // the world scaled by (1,-1,1) shows the sky in direction (dx,-dy,dz), so
+  // one sign flip buys the whole sky reflecting in the wet sidewalk.
+
+  const VS_SKY = `
+attribute vec2 aPos;
+varying vec2 vNdc;
+void main() { vNdc = aPos; gl_Position = vec4(aPos, 1.0, 1.0); }`;
+
+  const FS_SKY = `
+precision highp float;
+varying vec2 vNdc;
+uniform vec3 uSkyFwd, uSkyRight, uSkyUp;
+uniform vec2 uSkyScale;
+uniform float uSkyFlip;
+` + GLSL_SKY + `
+void main() {
+  vec3 d = normalize(uSkyFwd + uSkyRight * vNdc.x * uSkyScale.x
+                             + uSkyUp * vNdc.y * uSkyScale.y);
+  d.y *= uSkyFlip;
+  // A night sky is a very long, very shallow ramp, and eight bits across it
+  // BANDS — visible contour steps right across the frame, which reads cheap
+  // no matter how good the colour is. One hash worth of noise under half a
+  // level breaks the contours and is invisible on its own.
+  vec3 c = skyColor(d) + (skyHash(gl_FragCoord.xy) - 0.5) * (1.6 / 255.0);
+  gl_FragColor = vec4(c, 1.0);
 }`;
 
   const VS_SPR = `
@@ -2870,6 +3101,7 @@ void main() {
     // the byte-identical old hall on any browser (the §7 fallback rule, applied
     // to the shader instead of a call site).
     H.pbr = !!gl2;
+    H.sky = true;   // harness seam: false = the void the hall shipped with
     let progLit = null;
     if (H.pbr) {
       progLit = makeProgram(gl, VS_LIT2, FS_LIT2, true);
@@ -2883,11 +3115,27 @@ void main() {
     H.uni = {};
     for (const name of ['uProj', 'uView', 'uModel', 'uTex', 'uLightPos', 'uLightColor',
       'uAmbient', 'uFogColor', 'uCamPos', 'uFogDensity', 'uAlpha', 'uMirror', 'uBoost',
-      'uNrm', 'uOrm', 'uNrmScale', 'uSpecAmt', 'uWet', 'uTime'])
+      'uNrm', 'uOrm', 'uNrmScale', 'uSpecAmt', 'uWet', 'uTime',
+      'uSkyAmb', 'uGndAmb', 'uSkyAmt', 'uSkyRefl', 'uSkyHorizon', 'uSkyZenith', 'uSkyGlow',
+      'uSkyGround', 'uMoonDir', 'uSkyT'])
       H.uni[name] = gl.getUniformLocation(H.progLit, name);
     H.uniS = {};
     for (const name of ['uProj', 'uView', 'uTex'])
       H.uniS[name] = gl.getUniformLocation(H.progSpr, name);
+
+    // The dome. GLSL ES 1.00 on purpose — WebGL2 compiles it just as happily,
+    // so one program serves both contexts and there is no second sky to keep
+    // in sync with the first. If it fails to build, H.progSky stays null and
+    // the hall renders exactly as it did before tonight (clear colour and all).
+    H.progSky = makeProgram(gl, VS_SKY, FS_SKY);
+    if (!H.progSky) console.warn('Nugget Arcade: no sky program — rendering the old void');
+    H.uniSky = {};
+    if (H.progSky) {
+      for (const name of ['uSkyFwd', 'uSkyRight', 'uSkyUp', 'uSkyScale', 'uSkyFlip',
+        'uSkyHorizon', 'uSkyZenith', 'uSkyGlow', 'uSkyGround', 'uMoonDir', 'uSkyT'])
+        H.uniSky[name] = gl.getUniformLocation(H.progSky, name);
+      H.aSky = gl.getAttribLocation(H.progSky, 'aPos');
+    }
     H.attr = {
       aPos: gl.getAttribLocation(H.progLit, 'aPos'),
       aNormal: gl.getAttribLocation(H.progLit, 'aNormal'),
@@ -3807,6 +4055,53 @@ void main() {
     );
   }
 
+  // The camera's world-space basis, which is all a reconstructed view ray
+  // needs. right is horizontal by construction (cross with world up), so it
+  // survives the mirror flip untouched.
+  function camBasis(aspect) {
+    const f = camFwd(H.cam.yaw, H.cam.pitch);
+    const L = Math.hypot(f[0], f[2]) || 1e-4;
+    const r = [-f[2] / L, 0, f[0] / L];
+    const u = [-f[0] * f[1] / L, L, -f[2] * f[1] / L];
+    const th = Math.tan(FOV / 2);
+    return { f, r, u, sx: th * aspect, sy: th };
+  }
+
+  // flip: +1 for the sky itself, -1 for the copy that lies under the floor.
+  // bg=true paints it as a background (no depth test) so the reflection pass
+  // has something to sit on; bg=false pins it to the far plane so it fills
+  // only the pixels no geometry reached.
+  function drawSky(basis, flip, bg) {
+    const gl = H.gl;
+    if (!H.progSky || !H.sky) return;
+    gl.useProgram(H.progSky);
+    gl.bindBuffer(gl.ARRAY_BUFFER, H.quadVbo);
+    gl.enableVertexAttribArray(H.aSky);
+    gl.vertexAttribPointer(H.aSky, 2, gl.FLOAT, false, 0, 0);
+    const U = H.uniSky;
+    gl.uniform3fv(U.uSkyFwd, basis.f);
+    gl.uniform3fv(U.uSkyRight, basis.r);
+    gl.uniform3fv(U.uSkyUp, basis.u);
+    gl.uniform2f(U.uSkyScale, basis.sx, basis.sy);
+    gl.uniform1f(U.uSkyFlip, flip);
+    gl.uniform3fv(U.uSkyHorizon, SKY.horizon);
+    gl.uniform3fv(U.uSkyZenith, SKY.zenith);
+    gl.uniform3fv(U.uSkyGlow, SKY.glow);
+    gl.uniform3fv(U.uSkyGround, SKY.ground);
+    gl.uniform3fv(U.uMoonDir, MOON_DIR);
+    gl.uniform1f(U.uSkyT, H.t);
+    gl.depthMask(false);
+    gl.disable(gl.CULL_FACE);
+    if (bg) gl.disable(gl.DEPTH_TEST);
+    else gl.depthFunc(gl.LEQUAL);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    if (bg) gl.enable(gl.DEPTH_TEST);
+    else gl.depthFunc(gl.LESS);
+    gl.enable(gl.CULL_FACE);
+    gl.depthMask(true);
+    gl.disableVertexAttribArray(H.aSky);
+  }
+
   function render() {
     const gl = H.gl;
     resize();
@@ -3821,6 +4116,12 @@ void main() {
       mRotX(-H.cam.pitch),
       mMul(mRotY(-H.cam.yaw), mTrans(-H.cam.x, -H.cam.y, -H.cam.z))
     );
+    const basis = camBasis(aspect);
+
+    // 0) the sky UNDER the floor, painted before anything else. The mirror
+    //    pass and the translucent floor then leave 13% of it showing, which is
+    //    the whole reason the wet sidewalk now has a sky in it.
+    drawSky(basis, -1, true);
 
     gl.useProgram(H.progLit);
     for (const k of ['aPos', 'aNormal', 'aUV', 'aExtra']) gl.enableVertexAttribArray(H.attr[k]);
@@ -3831,6 +4132,17 @@ void main() {
     gl.uniform3fv(H.uni.uFogColor, FOG);
     gl.uniform1f(H.uni.uFogDensity, FOG_DENSITY);
     gl.uniform1i(H.uni.uTex, 0);
+    // the sky, as light and as distance. Same palette the dome is painted with.
+    gl.uniform1f(H.uni.uSkyAmt, H.sky ? 1 : 0);
+    gl.uniform1f(H.uni.uSkyRefl, SKY_REFL);
+    gl.uniform3fv(H.uni.uSkyAmb, SKY_AMB);
+    gl.uniform3fv(H.uni.uGndAmb, GND_AMB);
+    gl.uniform3fv(H.uni.uSkyHorizon, SKY.horizon);
+    gl.uniform3fv(H.uni.uSkyZenith, SKY.zenith);
+    gl.uniform3fv(H.uni.uSkyGlow, SKY.glow);
+    gl.uniform3fv(H.uni.uSkyGround, SKY.ground);
+    gl.uniform3fv(H.uni.uMoonDir, MOON_DIR);
+    gl.uniform1f(H.uni.uSkyT, H.t);
     if (H.pbr) {
       gl.uniform1i(H.uni.uNrm, 1);
       gl.uniform1i(H.uni.uOrm, 2);
@@ -3933,6 +4245,16 @@ void main() {
     drawLit(H.bufsStreet.pier, I, {}); // world pass only — the sea does not reflect in itself
     useTex(H.texAtlas);
     drawNpcs(null, {}); // the regulars: real geometry now, lit like the room
+
+    // 3b) THE SKY. Pinned to the far plane, so it costs a fragment only where
+    //     the room did not already draw one — and that is precisely the part
+    //     of the frame this session exists to stop being nothing.
+    drawSky(basis, 1, false);
+    // The sky's aPos and the lit program's aPos are the same attribute slot,
+    // so drawSky's tidy-up turns off an array the lit passes still need. Put
+    // it back before anything else draws (this cost one invisible decal pass).
+    gl.useProgram(H.progLit);
+    for (const k of ['aPos', 'aNormal', 'aUV', 'aExtra']) gl.enableVertexAttribArray(H.attr[k]);
 
     // 4) contact shadows + alpha-cutout extras (the golden nug)
     gl.enable(gl.BLEND);
