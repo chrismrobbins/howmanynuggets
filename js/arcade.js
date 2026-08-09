@@ -2922,30 +2922,121 @@ void main() {
 
   // ---- state flow -----------------------------------------------------------------------
 
-  // js/hallMeshData.js is injected async at page load so its vertex data never
-  // blocks first paint. It is normally long since landed by the time anyone
-  // clicks the arcade button — but if someone is FAST, wait for it rather than
-  // build the whole hall out of fallback boxes and cache that for the session
-  // (build() is once-only; there is no second chance).
+  // ---- the boot screen ------------------------------------------------------
+  // Every heavy payload (the Blender paint sheet, the geometry, the material
+  // maps) is injected async at page load so none of it blocks first paint — the
+  // CONVERTER is the product. That moves ALL of the waiting to this one place:
+  // the moment someone opens the arcade door. build() is once-only, so building
+  // the hall out of fallback boxes because a payload was 200ms late would cache
+  // the cheap version for the whole session. We wait instead, and we make the
+  // wait part of the game.
+
+  const BOOT_TIPS = [
+    'The Nugget Arcade has been open 24/7 since the day it was built. Nobody remembers who built it.',
+    'Every cabinet in here is a real game. Walk up to one and press E.',
+    'The storm was stolen. Det. Dill has a theory. So does everyone else.',
+    'The high score board on the east wall is live. Those are real people.',
+    'There are five more games out on the street. Try the doors.',
+    'The jukebox works. The fourth setting is OFF, and that is also a setting.',
+    'Look up. The ceiling took three nights.',
+    'Nuggetown is bigger than it looks from the sidewalk.',
+  ];
+
+  function bootScreen(root) {
+    if (H.waitEl) return H.waitEl;
+    const el = document.createElement('div');
+    el.className = 'hall-booting';
+    el.innerHTML =
+      '<div class="hb-mark">NUGGET<span>ARCADE</span></div>' +
+      '<div class="hb-bar"><div class="hb-fill"></div></div>' +
+      '<div class="hb-stage"><span class="hb-label"></span><span class="hb-pct">0%</span></div>' +
+      '<div class="hb-slow">TAKING A MOMENT — THE ARCADE IS A BIG PLACE</div>' +
+      '<div class="hb-tip"></div>';
+    root.appendChild(el);
+    root.classList.add('active');
+
+    const fill = el.querySelector('.hb-fill');
+    const label = el.querySelector('.hb-label');
+    const pct = el.querySelector('.hb-pct');
+    const tip = el.querySelector('.hb-tip');
+    const slow = el.querySelector('.hb-slow');
+
+    // The bar tracks the real ledger, but never sits still: a <script> payload
+    // reports nothing at all between "started" and "finished", so a bar wired
+    // straight to the ledger would freeze for the whole download. Instead ease
+    // toward a ceiling a little ahead of the truth — always moving, never
+    // lying by more than the gap to the next milestone, and never going
+    // backwards (a progress bar that retreats reads as a crash).
+    let shown = 0;
+    const draw = () => {
+      const p = (typeof HallBoot !== 'undefined') ? HallBoot.progress()
+        : { frac: 1, label: '', settled: true };
+      const real = Math.max(0, Math.min(1, p.frac));
+      const ceil = real < 1 ? Math.min(real + 0.14, 0.97) : 1;
+      if (ceil > shown) shown += (ceil - shown) * 0.06;
+      fill.style.width = (shown * 100).toFixed(1) + '%';
+      pct.textContent = Math.round(shown * 100) + '%';
+      label.textContent = p.settled ? 'OPENING THE DOORS' : (p.label || 'WARMING UP');
+    };
+    draw();
+    H.bootTimer = setInterval(draw, 90);
+
+    let ti = Math.floor(Math.random() * BOOT_TIPS.length);
+    const nextTip = () => {
+      tip.classList.add('swap');
+      setTimeout(() => {
+        tip.textContent = BOOT_TIPS[ti++ % BOOT_TIPS.length];
+        tip.classList.remove('swap');
+      }, 500);
+    };
+    tip.textContent = BOOT_TIPS[ti++ % BOOT_TIPS.length];
+    H.tipTimer = setInterval(nextTip, 5200);
+    H.slowTimer = setTimeout(() => slow.classList.add('on'), 6000);
+
+    H.waitEl = el;
+    return el;
+  }
+
+  function bootScreenDown() {
+    clearInterval(H.bootTimer); clearInterval(H.tipTimer); clearTimeout(H.slowTimer);
+    H.bootTimer = H.tipTimer = H.slowTimer = null;
+    if (H.waitEl) { H.waitEl.remove(); H.waitEl = null; }
+  }
+
+  function artPending() {
+    const meshWait = typeof HallMesh !== 'undefined' && HallMesh && !HallMesh.settled();
+    const artWait = typeof HallArt !== 'undefined' && HallArt && HallArt.settled
+      && !HallArt.settled();
+    return meshWait || artWait;
+  }
+
   function enter() {
-    if (typeof HallMesh !== 'undefined' && HallMesh && !H.built && !HallMesh.settled()) {
+    if (!H.built && artPending()) {
       const root = document.getElementById('arcadeHall');
-      if (root && !H.waitEl) {
-        H.waitEl = document.createElement('div');
-        H.waitEl.className = 'hall-booting';
-        H.waitEl.textContent = 'WARMING UP THE CABINETS…';
-        root.appendChild(H.waitEl);
-        root.classList.add('on');
-      }
-      HallMesh.whenReady(() => {
-        if (H.waitEl) { H.waitEl.remove(); H.waitEl = null; }
-        enter();
-      });
+      if (root) bootScreen(root);
+      // Three sources can be the last to settle, so `go` may fire up to three
+      // times — the flag makes the close idempotent. The short hold lets the
+      // bar actually land on 100: cutting away at 91% reads as a crash.
+      const go = () => {
+        if (artPending() || H.bootClosing) return;
+        H.bootClosing = true;
+        setTimeout(() => { H.bootClosing = false; bootScreenDown(); enter(); }, 520);
+      };
+      if (typeof HallBoot !== 'undefined') HallBoot.whenAll(go);
+      if (typeof HallMesh !== 'undefined' && HallMesh) HallMesh.whenReady(go);
+      if (typeof HallArt !== 'undefined' && HallArt && HallArt.whenReady) HallArt.whenReady(go);
       return;
     }
-    if (H.waitEl) { H.waitEl.remove(); H.waitEl = null; }
+    bootScreenDown();
     try {
-      if (!build()) { fallbackLaunch(); return; }
+      // The boot screen shows the hall root; if the hall can't build, put it
+      // back before handing the player to the flat storm.
+      if (!build()) {
+        const root = document.getElementById('arcadeHall');
+        if (root && !H.active) root.classList.remove('active');
+        fallbackLaunch();
+        return;
+      }
       // THE GRAND REOPENING: if the Blender sheet (js/hallArt.js) finished
       // decoding after the atlases were baked, re-bake them once — the hall
       // must never keep procedural paint just because it built too fast.
@@ -2964,6 +3055,8 @@ void main() {
       }
     } catch (err) {
       console.error('Nugget Arcade hall failed to build:', err);
+      const root = document.getElementById('arcadeHall');
+      if (root && !H.active) root.classList.remove('active');
       fallbackLaunch();
       return;
     }

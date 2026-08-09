@@ -422,3 +422,68 @@ what actually found each bug; three plausible theories in a row were all wrong.
 Second: a metric can lie. "46% of surface area faces inward" looked like a
 smoking gun and was an artifact of counting the back faces of every small box.
 A render with backface culling answered it in one shot.
+
+## 10. 🔌 THE POWER PLANT (2026-08-09) — the payload rule changed, and so did the target
+
+Beau, reviewing the geometry night from prod, closed the size question for good:
+
+> *"Stop concerning yourself about that, it is 2026, include a load screen while
+> those massive files download and if it blooms to a 250MB site, so be it. This
+> is about seeing where the limit can go on upgrading graphics in blender and
+> making something that is truly a video game. There is no limit here."*
+
+So: **never propose a byte budget again.** Move payload off the critical path,
+then spend. The only budget still real is the CONVERTER's first paint (it is the
+product) and the 61fps floor.
+
+### The diagnosis this section exists to fix
+
+§7 gave the hall Blender *geometry* and §5 gave it Blender *paint*. Neither
+touched the layer that actually makes it read "free": **the hall throws away
+everything Blender knows about a surface except its colour.** `FS_LIT` is, and
+has always been:
+
+    albedo × (ambient + 8 Lambert point lights) × bakedAO
+
+No specular. No normal maps. No roughness or metalness. No shadows. No tone
+mapping. WebGL1. A wet street under a neon sign gets no highlight; brick has no
+relief; a chrome bezel and a carpet respond to light identically. You cannot
+texture your way out of that, and three sessions have now tried.
+
+The lucky part: `hallrig.py` builds every texture out of **real 3D geometry**
+under an ortho camera. A normal bake and a roughness/metallic bake are the same
+scene rendered two more ways — authentic Blender data, not a JS approximation of
+one.
+
+### The staging (in order, each shippable on its own)
+
+0. **The boot screen** — DONE. `js/hallBoot.js` is an asset ledger; every heavy
+   payload registers a job and the arcade door draws a real bar off it.
+   `js/hallArt.js` is now a 3KB loader and the ~450KB sheet moved to
+   `js/hallArtData.js`, injected async exactly like the geometry. Nothing heavy
+   is in index.html any more. `pack_hall.py` writes the DATA half only — the
+   loader is hand-maintained code with a fallback contract.
+1. **The seam** — WebGL2 (WebGL1 keeps today's shaders verbatim), a
+   normal/roughness/metal shader with GGX specular and ACES tone mapping,
+   proven end-to-end on ONE material before anything is batched.
+2. **The batch** — bake the full map set for every region; bigger pages.
+3. **Light** — more lights, shadow maps, volumetric lamp shafts, wet street.
+4. **Geometry** — the §7 next-list.
+
+### Traps already identified for stage 1 (read before writing the shader)
+
+- **The albedo is already LIT.** `hallrig` renders with a 44° raking key and
+  bakes that shading into the colour. Feeding it to a PBR shader double-lights
+  it. True PBR wants a FLAT base-colour render, which is a material-override
+  pass in the same rig. Migrate region by region: put a **"how much runtime
+  lighting to apply"** value in the ORM texture's BLUE channel so pre-lit and
+  properly-flat regions can coexist while the batch is in flight.
+- **Do not add tangents to the vertex format.** Half the hall is hand-built
+  quads in `buildScene`; every one would need a new attribute. Derive the TBN
+  per-pixel from screen-space derivatives instead — free, and it works on
+  procedural geometry and Blender meshes alike.
+- **Normal maps must not ship as JPEG.** Block artifacts in a normal map make
+  the lighting swim. Albedo can stay JPEG; normals want lossless.
+- The atlas packer is deterministic, so the normal and ORM pages can be built by
+  running the SAME `alloc` sequence and blitting from parallel sheets. Do not
+  invent a second packer.
