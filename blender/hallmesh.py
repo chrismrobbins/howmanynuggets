@@ -179,6 +179,18 @@ MATS = {
     "jukeStrip":  ("sw_white", [0, 0, 1, 1], 0.16, 0.92),
     "jukeBtn":    ("sw_amber", [0, 0, 1, 1], 0.40, 1.0),
     "jukeCard":   ("sw_black", [0, 0, 1, 1], 0.0, 1.0),
+    # -- the SAUCE-O-MATIC. vendFace is the WHOLE region on purpose: §5b's
+    # composition contract bakes header/side/bin text into fixed places in it,
+    # and any sub-rect would scramble the lot.
+    "vendFace":   ("vending", [0, 0, 1, 1], 0.35, 1.0),
+    "vendBody":   ("metal", [0, 0, 1, 1], 0.0, 0.62),
+    "vendTrim":   ("metal", [0, 0, 1, 1], 0.0, 1.05),
+    "vendPlinth": ("dark", [0.05, 0.05, 0.95, 0.95], 0.0, 0.85),
+    "vendVoid":   ("sw_black", [0, 0, 1, 1], 0.0, 1.0),
+    "vendFlap":   ("metal", [0, 0, 1, 1], 0.0, 0.48),
+    "vendCoin":   ("metal", [0, 0, 1, 1], 0.0, 1.25),
+    "vendSlot":   ("sw_black", [0, 0, 1, 1], 0.0, 1.0),
+    "vendBtn":    ("sw_red", [0, 0, 1, 1], 0.22, 1.0),
     "jukeGrille": ("metal", [0, 0, 1, 1], 0.0, 0.88),
     "jukeDark":   ("cabFront", [0.05, 0.05, 0.95, 0.95], 0.0, 0.70),
     "stone":    ("sw_curb", [0, 0, 1, 1], 0.0, 1.35),
@@ -236,6 +248,11 @@ _PREVIEW = {
     "jukeLit": (0.92, 0.66, 0.24), "jukeStrip": (0.80, 0.80, 0.76),
     "jukeBtn": (1.0, 0.68, 0.14), "jukeGrille": (0.24, 0.25, 0.30),
     "jukeCard": (0.06, 0.06, 0.08),
+    "vendFace": (0.34, 0.16, 0.13), "vendBody": (0.18, 0.19, 0.24),
+    "vendTrim": (0.42, 0.44, 0.52), "vendPlinth": (0.07, 0.07, 0.09),
+    "vendVoid": (0.02, 0.02, 0.03), "vendFlap": (0.14, 0.15, 0.19),
+    "vendCoin": (0.55, 0.57, 0.64), "vendSlot": (0.02, 0.02, 0.03),
+    "vendBtn": (0.85, 0.14, 0.10),
     "jukeDark": (0.05, 0.05, 0.07),
     "metalD": (0.19, 0.21, 0.27), "metalG": (0.30, 0.33, 0.40),
     "lampGlass": (1.0, 0.72, 0.25), "lampHot": (1.0, 0.90, 0.70),
@@ -1943,6 +1960,66 @@ def build_jukebox():
     return P.finish(bevel=0.006, segments=1, smooth_deg=40)
 
 
+def build_vending():
+    """The SAUCE-O-MATIC, which has been a box wearing a very good painting.
+
+    THE CONSTRAINT THAT SHAPES THIS ONE (§5b, the composition contract): the
+    `vending` region carries BAKED TEXT — header, side labels, bin labels — laid
+    out by its painter at fixed places in a 256x384 rect. Re-mapping that region
+    across a modelled front in sub-rects would scramble every one of them.
+
+    So the front face wears the WHOLE region exactly as the flat box did, and
+    all the geometry goes AROUND it: a frame standing proud of the glass, a
+    delivery bin that is genuinely recessed, a coin mech column, a kick plate
+    and a rolled top. The painting is untouched and the machine stops being a
+    rectangle — which was the actual complaint.
+
+    Origin on the floor, centred, front faces -Y (= the hall's +Z).
+    """
+    P = Part("vending")
+    W, D, H = 1.00, 0.66, 1.90
+    hw, hd = W / 2, D / 2
+
+    # carcass: sides, back and top, in machine-grey. The front is left OPEN for
+    # the face panel below so nothing double-draws through it.
+    for sx in (-1, 1):
+        P.box((sx * (hw - 0.030), 0.0, H / 2), (0.060, D, H), "vendBody")
+    P.box((0.0, hd - 0.030, H / 2), (W, 0.060, H), "vendBody")
+    P.box((0.0, 0.0, H - 0.035), (W, D, 0.070), "vendBody")
+    P.box((0.0, 0.0, 0.045), (W, D, 0.090), "vendPlinth")
+    # a rolled top edge, because a square top reads as a crate
+    P.cyl((0.0, -hd + 0.045, H - 0.010), "x", 0.055, 0.055, W - 0.020, "vendTrim", slices=10)
+
+    # THE FACE. Full region, set back behind its own frame — and built as a
+    # thin BOX, not a single quad. §7 trap 2: an open shell has no inside, so
+    # _orient() has to guess which way it faces from its position relative to
+    # the part centre, and a lone panel deep inside a carcass guesses wrong and
+    # is culled. It came back as a hole through to the wall. A closed solid
+    # orients off signed volume and cannot be wrong — and a vending machine
+    # door has thickness anyway.
+    P.box((0.0, -hd + 0.075, (0.230 + H - 0.090) / 2),
+          (W - 0.150, 0.040, H - 0.320), "vendFace")
+    # the frame that makes it a WINDOW rather than a sticker
+    for (cx, cz, sx2, sz2) in ((0.0, H - 0.065, W - 0.100, 0.055),
+                               (0.0, 0.205, W - 0.100, 0.055),
+                               (-hw + 0.060, (H + 0.230) / 2 - 0.02, 0.055, H - 0.330),
+                               (hw - 0.060, (H + 0.230) / 2 - 0.02, 0.055, H - 0.330)):
+        P.box((cx, -hd + 0.020, cz), (sx2, 0.075, sz2), "vendTrim")
+
+    # ---- the delivery bin, actually recessed, with a flap over it
+    P.box((0.0, -hd + 0.120, 0.130), (W - 0.260, 0.190, 0.150), "vendVoid")
+    P.box((0.0, -hd + 0.028, 0.196), (W - 0.250, 0.030, 0.120), "vendFlap")
+    P.box((0.0, -hd + 0.012, 0.258), (W - 0.230, 0.045, 0.035), "vendTrim")
+
+    # ---- coin mech: a column standing proud on the right, where your hand goes
+    P.box((hw - 0.155, -hd - 0.040, 1.180), (0.190, 0.090, 0.560), "vendTrim")
+    P.cyl((hw - 0.155, -hd - 0.090, 1.360), "y", 0.052, 0.052, 0.030, "vendCoin", slices=12)
+    P.box((hw - 0.155, -hd - 0.088, 1.215), (0.090, 0.026, 0.016), "vendSlot")
+    for i in range(3):
+        P.box((hw - 0.200 + i * 0.045, -hd - 0.088, 1.075), (0.030, 0.024, 0.030), "vendBtn")
+    return P.finish(bevel=0.006, segments=1, smooth_deg=38)
+
+
 def build_fire_escape():
     """A two-storey fire escape: landings, stringers, rails, and a drop ladder.
 
@@ -2098,6 +2175,7 @@ MODELS.update({
     "awning": build_awning,
     "fireEscape": build_fire_escape,
     "jukebox": build_jukebox,
+    "vending": build_vending,
     "bin": build_bin,
     "busShelter": build_bus_shelter,
 })

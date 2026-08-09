@@ -2044,7 +2044,18 @@ void main() {
     // SAUCE-O-MATIC vending machine (right of the doors, facing the hall)
     {
       const vx = 3.1, vz = -0.55, hw2 = 0.5, hd = 0.33, vh = 1.9;
-      boxProp(vx, vz, hw2, hd, vh, uv.vending, 0.35);
+      // 🥤 The SAUCE-O-MATIC was a box wearing a very good painting. The
+      // painting is untouched — §5b bakes header, side and bin text into fixed
+      // places in the `vending` region, so the model's face wears the WHOLE
+      // region exactly as the flat box did and every label still lands. What
+      // is new is everything AROUND it: a frame that makes the face a window
+      // instead of a sticker, a delivery bin that is genuinely recessed, a
+      // coin mech standing proud where your hand goes, and a rolled top.
+      //
+      // yaw PI: the machine faces the hall at -Z, and a model's front is +Z.
+      if (!B.model('vending', uv, { x: vx, z: vz, yaw: Math.PI })) {
+        boxProp(vx, vz, hw2, hd, vh, uv.vending, 0.35);
+      }
       DEC.quad([vx - 0.7, 0.006, vz + 0.5], [vx + 0.7, 0.006, vz + 0.5], [vx + 0.7, 0.006, vz - 0.5], [vx - 0.7, 0.006, vz - 0.5], uv.sw_black, { e: 1 });
       H.glows.push({ p: [vx, 1.2, vz - 0.5], c: [1, 0.35, 0.2], s: 1.1, a: 0.13, k: 'neon' });
       H.propBoxes.push({ min: [vx - 0.6, 0, vz - 0.45], max: [vx + 0.6, vh, vz + 0.45] });

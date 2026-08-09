@@ -69,6 +69,12 @@ const RAW = [
   // no contact shadow for four sessions without it showing up in a number.
   // A spot table only measures what it points at.
   ['17-regular',    2.5,   4.60, [2.5, 1.2],   -0.20],  // Big Crumb, FULL LENGTH (feet in frame)
+  // --- the props -------------------------------------------------------
+  // ADDED (ROUND 4), same reason as 17: the hall has two prop hotspots the
+  // player deliberately walks to, and only the jukebox was ever pointed at.
+  // The SAUCE-O-MATIC carries the golden nug, which is a lore item people
+  // hunt, and nothing in this kit had ever photographed it.
+  ['18-vending',    3.1,  -1.85, [3.1, -0.55],  0.06],  // the nug hotspot's own stand
 ];
 
 const SPOTS = RAW.map(([name, x, z, look, pitch]) => ({
