@@ -85,6 +85,11 @@
         mats: d.m,      // [region, emissive, tint] per material
         lo: [d.b[0], d.b[1], d.b[2]],
         span: [d.b[3], d.b[4], d.b[5]],
+        // ARTICULATED parts (THE CAST, §17) carry the point they rotate about,
+        // in hall space, authored in blender/hallmesh.py's CAST table. Null for
+        // every ordinary model. It ships with the geometry so the engine never
+        // holds a hand-typed second copy that can drift out of agreement.
+        pivot: d.v || null,
       };
     } catch (err) {
       cache[name] = null;   // corrupt payload = fall back, never throw into hall init

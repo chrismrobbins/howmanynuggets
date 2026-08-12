@@ -31,7 +31,14 @@ const EXPECTED = [
 
 // Two spots: one deep in the hall (all the material work) and one on the
 // street (sky, wet ground, fog). A seam that only breaks outdoors has shipped.
-const CHECK = ['03-westwall', '11-gta', '15-pier'];
+//
+// 17-regular ADDED with THE CAST (§17), and for the reason this file exists:
+// the `no-cast` seam degrades the five REGULARS, and not one of the three spots
+// above has a regular in it. The seam would have diffed at ~0.0% and been
+// reported as a seam that never fired — a true statement about these spots and
+// a completely false one about the change. §15, verbatim, one more time: a spot
+// table only measures what it points at.
+const CHECK = ['03-westwall', '11-gta', '15-pier', '17-regular'];
 
 const MATRIX = [
   { name: 'shipped', off: [] },
@@ -45,6 +52,7 @@ const MATRIX = [
   { name: 'no-hallart', off: ['art'], why: 'the paint sheet never decoded' },
   { name: 'no-maps', off: ['maps'], why: 'normal/ORM pages never decoded' },
   { name: 'no-mesh', off: ['mesh'], why: 'Blender geometry never decoded: procedural boxes' },
+  { name: 'no-cast', off: ['cast'], why: 'articulated parts missing: the regulars go rigid, not headless' },
   { name: 'no-anything', off: ['hdr', 'pbr', 'shadows', 'sky', 'lens', 'city', 'msaa', 'art', 'maps', 'mesh'], why: 'the 2026-08-07 hall' },
   { name: 'webgl1', off: [], webgl1: true, why: 'no WebGL2 context at all' },
 ];

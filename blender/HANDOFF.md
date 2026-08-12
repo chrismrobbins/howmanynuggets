@@ -1125,3 +1125,147 @@ because it DELETED a solid bright bar that the metric had been counting as
 8. Buffers: hall static **85528**, street **110505**, both on `bytes: 4`
    (verified off the live buffers). `upload()` still warns from 62000 and that
    warning is whitelisted in `fallbacks.js`.
+
+## 17. 🧍 THE CAST (2026-08-12) — the layer that had never been touched at all
+
+Beau's brief was one line: *"pick it yourself and handle it all."*
+
+So the round started by asking §0's question — *which layer of this picture has
+never been upgraded?* — and the answer was not in doubt once `motion.js` ran.
+Palette, lighting, geometry, post, materials and content have each had whole
+sessions. Reflections got the mirror pass; motion got THE GLIDE. **Animation had
+never been touched.** Twelve moving channels in the entire game, and only two of
+them attached to a person — `npc.shift` and `npc.yaw`, both whole-body
+transforms. There was not one object in this world with a part that moved
+independently of its body.
+
+That is worst exactly where §0 cares most. You walk up to a regular to talk to
+them; `17-regular` exists *because* a player goes there. And what a player found
+was five characters who slid to face them as rigid lumps and bobbed straight up
+and down like corks.
+
+### What shipped
+
+**Articulation, end to end.** Each regular ships TWICE now: the one-piece model
+unchanged, plus the same geometry split into parts (`CAST` in `hallmesh.py`).
+Fifteen new part objects across five characters and the claw machine.
+
+**The split is anatomical, not generic.** There is no skeleton here and adding
+one would have made every character worse. A rig general enough for a bouncer
+with no neck, a pickle in a hat, a cup that does not stand up, a robe with a cowl
+and an actual chicken articulates all five badly. So:
+
+| who | parts | what moves, and why that and nothing else |
+|---|---|---|
+| crumb | body armL armR footL footR | No neck — his head IS his body. Shoulders and ankles instead, and the breath is squash-stretch on the body. |
+| dill | body hat arm | Tips the brim (he is a detective) and works the notepad while you talk. |
+| hood | body head | The cowl turns and the ROBE DOES NOT. The best-looking change in the round. |
+| gravy | body lid | He is a cup. The lid is the only part his anatomy justifies moving. |
+| hen | body head | The only real neck in the cast, so the only real head turn — plus THE PECK. |
+| claw | body trolley grab | A crane machine whose claw never moved. Two parts, not one: a trolley on a rail must not tilt. |
+
+**THE HEAD LEADS AND THE BODY FOLLOWS WHAT THE NECK CANNOT REACH.** For anyone
+with a `headMax`, the head turns first and the body only rotates away the excess.
+This one ordering is most of the effect: it is the difference between a person
+noticing you and a statue rotating to face you.
+
+**The breath is a SQUASH, not a rise.** The old 5–11mm vertical `bobAmp` was the
+head-bob mistake one scale down — periodic translation reads as floating. A body
+that is breathing changes shape, and it does it about the floor.
+
+**Crumb's feet were four and a half centimetres THROUGH the pavement** (`z
+-0.045`) while his body started at `0.115`, so the only regular with visible feet
+had them buried under a body that hovered above them. They stand on the floor
+now. Detached limbs are the house idiom (Rayman) and they stay detached — being
+their own parts is what lets the body shift its weight while they hold still. A
+floating body over planted feet reads as weight; a floating body over floating
+feet reads as a balloon.
+
+### The number, and why it is the wrong lens
+
+| | dead | near | blown | mean | sd | chroma | hard | fps |
+|---|---|---|---|---|---|---|---|---|
+| baseline (20 spots) | 0.381 | 8.331 | 0.007 | 65.104 | 42.305 | 49.357 | 0.772 | 60.2 |
+| THE CAST (same 20) | 0.370 | 8.329 | 0.007 | 65.119 | 42.282 | 49.352 | 0.777 | 60.0 |
+
+**Flat. That is the correct result and it was predictable before the run.**
+`shoot.js` PINS THE CLOCK, so a statue and a living character photograph
+identically — §16 wrote that sentence about the regulars already. Every statistic
+in the kit is a histogram over one frame; this round changed nothing about any
+single frame's distribution of colour and everything about the sequence of them.
+Same family as §16's aliasing find and §13's `blown 0.00%`, and the third time
+this project has had to say it: **the metric is a proxy, and here it was measuring
+the wrong axis entirely.**
+
+The two things it *did* catch are both real and both small: `17-regular` mean
+55.14 → 55.85 with near-dead 6.48 → 6.19 (Crumb's feet stopped being inside the
+pavement and started catching floor light), and `20-cranes` dead 0.24 → 0.02.
+
+The evidence that matters is `motion.js` (12 channels → 20, all sweeping) and the
+`pose.js` strips.
+
+### The kit could not see any of this, so the kit grew
+
+Two gaps, both found by trying to verify the work rather than by reasoning:
+
+1. **Every tool here measured ONE FRAME at a PINNED CLOCK.** Fine while nothing
+   had a moving part. A rig fails at its EXTREMES, and the middle of a cycle is
+   exactly where nothing goes wrong: `shoot.js` photographs the hen at t=12.5 and
+   reports a clean frame while the peck that would tear her head off happens at
+   t=11.8. **`blender/tools/pose.js`** walks the clock and hands you the frames;
+   `crop.py strip` lays them out in clock order. It asserts nothing — looking at
+   the strip is the test, same contract as `crop.py`.
+2. **Every GESTURE in the cast was unphotographable by anything in this repo.**
+   Dill's brim and notepad, Gravy's lid, Crumb's unfolding arm are all gated on
+   `H.dialog.npc` — and `stand()` sets `H.dialog = null` on every call. So the
+   most characterful half of the round could not be captured in any mode.
+   `pose.js --talk <id>` drives the NPC hotspot's own `act()` to open the real
+   dialogue. A pose you cannot get the harness into is a pose that will regress
+   unnoticed.
+
+Also added: **`no-cast`**, the seam for tier 2 of the fallback (parts missing,
+one-piece characters present — they go RIGID, never headless), and
+**`17-regular` is in `fallbacks.js`'s CHECK list** now, because the `no-cast`
+seam degrades the five regulars and not one of the three spots it used to sample
+has a regular in it. It would have diffed at ~0% and been reported as a seam that
+never fired. §15 verbatim, one more time: a spot table only measures what it
+points at.
+
+And **`21-hen`**, from her own hotspot `stand`. The first attempt at that spot
+framed the Undercroft doors and a brick wall with a red comb clipping the bottom
+edge: she is 0.78m tall, `EYE` is 1.62, and a standing eyeline 1.2m from her
+looks straight over her head. Pitch is `atan((0.45 - 1.62) / 2.5)`, not a guess.
+
+### Ledger rows (§9)
+
+| Question | Answer | Why |
+|---|---|---|
+| Split a character for articulation — just export the parts? | **No: export the WHOLE model too** | A part set that half-arrives is a headless nugget, and §1.5 says nothing degrades to worse than what it replaced. `makeNpc` uses parts only when EVERY part resolves, and the check runs before anything uploads so a late failure cannot leak buffers. |
+| Does a part inherit the character's AO? | **No — pass siblings as `occluders`** | `_bake_ao` raycasts an object against ITSELF. Baked separately, the head stops shading the shoulders and both parts come back lighter than the one-piece model. Baked AO is the biggest lever in this pipeline; a split must not cost any of it. |
+| Does a part inherit the character's texture scale? | **No — pass the whole model's box as `uv_box`** | `finish()` box-projects against the part's own bbox, so a head projected alone gets finer grain than the body it sits on and the neck becomes a visible seam. |
+| Where does a pivot live? | **In the exported geometry (`extract(pivot=)` -> `"v"` -> `HallMesh.pivot`)** | §16: do not trust the comment next to the constant. A pivot typed in both hallmesh.py and arcade.js is a pivot that will disagree with itself. |
+| Give the neckless characters a head turn anyway? | **No** | Splitting a head off a single blob tears it open, and nothing in this renderer is transparent so you would see the inside. Crumb articulates at the shoulders, Dill tips the HAT. Match the rig to the anatomy. |
+| Body and head both slew toward the player? | **Head first, body takes only the excess** | Both slewing together is what made them read as chess pieces. It also means `npc.yaw` on an articulated character correctly goes DEAD — see below. |
+| A motion channel went dead — regression? | **Check whether it measured the OLD behaviour first** | `npc.yaw` pointed at the Hooded Nug, whose body now only turns when the cowl runs out of neck; an idle ±0.26rad glance is inside his 0.95 `headMax`, so the robe correctly never moves. Re-pointed at Crumb, who has no neck and still turns bodily. |
+| Is a slow prop animation safer? | **No — it is invisible** | The claw first ran a 15-second sweep. `motion.js` caught that a 9s window could not contain one period, which is also the reason nobody would ever notice it: 7.4s now. |
+| Squash-and-stretch skews the shading normals? | **Yes, and at these amplitudes it does not matter** | `vNormal = mat3(uModel) * aNormal`, renormalised in the fragment shader. Breath is 0.7–2.6%, so the skew is second-order. Do not raise it far without an inverse-transpose. |
+
+### Still open, in value order
+
+1. **The prize boxes in the crane cabinets are blown to featureless cream
+   slabs** — `clawLit`/`clawLitS` on three sides of a small box, and from
+   `20-cranes` you cannot see the prizes in the far machine at all. §5c's rule
+   about emissives, on a surface that post-dates it.
+2. **The hall's walls are the flattest thing left in the game**: one lavender
+   tone, a thin panel grid, no wear, no posters, nothing. Worst at `07-jukebox`,
+   which is a wall with a small object at the bottom of it.
+3. **The carpet is still the highest `hard` in the game** (2.17 at `02-aisle`) —
+   §16's open item 3, untouched.
+4. **`06-scoreboard` photographs its OFFLINE state in every run, forever.** The
+   worker only allows the production origin, the kit serves from localhost, so a
+   big lit surface in the hall has never once been measured showing real scores.
+   Mean 6.0 at that spot is measuring an error message.
+5. Nothing dynamic casts a shadow — the articulated parts included. The shadow
+   maps bake off the STATIC buffers, and the trolley/grab left that buffer.
+6. `hallMeshData.js` is **956KB gzipped**, not the ~334KB three docs still claim.
+   Corrected in AGENTS.md and CLAUDE.md this round.

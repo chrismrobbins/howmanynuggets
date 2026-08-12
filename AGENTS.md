@@ -410,7 +410,7 @@ Rules if you touch it:
 
 - **Every call site keeps its procedural box rig** in an `if (!Model)` branch.
   `HallMesh.on = () => false` in a harness gives the byte-identical old hall.
-- The geometry payload is **not** in index.html — `js/hallMesh.js` injects
+- The geometry payload (~956KB gzipped since THE CAST) is **not** in index.html — `js/hallMesh.js` injects
   `js/hallMeshData.js` async after first paint, and `enter()` waits on
   `HallMesh.whenReady()` if you click the arcade button before it lands.
 - Vertex `tint` carries **baked ambient occlusion**. If you write a new call
@@ -1005,3 +1005,63 @@ dead black 0.74 → 0.04, mean 62.73 → 83.39.**
 |---|---|---|---|---|---|---|---|
 | THE FLOOR PLAN (20 spots) | 0.38 | 8.83 | 0.01 | 63.65 | 49.85 | 0.782 | 59.2 |
 | THE PAVEMENT (20) | 0.38 | 8.42 | 0.01 | 64.80 | 49.35 | 0.777 | 58.8 |
+
+## 🧍 THE CAST — the regulars are articulated (2026-08-12)
+
+Every model in this hall used to be one rigid object drawn with one matrix, and
+`blender/tools/motion.js` measured exactly what that cost: **twelve moving
+channels in the whole game, and only two attached to a person** (`npc.shift`,
+`npc.yaw` — both whole-body transforms). Animation was the one layer of this
+picture that had never been touched at all. Full story in `blender/HANDOFF.md`
+§17; here is what will bite a future change.
+
+- **A regular is a SET OF PARTS now.** `blender/hallmesh.py` has a `CAST` table
+  declaring each character's parts and their pivots; `_articulate()` emits the
+  geometry TWICE — the one-piece model unchanged, plus one object per part.
+  `js/arcade.js`'s `makeNpc` picks between three tiers, each strictly better than
+  the next: **the part set → the one-piece Blender model → the procedural
+  blob3/box3 rig**. A part set is used only when EVERY part resolves, and the
+  check runs before anything uploads. Half a set would be a headless nugget.
+- **The rigs are ANATOMICAL, not one skeleton.** There is no skeleton here and
+  adding one would make every character worse: Crumb has no neck (he articulates
+  at the shoulders and ankles), Dill tips his HAT, Gravy is a cup and only his lid
+  moves, Hood's cowl turns while the robe stays put, and Henrietta — the only
+  real neck in the cast — gets the only real head turn plus THE PECK. `POSE` in
+  arcade.js is five bespoke functions keyed by id. Keep it that way.
+- **The head leads; the body only turns away what the neck cannot reach.** That
+  single ordering is most of the effect. A consequence worth knowing: a body-yaw
+  motion channel on an articulated character correctly reads DEAD, because an
+  idle glance fits inside `headMax` and the body genuinely should not move.
+- **Pivots ride in the GEOMETRY** (`extract(pivot=)` → `"v"` in hallMeshData →
+  `HallMesh.get(name).pivot`). Do not add a copy to arcade.js. §16's ledger: a
+  constant typed in two files is a constant that will disagree with itself.
+- **Splitting a model costs baked AO and texture scale unless you pay for both.**
+  `_bake_ao` raycasts an object against itself, so sibling parts must be passed
+  as `occluders` or the head stops shading the shoulders; `finish()` projects UVs
+  against the part's own bbox, so parts must be given the whole character's box
+  as `uv_box` or the neck becomes a visible seam.
+- **Breathing is a SQUASH, not a rise.** The old vertical `bobAmp` was the
+  head-bob mistake one scale down (§16, THE GLIDE) — periodic translation reads
+  as floating. `bobAmp` is still in `NPCS` because tiers 2 and 3 have no parts to
+  squash and must keep the motion they had.
+- **The crane machines' claws move** (`H.claw`): the body bakes into the static
+  buffer, the trolley and grab are their own buffers drawn per-instance. Two
+  parts and not one because a trolley on a rail must not tilt. Consequence: they
+  left the static buffer, so they no longer cast a baked shadow.
+- 🚨 **A gesture is only visible while `H.dialog` is set, and every harness call
+  to `stand()` clears it.** Dill's brim and notepad, Gravy's lid and Crumb's
+  unfolding arm were unphotographable by anything in this repo until
+  `pose.js --talk <id>` existed. If you add a gesture, verify it with `--talk`.
+
+**Two new tools and two new seams in `blender/tools/`:**
+
+- **`pose.js`** — walks the clock and shoots the frames; `crop.py strip` lays
+  them out in clock order. Everything else in the kit measures ONE FRAME at a
+  PINNED CLOCK, which cannot see a rig that breaks at the extremes of its cycle.
+  `--look <npcId>` frames a regular off its own hotspot `stand` and height, so no
+  camera spot has to be invented; `--talk <npcId>` opens the real dialogue.
+- **`no-cast`** in the fallback matrix — hides the part models and leaves the
+  one-piece characters (tier 2). **`17-regular` is in `fallbacks.js`'s CHECK list
+  now**: the seam degrades the five regulars and none of the three spots it used
+  to sample has a regular in it, so it would have diffed at ~0% and reported a
+  seam that never fired. `21-hen` is a new `shoot.js` spot, from her own `stand`.

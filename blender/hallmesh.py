@@ -721,8 +721,16 @@ class Part:
 
     # -- finish ------------------------------------------------------------------------
 
-    def finish(self, bevel=0.012, segments=2, smooth_deg=38, uv_scale=None):
-        """UV-project, bevel, auto-smooth, and link into the HALLMESH scene."""
+    def finish(self, bevel=0.012, segments=2, smooth_deg=38, uv_scale=None, uv_box=None):
+        """UV-project, bevel, auto-smooth, and link into the HALLMESH scene.
+
+        `uv_box` overrides the bounding box the projection is normalised
+        against. It exists for ARTICULATED models (THE CAST, §17): a character
+        split into body + head is two Parts, and each one projected against its
+        OWN bbox gets its own texture scale — so the feathers on a hen's head
+        come out finer than the feathers on her back and the neck is a visible
+        seam. Pass the whole character's box and every part matches.
+        """
         bm = self.bm
         bm.verts.ensure_lookup_table()
         bm.faces.ensure_lookup_table()
@@ -737,6 +745,8 @@ class Part:
         zs = [v.co.z for v in bm.verts] or [0]
         lo = Vector((min(xs), min(ys), min(zs)))
         hi = Vector((max(xs), max(ys), max(zs)))
+        if uv_box:
+            lo, hi = Vector(uv_box[0]), Vector(uv_box[1])
         span = Vector((max(hi.x - lo.x, 1e-4), max(hi.y - lo.y, 1e-4), max(hi.z - lo.z, 1e-4)))
         if uv_scale:
             span = Vector((span.x / uv_scale, span.y / uv_scale, span.z / uv_scale))
@@ -903,19 +913,37 @@ def _hemisphere(n_rays):
 AO = dict(rays=28, dist=0.40, floor=0.42, power=1.15, ground=True)
 
 
-def _bake_ao(me, mw, rays, dist, floor, power, ground):
+def _bake_ao(me, mw, rays, dist, floor, power, ground, occluders=None):
     """Per-vertex AO in 0..1 (1 = fully open) for an already-evaluated mesh.
 
     `floor` is how dark a fully occluded vertex may get — never 0, or crevices
     punch black holes in a room that is already dark. `ground` adds the
     pavement as an occluder so things sitting on it get a contact shadow
     creeping up their sides, which is most of what sells weight.
+
+    `occluders` are extra objects that CAST into this bake without being
+    sampled by it. Without them, splitting a character into body + head for
+    articulation (THE CAST, §17) silently deletes the AO between the two: the
+    head stops shading the shoulders and the body stops shading the underside
+    of the jaw, and both parts come back lighter than the one-piece model they
+    replaced. Baked AO is the biggest single lever in this pipeline (§7) — a
+    split must not cost any of it.
     """
     from mathutils.bvhtree import BVHTree
 
     verts = [mw @ v.co for v in me.vertices]
     normals = [(mw.to_3x3() @ v.normal).normalized() for v in me.vertices]
     tris = [tuple(lt.vertices) for lt in me.loop_triangles]
+    n_own = len(verts)          # only these get sampled; the rest just occlude
+
+    for oc in (occluders or []):
+        dg = bpy.context.evaluated_depsgraph_get()
+        ome = oc.evaluated_get(dg).to_mesh()
+        ome.calc_loop_triangles()
+        base = len(verts)
+        verts += [oc.matrix_world @ v.co for v in ome.vertices]
+        tris += [tuple(base + i for i in lt.vertices) for lt in ome.loop_triangles]
+        oc.evaluated_get(dg).to_mesh_clear()
 
     if ground:
         base = len(verts)
@@ -926,7 +954,8 @@ def _bake_ao(me, mw, rays, dist, floor, power, ground):
     bvh = BVHTree.FromPolygons(verts, tris, all_triangles=True)
     dirs = _hemisphere(rays)
     out = []
-    for i in range(len(normals)):
+    assert len(normals) == n_own
+    for i in range(n_own):
         p, n = verts[i], normals[i]
         up = Vector((0, 0, 1)) if abs(n.z) < 0.95 else Vector((1, 0, 0))
         tx = n.cross(up).normalized()
@@ -943,7 +972,7 @@ def _bake_ao(me, mw, rays, dist, floor, power, ground):
     return out
 
 
-def extract(ob, ao=True, ao_opts=None):
+def extract(ob, ao=True, ao_opts=None, occluders=None, pivot=None):
     """Evaluate modifiers and pull out (verts, tris, mats) in HALL space."""
     dg = bpy.context.evaluated_depsgraph_get()
     ev = ob.evaluated_get(dg)
@@ -953,7 +982,7 @@ def extract(ob, ao=True, ao_opts=None):
     o = dict(AO)
     o.update(ao_opts or {})
     vao = _bake_ao(me, ob.matrix_world, o["rays"], o["dist"], o["floor"],
-                   o["power"], o["ground"]) if ao else None
+                   o["power"], o["ground"], occluders) if ao else None
 
     # split (auto-smooth) normals if this Blender exposes them
     corner = None
@@ -1018,11 +1047,18 @@ def extract(ob, ao=True, ao_opts=None):
             tris.append(tri)
 
     ev.to_mesh_clear()
-    return {
+    out = {
         "mats": [{"r": MATS[m][0], "e": MATS[m][2], "t": MATS[m][3]} for m in mats],
         "verts": verts,
         "tris": tris,
     }
+    # An articulated part ships the point it rotates about, in HALL space, so
+    # the engine never carries a hand-transcribed copy of a number that lives
+    # here. §16's ledger: do not trust the comment next to the constant. A
+    # pivot typed twice is a pivot that will disagree with itself.
+    if pivot is not None:
+        out["pivot"] = [round(v, 5) for v in _to_hall(tuple(pivot))]
+    return out
 
 
 # ---- THE COMPACT ---------------------------------------------------------------------
@@ -1250,6 +1286,112 @@ def build_compact():
 #   crumb 1.00   gravy 0.55 (sits on the bench at yBase 0.45)   hood 1.05
 #   hen   0.78   dill  1.12
 
+# ---- THE CAST: articulated characters (§17) -------------------------------------------
+#
+# Until this section every model in the hall was ONE rigid object drawn with ONE
+# matrix, and `blender/tools/motion.js` proved what that cost: twelve moving
+# channels in the whole game and only two of them attached to a character —
+# `npc.shift` and `npc.yaw`, both whole-body transforms. Five people you can
+# walk up to and talk to, and every one of them turned to face you as a single
+# lump and bobbed straight up and down like a cork on water.
+#
+# So each regular now ships TWICE:
+#
+#   <name>            the one-piece model, unchanged, still exported
+#   <name>_<part>     the same geometry split into independently posed parts
+#
+# The whole model is kept on purpose. The house rule (§1.5) is that nothing ever
+# degrades to worse than what it replaced, and a part set that half-loads must
+# not produce a headless nugget — js/arcade.js uses the parts only when it has
+# ALL of them and otherwise draws the one-piece model, which is exactly the
+# character that shipped before.
+#
+# Two things a split silently breaks if you let it, both handled here:
+#   * TEXTURE SCALE. finish() box-projects against the part's own bounding box,
+#     so a head projected alone gets finer grain than the body it sits on and
+#     the neck becomes a seam. Every part is projected against the WHOLE
+#     character's box via `uv_box`.
+#   * BAKED AO. _bake_ao raycasts an object against itself, so parts baked
+#     separately lose the shadow they cast on each other and come back lighter
+#     than the model they replaced. Sibling parts are passed as `occluders`.
+#
+# Pivots are in BLENDER space and ride in the exported JSON (extract() converts
+# them to hall space) so the engine never carries a second hand-typed copy —
+# §16's ledger: do not trust the comment next to the constant.
+
+CAST = {
+    "crumb": {
+        # A bouncer with no neck: his head IS his body. So he articulates at the
+        # shoulders and the ankles instead, and the breathing is squash-stretch
+        # on the body itself — which is what a big soft nugget should do anyway.
+        "body": None,
+        "armL": (-0.410, -0.020, 0.470), "armR": (0.410, -0.020, 0.470),
+        "footL": (-0.170, 0.000, 0.020), "footR": (0.170, 0.000, 0.020),
+    },
+    "dill": {
+        "body": None,
+        "hat": (0.000, -0.010, 0.940),      # the brim's own base, so it tips
+        "arm": (0.170, -0.020, 0.635),      # the notepad hand
+    },
+    "hood": {
+        # The cowl and the nug inside it turn together while the robe stays put.
+        # Anatomically the only honest split for him, and the best-looking one:
+        # a hooded figure whose HOOD tracks you is the whole character.
+        "body": None,
+        "head": (0.000, 0.000, 0.545),
+    },
+    "gravy": {
+        # He does not get up. He speaks through a lid that is already ajar, so
+        # the lid is the part that moves.
+        "body": None,
+        "lid": (-0.185, -0.020, 0.556),     # the far rim — it hinges, not floats
+    },
+    "hen": {
+        # The only regular with a real neck. Gets a real head turn, and a peck.
+        "body": None,
+        "head": (0.000, -0.045, 0.400),
+    },
+    "claw": {
+        # Not a character — a crane machine whose claw had never moved. The
+        # trolley rides the gantry in x; the grab hangs off it and swings.
+        "body": None,
+        "trolley": None,
+        "grab": (-0.090, 0.060, 1.910),
+    },
+}
+
+
+def _local_bbox(ob):
+    """The object's own bounding box, for handing to a sibling's `uv_box`."""
+    xs = [v[0] for v in ob.bound_box]
+    ys = [v[1] for v in ob.bound_box]
+    zs = [v[2] for v in ob.bound_box]
+    return ((min(xs), min(ys), min(zs)), (max(xs), max(ys), max(zs)))
+
+
+def _articulate(name, geo, bevel=0.008, segments=1, smooth_deg=48):
+    """Emit `name` as one whole model plus one object per part in CAST[name].
+
+    `geo(P)` is the geometry, written ONCE, where `P` is a dict of part-name ->
+    Part. For the whole model every key maps to the same Part, so there is
+    exactly one description of the character and no chance of the split drifting
+    away from the one-piece version it falls back to.
+    """
+    parts = list(CAST[name].keys())
+    W = Part(name)
+    geo({p: W for p in parts})
+    whole = W.finish(bevel=bevel, segments=segments, smooth_deg=smooth_deg)
+    box = _local_bbox(whole)
+
+    P = {p: Part(name + "_" + p) for p in parts}
+    geo(P)
+    out = [whole]
+    for p in parts:
+        out.append(P[p].finish(bevel=bevel, segments=segments,
+                               smooth_deg=smooth_deg, uv_box=box))
+    return out
+
+
 def _eyes(P, y, z, sep, r, mat="black"):
     """A pair of eyes set INTO the face rather than bolted onto it.
 
@@ -1263,131 +1405,160 @@ def _eyes(P, y, z, sep, r, mat="black"):
 
 def build_crumb():
     """BIG CRUMB — the bouncer. A slab of nugget in night sunglasses and a bow
-    tie, arms crossed, unimpressed."""
-    P = Part("crumb")
+    tie, arms crossed, unimpressed.
+
+    ARTICULATED (§17): body / armL / armR / footL / footR.
+
+    His shoes used to sit at z -0.045 — four and a half centimetres THROUGH the
+    pavement — while his body started at 0.115, so the only man in the game with
+    visible feet had them buried under a body that floated above them. Detached
+    limbs are the house idiom here and they stay detached; they just stand on
+    the floor now, and being their own parts is what lets the body shift its
+    weight while they hold still. That is the whole trick with a rig like this:
+    a floating body over planted feet reads as weight, a floating body over
+    floating feet reads as a balloon.
+    """
     NUG = [(0.0, 0.0), (0.05, 0.55), (0.16, 0.82), (0.30, 0.96), (0.46, 1.0),
            (0.63, 0.98), (0.78, 0.90), (0.90, 0.70), (1.0, 0.0)]
     HW = 0.86 / 2   # remember the half-width; hanging arms off a guessed number
                     # is what buried the first pair INSIDE his own body
-    # the man himself: one big flattened nugget, lumpy the way a nugget is
-    P.blob((0, 0, 0.115), (0.86, 0.60, 0.855), "nug", prof=NUG, lump=0.055, seed=1.7,
-           stacks=13, slices=16)
-    # feet: two rounded shoes, toes forward
-    for sx in (-1, 1):
-        P.blob((sx * 0.170, -0.045, 0.0), (0.235, 0.340, 0.130), "nugDark",
-               prof=[(0, 0.75), (0.5, 1.0), (1.0, 0.55)], stacks=5, slices=10)
-    # crossed arms: shoulder OUTSIDE the flank, forearms folded over the belly.
-    # Slung LOW — at z 0.615 the shoulders sat level with the shades and the
-    # arms looked like they grew out of his cheeks.
-    for sx in (-1, 1):
-        P.limb((sx * (HW - 0.02), -0.02, 0.470), (sx * (HW + 0.070), -0.10, 0.330), 0.092, 0.080, "nug")
-        P.limb((sx * (HW + 0.070), -0.10, 0.330), (-sx * 0.095, -0.265, 0.352), 0.080, 0.065, "nug")
-        P.blob((-sx * 0.110, -0.280, 0.305), (0.145, 0.145, 0.125), "nugDark", stacks=6, slices=9)
-    # the shades: a wraparound band with two lenses, out on the face not the brow
-    P.limb((-0.335, -0.235, 0.700), (0.335, -0.235, 0.700), 0.032, 0.032, "black", slices=8)
-    for sx in (-1, 1):
-        P.blob((sx * 0.160, -0.262, 0.640), (0.265, 0.130, 0.125), "black",
-               prof=[(0, 0.5), (0.4, 1.0), (0.75, 1.0), (1.0, 0.45)], stacks=5, slices=10)
-    # earpieces, back along the sides of his head
-    for sx in (-1, 1):
-        P.limb((sx * 0.320, -0.245, 0.702), (sx * 0.395, 0.060, 0.678), 0.026, 0.020, "black", slices=6)
-    # bow tie: two wedges and a knot, worn at the collar — ABOVE the folded arms
-    for sx in (-1, 1):
-        P.blob((sx * 0.115, -0.272, 0.478), (0.185, 0.115, 0.150), "sauce",
-               prof=[(0, 0.95), (0.5, 0.55), (1.0, 0.95)], stacks=4, slices=8)
-    P.blob((0, -0.292, 0.510), (0.085, 0.085, 0.085), "wood", stacks=5, slices=8)
-    return P.finish(bevel=0.008, segments=1, smooth_deg=48)
+
+    def geo(P):
+        # the man himself: one big flattened nugget, lumpy the way a nugget is
+        P["body"].blob((0, 0, 0.115), (0.86, 0.60, 0.855), "nug", prof=NUG, lump=0.055,
+                       seed=1.7, stacks=13, slices=16)
+        # feet: two rounded shoes, toes forward, ON the pavement
+        for sx, k in ((-1, "footL"), (1, "footR")):
+            P[k].blob((sx * 0.170, -0.045, 0.0), (0.235, 0.340, 0.135),
+                      "nugDark", prof=[(0, 0.75), (0.5, 1.0), (1.0, 0.55)],
+                      stacks=5, slices=10)
+        # crossed arms: shoulder OUTSIDE the flank, forearms folded over the
+        # belly. Slung LOW — at z 0.615 the shoulders sat level with the shades
+        # and the arms looked like they grew out of his cheeks.
+        for sx, k in ((-1, "armL"), (1, "armR")):
+            P[k].limb((sx * (HW - 0.02), -0.02, 0.470), (sx * (HW + 0.070), -0.10, 0.330),
+                      0.092, 0.080, "nug")
+            P[k].limb((sx * (HW + 0.070), -0.10, 0.330), (-sx * 0.095, -0.265, 0.352),
+                      0.080, 0.065, "nug")
+            P[k].blob((-sx * 0.110, -0.280, 0.305), (0.145, 0.145, 0.125), "nugDark",
+                      stacks=6, slices=9)
+        B = P["body"]
+        # the shades: a wraparound band with two lenses, out on the face not the brow
+        B.limb((-0.335, -0.235, 0.700), (0.335, -0.235, 0.700), 0.032, 0.032, "black", slices=8)
+        for sx in (-1, 1):
+            B.blob((sx * 0.160, -0.262, 0.640), (0.265, 0.130, 0.125), "black",
+                   prof=[(0, 0.5), (0.4, 1.0), (0.75, 1.0), (1.0, 0.45)], stacks=5, slices=10)
+        # earpieces, back along the sides of his head
+        for sx in (-1, 1):
+            B.limb((sx * 0.320, -0.245, 0.702), (sx * 0.395, 0.060, 0.678), 0.026, 0.020,
+                   "black", slices=6)
+        # bow tie: two wedges and a knot, worn at the collar — ABOVE the folded arms
+        for sx in (-1, 1):
+            B.blob((sx * 0.115, -0.272, 0.478), (0.185, 0.115, 0.150), "sauce",
+                   prof=[(0, 0.95), (0.5, 0.55), (1.0, 0.95)], stacks=4, slices=8)
+        B.blob((0, -0.292, 0.510), (0.085, 0.085, 0.085), "wood", stacks=5, slices=8)
+
+    return _articulate("crumb", geo)
 
 
 def build_dill():
     """DETECTIVE DILL — a dill pickle in a fedora and a trench collar, badge on
-    the chest, notepad out, working the Catch Incident."""
-    P = Part("dill")
+    the chest, notepad out, working the Catch Incident.
+
+    ARTICULATED (§17): body / hat / arm. The hat tips — he is a detective and
+    tipping the brim is the entire gesture — and the notepad hand comes up while
+    he talks, because a man taking a statement should be writing it down. Both
+    are small angles on purpose: the fedora sits ON the pickle with no neck
+    between them, so anything past about ten degrees lifts it off his head.
+    """
     PICKLE = [(0.0, 0.0), (0.04, 0.62), (0.14, 0.88), (0.30, 0.99), (0.50, 1.0),
               (0.68, 0.96), (0.82, 0.86), (0.92, 0.66), (1.0, 0.0)]
-    # the pickle: taller than he is wide, gently bumpy, flattened front-to-back
-    P.blob((0, 0, 0.04), (0.40, 0.36, 0.92), "pickle", prof=PICKLE, lump=0.05, seed=4.1,
-           stacks=14, slices=14)
-    # trench collar: sits ON the shoulders and slopes DOWN and out. The first
-    # pass flared upward at r=0.255 and read as a dinner plate round his neck.
-    P.limb((0, -0.005, 0.700), (0, -0.005, 0.605), 0.150, 0.215, "felt", slices=14, cap=False)
-    P.limb((0, -0.005, 0.700), (0, -0.005, 0.660), 0.150, 0.158, "feltDk", slices=14, cap=False)
-    # arms out of the collar, one holding the notepad
-    P.limb((-0.170, -0.02, 0.635), (-0.215, -0.145, 0.50), 0.062, 0.052, "felt")
-    P.limb((0.170, -0.02, 0.635), (0.175, -0.175, 0.545), 0.062, 0.052, "felt")
-    P.blob((-0.215, -0.165, 0.455), (0.10, 0.10, 0.095), "pickleDk", stacks=5, slices=8)
-    P.blob((0.175, -0.195, 0.505), (0.10, 0.10, 0.095), "pickleDk", stacks=5, slices=8)
-    # the notepad, flipped open
-    P.box((0.185, -0.235, 0.545), (0.115, 0.020, 0.145), "paper")
-    P.box((0.185, -0.245, 0.612), (0.115, 0.016, 0.030), "paper", taper=0.9)
-    # the badge
-    P.blob((0.115, -0.155, 0.585), (0.085, 0.045, 0.105), "badge", stacks=5, slices=8)
-    # THE FEDORA: brim with a real dip at the front, a creased crown, a band
-    P.brim((0, -0.01, 0.955), 0.115, 0.275, "felt", thick=0.026, tilt=-0.030)
-    P.blob((0, -0.01, 0.945), (0.325, 0.315, 0.175), "felt",
-           prof=[(0, 1.0), (0.55, 0.97), (0.82, 0.80), (1.0, 0.42)], stacks=6, slices=14)
-    P.limb((0, -0.01, 0.975), (0, -0.01, 1.020), 0.170, 0.168, "feltDk", slices=14, cap=False)
-    # the crown pinch — two dents either side of the centre crease
-    for sx in (-1, 1):
-        P.blob((sx * 0.085, -0.01, 1.070), (0.115, 0.20, 0.075), "felt", stacks=5, slices=9)
-    _eyes(P, -0.145, 0.735, 0.080, 0.038)
-    return P.finish(bevel=0.008, segments=1, smooth_deg=48)
+
+    def geo(P):
+        B, H, A = P["body"], P["hat"], P["arm"]
+        # the pickle: taller than he is wide, gently bumpy, flattened front-to-back
+        B.blob((0, 0, 0.04), (0.40, 0.36, 0.92), "pickle", prof=PICKLE, lump=0.05, seed=4.1,
+               stacks=14, slices=14)
+        # trench collar: sits ON the shoulders and slopes DOWN and out. The first
+        # pass flared upward at r=0.255 and read as a dinner plate round his neck.
+        B.limb((0, -0.005, 0.700), (0, -0.005, 0.605), 0.150, 0.215, "felt", slices=14, cap=False)
+        B.limb((0, -0.005, 0.700), (0, -0.005, 0.660), 0.150, 0.158, "feltDk", slices=14, cap=False)
+        # arms out of the collar, one holding the notepad
+        B.limb((-0.170, -0.02, 0.635), (-0.215, -0.145, 0.50), 0.062, 0.052, "felt")
+        B.blob((-0.215, -0.165, 0.455), (0.10, 0.10, 0.095), "pickleDk", stacks=5, slices=8)
+        A.limb((0.170, -0.02, 0.635), (0.175, -0.175, 0.545), 0.062, 0.052, "felt")
+        A.blob((0.175, -0.195, 0.505), (0.10, 0.10, 0.095), "pickleDk", stacks=5, slices=8)
+        # the notepad, flipped open — it rides the hand, not the chest
+        A.box((0.185, -0.235, 0.545), (0.115, 0.020, 0.145), "paper")
+        A.box((0.185, -0.245, 0.612), (0.115, 0.016, 0.030), "paper", taper=0.9)
+        # the badge
+        B.blob((0.115, -0.155, 0.585), (0.085, 0.045, 0.105), "badge", stacks=5, slices=8)
+        # THE FEDORA: brim with a real dip at the front, a creased crown, a band
+        H.brim((0, -0.01, 0.955), 0.115, 0.275, "felt", thick=0.026, tilt=-0.030)
+        H.blob((0, -0.01, 0.945), (0.325, 0.315, 0.175), "felt",
+               prof=[(0, 1.0), (0.55, 0.97), (0.82, 0.80), (1.0, 0.42)], stacks=6, slices=14)
+        H.limb((0, -0.01, 0.975), (0, -0.01, 1.020), 0.170, 0.168, "feltDk", slices=14, cap=False)
+        # the crown pinch — two dents either side of the centre crease
+        for sx in (-1, 1):
+            H.blob((sx * 0.085, -0.01, 1.070), (0.115, 0.20, 0.075), "felt", stacks=5, slices=9)
+        _eyes(B, -0.145, 0.735, 0.080, 0.038)
+
+    return _articulate("dill", geo)
 
 
 def build_gravy():
     """GRAVY JONES — a weathered sauce cup settled on the bench, lid ajar, eyes
-    at half mast. He does not get up."""
-    P = Part("gravy")
-    # the cup: a tapered tub with a rolled rim, dented on one side
-    rings = []
-    for v, r, z in ((0.00, 0.150, 0.000), (0.10, 0.158, 0.055), (0.45, 0.180, 0.245),
-                    (0.80, 0.198, 0.420), (0.94, 0.205, 0.480), (1.00, 0.212, 0.505)):
-        ring = []
-        for j in range(18):
-            a = (j / 18) * math.tau
-            dent = 1.0 - 0.055 * math.exp(-((math.cos(a - 2.2) - 1) ** 2) * 6) * (1 - v)
-            ring.append((math.cos(a) * r * dent, math.sin(a) * r * dent, z))
-        rings.append(ring)
-    P.loft(rings, "cup", cap_a=True, cap_b=False)
-    # the rolled rim
-    P.limb((0, 0, 0.505), (0, 0, 0.527), 0.212, 0.206, "cup", slices=18, cap=False)
-    # the lid, ajar: an offset disc tipped off the rim
-    P.brim((0.015, -0.02, 0.560), 0.0, 0.215, "lid", thick=0.030, tilt=0.038, slices=18)
-    P.limb((0.015, -0.02, 0.545), (0.015, -0.02, 0.566), 0.200, 0.212, "lid", slices=18, cap=False)
-    # a sauce tide-line where the cup has been sitting a while
-    P.limb((0, 0, 0.300), (0, 0, 0.318), 0.186, 0.187, "sauce", slices=18, cap=False)
-    # heavy lids over tired eyes. The lid is a HOOD over the top third — the
-    # first version was as big as the eye and sat in front of it, so Gravy had
-    # two white tabs for a face.
-    _eyes(P, -0.170, 0.348, 0.064, 0.042)
-    for sx in (-1, 1):
-        P.blob((sx * 0.064, -0.182, 0.402), (0.112, 0.070, 0.038), "cup",
-               prof=[(0, 0.9), (0.55, 1.0), (1.0, 0.55)], stacks=4, slices=9)
-    return P.finish(bevel=0.007, segments=1, smooth_deg=48)
+    at half mast. He does not get up.
+
+    ARTICULATED (§17): body / lid. He is a cup, so he does not lean, breathe or
+    turn — and pretending otherwise would look worse than standing still. What
+    he does is talk through a lid that is already ajar, so the lid hinges at its
+    far rim and lifts when he has something to say. One moving part, and it is
+    the only one his anatomy actually justifies.
+    """
+    def geo(P):
+        B, L = P["body"], P["lid"]
+        # the cup: a tapered tub with a rolled rim, dented on one side
+        rings = []
+        for v, r, z in ((0.00, 0.150, 0.000), (0.10, 0.158, 0.055), (0.45, 0.180, 0.245),
+                        (0.80, 0.198, 0.420), (0.94, 0.205, 0.480), (1.00, 0.212, 0.505)):
+            ring = []
+            for j in range(18):
+                a = (j / 18) * math.tau
+                dent = 1.0 - 0.055 * math.exp(-((math.cos(a - 2.2) - 1) ** 2) * 6) * (1 - v)
+                ring.append((math.cos(a) * r * dent, math.sin(a) * r * dent, z))
+            rings.append(ring)
+        B.loft(rings, "cup", cap_a=True, cap_b=False)
+        # the rolled rim
+        B.limb((0, 0, 0.505), (0, 0, 0.527), 0.212, 0.206, "cup", slices=18, cap=False)
+        # the lid, ajar: an offset disc tipped off the rim
+        L.brim((0.015, -0.02, 0.560), 0.0, 0.215, "lid", thick=0.030, tilt=0.038, slices=18)
+        L.limb((0.015, -0.02, 0.545), (0.015, -0.02, 0.566), 0.200, 0.212, "lid",
+               slices=18, cap=False)
+        # a sauce tide-line where the cup has been sitting a while
+        B.limb((0, 0, 0.300), (0, 0, 0.318), 0.186, 0.187, "sauce", slices=18, cap=False)
+        # heavy lids over tired eyes. The lid is a HOOD over the top third — the
+        # first version was as big as the eye and sat in front of it, so Gravy had
+        # two white tabs for a face.
+        _eyes(B, -0.170, 0.348, 0.064, 0.042)
+        for sx in (-1, 1):
+            B.blob((sx * 0.064, -0.182, 0.402), (0.112, 0.070, 0.038), "cup",
+                   prof=[(0, 0.9), (0.55, 1.0), (1.0, 0.55)], stacks=4, slices=9)
+
+    return _articulate("gravy", geo, bevel=0.007)
 
 
 def build_hood():
     """THE HOODED NUG — a robe to the floor, a deep cowl, and two amber glints
-    where a face should be. Four for four on rumours."""
-    P = Part("hood")
-    # the robe: flares to the pavement, no feet, gathers at the shoulders
-    ROBE = [(0.0, 1.0), (0.20, 0.86), (0.48, 0.74), (0.72, 0.70), (0.88, 0.66), (1.0, 0.58)]
-    rings = []
-    for i in range(11):
-        v = i / 10
-        r = pw(v, ROBE)
-        ring = []
-        for j in range(16):
-            a = (j / 16) * math.tau
-            fold = 1 + 0.045 * math.sin(a * 6 + 0.4) * (0.4 + 0.6 * (1 - v))
-            ring.append((math.cos(a) * 0.310 * r * fold, math.sin(a) * 0.265 * r * fold, v * 0.700))
-        rings.append(ring)
-    P.loft(rings, "cloth", cap_a=True, cap_b=False)
-    # shoulders under the cloth
-    P.limb((-0.205, 0.0, 0.600), (0.205, 0.0, 0.600), 0.140, 0.140, "cloth", slices=10)
-    # the nug inside, in shadow
-    P.blob((0, -0.020, 0.640), (0.270, 0.245, 0.310), "nugDark", stacks=8, slices=12)
+    where a face should be. Four for four on rumours.
 
+    ARTICULATED (§17): body / head. The cowl and the nug inside it turn
+    together while the robe stays exactly where it is — the only honest split
+    for a figure with no visible shoulders, and the best-looking one in the
+    cast. A hooded figure whose HOOD tracks you across the street is the entire
+    character; before this he pivoted robe-and-all like a chess piece.
+    """
+    ROBE = [(0.0, 1.0), (0.20, 0.86), (0.48, 0.74), (0.72, 0.70), (0.88, 0.66), (1.0, 0.58)]
     # THE COWL. First attempt was an arc swept over the head; it rendered as a
     # MUSHROOM CAP — a wide flat disc with no face under it. A cowl is not a
     # dome on a stick: it is a closed teardrop of cloth with a CAVE punched
@@ -1411,8 +1582,6 @@ def build_hood():
                 math.sin(a) * 0.285 * rr * dish - 0.030 * (1 - v),
                 zz)
 
-    cowl = [[cowl_pt(i / (ST - 1), j) for j in range(SL)] for i in range(ST)]
-
     def cowl_mat(i, j):
         v = (i + 0.5) / (ST - 1)
         a = ((j + 0.5) / SL) * math.tau
@@ -1420,47 +1589,81 @@ def build_hood():
         inside = abs(da) < 0.80 and 0.16 < v < 0.72
         return "clothDk" if inside else "cloth"
 
-    P.loft(cowl, "cloth", cap_a=False, cap_b=False, mat_fn=cowl_mat)
-    # the eyes, down in the recess. The only bright thing on him.
-    for sx in (-1, 1):
-        P.blob((sx * 0.072, -0.150, 0.660), (0.056, 0.050, 0.068), "eye", stacks=5, slices=8)
-    return P.finish(bevel=0.007, segments=1, smooth_deg=50)
+    def geo(P):
+        B, HD = P["body"], P["head"]
+        # the robe: flares to the pavement, no feet, gathers at the shoulders
+        rings = []
+        for i in range(11):
+            v = i / 10
+            r = pw(v, ROBE)
+            ring = []
+            for j in range(16):
+                a = (j / 16) * math.tau
+                fold = 1 + 0.045 * math.sin(a * 6 + 0.4) * (0.4 + 0.6 * (1 - v))
+                ring.append((math.cos(a) * 0.310 * r * fold,
+                             math.sin(a) * 0.265 * r * fold, v * 0.700))
+            rings.append(ring)
+        B.loft(rings, "cloth", cap_a=True, cap_b=False)
+        # shoulders under the cloth
+        B.limb((-0.205, 0.0, 0.600), (0.205, 0.0, 0.600), 0.140, 0.140, "cloth", slices=10)
+        # the nug inside, in shadow — rides with the cowl
+        HD.blob((0, -0.020, 0.640), (0.270, 0.245, 0.310), "nugDark", stacks=8, slices=12)
+        cowl = [[cowl_pt(i / (ST - 1), j) for j in range(SL)] for i in range(ST)]
+        HD.loft(cowl, "cloth", cap_a=False, cap_b=False, mat_fn=cowl_mat)
+        # the eyes, down in the recess. The only bright thing on him.
+        for sx in (-1, 1):
+            HD.blob((sx * 0.072, -0.150, 0.660), (0.056, 0.050, 0.068), "eye",
+                    stacks=5, slices=8)
+
+    return _articulate("hood", geo, bevel=0.007, smooth_deg=50)
 
 
 def build_hen():
     """HENRIETTA — an actual hen. Comb, wattle, tail fan, and the small
-    skeptical eyes of someone who has heard this before."""
-    P = Part("hen")
-    # body: an egg tipped nose-down, tail high
-    P.blob((0, 0.03, 0.155), (0.30, 0.40, 0.375), "hen",
-           prof=[(0, 0.0), (0.10, 0.68), (0.34, 0.96), (0.60, 1.0), (0.82, 0.82), (1.0, 0.0)],
-           stacks=10, slices=14)
-    # neck and head
-    P.limb((0, -0.045, 0.400), (0, -0.100, 0.545), 0.098, 0.082, "hen", slices=10, cap=False)
-    P.blob((0, -0.115, 0.475), (0.185, 0.195, 0.215), "hen", stacks=8, slices=12)
-    # the comb: three lobes along the crown
-    for i, (yy, rr, zz) in enumerate(((-0.055, 0.042, 0.660), (-0.115, 0.052, 0.672), (-0.170, 0.038, 0.652))):
-        P.blob((0, yy, zz), (0.030, rr * 2, rr * 2.1), "comb", stacks=5, slices=8)
-    # wattle, under the beak
-    P.blob((0, -0.185, 0.500), (0.055, 0.048, 0.090), "comb", stacks=5, slices=8)
-    # beak: a tapered wedge, not a box
-    P.limb((0, -0.180, 0.560), (0, -0.290, 0.545), 0.052, 0.010, "beak", slices=8)
-    _eyes(P, -0.205, 0.588, 0.072, 0.030)
-    # wings folded along the flanks
-    for sx in (-1, 1):
-        P.blob((sx * 0.150, 0.020, 0.195), (0.075, 0.320, 0.260), "henDark",
-               prof=[(0, 0.35), (0.4, 1.0), (0.75, 0.92), (1.0, 0.30)], stacks=6, slices=10)
-    # tail fan: three swept feathers
-    for i, sx in enumerate((-1, 0, 1)):
-        P.blob((sx * 0.075, 0.290 + abs(sx) * 0.02, 0.330 - abs(sx) * 0.04),
-               (0.075, 0.240, 0.300), "hen",
-               prof=[(0, 0.30), (0.45, 1.0), (1.0, 0.22)], stacks=5, slices=8)
-    # legs and feet
-    for sx in (-1, 1):
-        P.limb((sx * 0.075, -0.010, 0.150), (sx * 0.082, -0.020, 0.030), 0.030, 0.024, "beak", slices=7)
-        for ty, tx in ((-0.075, 0.0), (-0.050, 0.045), (-0.050, -0.045)):
-            P.limb((sx * 0.082, -0.020, 0.024), (sx * 0.082 + tx, ty, 0.014), 0.020, 0.010, "beak", slices=6)
-    return P.finish(bevel=0.006, segments=1, smooth_deg=48)
+    skeptical eyes of someone who has heard this before.
+
+    ARTICULATED (§17): body / head. She is the only regular with a real neck,
+    so she gets the only real head turn in the cast — and a PECK, which is the
+    one piece of actual behaviour in this game. The neck limb belongs to the
+    HEAD part and the pivot is its own base ring, so the ring never leaves the
+    body and turning her head cannot open a hole in her neck.
+    """
+    def geo(P):
+        B, HD = P["body"], P["head"]
+        # body: an egg tipped nose-down, tail high
+        B.blob((0, 0.03, 0.155), (0.30, 0.40, 0.375), "hen",
+               prof=[(0, 0.0), (0.10, 0.68), (0.34, 0.96), (0.60, 1.0), (0.82, 0.82), (1.0, 0.0)],
+               stacks=10, slices=14)
+        # neck and head
+        HD.limb((0, -0.045, 0.400), (0, -0.100, 0.545), 0.098, 0.082, "hen", slices=10, cap=False)
+        HD.blob((0, -0.115, 0.475), (0.185, 0.195, 0.215), "hen", stacks=8, slices=12)
+        # the comb: three lobes along the crown
+        for i, (yy, rr, zz) in enumerate(((-0.055, 0.042, 0.660), (-0.115, 0.052, 0.672),
+                                          (-0.170, 0.038, 0.652))):
+            HD.blob((0, yy, zz), (0.030, rr * 2, rr * 2.1), "comb", stacks=5, slices=8)
+        # wattle, under the beak
+        HD.blob((0, -0.185, 0.500), (0.055, 0.048, 0.090), "comb", stacks=5, slices=8)
+        # beak: a tapered wedge, not a box
+        HD.limb((0, -0.180, 0.560), (0, -0.290, 0.545), 0.052, 0.010, "beak", slices=8)
+        _eyes(HD, -0.205, 0.588, 0.072, 0.030)
+        # wings folded along the flanks
+        for sx in (-1, 1):
+            B.blob((sx * 0.150, 0.020, 0.195), (0.075, 0.320, 0.260), "henDark",
+                   prof=[(0, 0.35), (0.4, 1.0), (0.75, 0.92), (1.0, 0.30)], stacks=6, slices=10)
+        # tail fan: three swept feathers
+        for i, sx in enumerate((-1, 0, 1)):
+            B.blob((sx * 0.075, 0.290 + abs(sx) * 0.02, 0.330 - abs(sx) * 0.04),
+                   (0.075, 0.240, 0.300), "hen",
+                   prof=[(0, 0.30), (0.45, 1.0), (1.0, 0.22)], stacks=5, slices=8)
+        # legs and feet
+        for sx in (-1, 1):
+            B.limb((sx * 0.075, -0.010, 0.150), (sx * 0.082, -0.020, 0.030), 0.030, 0.024,
+                   "beak", slices=7)
+            for ty, tx in ((-0.075, 0.0), (-0.050, 0.045), (-0.050, -0.045)):
+                B.limb((sx * 0.082, -0.020, 0.024), (sx * 0.082 + tx, ty, 0.014), 0.020, 0.010,
+                       "beak", slices=6)
+
+    return _articulate("hen", geo, bevel=0.006)
 
 
 # ---- THE CABINET -----------------------------------------------------------------------
@@ -2682,64 +2885,77 @@ def build_claw():
     reason: nothing in this renderer is transparent, so the "glass" is an
     opaque dark box and the LIT BACK PANEL is what you actually see, with the
     prizes standing in front of it as silhouettes.
+
+    ARTICULATED (§17): body / trolley / grab. A crane machine whose claw never
+    moves is a broken crane machine, and both of these have stood dead still
+    since THE FLOOR PLAN. The trolley rides the gantry in x; the grab hangs off
+    it and swings. They are two parts and not one because a trolley on a rail
+    must NOT tilt — only the thing on the end of the cable does.
     """
-    P = Part("claw")
     W, D, Hh = 0.96, 0.94, 2.06
     hw, hd = W / 2, D / 2
-    P.box((0, 0, 0.470), (W, D, 0.940), "furnBody")
-    P.box((0, 0, 0.040), (W - 0.140, D - 0.140, 0.080), "furnDark")
-    P.box((-0.230, -hd + 0.055, 0.300), (0.360, 0.110, 0.330), "furnDark")
-    P.box((-0.230, -hd + 0.020, 0.470), (0.400, 0.055, 0.045), "furnRail")
-    # Control panel: a shelf standing PROUD of the front, at the top of the
-    # base. The first build sank it at z 0.985, which is exactly where the
-    # prize box starts, and it vanished behind the box's own bottom rail.
-    P.box((0.180, -hd - 0.075, 0.905), (0.480, 0.230, 0.070), "furnRail")
-    P.cyl((0.100, -hd - 0.080, 0.965), "z", 0.026, 0.020, 0.115, "furnChrome", slices=10)
-    P.ovoid((0.100, -hd - 0.080, 1.032), (0.045, 0.045, 0.042), "clawPlushB", stacks=6, slices=12)
-    P.cyl((0.300, -hd - 0.080, 0.952), "z", 0.048, 0.048, 0.030, "clawHead", slices=12)
-    # THE PRIZE BOX, and the front of it is OPEN.
-    #
-    # First build put a dark `clawGlass` pane across the front with the lit
-    # panel at the BACK — which is a crane machine seen from behind a sheet of
-    # black card, because nothing in this renderer is transparent. That is the
-    # third time this session (shop window, jukebox before it, now this). The
-    # rule: if you want to see INTO something, do not build the thing you would
-    # be seeing through. Corner posts and a lit interior read as glass on their
-    # own; the eye supplies the pane.
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            P.box((sx * (hw - 0.038), sy * (hd - 0.038), 1.520), (0.070, 0.070, 1.020), "furnRail")
-    # The interior is lit on THREE sides, not just the back. First build put
-    # dark `clawGlass` panels down both flanks, and from any three-quarter view
-    # — which is every view of a machine standing in a room — the flank is most
-    # of what you see, so the cabinet came back as a black hole with a pink hat
-    # on. A crane is glazed all round; the light has to be too.
-    P.box((0, hd - 0.030, 1.520), (W - 0.130, 0.045, 1.000), "clawLit")
-    for sx in (-1, 1):
-        P.box((sx * (hw - 0.048), 0, 1.520), (0.040, D - 0.150, 0.980), "clawLitS")
-    P.box((0, 0, 1.035), (W - 0.130, D - 0.130, 0.045), "furnRail")   # the box floor
-    P.box((0, -hd + 0.026, 1.075), (W - 0.130, 0.038, 0.115), "furnRail")  # front kick rail
-    # the heap of prizes, standing in front of the lit back
-    for px, py, pz, r, mat in (
-        (-0.235, -0.075, 1.135, 0.118, "clawNug"), (0.010, -0.145, 1.125, 0.102, "clawPlush"),
-        (0.245, -0.055, 1.140, 0.122, "clawPlushB"), (-0.115, 0.095, 1.145, 0.104, "clawPlush"),
-        (0.180, 0.135, 1.150, 0.108, "clawNug"), (-0.270, 0.170, 1.145, 0.098, "clawPlushB"),
-        (0.055, 0.055, 1.330, 0.096, "clawNug"), (-0.170, -0.020, 1.335, 0.088, "clawPlush"),
-    ):
-        P.ovoid((px, py, pz), (r, r * 0.86, r * 0.94), mat, stacks=7, slices=12)
-    # gantry rail across the top, the trolley, and the claw hanging off it
-    P.box((0, 0.060, 2.000), (W - 0.180, 0.055, 0.045), "furnChrome")
-    P.box((-0.090, 0.060, 1.950), (0.180, 0.130, 0.090), "furnRail")
-    P.cyl((-0.090, 0.060, 1.845), "z", 0.008, 0.008, 0.130, "furnChrome", slices=8)
-    for i in range(3):
-        a = i * math.tau / 3
-        P.box((-0.090 + math.cos(a) * 0.052, 0.060 + math.sin(a) * 0.052, 1.760),
-              (0.030, 0.030, 0.130), "furnChrome")
-    # marquee header
-    P.box((0, 0, 2.030), (W + 0.070, D + 0.070, 0.060), "furnBody")
-    P.box((0, -hd - 0.010, 2.170), (W, 0.075, 0.230), "clawHead")
-    P.box((0, 0, 2.300), (W + 0.050, D + 0.050, 0.050), "furnRail")
-    return P.finish(bevel=0.006, segments=1, smooth_deg=36)
+
+    def geo(Pt):
+        P, TR, GR = Pt["body"], Pt["trolley"], Pt["grab"]
+        P.box((0, 0, 0.470), (W, D, 0.940), "furnBody")
+        P.box((0, 0, 0.040), (W - 0.140, D - 0.140, 0.080), "furnDark")
+        P.box((-0.230, -hd + 0.055, 0.300), (0.360, 0.110, 0.330), "furnDark")
+        P.box((-0.230, -hd + 0.020, 0.470), (0.400, 0.055, 0.045), "furnRail")
+        # Control panel: a shelf standing PROUD of the front, at the top of the
+        # base. The first build sank it at z 0.985, which is exactly where the
+        # prize box starts, and it vanished behind the box's own bottom rail.
+        P.box((0.180, -hd - 0.075, 0.905), (0.480, 0.230, 0.070), "furnRail")
+        P.cyl((0.100, -hd - 0.080, 0.965), "z", 0.026, 0.020, 0.115, "furnChrome", slices=10)
+        P.ovoid((0.100, -hd - 0.080, 1.032), (0.045, 0.045, 0.042), "clawPlushB", stacks=6, slices=12)
+        P.cyl((0.300, -hd - 0.080, 0.952), "z", 0.048, 0.048, 0.030, "clawHead", slices=12)
+        # THE PRIZE BOX, and the front of it is OPEN.
+        #
+        # First build put a dark `clawGlass` pane across the front with the lit
+        # panel at the BACK — which is a crane machine seen from behind a sheet of
+        # black card, because nothing in this renderer is transparent. That is the
+        # third time this session (shop window, jukebox before it, now this). The
+        # rule: if you want to see INTO something, do not build the thing you would
+        # be seeing through. Corner posts and a lit interior read as glass on their
+        # own; the eye supplies the pane.
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                P.box((sx * (hw - 0.038), sy * (hd - 0.038), 1.520), (0.070, 0.070, 1.020), "furnRail")
+        # The interior is lit on THREE sides, not just the back. First build put
+        # dark `clawGlass` panels down both flanks, and from any three-quarter view
+        # — which is every view of a machine standing in a room — the flank is most
+        # of what you see, so the cabinet came back as a black hole with a pink hat
+        # on. A crane is glazed all round; the light has to be too.
+        P.box((0, hd - 0.030, 1.520), (W - 0.130, 0.045, 1.000), "clawLit")
+        for sx in (-1, 1):
+            P.box((sx * (hw - 0.048), 0, 1.520), (0.040, D - 0.150, 0.980), "clawLitS")
+        P.box((0, 0, 1.035), (W - 0.130, D - 0.130, 0.045), "furnRail")   # the box floor
+        P.box((0, -hd + 0.026, 1.075), (W - 0.130, 0.038, 0.115), "furnRail")  # front kick rail
+        # the heap of prizes, standing in front of the lit back
+        for px, py, pz, r, mat in (
+            (-0.235, -0.075, 1.135, 0.118, "clawNug"), (0.010, -0.145, 1.125, 0.102, "clawPlush"),
+            (0.245, -0.055, 1.140, 0.122, "clawPlushB"), (-0.115, 0.095, 1.145, 0.104, "clawPlush"),
+            (0.180, 0.135, 1.150, 0.108, "clawNug"), (-0.270, 0.170, 1.145, 0.098, "clawPlushB"),
+            (0.055, 0.055, 1.330, 0.096, "clawNug"), (-0.170, -0.020, 1.335, 0.088, "clawPlush"),
+        ):
+            P.ovoid((px, py, pz), (r, r * 0.86, r * 0.94), mat, stacks=7, slices=12)
+        # gantry rail across the top: the only static part up here
+        P.box((0, 0.060, 2.000), (W - 0.180, 0.055, 0.045), "furnChrome")
+        # the trolley rides it — travels in x, never tilts
+        TR.box((-0.090, 0.060, 1.950), (0.180, 0.130, 0.090), "furnRail")
+        # cable + jaws: travel with the trolley AND swing under it. The cable's
+        # TOP ring is the pivot (CAST["claw"]["grab"]) so the pendulum hinges
+        # where it is actually attached instead of somewhere in mid-air.
+        GR.cyl((-0.090, 0.060, 1.845), "z", 0.008, 0.008, 0.130, "furnChrome", slices=8)
+        for i in range(3):
+            a = i * math.tau / 3
+            GR.box((-0.090 + math.cos(a) * 0.052, 0.060 + math.sin(a) * 0.052, 1.760),
+                   (0.030, 0.030, 0.130), "furnChrome")
+        # marquee header
+        P.box((0, 0, 2.030), (W + 0.070, D + 0.070, 0.060), "furnBody")
+        P.box((0, -hd - 0.010, 2.170), (W, 0.075, 0.230), "clawHead")
+        P.box((0, 0, 2.300), (W + 0.050, D + 0.050, 0.050), "furnRail")
+
+    return _articulate("claw", geo, bevel=0.006, smooth_deg=36)
 
 
 def build_change_machine():
@@ -3101,7 +3317,18 @@ def export_all(out_dir=None, names=None):
             print("hallmesh: %s is at %s — zeroing before export" % (ob.name, tuple(ob.location)))
             ob.location = (0, 0, 0)
             bpy.context.view_layer.update()
-        d = extract(ob)
+        # An articulated part bakes its AO against its SIBLINGS (never against
+        # the whole model — that is the same geometry and would occlude itself
+        # solid) and carries the pivot it rotates about. See CAST, §17.
+        occ, piv = None, None
+        if "_" in ob.name:
+            char, _, part = ob.name.partition("_")
+            if char in CAST and part in CAST[char]:
+                piv = CAST[char][part]
+                occ = [o for o in sc.collection.all_objects
+                       if o.type == "MESH" and o.name != ob.name
+                       and o.name.partition("_")[0] == char and "_" in o.name]
+        d = extract(ob, occluders=occ, pivot=piv)
         d["name"] = ob.name
         path = os.path.join(out_dir, ob.name + ".json")
         with open(path, "w") as fh:

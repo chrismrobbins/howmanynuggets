@@ -83,6 +83,21 @@ const RAW = [
   // two stand in the aisle and look ACROSS the floor, not down it.
   ['19-hockey',     0.4,  -4.2,  [-3.0, -7.6], -0.10],  // the air hockey table
   ['20-cranes',     0.4,  -4.2,  [3.5, -7.4],  -0.02],  // the two crane cabinets
+  // ADDED (THE CAST, §17). Henrietta is the only regular with a real neck, so
+  // she carries the only genuine head turn and the only piece of BEHAVIOUR in
+  // the game (the peck) — and there was no spot pointed at her, which is the
+  // §15 lesson verbatim: a spot table only measures what it points at, and five
+  // characters went four sessions without a contact shadow because of it. This
+  // is her own hotspot's `stand` (x + sdx, z + sdz from NPCS), never a guess.
+  //
+  // The pitch is NOT a guess either, and the first attempt at this spot proves
+  // why it can't be: parked at her stand (z 3.60) with the -0.16 that suits a
+  // person-sized subject, the frame was the Undercroft doors and a brick wall
+  // with a red comb clipping the bottom edge. She is 0.78m tall and EYE is
+  // 1.62, so a standing eyeline 1.2m from her looks straight over her head.
+  // Backed off to 2.5m and pitched by atan((0.45 - 1.62) / 2.5) = -0.44 — still
+  // on her own axis, still inside posValid's street box (z > 0.1).
+  ['21-hen',       17.8,   4.90, [17.8, 2.4],  -0.44],  // Henrietta, full length
 ];
 
 const SPOTS = RAW.map(([name, x, z, look, pitch]) => ({
@@ -127,6 +142,26 @@ const SEAMS = {
   maps:    { when: 'pre', src: "typeof HallMaps !== 'undefined' && (HallMaps.on = () => false);" },
   mesh:    { when: 'pre', src: "typeof HallMesh !== 'undefined' && (HallMesh.on = () => false);" },
   gtaart:  { when: 'pre', src: "typeof GtaArt !== 'undefined' && (GtaArt.on = () => false);" },
+  // 🧍 THE CAST (§17) — TIER 2 of the articulation fallback, and the only tier
+  // no other seam here reaches. It hides the ARTICULATED PART models and leaves
+  // the one-piece characters standing, which is the case makeNpc() is written
+  // for: a part set that half-arrives must produce the rigid character that
+  // shipped before, never a headless nugget. `mesh` already covers tier 3 (no
+  // geometry at all -> the procedural blob rig).
+  //
+  // Wraps HallMesh.get rather than editing the payload because that is the ONE
+  // door every part goes through — makeNpc's existence check, Builder.model and
+  // the claw's split test all call it.
+  cast: {
+    when: 'pre',
+    src: "typeof HallMesh !== 'undefined' && (function () {"
+      + "var g = HallMesh.get;"
+      + "HallMesh.get = function (n) {"
+      + "  return /_(body|head|hat|arm|armL|armR|footL|footR|lid|trolley|grab)$/.test(n)"
+      + "    ? null : g(n);"
+      + "};"
+      + "})();",
+  },
 };
 
 async function openHall(opts = {}) {

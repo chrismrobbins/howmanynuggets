@@ -2216,12 +2216,37 @@ void main() {
       // Two crane cabinets facing the door. A tall lit box is the cheapest
       // silhouette there is and this room has exactly one shape in it, ten
       // times over.
-      for (const [cx3, cz3] of [[3.5, -6.5], [3.5, -8.35]]) {
-        if (!B.model('claw', uv, { x: cx3, z: cz3 })) break;
+      //
+      // 🕹 ARTICULATED (§17). Both of these have stood dead still since THE
+      // FLOOR PLAN, and a crane machine whose claw never moves is not a crane
+      // machine, it is a vending machine full of toys. The BODY still bakes
+      // into the hall's static buffer; the trolley and the grab are their own
+      // buffers drawn per-instance with their own matrices. If `claw_body` is
+      // not available the whole one-piece `claw` bakes in exactly as it shipped
+      // — a still machine, never a machine with a hole in the top.
+      const clawAt = [[3.5, -6.5], [3.5, -8.35]];
+      const clawSplit = HallMesh && HallMesh.on && HallMesh.on()
+        && !!HallMesh.get('claw_body') && !!HallMesh.get('claw_trolley')
+        && !!HallMesh.get('claw_grab');
+      for (const [cx3, cz3] of clawAt) {
+        if (!B.model(clawSplit ? 'claw_body' : 'claw', uv, { x: cx3, z: cz3 })) break;
         H.propBoxes.push({ min: [cx3 - 0.55, 0, cz3 - 0.54], max: [cx3 + 0.55, 2.35, cz3 + 0.54] });
         LIGHTS.push({ p: [cx3, 1.52, cz3 - 0.55], c: [0.60, 0.48, 0.30], k: 'marq' });
         LIGHTS.push({ p: [cx3, 2.22, cz3 - 0.50], c: [0.52, 0.10, 0.32], k: 'neon' });
         H.glows.push({ p: [cx3, 2.17, cz3 - 0.52], c: [1, 0.20, 0.66], s: 0.9, a: 0.13, k: 'neon' });
+      }
+      if (clawSplit) {
+        // built at the ORIGIN and placed by the draw call, so one buffer serves
+        // both machines and each can be at a different point in its cycle
+        const TRB = new Builder(), GRB = new Builder();
+        if (TRB.model('claw_trolley', uv, {}) && GRB.model('claw_grab', uv, {})) {
+          H.claw = {
+            at: clawAt,
+            trolley: TRB.upload(gl),
+            grab: GRB.upload(gl),
+            pivot: HallMesh.get('claw_grab').pivot || [0, 0, 0],
+          };
+        }
       }
       // Stools. A cabinet with no seat in front of it reads as a display
       // piece rather than a machine somebody uses. Not at every cabinet —
@@ -2455,6 +2480,10 @@ void main() {
       id: 'crumb', name: 'BIG CRUMB', icon: '🕶️',
       x: 2.5, z: 1.2, h: 1.0, sdx: 0, sdz: 1.25,
       baseYaw: 0.35, curYaw: 0.35, bobSpd: 1.6, bobAmp: 0.008, phase: 0, yBase: 0,
+      // THE CAST (§17): no neck, so no headMax — he articulates at the
+      // shoulders and ankles. Biggest breath in the cast: he is the softest
+      // shape in it and a big nugget should visibly swell.
+      breathAmp: 0.026, armLag: 0, gesture: 0,
       nodes: () => {
         const party = typeof nugFoundersDay === 'function' && nugFoundersDay();
         return {
@@ -2517,6 +2546,9 @@ void main() {
       id: 'gravy', name: 'GRAVY JONES', icon: '🥣',
       x: 9.3, z: 0.78, h: 1.0, sdx: 0, sdz: 1.35,
       baseYaw: 0, curYaw: 0, bobSpd: 0.9, bobAmp: 0.006, phase: 2.1, yBase: 0.45,
+      // a cup does not shift its weight or turn to look at you. shiftScale 0
+      // and no headMax: the lid is the only part of him that moves.
+      breathAmp: 0.007, shiftScale: 0, armLag: 0, gesture: 0, lid: 0,
       nodes: () => {
         const cleared = typeof brawlBest === 'function' &&
           ((brawlBest().spicy || {}).clears > 0 || (brawlBest().hell || {}).clears > 0);
@@ -2574,6 +2606,10 @@ void main() {
       id: 'hood', name: 'THE HOODED NUG', icon: '👁️',
       x: -13.6, z: 1.35, h: 1.05, sdx: 0, sdz: 1.3,
       baseYaw: -0.5, curYaw: -0.5, bobSpd: 1.2, bobAmp: 0.006, phase: 4.2, yBase: 0,
+      // the cowl turns and the robe does not. shiftScale is low because a
+      // robe pooled on the pavement cannot slide side to side.
+      headMax: 0.95, breathAmp: 0.012, shiftScale: 0.35,
+      armLag: 0, gesture: 0, headYaw: 0, headPitch: 0,
       nodes: () => {
         const sawStorm = typeof reelStormLanded === 'function' && reelStormLanded();
         const fished = (H.best && H.best.reel > 0) || sawStorm;
@@ -2750,6 +2786,10 @@ void main() {
       id: 'hen', name: 'HENRIETTA', icon: '🐔',
       x: 17.8, z: 2.4, h: 0.78, sdx: 0, sdz: 1.2,
       baseYaw: -1.1, curYaw: -1.1, bobSpd: 5.5, bobAmp: 0.011, phase: 1.3, yBase: 0,
+      // the only real neck in the cast, so the widest head range — and the
+      // step-and-hold flicks + THE PECK in the step function.
+      headMax: 1.15, breathAmp: 0.013, shiftScale: 0.5,
+      armLag: 0, gesture: 0, headYaw: 0, headPitch: 0, flickT: 0, flickY: 0,
       nodes: () => {
         const saidIt = typeof brawlHellUnlocked === 'function' && brawlHellUnlocked();
         const party = typeof nugFoundersDay === 'function' && nugFoundersDay();
@@ -2804,6 +2844,8 @@ void main() {
       id: 'dill', name: 'DETECTIVE DILL', icon: '🥒',
       x: -2.6, z: 1.5, h: 1.12, sdx: 0, sdz: 1.2,
       baseYaw: Math.PI, curYaw: Math.PI, bobSpd: 1.3, bobAmp: 0.005, phase: 3.3, yBase: 0,
+      // no neck either: he tips the HAT instead, and works the notepad.
+      breathAmp: 0.020, armLag: 0, gesture: 0, tip: 0, write: 0,
       nodes: () => {
         const sawStorm = typeof reelStormLanded === 'function' && reelStormLanded();
         const rap = typeof gtaProgress === 'function' ? gtaProgress() : 0;
@@ -3978,10 +4020,55 @@ void main() {
     // share this file's conventions exactly: origin at the feet, +z is the
     // character's front, and the height matches NPCS[].h so the name prompt and
     // the head glow still land above the head and not inside it.
+    //
+    // 🧍 THE CAST (§17): a regular is a SET OF PARTS now, not one buffer. Every
+    // model in this hall used to be one rigid object drawn with one matrix, and
+    // blender/tools/motion.js measured what that cost — twelve moving channels
+    // in the entire game and only two attached to a person, both whole-body
+    // transforms. So each character ships split into the pieces its own anatomy
+    // justifies (see CAST in hallmesh.py) and each piece gets its own matrix.
+    //
+    // THREE TIERS, each strictly better than the next:
+    //   1. the articulated part set          <- the upgrade
+    //   2. the one-piece Blender model       <- exactly what shipped before
+    //   3. the procedural blob3/box3 rig     <- the house floor (§1.5)
+    // A part set is used only when EVERY part resolves. Half a set is a
+    // headless nugget, and nothing here is ever allowed to degrade to worse
+    // than what it replaced — so the check is all-or-nothing, and it runs
+    // BEFORE anything is uploaded so a late failure cannot leak buffers.
+    const CAST_PARTS = {
+      crumb: ['body', 'armL', 'armR', 'footL', 'footR'],
+      dill: ['body', 'hat', 'arm'],
+      gravy: ['body', 'lid'],
+      hood: ['body', 'head'],
+      hen: ['body', 'head'],
+    };
+    const meshOK = () => typeof HallMesh !== 'undefined' && HallMesh && HallMesh.on();
     const makeNpc = (id, fn) => {
+      const want = CAST_PARTS[id] || [];
+      // `HallMesh.get` returning a model is necessary but NOT sufficient —
+      // Builder.model also fails when a material's atlas REGION was never
+      // allocated, and it fails SILENTLY for the whole part (the lampHot trap,
+      // §10). So build into throwaway Builders first and only commit if all of
+      // them emitted geometry.
+      if (want.length && meshOK() && want.every((p) => !!HallMesh.get(id + '_' + p))) {
+        const built = [];
+        let ok = true;
+        for (const p of want) {
+          const B3 = new Builder();
+          if (!B3.model(id + '_' + p, suv, {})) { ok = false; break; }
+          built.push([p, B3, HallMesh.get(id + '_' + p).pivot || [0, 0, 0]]);
+        }
+        if (ok) {
+          const parts = {};
+          for (const [p, B3, pv] of built) parts[p] = { buf: B3.upload(gl), pivot: pv };
+          npcBufs[id] = { parts: parts, order: want };
+          return;
+        }
+      }
       const B2 = new Builder();
       if (!B2.model(id, suv, {})) fn(B2);
-      npcBufs[id] = B2.upload(gl);
+      npcBufs[id] = { whole: B2.upload(gl) };
     };
 
     // BIG CRUMB: a slab of nugget in night sunglasses and a bow tie
@@ -4049,6 +4136,16 @@ void main() {
       box3(B2, 0.03, 0.72, 0.14, 0.09, 0.77, 0.2, suv.sw_black, {});
       box3(B2, 0.2, 0.42, 0.08, 0.28, 0.54, 0.12, suv.sw_white, { tint: 0.9 });    // notepad
     });
+
+    // Hand each regular its own parts' pivots. They ride in the GEOMETRY (see
+    // hallMesh's `pivot`), so a character that fell back to the one-piece model
+    // simply has an empty table and never poses.
+    for (const npc of NPCS) {
+      const set = npcBufs[npc.id];
+      npc.pv = {};
+      npc.articulated = !!(set && set.parts);
+      if (npc.articulated) for (const p of set.order) npc.pv[p] = set.parts[p].pivot;
+    }
 
     // prompts, collision, and a soft head-glow so they read from across the street
     for (const npc of NPCS) {
@@ -5660,23 +5757,160 @@ void main() {
 
     // dynamic prop models: the mirror ball spins, the regulars idle
     const DD = mMul(mTrans(0, 3.55, -2.6), mRotY(H.t * 0.5));
-    // translate -> yaw -> ROLL. The roll has to go inside the yaw or the body
-    // tips toward a fixed world axis instead of toward its own shoulder, which
-    // reads as a character sliding rather than leaning.
-    const npcModel = (n) => mMul(
-      mTrans(
-        n.x + Math.sin(n.curYaw + Math.PI / 2) * (n.shift || 0) * 0.030,
-        n.yBase + Math.sin(H.t * n.bobSpd + n.phase) * n.bobAmp
-          - Math.abs(n.shift || 0) * 0.008,   // the body drops a hair onto the loaded leg
-        n.z + Math.cos(n.curYaw + Math.PI / 2) * (n.shift || 0) * 0.030
-      ),
-      mMul(mRotY(n.curYaw), mRotZ(-(n.shift || 0) * 0.026))
+
+    // 🧍 THE CAST (§17) — posing the regulars.
+    //
+    // The ROOT is position and facing only. Everything else moved out of it,
+    // because the old single matrix could not express the one thing that makes
+    // a standing character read as having weight: a body that shifts while the
+    // FEET STAY WHERE THEY ARE. A body and its feet moving together is a
+    // balloon on a string; a body moving over planted feet is a person.
+    const npcRoot = (n) => mMul(mTrans(n.x, n.yBase, n.z), mRotY(n.curYaw));
+
+    // The weight shift and the breath, in the character's OWN space now (a
+    // local +x offset after the yaw is identical to the world-space
+    // sin(yaw + PI/2) the old matrix used, and it composes).
+    //
+    // The breath is a SQUASH, not a rise. The hall shipped a 6-8mm vertical bob
+    // as every regular's only motion, and a body translating up and down is the
+    // same mistake as the head-bob THE GLIDE deleted (§16) one scale down —
+    // periodic translation reads as floating. A body that is breathing changes
+    // shape: it gets taller and narrower, and it does it about the floor.
+    const npcBody = (n) => {
+      const sh = (n.shift || 0) * (n.shiftScale == null ? 1 : n.shiftScale);
+      const b = n.breath || 0;
+      return mMul(
+        mTrans(sh * 0.030, -Math.abs(sh) * 0.008, 0),   // drops onto the loaded leg
+        mMul(mRotZ(-sh * 0.026),
+          mScale(1 - b * 0.5, 1 + b, 1 - b * 0.5))      // volume-ish preserving
+      );
+    };
+
+    // Rotate a part about the point it is ATTACHED at rather than about the
+    // character's origin down at the floor. The pivot ships WITH the geometry
+    // (hallMesh's `pivot`, authored in hallmesh.py's CAST table) so this file
+    // holds no second copy of it — §16's ledger, on trusting the comment next
+    // to the constant.
+    const aboutPivot = (pv, rot) => mMul(
+      mTrans(pv[0], pv[1], pv[2]),
+      mMul(rot, mTrans(-pv[0], -pv[1], -pv[2]))
     );
+
+    // One posing function per regular, keyed by id. Deliberately NOT a generic
+    // skeleton: there are five of them, they have five unrelated anatomies —
+    // a bouncer with no neck, a pickle in a hat, a cup that does not stand up,
+    // a robe with a cowl, an actual chicken — and a rig general enough to cover
+    // all five would articulate every one of them worse than a bespoke pose
+    // does. Each returns part-name -> LOCAL matrix; the root goes on outside.
+    const POSE = {
+      crumb(n) {
+        const body = npcBody(n);
+        // Arms LAG the body. Secondary motion is most of what separates a rig
+        // that is animated from a rig that is being moved.
+        const lag = (n.shift || 0) - (n.armLag || 0);
+        const out = { body: body };
+        for (const [k, sx] of [['armL', -1], ['armR', 1]]) {
+          // the gesture arm unfolds while he is talking to you
+          const open = k === 'armR' ? (n.gesture || 0) : (n.gesture || 0) * 0.35;
+          out[k] = mMul(body, aboutPivot(n.pv[k],
+            mMul(mRotZ(sx * lag * 0.10 - sx * open * 0.22), mRotX(-open * 0.16))));
+        }
+        // planted feet: the loaded one takes the weight and spreads a little
+        for (const [k, sx] of [['footL', -1], ['footR', 1]]) {
+          const load = Math.max(0, (n.shift || 0) * sx);
+          out[k] = mScale(1 + load * 0.05, 1 - load * 0.085, 1 + load * 0.05);
+        }
+        return out;
+      },
+      dill(n) {
+        const body = npcBody(n);
+        // The hat SETTLES behind the body — a felt fedora on a pickle with no
+        // neck between them has to lag or it looks welded on.
+        const settle = ((n.shift || 0) - (n.armLag || 0)) * 0.05;
+        return {
+          body: body,
+          hat: mMul(body, aboutPivot(n.pv.hat,
+            mMul(mRotX(n.tip || 0), mRotZ(settle)))),
+          // he is taking a statement: the notepad hand comes up, and jitters
+          // while he writes in it
+          arm: mMul(body, aboutPivot(n.pv.arm,
+            mMul(mRotX(-(n.gesture || 0) * 0.42), mRotZ((n.write || 0) * 0.05)))),
+        };
+      },
+      gravy(n) {
+        // He is a cup. He does not lean, breathe or turn, and faking any of it
+        // would look worse than sitting still. The lid is the one part his
+        // anatomy justifies moving, and it hinges at its far rim.
+        const body = npcBody(n);
+        return {
+          body: body,
+          lid: mMul(body, aboutPivot(n.pv.lid, mRotZ((n.lid || 0)))),
+        };
+      },
+      hood(n) {
+        const body = npcBody(n);
+        return {
+          body: body,
+          head: mMul(body, aboutPivot(n.pv.head,
+            mMul(mRotY(n.headYaw || 0), mRotX(n.headPitch || 0)))),
+        };
+      },
+      hen(n) {
+        const body = npcBody(n);
+        return {
+          body: body,
+          head: mMul(body, aboutPivot(n.pv.head,
+            mMul(mRotY(n.headYaw || 0), mRotX(n.headPitch || 0)))),
+        };
+      },
+    };
+
+    // 🕹 the crane machines' moving halves (§17). One buffer each, drawn once
+    // per cabinet, so the two machines can be at different points in the cycle
+    // — two claws sweeping in lockstep would read as one machine seen twice.
+    function drawClaw(pre, opts) {
+      const C = H.claw;
+      if (!C) return;
+      for (let i = 0; i < C.at.length; i++) {
+        const [cx, cz] = C.at[i];
+        // ~7.4s per sweep. The first pass ran at 0.42 (a 15-second cycle) and
+        // motion.js caught what that really meant: a 9s window could not even
+        // contain one period. A machine moving that slowly is not reading as a
+        // machine moving, it is reading as a still frame you happened to catch.
+        const t = H.t * 0.85 + i * 2.31;             // the offset is the whole point
+        const travel = Math.sin(t) * 0.30;           // along the gantry, in x
+        // the grab lags the trolley and swings — a mass on a cable does not
+        // arrive when the thing carrying it does
+        const swing = -Math.cos(t) * 0.165;
+        // published for blender/tools/motion.js, which must read the value the
+        // renderer ACTUALLY used: a channel that recomputes the formula would
+        // keep sweeping happily while the real draw was frozen.
+        if (i === 0) { C.travel = travel; C.swing = swing; }
+        const at = mTrans(cx + travel, 0, cz);
+        drawLit(C.trolley, pre ? mMul(pre, at) : at, opts);
+        const g = mMul(at, aboutPivot(C.pivot, mRotZ(swing)));
+        drawLit(C.grab, pre ? mMul(pre, g) : g, opts);
+      }
+    }
+
     function drawNpcs(pre, opts) {
       useTex(H.texStreet);
       for (const n of NPCS) {
-        const buf = H.bufsStreet.npcs[n.id];
-        if (buf) drawLit(buf, pre ? mMul(pre, npcModel(n)) : npcModel(n), opts);
+        const set = H.bufsStreet.npcs[n.id];
+        if (!set) continue;
+        const root = pre ? mMul(pre, npcRoot(n)) : npcRoot(n);
+        if (set.parts && POSE[n.id]) {
+          const pose = POSE[n.id](n);
+          for (const p of set.order) {
+            const local = pose[p];
+            drawLit(set.parts[p].buf, local ? mMul(root, local) : root, opts);
+          }
+        } else if (set.whole) {
+          // Tier 2/3: the one-piece model or the procedural rig. It cannot
+          // articulate, so it keeps the body motion the whole character used
+          // to have and simply does not turn its head.
+          drawLit(set.whole, mMul(root, npcBody(n)), opts);
+        }
       }
       useTex(H.texAtlas);
     }
@@ -5705,6 +5939,7 @@ void main() {
     drawLit(H.bufsStreet.solid, MIR, { mirror: 0.52 });
     useTex(H.texAtlas);
     drawNpcs(MIR, { mirror: 0.52 });
+    drawClaw(MIR, { mirror: 0.33 });   // they stand on the carpet, not the road
     gl.frontFace(gl.CCW);
 
     // 2) the floor itself, slightly translucent so the reflection ghosts through
@@ -5732,6 +5967,7 @@ void main() {
     drawLit(H.bufsStreet.pier, I, {}); // world pass only — the sea does not reflect in itself
     useTex(H.texAtlas);
     drawNpcs(null, {}); // the regulars: real geometry now, lit like the room
+    drawClaw(null, {});  // and the cranes' trolleys, sweeping their gantries
 
     // 3b) THE SKY. Pinned to the far plane, so it costs a fragment only where
     //     the room did not already draw one — and that is precisely the part
@@ -6079,6 +6315,17 @@ void main() {
       // the weight shift: slower than the breath and out of phase with it, so
       // the two never line up into a single bounce
       n.shift = Math.sin(H.t * n.bobSpd * 0.37 + n.phase * 1.7);
+      // THE BREATH (§17). Replaces the vertical bob this used to be — see
+      // npcBody(): it is a squash now, so it changes the body's SHAPE instead
+      // of floating the whole character up and down.
+      n.breath = Math.sin(H.t * n.bobSpd * 0.85 + n.phase) * (n.breathAmp == null ? 0.018 : n.breathAmp);
+      // appendages lag the body by ~240ms. This one smoothed value drives every
+      // piece of secondary motion in the cast (Crumb's arms, Dill's hat).
+      n.armLag += (n.shift - (n.armLag || 0)) * Math.min(1, dt * 4.2);
+      // gestures ramp in when you start talking and back out when you stop
+      const g = talking ? 1 : 0;
+      n.gesture = (n.gesture || 0) + (g - (n.gesture || 0)) * Math.min(1, dt * 3.4);
+
       // and a glance, but only when nobody is talking to them — being looked
       // at is the one time a person's head stops wandering
       const glance = talking ? 0
@@ -6086,11 +6333,61 @@ void main() {
       const want = talking
         ? Math.atan2(H.cam.x - n.x, H.cam.z - n.z)
         : n.baseYaw + glance;
-      let dy2 = want - n.curYaw;
-      while (dy2 > Math.PI) dy2 -= Math.PI * 2;
-      while (dy2 < -Math.PI) dy2 += Math.PI * 2;
-      // turning to a person is fast; drifting on a glance is not
-      n.curYaw += dy2 * Math.min(1, dt * (talking ? 5 : 1.4));
+      const wrap = (a) => {
+        while (a > Math.PI) a -= Math.PI * 2;
+        while (a < -Math.PI) a += Math.PI * 2;
+        return a;
+      };
+
+      if (n.articulated && n.headMax) {
+        // 🧍 THE HEAD LEADS AND THE BODY FOLLOWS WHAT THE NECK CANNOT REACH.
+        // This ordering is the entire difference between a person noticing you
+        // and a statue rotating to face you. Before this, the body WAS the
+        // head: every regular pivoted robe-and-all like a chess piece.
+        let d = wrap(want - n.curYaw);
+        const over = Math.abs(d) > n.headMax ? Math.sign(d) * (Math.abs(d) - n.headMax) : 0;
+        n.curYaw += over * Math.min(1, dt * (talking ? 3.2 : 0.9));
+        d = wrap(want - n.curYaw);
+        let hy = Math.max(-n.headMax, Math.min(n.headMax, d));
+        if (n.id === 'hen') {
+          // A bird's head does not EASE. It holds still, and then it is
+          // somewhere else. Sine-wave head motion is exactly what makes a
+          // chicken read as a balloon with a beak on it, so hers is a
+          // step-and-hold: a new target every 0.6-2.1s, snapped to hard.
+          if (H.t > (n.flickT || 0)) {
+            const r = Math.sin(n.phase * 12.9 + H.t * 0.77) * 0.5 + 0.5;
+            n.flickT = H.t + 0.6 + r * 1.5;
+            n.flickY = Math.sin(n.phase * 7.3 + H.t * 1.71) * 0.85;
+          }
+          if (!talking) hy = n.flickY || 0;
+          n.headYaw += (hy - (n.headYaw || 0)) * Math.min(1, dt * (talking ? 9 : 16));
+        } else {
+          n.headYaw += (hy - (n.headYaw || 0)) * Math.min(1, dt * (talking ? 7 : 3));
+        }
+      } else {
+        let dy2 = wrap(want - n.curYaw);
+        // turning to a person is fast; drifting on a glance is not
+        n.curYaw += dy2 * Math.min(1, dt * (talking ? 5 : 1.4));
+      }
+
+      // ---- behaviour, one piece each. The only actual BEHAVIOUR in the game.
+      if (n.id === 'hen') {
+        // THE PECK, once every ~7s. She is a chicken standing on a pavement;
+        // this is the single most characterful thing anyone in the cast does.
+        const pk = (H.t * 0.142 + n.phase * 0.31) % 1;
+        const peck = pk < 0.15 ? Math.sin((pk / 0.15) * Math.PI) : 0;
+        n.headPitch = peck * 0.95 + (talking ? -0.10 : 0.04);
+      } else if (n.id === 'hood') {
+        // he inclines the cowl a little when addressed. Nothing else moves.
+        n.headPitch = -(n.gesture || 0) * 0.12;
+      } else if (n.id === 'dill') {
+        // tips the brim when you walk up, then works the notepad
+        n.tip = (n.gesture || 0) * 0.13;
+        n.write = talking ? Math.sin(H.t * 7.3) * Math.max(0, Math.sin(H.t * 0.9)) : 0;
+      } else if (n.id === 'gravy') {
+        // the lid lifts to talk and rocks faintly the rest of the time
+        n.lid = (n.gesture || 0) * 0.16 + Math.sin(H.t * 0.44 + n.phase) * 0.014;
+      }
     }
     updateAttracts();
     updatePrompt();

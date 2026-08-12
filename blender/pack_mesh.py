@@ -84,13 +84,19 @@ def pack_model(d):
     qi = np.asarray(tris, dtype=np.int64).reshape(-1).astype("<u2")
 
     mats = [[m["r"], round(float(m["e"]), 3), round(float(m["t"]), 3)] for m in d["mats"]]
-    return {
+    out = {
         "n": n,
         "tri": len(tris),
         "b": [round(float(x), 5) for x in list(lo) + list(span)],
         "m": mats,
         "p": b64(qp), "q": b64(qn), "u": b64(qu), "x": b64(qm), "a": b64(qa), "i": b64(qi),
-    }, (qp.nbytes + qn.nbytes + qu.nbytes + qm.nbytes + qa.nbytes + qi.nbytes)
+    }
+    # "v" = the point an ARTICULATED part rotates about, in hall space (§17).
+    # It travels with the geometry so js/arcade.js never holds a second copy of
+    # a number that is authored in hallmesh.py.
+    if d.get("pivot"):
+        out["v"] = [round(float(x), 5) for x in d["pivot"]]
+    return out, (qp.nbytes + qn.nbytes + qu.nbytes + qm.nbytes + qa.nbytes + qi.nbytes)
 
 
 DATA_HEADER = '''/* js/hallMeshData.js — the arcade's Blender-authored GEOMETRY, packed.

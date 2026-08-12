@@ -23,6 +23,7 @@ export PW_PATH=/path/to/node_modules  # (or install playwright next to the repo)
 | `tune.js` | *What should this number be?* Sweeps `NuggetArcade._TUNE` between frames in ONE browser session instead of edit-reload-measure. |
 | `fallbacks.js` | *Does it still draw a room when things fail?* The whole degrade matrix — no HDR, no PBR, no shadows, no sky, no art, no maps, no mesh, WebGL1. |
 | `probe.js` | *Where is anything?* Dumps hotspots, cabinets, NPCs and camera state from the running hall. |
+| `pose.js` | *Does the rig hold up through its CYCLE?* Walks the clock at one spot and shoots the frames. `--look <npc>` frames a regular off its own hotspot; `--talk <npc>` opens the real dialogue. |
 | `png.js` | PNG decode + stats + frame diff in node stdlib. No image dependency by design. |
 
 ```bash
@@ -63,6 +64,22 @@ first arrangement metric in the kit, and the class of bug it catches (aliasing,
 texture shimmer, a mip chain going to mush, a normal map swimming) is exactly
 the class that makes a frame look free-to-play. Read it as a same-frame A/B,
 never as an absolute: real detail is hard edges too.
+
+**3c. Every tool here measured ONE FRAME at a PINNED CLOCK, which is the same
+blind spot as 3b one axis over.** A histogram cannot see how colour is ARRANGED;
+a pinned clock cannot see TIME. A rig fails at the EXTREMES of its cycle and the
+middle of a cycle is exactly where nothing goes wrong — `shoot.js` photographs
+Henrietta at t=12.5, reports a clean frame, and would never know that the peck at
+t=11.8 had torn her head off her neck. `pose.js` walks the clock and
+`crop.py strip` lays the frames out in clock order. It asserts nothing: looking
+at the strip IS the test.
+
+And the corollary that cost the most to find: **a pose you cannot get the harness
+INTO is a pose that will regress unnoticed.** Every gesture in the cast — Dill's
+brim and notepad, Gravy's lid, Crumb's unfolding arm — is gated on
+`H.dialog.npc`, and `stand()` sets `H.dialog = null` on every single call. Half of
+THE CAST was unphotographable by anything in this repo, in any mode, until
+`pose.js --talk` existed.
 
 **3. A fallback that renders an identical frame is not a passing test.** It is
 a seam that never fired. `fallbacks.js` diffs every degraded path against the

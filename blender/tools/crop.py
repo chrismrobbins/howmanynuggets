@@ -9,6 +9,7 @@ actually settled arguments:
     python blender/tools/crop.py ab     baseline act1            # same spot, side by side, every spot
     python blender/tools/crop.py zoom   baseline/05-deluxe.png 640 300 260 160
     python blender/tools/crop.py probe  baseline/05-deluxe.png 640 300
+    python blender/tools/crop.py strip  peck                     # a pose.js cycle, in clock order
 
 `sheet` is the one to run first: 16 shots on one page is the difference
 between "the numbers moved" and knowing WHERE they moved.
@@ -158,11 +159,42 @@ def tunesheet(spot, tw=430):
     print(p, out.size)
 
 
+def strip(tag, cols=4, tw=430):
+    """A pose.js run laid out in clock order — the frames of ONE cycle.
+
+    Deliberately not `sheet`: these are the same spot at different TIMES, so
+    they must stay in filename order (which pose.js zero-pads for exactly this
+    reason) and they carry no darkness stats, because the question here is not
+    how bright the frame is. It is whether the rig is still in one piece at the
+    far end of its cycle.
+    """
+    d = _p(tag)
+    files = sorted(f for f in os.listdir(d) if f.endswith('.png') and not f.startswith('_'))
+    if not files:
+        raise SystemExit('no frames in %s — run pose.js first' % d)
+    tiles = []
+    for f in files:
+        im = Image.open(os.path.join(d, f)).convert('RGB')
+        im = im.resize((tw, max(1, round(im.height * tw / im.width))), Image.LANCZOS)
+        tiles.append(_label(im, f.replace('.png', '')))
+    cols = min(cols, len(tiles))
+    rows = (len(tiles) + cols - 1) // cols
+    cw, ch = tiles[0].width, tiles[0].height
+    out = Image.new('RGB', (cols * cw, rows * ch), (12, 12, 16))
+    for i, t in enumerate(tiles):
+        out.paste(t, ((i % cols) * cw, (i // cols) * ch))
+    p = os.path.join(d, '_strip.jpg')
+    out.save(p, quality=92)
+    print(p, out.size)
+
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         raise SystemExit(__doc__)
     mode, a = sys.argv[1], sys.argv[2:]
-    if mode == 'sheet':
+    if mode == 'strip':
+        strip(a[0], *(int(v) for v in a[1:]))
+    elif mode == 'sheet':
         sheet(a[0], *(int(v) for v in a[1:]))
     elif mode == 'tunesheet':
         tunesheet(a[0], *(int(v) for v in a[1:]))

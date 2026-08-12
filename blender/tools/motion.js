@@ -36,7 +36,34 @@ const CHANNELS = [
   // resolves and playwright reports "promise was garbage collected", which
   // looks nothing at all like the mistake it is.
   ['npc.shift', 'NuggetArcade._NPCS[0].shift || 0', 1.1, 6000, 'still'],
-  ['npc.yaw', 'NuggetArcade._NPCS[2].curYaw', 0.04, 6000, 'still'],
+  // BODY yaw, and it has to be read off a regular with NO articulated head.
+  // It used to point at index 2 (the Hooded Nug) and THE CAST made that channel
+  // read dead — correctly. His body only turns when the head runs out of neck,
+  // and an idle glance of ±0.26rad is well inside his 0.95 headMax, so the cowl
+  // absorbs all of it and the robe never moves. That is the feature. Index 0 is
+  // Big Crumb, who has no neck at all and still turns bodily, so he is what a
+  // body-yaw channel should be watching now.
+  ['npc.yaw', 'NuggetArcade._NPCS[0].curYaw', 0.04, 6000, 'still'],
+  // 🧍 THE CAST (§17). The regulars are articulated now — separate parts posed
+  // by separate matrices — and every one of these channels is a part that would
+  // silently freeze into the rigid character that shipped before if its pose
+  // maths broke. The whole point of this file: a statue photographs perfectly.
+  //
+  // These read the POSE STATE, not the matrices, for the same reason failTube
+  // does — a duplicated formula here would pass while the real one was stuck.
+  ['npc.breath', 'NuggetArcade._NPCS[0].breath || 0', 0.02, 6000, 'still'],
+  ['npc.armLag', 'NuggetArcade._NPCS[0].armLag || 0', 0.9, 6000, 'still'],
+  // index 2 is the Hooded Nug (headMax 0.95) and 3 is Henrietta. Hers is a
+  // step-and-hold, so it needs a window long enough to contain a flick.
+  ['npc.headYaw', 'NuggetArcade._NPCS[2].headYaw || 0', 0.02, 6000, 'still'],
+  ['hen.flick', 'NuggetArcade._NPCS[3].headYaw || 0', 0.15, 6000, 'still'],
+  // THE PECK is once per ~7s and it is 85% of its own range for 15% of that, so
+  // a short window samples only the hold and reports a dead chicken.
+  ['hen.peck', 'NuggetArcade._NPCS[3].headPitch || 0', 0.5, 9000, 'still'],
+  ['gravy.lid', 'NuggetArcade._NPCS[1].lid || 0', 0.02, 9000, 'still'],
+  // 🕹 and the crane machines' trolleys, which had never moved at all.
+  ['claw.travel', 'NuggetArcade._H.claw ? (NuggetArcade._H.claw.travel || 0) : 0', 0.2, 9000, 'still'],
+  ['claw.swing', 'NuggetArcade._H.claw ? (NuggetArcade._H.claw.swing || 0) : 0', 0.2, 9000, 'still'],
   // 🌫 the motion layer. A plume that never rises and a splash that never
   // expands both photograph perfectly, which is exactly why they need a
   // channel here rather than an eyeball.
