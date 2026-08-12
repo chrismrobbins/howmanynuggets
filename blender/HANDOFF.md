@@ -1392,3 +1392,95 @@ improving. The fascia carries the SIGN's aspect now, not the canopy's.
    frames it appears in. Uniform full-brightness confetti, no wear paths.
 4. `06-scoreboard` still photographs its OFFLINE state in every run.
 5. Nothing dynamic casts a shadow.
+
+## 19. 🧽 THE WEAR (2026-08-12) — the hall had never been dirty, and one lamp was missing
+
+Round 3, off round 2's table. The street got THE GRIME two sessions ago (§14);
+the hall never did. Every surface in this room was factory-new and evenly lit,
+and the three numbers that stood out said so from three different directions:
+
+- `02-aisle` **hard 2.322**, the highest in the game — the carpet, which is the
+  biggest surface in the building, identical from one metre away to fifteen.
+- `21-hen` **37.8 near-dead** and `14-croft` **sd 15.9** (the lowest in the game),
+  the two worst-lit tiles in the table — and they are the same corner.
+- `20-cranes`: the prize boxes still blown to featureless cream, carried over
+  from §17's open list.
+
+### THE CARPET: a wear field in the vertex tint
+
+Wear is POSITIONAL — it runs where the feet run — and a tiling texture cannot
+hold anything positional. §14 learned that on the brick, where a vertical story
+baked into a tile repeating 2.2× up a wall came out as stripes. So this is not a
+new texture. `vExtra.y` (the per-vertex tint) multiplies the whole shaded colour,
+**emissive included**, and `quadV` takes an `opts.tints` of four now, so the
+carpet is subdivided at ~35cm and carries a wear field: a lane down the spine
+from the door to the deluxe cabinet, branches out to each machine, a standing
+patch where you play it, dark under the cabinets, and untrodden pile at the
+skirting. All of it derived from `PLACEMENT`, so a machine that moves takes its
+traffic with it.
+
+**THE FIELD MUST BE MEAN-PRESERVING, and the first build was not.** It hung
+everything off 1.0 and only ever subtracted, which took the whole floor down ~20%
+and cost EIGHT POINTS OF MEAN on every hall view. The carpet is the main light
+source for the bottom half of this room — dimming it dims everything standing on
+it, and §11's headline is that too much of this frame is already nothing. Base
+sits at 1.07 now, the untrodden edges go UP, and the field averages **1.023**
+(measured over the floor before rebuilding, not guessed).
+
+### 💡 THE LAMP THAT WASN'T THERE
+
+The kerb ran out of streetlamps at x=15 and the street runs to 21.1, so the whole
+east end — Henrietta, the Undercroft's cellar doors, two of the three worst tiles
+in the table — was lit by nothing at all. Adding one lamp:
+
+| | near-dead | dead | mean | sd |
+|---|---|---|---|---|
+| `14-croft` | 7.27 → **0.72** | 0.00 → 0.00 | 35.71 → **47.33** | 15.9 → 20.0 |
+| `21-hen` | 37.81 → **31.40** | 2.06 → **0.81** | 35.85 → **41.74** | 29.2 → 33.0 |
+
+**And the first attempt at it changed nothing at all, which is the finding.** The
+lamp POSTS are built in `buildStreet`; the lamp LIGHTS were a separate hardcoded
+block eight hundred lines away in `LIGHTS[]`. Adding a fifth lamp built a post
+with a glow sprite on it and NO LIGHT, and both tiles came back pixel-identical
+— a change that measures as nothing because it *is* nothing. Two lists that had
+to agree, maintained independently. There is one list now (`LAMP_X`) and
+`LIGHTS[]` spreads it. Same family as §17's pivot rule: **a value typed in two
+places is a value that will disagree with itself.**
+
+### The number
+
+| | dead | near | blown | mean | sd | chroma | hard | fps |
+|---|---|---|---|---|---|---|---|---|
+| THE VERTICAL PLANE | 0.453 | 10.053 | 0.008 | 62.903 | 42.870 | 48.886 | 0.833 | 59.9 |
+| THE WEAR | **0.408** | **9.603** | **0.007** | 62.247 | 42.875 | 49.137 | 0.856 | 60.1 |
+
+Near-dead −0.449 is the largest single-round improvement of the session, and dead
+and blown both fell with it — the combination §11 asks for and §5c warns is easy
+to fake. Mean is down 0.66, most of which is the crane cabinets: `clawLit` went
+0.46 → 0.30 and `clawLitS` 0.22 → 0.14, and you can see the prizes inside the far
+machine now instead of a cream slab.
+
+### Ledger rows (§9)
+
+| Question | Answer | Why |
+|---|---|---|
+| Where does surface WEAR live — texture or geometry? | **The vertex tint** | Wear is positional and a tiling texture repeats. `opts.tints` on `quadV` costs no texture, no shader change and no atlas region, and the tint multiplies the emissive too, so worn carpet loses its glow as well as its colour. |
+| Is a wear field allowed to be subtractive? | **No — make it mean-preserving** | Only subtracting cost 8 points of mean on every hall view. Lanes down, untrodden edges UP. Measure the field's average before you rebuild; ours is 1.023. |
+| A change measured as EXACTLY nothing? | **Suspect two lists, not a weak effect** | The new lamp had geometry and no light because posts and lights were separate tables. Pixel-identical is not "too subtle", it is "did not happen". |
+| How fine to subdivide for a vertex-tint field? | **~35cm** | Coarser facets through the 1m standing patches; finer is wasted (the field is smooth by design) and the floor is on `bufs.floor`, which is still under the Uint16 ceiling. |
+
+### Still open, in value order
+
+1. **`15-pier` is now the worst tile by a distance** (32.5 near-dead, 4.87 dead —
+   the only spot above 1% dead black in the game). §16 flagged its metric as
+   lying because dark water is correct, and this round did not touch it. Either
+   give it something to look at or stop reading its near-dead number.
+2. **`02-aisle` hard is still 2.42 and still the highest in the game.** The wear
+   field varies the carpet's BRIGHTNESS but not its DENSITY — the confetti is
+   still individually resolvable at fifteen metres, which is the texture-shimmer
+   signature the tools README warns about. A mip/density falloff is the real fix.
+3. **Nothing in the model pass is transparent** — five sessions of workarounds
+   (shop window, jukebox cards, crane prize box, bus shelter, this round's club
+   porthole). The renderer has no alpha pass at all.
+4. Nothing dynamic casts a shadow.
+5. `06-scoreboard` still photographs its OFFLINE state in every run.

@@ -1109,3 +1109,31 @@ HOP's front door, one of five street entrances a player walks up to — measured
   wears all four poster regions, remapped per instance.
 - New warning `arcade: no wall pilasters` is whitelisted in `fallbacks.js`, same
   as `no ceiling ribs`: on `no-mesh` the flat walls ARE the fallback.
+
+## 🧽 THE WEAR — the hall gets dirty, and a lamp that was never wired (2026-08-12)
+
+Round 3. The street got THE GRIME two sessions ago; the hall never did. Full
+story in blender/HANDOFF.md §19.
+
+- **The carpet carries a WEAR FIELD in its vertex tint.** `quadV` takes an
+  `opts.tints` of four now, and `carpetFloor()` subdivides the floor at ~35cm and
+  paints `carpetWear(x, z)` into the corners: a lane down the spine, branches to
+  each machine, a standing patch in front of it, dark underneath, untrodden pile
+  at the skirting — all derived from `PLACEMENT`. Wear is POSITIONAL and a tiling
+  texture cannot hold anything positional (§14's brick stripes). The tint
+  multiplies the EMISSIVE too, so worn carpet loses its glow, not just its colour.
+- 🚨 **A wear field must be MEAN-PRESERVING.** The first build only subtracted,
+  took the floor down ~20% and cost eight points of mean on every hall view — the
+  carpet is the main light source for the bottom half of this room. Base is 1.07,
+  untrodden edges go UP, and the field averages 1.023. Measure the average before
+  you rebuild.
+- 🚨 **`LAMP_X` IS THE ONE LIST OF WHERE THE STREETLAMPS ARE.** It used to be two:
+  the posts were built in `buildStreet` and the lights were a separate hardcoded
+  block in `LIGHTS[]` eight hundred lines away. Adding a fifth lamp to the east
+  end built a post with a glow sprite and NO LIGHT, and the two tiles it was
+  meant to fix came back pixel-for-pixel identical. **A change that measures as
+  exactly nothing is usually not a weak effect — it is two lists that disagree.**
+  Wiring it properly took `14-croft` from 7.27 near-dead to 0.72 and `21-hen`
+  from 37.8 to 31.4.
+- The crane prize boxes are no longer blown: `clawLit` 0.46 → 0.30, `clawLitS`
+  0.22 → 0.14. You can see the prizes in the far machine now.

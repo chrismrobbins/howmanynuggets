@@ -358,12 +358,12 @@ MATS = {
     "scoreLit":   ("sw_red", [0, 0, 1, 1], 0.46, 1.0),
     # the claw cabinet
     "clawGlass":  ("sw_glass", [0, 0, 1, 1], 0.0, 1.45),
-    "clawLit":    ("sw_warm", [0, 0, 1, 1], 0.46, 1.0),
+    "clawLit":    ("sw_warm", [0, 0, 1, 1], 0.30, 0.92),
     # The flanks are dimmer than the back on purpose. Lighting all three
     # equally turned the cabinet into a paper lantern: an even slab with no
     # depth and no prizes visible in it. A box you look INTO needs its far
     # wall to be the brightest thing in it.
-    "clawLitS":   ("sw_warm", [0, 0, 1, 1], 0.22, 0.92),
+    "clawLitS":   ("sw_warm", [0, 0, 1, 1], 0.14, 0.82),
     "clawHead":   ("sw_magenta", [0, 0, 1, 1], 0.42, 1.0),
     "clawNug":    ("nugGold", [0.1, 0.1, 0.9, 0.9], 0.0, 1.15),
     "clawPlush":  ("sw_cyan", [0, 0, 1, 1], 0.0, 0.95),

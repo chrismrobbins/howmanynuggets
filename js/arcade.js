@@ -144,6 +144,17 @@ const NuggetArcade = (() => {
     ['kart', -7.02, -2.2, Math.PI / 2], // the 10th cabinet — the reserved spot, delivered
   ];
 
+  // 💡 THE KERB LINE. One list, because there were TWO and they disagreed.
+  //
+  // The lamp POSTS are built in buildStreet and the lamp LIGHTS lived in a
+  // separate hardcoded block eight hundred lines away in LIGHTS[]. Adding a
+  // fifth lamp to the east end of the street (§19) therefore built a post with
+  // a glow sprite on it and NO LIGHT — `21-hen` and `14-croft` came back
+  // pixel-for-pixel identical, which is a change that measures as nothing
+  // because it IS nothing. Same family as the pivot rule in §17: a value that
+  // has to be typed in two places is a value that will disagree with itself.
+  const LAMP_X = [-15, -5.5, 5, 15, 19.5];
+
   // Battered Brawlers used to hide under a poke-three-times drape; community
   // verdict was "how would anyone know?" — so the cabinet greets everyone now.
   const brawlRevealed = true;
@@ -1637,8 +1648,15 @@ void main() {
     this.n = 0;
     this.tf = null; // optional point transform applied while building (cabinets)
   }
+  // `opts.tints` gives the four corners their OWN tint instead of one shared
+  // value. It exists for THE WEAR (§19): the tint channel multiplies the whole
+  // shaded colour, emissive included (`vExtra.y` in both fragment shaders), so a
+  // per-vertex tint painted across a subdivided floor is a wear field — traffic
+  // lanes, shadow under the machines, glow that fades where feet have been —
+  // and it costs no texture, no shader change and no second atlas region.
   Builder.prototype.quadV = function (pts, uvs, opts = {}) {
     const e = opts.e || 0, tint = opts.tint == null ? 1 : opts.tint;
+    const tints = opts.tints || null;
     const p = pts.map((q) => (this.tf ? this.tf(q) : q));
     const ab = [p[1][0] - p[0][0], p[1][1] - p[0][1], p[1][2] - p[0][2]];
     const ad = [p[3][0] - p[0][0], p[3][1] - p[0][1], p[3][2] - p[0][2]];
@@ -1648,7 +1666,8 @@ void main() {
     const len = Math.hypot(nx, ny, nz) || 1;
     nx /= len; ny /= len; nz /= len;
     for (let k = 0; k < 4; k++)
-      this.v.push(p[k][0], p[k][1], p[k][2], nx, ny, nz, uvs[k][0], uvs[k][1], e, tint);
+      this.v.push(p[k][0], p[k][1], p[k][2], nx, ny, nz, uvs[k][0], uvs[k][1], e,
+        tints ? tints[k] : tint);
     this.i.push(this.n, this.n + 1, this.n + 2, this.n, this.n + 2, this.n + 3);
     this.n += 4;
     return p;
@@ -1811,6 +1830,85 @@ void main() {
     }
   }
 
+  // ---- 🧽 THE WEAR: the carpet's traffic map (§19) ------------------------------------
+  //
+  // A room this size gets walked in the same few places forever: down the middle
+  // from the door, then out to whichever machine you are here for. Everywhere
+  // else stays as it was laid. That map is what the eye reads as "a room people
+  // use", and it is the one thing a tiling texture can never carry.
+  //
+  // Returns 1 (pristine) down to ~0.5 (walked bare) for a point on the floor.
+  function carpetWear(x, z) {
+    // Base sits ABOVE 1 so the field is mean-preserving. The first build hung
+    // everything off 1.0 and only ever subtracted, which took the whole floor
+    // down ~20% and cost eight points of mean on every hall view — and the
+    // carpet is the main light source for the bottom half of this room, so
+    // dimming it dims everything standing on it. §11's headline is that too
+    // much of this frame is nothing; a wear pass is not allowed to make that
+    // worse. The goal is VARIATION, not darkening: lanes go down, the untrodden
+    // edges go UP, and the average lands back where it started.
+    let w = 1.07;
+    // THE SPINE: the door at (0, 0) to the deluxe cabinet at (0, -18.7). Every
+    // visit walks it, and click-to-walk drives straight down it with no
+    // pathfinding, so it is not a guess about where players go — it is where
+    // the game itself sends them.
+    const spine = Math.abs(x) / 1.85;
+    if (spine < 1 && z < 0.4 && z > -19.2) w -= 0.17 * (1 - spine * spine);
+    // BRANCHES: the spine out to each cabinet, and a worn patch where you stand
+    // to play it. Derived from PLACEMENT, so a machine that moves takes its
+    // traffic with it.
+    for (const [, cx, cz] of PLACEMENT) {
+      const sx = cx < 0 ? -1 : 1;
+      // the lane across, at that cabinet's z
+      const across = Math.abs(z - cz) / 1.15;
+      const between = (sx < 0 ? (x > cx + 0.5 && x < 0.2) : (x < cx - 0.5 && x > -0.2));
+      if (across < 1 && between) w -= 0.09 * (1 - across * across);
+      // and the standing patch right in front of the machine
+      const d = Math.hypot((x - (cx - sx * 0.95)) / 1.05, (z - cz) / 1.05);
+      if (d < 1) w -= 0.15 * (1 - d * d);
+    }
+    // UNDER AND BEHIND the machines it is not worn, it is DARK — no light gets
+    // there and nobody has hoovered it since 1994.
+    for (const [, cx, cz] of PLACEMENT) {
+      const d = Math.hypot((x - cx) / 0.75, (z - cz) / 0.62);
+      if (d < 1) w -= 0.22 * (1 - d);
+    }
+    // the two metres nearest the walls never get walked at all, so they keep
+    // their pile — the brightest carpet in the room is at the skirting
+    const edge = Math.min(7.5 - Math.abs(x), Math.min(Math.abs(z + 20), Math.abs(z))) / 2.0;
+    if (edge < 1) w += 0.09 * (1 - edge);
+    // and a slow mottle so none of the above reads as a drawn shape. Low
+    // frequency ON PURPOSE: anything fine here fights the confetti and adds
+    // exactly the shimmer this is meant to reduce.
+    w += 0.045 * Math.sin(x * 0.41 + 1.7) * Math.cos(z * 0.33 - 0.6);
+    return Math.max(0.60, Math.min(1.16, w));
+  }
+
+  // The carpet, subdivided so the wear field has somewhere to live. 6 cells per
+  // 2.125m texture tile = ~35cm: fine enough that the per-vertex gradient reads
+  // as a smooth field rather than as facets (the standing patches in front of a
+  // machine are ~1m across, so they need several cells to curve through), and
+  // coarse enough to keep the floor near 10k verts on its own buffer, well
+  // under the Uint16 ceiling that `bufs.floor` still sits below.
+  function carpetFloor(B, region, x0 = -7.5, x1 = 7.5, z0 = -20, z1 = 0, tile = 2.125, n = 6) {
+    const step = tile / n;
+    for (let x = x0; x < x1 - 1e-6; x += step) {
+      const w = Math.min(step, x1 - x);
+      for (let z = z0; z < z1 - 1e-6; z += step) {
+        const d = Math.min(step, z1 - z);
+        // uv follows the ORIGINAL 2.125m tiling exactly, so the carpet pattern
+        // does not move: only the shading on top of it is new.
+        const fu0 = (((x - x0) % tile) + tile) % tile / tile;
+        const fv0 = (((z - z0) % tile) + tile) % tile / tile;
+        const r = sub(region, fu0, fv0, fu0 + w / tile, fv0 + d / tile);
+        B.quad([x, 0, z + d], [x + w, 0, z + d], [x + w, 0, z], [x, 0, z], r, {
+          tints: [carpetWear(x, z + d), carpetWear(x + w, z + d),
+            carpetWear(x + w, z), carpetWear(x, z)],
+        });
+      }
+    }
+  }
+
   // ---- cabinet construction ----------------------------------------------------------
 
   // Side view profile as [y, zFront] pairs (local: +z toward the player).
@@ -1955,7 +2053,19 @@ void main() {
     const X = RX, ZB = RZB, CH = RCH;
 
     // interior floor + exterior sidewalk (both reflective via the mirror pass)
-    planeY(F, 0, -X, X, ZB, 0, uv.carpet, 2.125, false, {});
+    // 🧽 THE WEAR (§19). The carpet is the biggest surface in this building and
+    // it was IDENTICAL everywhere: the same confetti at the same density and the
+    // same brightness from one metre away to fifteen, with nothing worn, nothing
+    // shaded and nothing faded. It has been §16's open item 3 for two sessions
+    // and it is the highest `hard` in the game (2.32 at `02-aisle`) — a uniform
+    // high-frequency emissive pattern seen at a grazing angle, which is the
+    // shimmer signature the README warns is what makes a frame look free.
+    //
+    // The fix is a WEAR FIELD in the vertex tint, not a new texture. Wear is
+    // POSITIONAL — it runs where the feet run — and a tiling texture cannot hold
+    // anything positional: §14 learned that on the brick, where a vertical story
+    // baked into a tile that repeats 2.2x up a wall came out as stripes.
+    carpetFloor(F, uv.carpet);
     planeY(F, 0, -11, 11, 0, 8, uv.sidewalk, 2.2, false, { tint: 0.9 });
 
     // ceiling
@@ -3624,7 +3734,14 @@ void main() {
     // streetlamps down the curb line — cast iron, with a real lantern on the
     // end of a curved arm (blender/hallmesh.py build_street_lamp). yaw PI turns
     // the model's -z arm to reach out over the pavement.
-    for (const lx of [-15, -5.5, 5, 15]) {
+    // 💡 19.5 ADDED (§19). The kerb ran out of lamps at x=15 and the street
+    // keeps going to 21.1 — so the whole east end, which is where Henrietta
+    // stands and where THE UNDERCROFT's cellar doors are, was lit by nothing at
+    // all. `21-hen` (37.8 near-dead) and `14-croft` (sd 15.9, the lowest in the
+    // game) are the two worst-lit tiles in the table and they are the same
+    // corner. §16's terrace lesson, on the other side of the road: modelled
+    // beautifully and left unlit is still murk.
+    for (const lx of LAMP_X) {
       const lz = 7.3;
       if (!ST.model('streetLamp', suv, { x: lx, z: lz, yaw: Math.PI })) {
       ST.quad([lx - 0.07, 0, lz + 0.07], [lx + 0.07, 0, lz + 0.07], [lx + 0.07, 3.2, lz + 0.07], [lx - 0.07, 3.2, lz + 0.07], suv.sw_iron, { tint: 0.85 });
@@ -4461,10 +4578,8 @@ void main() {
     { p: [0, 2.8, -1.6], c: [0.6, 0.55, 0.8], k: 'door' },
     // (the cabinets light themselves — see installEmissiveLights)
     // --- the street: its own lights, not the hall's on loan ---
-    { p: [-15, 3.0, 6.9], c: [1.5, 1.05, 0.55], k: 'lamp' },
-    { p: [-5.5, 3.0, 6.9], c: [1.5, 1.05, 0.55], k: 'lamp' },
-    { p: [5.0, 3.0, 6.9], c: [1.5, 1.05, 0.55], k: 'lamp' },
-    { p: [15.0, 3.0, 6.9], c: [1.5, 1.05, 0.55], k: 'lamp' },
+    // ...LAMP_X supplies these; see the note by its declaration.
+    ...LAMP_X.map((lx) => ({ p: [lx, 3.0, 6.9], c: [1.5, 1.05, 0.55], k: 'lamp' })),
     { p: [-19.4, 2.2, 0.9], c: [0.42, 1.0, 1.2], k: 'neon' },   // laundromat
     { p: [14.5, 2.2, 0.9], c: [1.25, 0.5, 0.85], k: 'neon' },   // noodle shop
     { p: [-9.5, 2.4, 0.6], c: [1.3, 0.95, 0.35], k: 'sign' },   // the marquee, outside
