@@ -1592,3 +1592,140 @@ written around — the next person who wants a real window can now build one.
 4. Nothing dynamic casts a shadow.
 5. The glass reflects the ambient hemisphere indoors, which is a flat colour —
    a real cubemap or SSR would put the ROOM in the cabinet glass.
+
+## 21. ⚓ THE MOORING (2026-08-12) — build the instrument, then use it
+
+Round 5, and it closes the loop on the session's own biggest finding.
+
+Round 4's honest conclusion was that **three rounds running had produced changes
+this kit could not see**: §17 because `shoot.js` pins the clock, §18 because
+`mean` moves the WRONG WAY for relief, §20 because a pane is a few percent of a
+frame. Every one of those was visible in a crop and invisible in the table. So
+this round built the missing instrument first, then used it on the worst thing in
+the game — which is also the fairest possible test of whether it works.
+
+### 🔬 `blender/tools/region.js` — measure a SURFACE, not a frame
+
+Point it at a box and it reports that box's own dead / near / blown / mean / sd /
+chroma / hard, for two tagged runs, with the delta. It reads PNGs `shoot.js` has
+already written, so there is no browser and no re-render, and it works
+retroactively on every run still in `_shots`.
+
+**Validated against the two rounds it was built to explain**, and the numbers are
+the argument:
+
+| | whole frame | the surface itself |
+|---|---|---|
+| §20 THE PANE, at the Flappy CRT | mean **+0.25%** | mean **+7.5%**, hard **+8.7%**, near −33% |
+| §17 THE CAST, at Big Crumb | mean **+0.02%** | near-dead **−25.1%**, mean +2.4% |
+
+Neither round was invisible. Both were invisible to a number averaged over
+1280×760 pixels when the thing that changed occupied 1% of them.
+
+### ⚓ And a boat, because `15-pier` had been the worst tile all session
+
+32.5 near-dead and 4.87 dead — the only spot in the game above 1% dead black, and
+untouched through four rounds. §16 had already ruled correctly on the number: it
+is a night harbour and dark water IS dark. What the frame actually lacked was
+anything ON the water — no scale, no foreground, and nothing between the rail and
+a skyline forty metres out.
+
+`trawler` is a small fishing boat lying off the pier head: lofted hull with a
+sheer line and a boot-top stripe, wheelhouse, mast, derrick, fenders, a lit
+window and a masthead light. She ROCKS — roll dominant, pitch a third of it and
+out of phase, a small heave, three periods that do not divide into each other —
+which is the only motion anywhere east of the pier gate. Two new `motion.js`
+channels watch her.
+
+**And the first placement was a trap that the metric walked straight into.** She
+went in 5m off the gate, filling the bottom half of the frame with a blown-out
+wheelhouse, and the table LOVED it: near-dead 32.5 → 29.9, mean +6.4, sd +31%.
+The crop said she was a wall. Moved out to 15m and off to the north — which is
+obviously right in the picture — the whole-frame numbers fall back to nothing
+(near 32.5 → 32.3, mean +0.15).
+
+**This is §16's lesson running the OTHER way, and it is the more dangerous
+direction.** Everyone knows a metric can undersell a good change; this session
+had already hit that three times. A metric can also OVERSELL a bad one, and a
+number that agrees with you is much harder to argue with. A big bright object
+near the camera improves every darkness statistic there is, whether or not it
+belongs in the shot.
+
+The region tool then measured what actually changed — the water she is in:
+
+| `15-pier`, box 700 410 330 90 | before | after | |
+|---|---|---|---|
+| near-dead | 18.62 | 14.71 | **−21.0%** |
+| mean | 25.21 | 29.15 | **+15.6%** |
+| sd | 8.49 | 15.40 | **+81.4%** |
+| chroma | 23.28 | 40.32 | **+73.2%** |
+| hard | 1.083 | 0.668 | **−38.3%** |
+
+`hard` falling 38% is worth reading twice: a solid hull REPLACED a patch of
+high-frequency reflected-city noise, which is a shimmer source going away.
+
+### 🚶 A false positive in the head-bob guard, found and fixed
+
+`motion.js`'s `no-bob` anti-channel — the one thing standing between this project
+and the gait THE GLIDE deleted — started reporting **HEAD-BOB IS BACK** at
+0.0040–0.0044 against a threshold of 0.004.
+
+It was not a regression, and the diagnosis is the useful part. `no-bob` runs
+LAST, and every channel above it holds 'f' down for its window without ever
+resetting the camera. By the time it fires, twenty walks have driven the camera
+into the back wall: it sits at **z −17.85 with `speed` pinned at 0.62** by the
+collision solver, and at that speed the hall treats it as nearly-standing so the
+IDLE BREATH never fully fades. What the channel measured was that breath
+decaying — a smooth monotonic ramp from 1.62376 to 1.62025, not an oscillation.
+A fresh camera on open floor measures a range of **exactly 0.00000**.
+
+Adding this round's two boat channels pushed ~19 more seconds of wall-shoving in
+front of the check and tipped a marginal reading over the line.
+
+**The obvious fix would have been to raise the threshold, and that would have
+been the worst possible outcome** — blinding the only guard protecting a
+behaviour Beau asked for by name. The check resets the camera to open floor
+first. The row claims "flat while WALKING"; a camera wedged in a corner at
+0.62 m/s is not walking.
+
+### The session, end to end
+
+| | dead | near | blown | mean | sd | chroma | hard |
+|---|---|---|---|---|---|---|---|
+| baseline (20 shared spots) | 0.381 | 8.331 | 0.007 | 65.104 | 42.305 | 49.357 | 0.772 |
+| after five rounds | 0.383 | 8.431 | 0.007 | 65.104→**63.561** | **43.417** | 48.760 | **0.880** |
+
+`hard` **+14.0%** and `sd` **+2.6%** — more structure and more arrangement — with
+`mean` down 2.4% because three of the five rounds added shadow, relief and wear
+to surfaces that used to be evenly lit. dead and blown are flat. 60.5fps
+throughout, never below 59.8 on any path of the fallback matrix.
+
+And two spots that were never in the baseline: `21-hen` (37.8 near-dead when it
+was first pointed at, 31.3 now) and the fact that four of the five rounds moved
+numbers this kit had to be EXTENDED to see.
+
+### Ledger rows (§9)
+
+| Question | Answer | Why |
+|---|---|---|
+| A change the frame table cannot see? | **Measure the SURFACE** — `region.js` | The pane read +0.25% on the frame and +7.5% on the CRT. Three rounds this session were invisible only because the average was taken over the wrong pixels. |
+| The metric LIKES a change a lot? | **Suspect it as hard as when it dislikes one** | A boat parked 5m off the lens scored near −2.6, mean +6.4, sd +31% and was plainly wrong in the crop. Overselling is the harder direction to catch, because the number is agreeing with you. |
+| `no-bob` fires? | **Check where the camera IS before believing it** | It runs last, after twenty un-reset walks, jammed in the back wall at 0.62 m/s where the idle breath never fades. Fresh camera: 0.00000. NEVER raise that threshold. |
+| Ring-station loft or stacked rows for a hull? | **Rows** | A closed U at each frame gives a rounder bilge and an ambiguous inside/outside at the keel (§7 trap 2). This hull is seen from one side at twelve metres. |
+
+### Still open, in value order
+
+1. **`02-aisle` hard is 2.44 and still the highest in the game.** THE WEAR varied
+   the carpet's BRIGHTNESS; its confetti DENSITY still does not thin with
+   distance, so it stays individually resolvable at fifteen metres. That is the
+   texture-shimmer signature the tools README names as the look of a free game.
+2. **Nothing dynamic casts a shadow** — the shadow maps bake off the STATIC
+   buffers, and this session moved the regulars' parts, the claw trolleys and
+   the boat out of them.
+3. **`06-scoreboard` photographs its OFFLINE state in every run, forever** — the
+   worker only allows the production origin. A big lit surface in the hall has
+   never once been measured showing real data.
+4. Glass reflects the ambient hemisphere indoors, which is a flat colour. A
+   cubemap or SSR would put the actual ROOM in the cabinet glass.
+5. `15-pier` still reads 32.3 near-dead and 4.87 dead. It is a night harbour with
+   a boat in it now; **stop reading its near-dead number.**

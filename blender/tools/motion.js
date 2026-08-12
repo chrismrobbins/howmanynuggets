@@ -62,6 +62,12 @@ const CHANNELS = [
   ['hen.peck', 'NuggetArcade._NPCS[3].headPitch || 0', 0.5, 9000, 'still'],
   ['gravy.lid', 'NuggetArcade._NPCS[1].lid || 0', 0.02, 9000, 'still'],
   // 🕹 and the crane machines' trolleys, which had never moved at all.
+  // ⚓ THE MOORING (§21). She is the only thing that moves on the harbour, and
+  // the only motion anywhere east of the pier gate. Read off the values the
+  // renderer actually used, like claw.travel and failTube — a channel that
+  // recomputes the formula keeps sweeping while the real draw is frozen.
+  ['boat.roll', 'NuggetArcade._H.boat ? (NuggetArcade._H.boat.roll || 0) : 0', 0.06, 9000, 'still'],
+  ['boat.heave', 'NuggetArcade._H.boat ? (NuggetArcade._H.boat.heave || 0) : 0', 0.03, 9000, 'still'],
   ['claw.travel', 'NuggetArcade._H.claw ? (NuggetArcade._H.claw.travel || 0) : 0', 0.2, 9000, 'still'],
   ['claw.swing', 'NuggetArcade._H.claw ? (NuggetArcade._H.claw.swing || 0) : 0', 0.2, 9000, 'still'],
   // 🌫 the motion layer. A plume that never rises and a splash that never
@@ -127,6 +133,28 @@ const CHANNELS = [
   // catches the tail of it and reports 0.0044 of "head-bob" that is really a
   // lungful of air on the way out. This channel is about STEADY-STATE walking.
   {
+    // 🚨 AND PUT THE CAMERA BACK ON OPEN FLOOR FIRST. This check runs LAST, and
+    // every channel above it holds 'f' down for its window without ever
+    // resetting the position — so by the time it fires, twenty walks have driven
+    // the camera into the back wall. It sits at z -17.85 with `speed` pinned at
+    // 0.62 by the collision solver, and at that speed the hall treats it as
+    // nearly-standing and the IDLE BREATH never fully fades. What the channel
+    // then measured was the breath decaying — a smooth monotonic ramp of about
+    // 0.0040, right on the threshold — and it reported HEAD-BOB IS BACK.
+    //
+    // It is a false positive, and a dangerous one: the obvious "fix" is to raise
+    // the threshold, which would blind the only guard standing between this
+    // project and the head-bob it has already shipped once. A fresh camera on
+    // open floor measures cam.y range 0.00000, exactly as THE GLIDE intended.
+    //
+    // The channel's own claim is "flat while WALKING". A camera wedged in a
+    // corner at 0.62 m/s is not walking, so this is not moving the goalposts —
+    // it is finally measuring the thing the row says it measures.
+    await page.evaluate(() => {
+      const H = NuggetArcade._H;
+      H.cam.x = 0; H.cam.z = 2; H.cam.yaw = 0; H.vel.x = 0; H.vel.z = 0;
+    });
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     await page.evaluate(() => { NuggetArcade._H.keys.f = true; });
     await page.waitForTimeout(800);
     const walk = await sample('H.cam.y', 1400, ['f']);

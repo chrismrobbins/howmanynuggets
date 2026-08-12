@@ -1171,3 +1171,35 @@ were working around. Full story in blender/HANDOFF.md §20.
   SURFACE.** Three rounds running have now produced changes it cannot see —
   §17 (clock is pinned), §18 (mean moves the wrong way for relief), §20 (area
   too small). A per-region statistic is the obvious next tool.
+
+## ⚓ THE MOORING + 🔬 region.js — measure a surface, not a frame (2026-08-12)
+
+Round 5, closing the loop on the session's own finding: three rounds running had
+produced changes this kit could not see. Full story in blender/HANDOFF.md §21.
+
+- **`blender/tools/region.js` measures a BOX, not a frame.** Two tags, one spot,
+  four numbers, and it reports that box's own dead/near/blown/mean/sd/chroma/hard
+  with the delta. Reads PNGs shoot.js already wrote — no browser, works
+  retroactively on every tagged run in `_shots`. Validated on the rounds it was
+  built to explain: THE PANE read **+0.25% mean on the frame and +7.5% on the
+  CRT**; THE CAST read +0.02% on the frame and **-25% near-dead on Crumb**.
+- **`trawler`**, moored off the pier head — `15-pier` had been the worst tile all
+  session (32.5 near-dead, the only spot over 1% dead black) and §16 was right
+  that its number lies. What it lacked was anything ON the water: scale,
+  foreground, motion. She rocks (roll dominant, pitch out of phase, small heave);
+  two new motion.js channels watch her.
+- 🚨 **THE METRIC CAN OVERSELL, AND THAT IS THE DANGEROUS DIRECTION.** The first
+  placement put her 5m off the gate filling half the frame with a blown
+  wheelhouse, and the table LOVED it: near 32.5 -> 29.9, mean +6.4, sd +31%. The
+  crop said she was a wall. Correctly placed at 15m the frame numbers fall back
+  to nothing — while `region.js` on the water she occupies says sd **+81%**,
+  chroma **+73%**, near-dead **-21%**, hard **-38%**. Suspect a number that
+  agrees with you exactly as hard as one that does not.
+- 🚨 **`no-bob` FIRED AND IT WAS A FALSE POSITIVE — DO NOT RAISE THAT THRESHOLD.**
+  It runs LAST, and every channel above it holds 'f' down without resetting the
+  camera, so by then twenty walks have driven it into the back wall: z -17.85,
+  `speed` pinned at 0.62, where the hall treats it as nearly-standing and the
+  IDLE BREATH never fades. The channel was measuring that breath decaying (a
+  smooth ramp 1.62376 -> 1.62025), not a bob. A fresh camera reads **0.00000**.
+  It resets the camera to open floor first now. Raising the threshold would have
+  blinded the only guard protecting a behaviour Beau asked for by name.

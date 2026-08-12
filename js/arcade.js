@@ -4230,6 +4230,34 @@ void main() {
     {
       const px0 = 21.5, px1 = 33.6, pz0 = 9.3, pz1 = 12.5, deckY = 0.05;
 
+      // ⚓ THE MOORING (§21). `15-pier` has been the worst-measuring tile in this
+      // build for three sessions, and §16 worked out why the number lies: it is
+      // a night harbour, and dark water IS dark. What the frame actually lacked
+      // was anything ON the water — no scale, no foreground, and nothing between
+      // the rail and a skyline forty metres away. She lies off the pier head,
+      // broadside to the gate, and she ROCKS: the only motion this half of the
+      // map has ever had. Her own buffer, like the regulars, because a static
+      // buffer cannot move.
+      {
+        const BB = new Builder();
+        if (BB.model('trawler', suv, { yaw: Math.PI / 2 })) {
+          // 15m out and off to the north, NOT parked on the lens. The first
+          // placement put her 5m from the gate, filling the bottom half of the
+          // frame — and the table LOVED it (near 32.5 -> 29.9, mean +6.4, sd
+          // +31%) because a big bright object near the camera moves every
+          // darkness statistic there is. The crop said she was a wall. This is
+          // the §16 lesson running the other way for once: the metric can be
+          // wrong in the flattering direction too, and that is harder to catch.
+          H.boat = { buf: BB.upload(gl), x: 46.5, y: -0.50, z: 16.5 };
+          // she is lit from her own windows and masthead, and nothing else out
+          // there lights anything — §16's terrace lesson, forty metres offshore.
+          LIGHTS.push({ p: [46.5, 0.55, 17.9], c: [0.85, 0.60, 0.26], k: 'lamp' });
+          H.glows.push({ p: [46.5, 2.55, 16.5], c: [1, 0.96, 0.86], s: 0.30, a: 0.16, k: 'neon' });
+          H.glows.push({ p: [46.5, 0.34, 15.6], c: [1, 0.24, 0.24], s: 0.24, a: 0.14, k: 'neon' });
+          H.glows.push({ p: [46.5, 0.62, 17.8], c: [1, 0.72, 0.34], s: 0.8, a: 0.09, k: 'sign' });
+        }
+      }
+
       // 🌊 THE HARBOR. It used to be an apron 24m x 18m, and from the pier rail
       // you could see the END OF IT: a hard edge at x=46, and beyond that a
       // flat orange slab of bare sky where the water should have met the
@@ -6281,6 +6309,26 @@ void main() {
       }
     }
 
+    // ⚓ she rides the swell (§21). Roll dominates, pitch is a third of it and
+    // out of phase, and the heave is small — a moored boat pivots about her own
+    // waterline, she does not bob like a float. Three periods that do not divide
+    // into each other, so the motion never repeats visibly.
+    function drawBoat(pre, opts) {
+      const B2 = H.boat;
+      if (!B2) return;
+      const t = H.t;
+      B2.roll = Math.sin(t * 0.62) * 0.055 + Math.sin(t * 0.29 + 1.1) * 0.022;
+      B2.pitch = Math.sin(t * 0.41 + 2.3) * 0.019;
+      B2.heave = Math.sin(t * 0.37 + 0.7) * 0.035;
+      const m = mMul(
+        mTrans(B2.x, B2.y + B2.heave, B2.z),
+        mMul(mRotZ(B2.pitch), mRotX(B2.roll))
+      );
+      useTex(H.texStreet);
+      drawLit(B2.buf, pre ? mMul(pre, m) : m, opts);
+      useTex(H.texAtlas);
+    }
+
     function drawNpcs(pre, opts) {
       useTex(H.texStreet);
       for (const n of NPCS) {
@@ -6353,6 +6401,7 @@ void main() {
     useTex(H.texStreet);
     drawLit(H.bufsStreet.solid, I, {});
     drawLit(H.bufsStreet.pier, I, {}); // world pass only — the sea does not reflect in itself
+    drawBoat(null, {});  // ⚓ moored off the pier head, riding the swell
     useTex(H.texAtlas);
     drawNpcs(null, {}); // the regulars: real geometry now, lit like the room
     drawClaw(null, {});  // and the cranes' trolleys, sweeping their gantries

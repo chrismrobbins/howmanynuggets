@@ -258,6 +258,19 @@ MATS = {
     "clubGlow":   ("sw_party1", [0, 0, 1, 1], 0.62, 1.0),
     "clubFlyer":  ("sw_white", [0, 0, 1, 1], 0.0, 0.60),
     "clubVoid":   ("sw_black", [0, 0, 1, 1], 0.0, 1.0),
+    # -- THE MOORING (§21). STREET atlas — the pier is on the street sheet.
+    "boatHull":   ("sw_woodDark", [0, 0, 1, 1], 0.0, 0.70),
+    "boatHullD":  ("sw_woodDark", [0, 0, 1, 1], 0.0, 0.44),
+    "boatBoot":   ("sw_red", [0, 0, 1, 1], 0.0, 0.70),      # the boot-top stripe
+    "boatDeck":   ("pierWood", [0.05, 0.05, 0.95, 0.95], 0.0, 0.92),
+    "boatHouse":  ("sw_white", [0, 0, 1, 1], 0.0, 0.52),
+    "boatTrim":   ("sw_iron", [0, 0, 1, 1], 0.0, 0.85),
+    # the wheelhouse windows are the one warm thing out here: somebody is
+    # aboard. Kept well under §5c's ceiling — this is 40m from the camera and
+    # a hot texel that far out is just a bloom smear.
+    "boatGlow":   ("sw_amber", [0, 0, 1, 1], 0.15, 0.88),
+    "boatMastR":  ("sw_red", [0, 0, 1, 1], 0.55, 1.0),
+    "boatMastW":  ("sw_white", [0, 0, 1, 1], 0.50, 1.0),
     # hall trim lives on the MAIN atlas (it is built into B, not ST), so it
     # wears the wainscot panelling the room is already trimmed in.
     "trimWood": ("wainscot", [0.10, 0.10, 0.90, 0.90], 0.0, 1.15),
@@ -3690,7 +3703,85 @@ def build_extinguisher():
     return P.finish(bevel=0.005, segments=1, smooth_deg=36)
 
 
+def build_trawler():
+    """A small fishing boat, moored alongside the pier.
+
+    `15-pier` has been the worst-measuring tile in this build for three sessions
+    and §16 already worked out why the number lies: it is a night harbour and
+    dark water IS dark. What the frame actually lacked was anything ON the water
+    — no scale, no foreground, nothing between the rail and the skyline forty
+    metres away. A boat gives all three, and being moored it can rock, which is
+    the only motion this half of the map has ever had.
+
+    Built to be seen from the pier deck at ~12m, three-quarter on, so the detail
+    budget goes into the SILHOUETTE — sheer line, wheelhouse, mast, derrick —
+    and not into anything that needs to survive a close look.
+    """
+    P = Part("trawler")
+    L, BW = 7.4, 2.35
+
+    # THE HULL. A boat is the one shape in this project that cannot be a box:
+    # the whole read is the sheer curve from a raked bow to a low transom.
+    #
+    # Built as stacked half-beam rows rather than as ring stations, on purpose.
+    # A station loft (a closed U at each frame) gives a rounder bilge and a nicer
+    # bow, and it also gives `_orient()` a shell whose inside and outside are
+    # genuinely ambiguous at the keel — which is §7 trap 2, and this hull is
+    # seen from ONE side at twelve metres. Rows keep the sheer honest, keep every
+    # normal unambiguous, and cost nothing anyone can see from the pier.
+    SHEER = [(0.00, 1.02), (0.12, 0.86), (0.30, 0.74), (0.52, 0.70),
+             (0.74, 0.72), (0.90, 0.80), (1.00, 0.92)]
+    BEAM = [(0.00, 0.10), (0.10, 0.44), (0.28, 0.80), (0.52, 1.00),
+            (0.76, 0.96), (0.92, 0.82), (1.00, 0.66)]
+    rows = []
+    for k, (fy, fz) in enumerate(((0.00, -0.52), (0.34, -0.40), (0.68, -0.14),
+                                  (0.90, 0.16), (1.00, 0.52))):
+        ring = []
+        for i in range(15):
+            v = i / 14
+            x = -L / 2 + v * L
+            half = pw(v, BEAM) * (BW / 2) * (0.30 + 0.70 * fy)
+            z = fz + pw(v, SHEER) * fy * 0.55
+            ring.append((x, half, z))
+        for i in range(14, -1, -1):
+            v = i / 14
+            x = -L / 2 + v * L
+            half = pw(v, BEAM) * (BW / 2) * (0.30 + 0.70 * fy)
+            z = fz + pw(v, SHEER) * fy * 0.55
+            ring.append((x, -half, z))
+        rows.append(ring)
+    P.loft(rows, "boatHull", cap_a=True, cap_b=True,
+           mat_fn=lambda i, j: "boatBoot" if i == 2 else ("boatHullD" if i < 2 else "boatHull"))
+    # the deck, inset inside the sheer
+    P.box((0.25, 0, 0.56), (L * 0.80, BW * 0.74, 0.06), "boatDeck")
+    # bulwark rail round the foredeck
+    for sy in (-1, 1):
+        P.box((-1.30, sy * (BW * 0.40), 0.66), (L * 0.44, 0.055, 0.16), "boatTrim")
+    # THE WHEELHOUSE, aft of amidships
+    P.box((1.35, 0, 0.98), (1.85, 1.65, 0.80), "boatHouse", taper=0.92)
+    P.box((1.35, 0, 1.42), (2.00, 1.80, 0.09), "boatTrim")
+    for sy in (-1, 1):
+        P.box((1.30, sy * 0.84, 1.06), (1.15, 0.05, 0.34), "boatGlow")
+    P.box((0.42, 0, 1.06), (0.05, 1.10, 0.36), "boatGlow")     # the front screen
+    # mast and derrick — the silhouette that says fishing boat and not dinghy
+    P.cyl((0.05, 0, 1.95), "z", 0.055, 0.040, 2.10, "boatTrim", slices=8)
+    P.limb((0.05, 0, 2.55), (-2.30, 0, 1.30), 0.045, 0.032, "boatTrim", slices=8)
+    P.limb((0.05, 0.32, 2.86), (0.05, -0.32, 2.86), 0.030, 0.030, "boatTrim", slices=6)
+    P.ovoid((0.05, 0, 3.02), (0.13, 0.13, 0.16), "boatMastW", stacks=5, slices=8)
+    # port light. One, not a pair: from the pier you only ever see this side.
+    P.ovoid((-0.55, -0.92, 0.80), (0.11, 0.11, 0.13), "boatMastR", stacks=5, slices=8)
+    # a couple of pots and a hatch on the foredeck
+    for i, (bx, by) in enumerate(((-2.40, 0.34), (-1.85, -0.30), (-2.85, -0.22))):
+        P.box((bx, by, 0.72), (0.52, 0.46, 0.26), "boatTrim", taper=0.86)
+    P.box((-0.60, 0, 0.68), (0.70, 0.80, 0.10), "boatDeck")
+    # fenders down the mooring side
+    for bx in (-1.9, 0.1, 2.1):
+        P.ovoid((bx, -1.02, 0.44), (0.17, 0.17, 0.26), "boatTrim", stacks=6, slices=8)
+    return P.finish(bevel=0.010, segments=1, smooth_deg=44)
+
+
 MODELS.update({
+    "trawler": build_trawler,
     "clubDoor": build_club_door,
     "wallPier": build_wall_pier,
     "wallCap": build_wall_cap,
