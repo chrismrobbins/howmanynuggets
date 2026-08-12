@@ -60,6 +60,10 @@ const NuggetArcade = (() => {
     exposure: 1.0,
     sat: 1.10,
     puddle: PUDDLE_AMT,
+    // 🪟 how much sky a pane returns (§20). Swept, not guessed: at 1.6 the
+    // crane cabinets read as mirrors and you lose the prizes behind them, which
+    // is the blown-prize-box problem from the other direction.
+    glassAmt: 0.58,
     // 🎨 THE COLOUR BALANCE. Ten machines in this room each throw their own
     // game's palette, and the room still photographs as one lavender wash,
     // because a flat ambient of 0.30 sits under all of it and a marquee only
@@ -567,6 +571,7 @@ uniform float uShadowAmt;
 uniform vec3 uLightPos[16]; uniform vec3 uLightColor[16];
 uniform vec3 uAmbUp, uAmbDown, uFogColor, uCamPos, uSkyAmb, uGndAmb;
 uniform float uFogDensity, uAlpha, uMirror, uBoost, uNrmScale, uSpecAmt, uWet, uTime, uSkyAmt, uSkyRefl;
+uniform float uGlass, uGlassAmt;
 uniform float uEmisGain, uPuddle, uCity;
 out vec4 fragColor;
 // ES 3.00 removed texture2D; the shared sky/city source is written against
@@ -856,6 +861,39 @@ void main() {
       float mp = max(dot(R, uMoonDir), 0.0);
       env += vec3(0.62, 0.60, 0.72) * (pow(mp, 620.0) * 2.6 + pow(mp, 26.0) * 0.10) * sea;
     }
+  }
+
+  // 🪟 THE PANE (§20). "Nothing in this renderer is transparent" is written in
+  // the ledger five times — the shop window, the jukebox title cards, the crane
+  // prize box, the bus shelter, the club porthole — and every one of them was
+  // answered with the same WORKAROUND: do not build the thing you would be
+  // seeing through. This is the capability those five were working around.
+  //
+  // It is ADDITIVE, and that is the whole trick. Real alpha transparency needs
+  // back-to-front sorting, which this renderer has nowhere to put: geometry is
+  // baked into a handful of static buffers and the draw order is fixed at build
+  // time. But glass at night is not really a filter, it is a REFLECTION laid
+  // over whatever is behind it — and addition does not care what order it
+  // happens in. So the interior is drawn opaque as it always was, the pane goes
+  // over the top adding only what it reflects, and there is no sort to get
+  // wrong and no depth-order bug to chase.
+  if (uGlass > 0.5) {
+    vec3 Rg = reflect(-V, N);
+    float fresG = 0.055 + 0.945 * pow(1.0 - NdotV, 5.0);
+    vec3 g = skyBase(Rg);
+    // indoors there is no sky to reflect: a cabinet's glass returns the ROOM,
+    // which is mostly its own neon. The ambient hemisphere is the cheapest
+    // honest stand-in and it already carries the room's colour.
+    g = mix(mix(uAmbUp, uAmbDown, 0.5) * 2.4, g, outside);
+    if (uCity > 0.5 && outside > 0.5) g = skyCityTex(g, Rg);
+    // Fresnel is the entire look. Face-on, a pane is nearly invisible and you
+    // read the lit interior through it; at a grazing angle it goes to a sheet
+    // of reflected sky. That ramp is what makes the eye accept it as glass
+    // rather than as a bright decal — the same reason the wet road works.
+    vec3 gcol = g * uSkyRefl * mix(0.06, 1.0, fresG) * uGlassAmt
+              + spec * uSpecAmt * 1.35;
+    fragColor = vec4(gcol * vExtra.y * uMirror, 1.0);
+    return;
   }
 
   float e = clamp(vExtra.x * uBoost, 0.0, 1.0);
@@ -1830,6 +1868,33 @@ void main() {
     }
   }
 
+  // A shallow convex pane over a flat quad, for THE PANE (§20). `pts` are the
+  // four corners as seen from the front, `n` the face normal, `bulge` how far
+  // the centre stands proud of the corners, `lift` how far the whole thing sits
+  // off the surface it glazes.
+  // seg 5, not 3: quadV gives each quad ONE face normal, so the dome's Fresnel
+  // ramp arrives in `seg` discrete bands. At 3 the banding is visible as
+  // stripes across the tube; at 5 it reads as a curve.
+  function glassDome(B, pts, n, bulge, lift, opts, seg = 5) {
+    const at = (u, v) => {
+      // bilinear across the quad: pts are bottom-left, bottom-right, top-right,
+      // top-left, so u runs along the bottom edge and v up the left one.
+      const b = 1 - u, w = 1 - v;
+      const o = bulge * (1 - (2 * u - 1) * (2 * u - 1)) * (1 - (2 * v - 1) * (2 * v - 1))
+        + lift;
+      return [0, 1, 2].map((k) =>
+        pts[0][k] * b * w + pts[1][k] * u * w + pts[2][k] * u * v + pts[3][k] * b * v
+        + n[k] * o);
+    };
+    for (let i = 0; i < seg; i++) {
+      for (let j = 0; j < seg; j++) {
+        const u0 = i / seg, u1 = (i + 1) / seg, v0 = j / seg, v1 = (j + 1) / seg;
+        B.quadV([at(u0, v0), at(u1, v0), at(u1, v1), at(u0, v1)],
+          [[u0, 1 - v0], [u1, 1 - v0], [u1, 1 - v1], [u0, 1 - v1]], opts);
+      }
+    }
+  }
+
   // ---- 🧽 THE WEAR: the carpet's traffic map (§19) ------------------------------------
   //
   // A room this size gets walked in the same few places forever: down the middle
@@ -2034,6 +2099,7 @@ void main() {
     installEmissiveLights();
     const B = new Builder();      // static, atlas-textured
     const F = new Builder();      // floor (drawn semi-transparent over reflections)
+    const GL = new Builder();     // 🪟 glass: additive panes, drawn last (§20)
     const SGN = new Builder();    // neon signs (flicker via uBoost)
     const DL = new Builder(), DR = new Builder(); // door leaves
     const DEC = new Builder();    // dark contact-shadow decals
@@ -2462,6 +2528,18 @@ void main() {
         LIGHTS.push({ p: [cx3, 2.22, cz3 - 0.50], c: [0.52, 0.10, 0.32], k: 'neon' });
         H.glows.push({ p: [cx3, 2.17, cz3 - 0.52], c: [1, 0.20, 0.66], s: 0.9, a: 0.13, k: 'neon' });
       }
+      // 🪟 and the crane cabinets finally get their front pane (§20). §16's
+      // ledger says the front of the prize box was deliberately NOT built —
+      // "if you want to see INTO something, do not build the thing you would be
+      // seeing through" — because an opaque box in front of a lit interior is a
+      // black card. That was the right call for an opaque renderer. It is not
+      // the constraint any more: an additive pane adds a reflection and hides
+      // nothing, so the prizes stay visible AND the machine reads as glazed.
+      for (const [cx3, cz3] of clawAt) {
+        GL.quad([cx3 - 0.44, 1.06, cz3 + 0.472], [cx3 + 0.44, 1.06, cz3 + 0.472],
+          [cx3 + 0.44, 2.01, cz3 + 0.472], [cx3 - 0.44, 2.01, cz3 + 0.472],
+          uv.sw_glass, { tint: 0.80 });
+      }
       if (clawSplit) {
         // built at the ORIGIN and placed by the draw call, so one buffer serves
         // both machines and each can be at a different point in its cycle
@@ -2627,6 +2705,19 @@ void main() {
         [[0, 1], [1, 1], [1, 0], [0, 0]],
         { e: 1 }
       );
+      // 🪟 THE SCREEN GLASS (§20). A CRT with no reflection in it is the
+      // flattest object it is possible to put in a room, and there are ten of
+      // them in here — the single most-looked-at surface in the building. The
+      // pane sits 12mm proud of the picture, on the SAME four corners, so it
+      // can never drift out of register with the screen it is glazing.
+      // and it is DOMED, which is the difference between glass and a bright
+      // rectangle. A flat pane has the same NdotV at every pixel, so its
+      // Fresnel term is a constant and the whole thing lifts uniformly — it
+      // reads as "the screen got brighter", not as "there is glass on it". A
+      // real CRT bulges, so the centre faces you and stays clear while the
+      // edges rake away and go to reflection. Nine quads per screen buys that
+      // gradient with no shader work at all.
+      glassDome(GL, cab.screen.pts, cab.screen.normal, 0.028, 0.012, { tint: 0.62 });
       // contact shadow
       const m = cab.min, M = cab.max;
       DEC.quad(
@@ -2687,6 +2778,7 @@ void main() {
 
     return {
       static: B.upload(gl), floor: F.upload(gl), sign: SGN.upload(gl),
+      glass: GL.n ? GL.upload(gl) : null,
       doorL: DL.upload(gl), doorR: DR.upload(gl),
       decals: DEC.upload(gl), blob: BLOB.upload(gl), screens: SCR.upload(gl),
       board: SB.upload(gl),
@@ -3505,6 +3597,7 @@ void main() {
 
   function buildStreet(gl, suv) {
     const ST = new Builder(); // opaque street set (own texture page)
+    const SG = new Builder(); // 🪟 street glass: additive panes (§20)
 
 
     // block walls: facade extensions flush with the arcade front, side caps,
@@ -3644,6 +3737,14 @@ void main() {
     shop(-21.3, -17.5, 'shopLaundro', 0.3);
     shop(-17.1, -12.1, 'shopGarage', 0.12);
     shop(12.1, 17.1, 'shopNoodle', 0.3);
+    // 🪟 glaze the WINDOW BAND of the two lit shopfronts (§20) — not the whole
+    // diorama, which includes the fascia and the sign, and not the garage,
+    // whose "window" is a roller door. A shop window at night is the most
+    // reflective thing on a street and these were flat painted panels.
+    for (const [x0, x1] of [[-21.3, -17.5], [12.1, 17.1]]) {
+      SG.quad([x0 + 0.15, 0.85, 0.05], [x1 - 0.15, 0.85, 0.05],
+        [x1 - 0.15, 2.45, 0.05], [x0 + 0.15, 2.45, 0.05], suv.sw_black, { tint: 0.72 });
+    }
 
     // Awnings. Every shopfront was a lit quad with nothing standing off it, so
     // the whole terrace read as a painted backdrop — nothing on that side of
@@ -4493,7 +4594,10 @@ void main() {
       }
     }
 
-    return { solid: ST.upload(gl), floor: STF.upload(gl), pier: PR.upload(gl), npcs: npcBufs };
+    return {
+      solid: ST.upload(gl), floor: STF.upload(gl), pier: PR.upload(gl),
+      glass: SG.n ? SG.upload(gl) : null, npcs: npcBufs,
+    };
   }
 
   function foundGoldenNug(x, y, z) {
@@ -4741,6 +4845,10 @@ void main() {
     // to the shader instead of a call site).
     H.pbr = !!gl2;
     H.sky = true;   // harness seam: false = the void the hall shipped with
+    // 🪟 harness seam: false = the paneless hall, i.e. every build before §20.
+    // WebGL1 never gets it — FS_LIT has no pane branch and is not gaining one,
+    // by the same rule that keeps WebGL1 on the shader that shipped.
+    H.glass = true;
     // 🎞 THE FLOAT BUFFER. RGBA16F is only COLOR-RENDERABLE with this
     // extension, even on WebGL2 where the format itself is core — asking for
     // the texture always works, attaching it does not. Probe here, verify the
@@ -4780,7 +4888,8 @@ void main() {
       'uPuddle', 'uCity', 'uCityTex', 'uCityLat',
       'uSkyAmb', 'uGndAmb', 'uSkyAmt', 'uSkyRefl', 'uSkyHorizon', 'uSkyZenith', 'uSkyGlow',
       'uSkyGround', 'uMoonDir', 'uSkyT',
-      'uShadowH', 'uShadowS', 'uShadowMatH', 'uShadowMatS', 'uShadowAmt'])
+      'uShadowH', 'uShadowS', 'uShadowMatH', 'uShadowMatS', 'uShadowAmt',
+      'uGlass', 'uGlassAmt'])
       H.uni[name] = gl.getUniformLocation(H.progLit, name);
     H.uniS = {};
     for (const name of ['uProj', 'uView', 'uTex', 'uGlowGain'])
@@ -5906,6 +6015,11 @@ void main() {
     // the sky, as light and as distance. Same palette the dome is painted with.
     gl.uniform1f(H.uni.uSkyAmt, H.sky ? 1 : 0);
     gl.uniform1f(H.uni.uSkyRefl, SKY_REFL);
+    // 🪟 default OFF for every draw in the frame; drawGlass() turns it on for
+    // its own pass and turns it straight back off. A uniform left set is the
+    // whole room rendered as a window.
+    gl.uniform1f(H.uni.uGlass, 0);
+    gl.uniform1f(H.uni.uGlassAmt, TUNE.glassAmt);
     gl.uniform3fv(H.uni.uSkyAmb, SKY_AMB);
     gl.uniform3fv(H.uni.uGndAmb, GND_AMB);
     gl.uniform3fv(H.uni.uSkyHorizon, SKY.horizon);
@@ -6116,6 +6230,29 @@ void main() {
       },
     };
 
+    // 🪟 THE PANE (§20). Drawn AFTER everything opaque, additively, with depth
+    // WRITE off and depth TEST on: the pane must not occlude anything drawn
+    // later and must still be hidden by a wall in front of it.
+    //
+    // No sorting, because additive blending is order-independent — that is why
+    // the pass is additive rather than an alpha blend, and it is the reason
+    // this is five lines instead of a sort-every-frame rewrite of the draw
+    // order. See the FS_LIT2 note.
+    function drawGlass(pre) {
+      if (!H.glass || !H.pbr) return;      // WebGL1's shader has no pane branch
+      const g = H.bufs.glass, s2 = H.bufsStreet.glass;
+      if (!g && !s2) return;
+      gl.uniform1f(H.uni.uGlass, 1);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      gl.depthMask(false);
+      if (g) drawLit(g, pre || I, {});
+      if (s2) { useTex(H.texStreet); drawLit(s2, pre || I, {}); useTex(H.texAtlas); }
+      gl.depthMask(true);
+      gl.disable(gl.BLEND);
+      gl.uniform1f(H.uni.uGlass, 0);
+    }
+
     // 🕹 the crane machines' moving halves (§17). One buffer each, drawn once
     // per cabinet, so the two machines can be at different points in the cycle
     // — two claws sweeping in lockstep would read as one machine seen twice.
@@ -6219,6 +6356,10 @@ void main() {
     useTex(H.texAtlas);
     drawNpcs(null, {}); // the regulars: real geometry now, lit like the room
     drawClaw(null, {});  // and the cranes' trolleys, sweeping their gantries
+    // 🪟 and the glass over the top of all of it, additive, last (§20).
+    // After the opaque world so there is something behind it to see, and
+    // before the SKY quad so a pane cannot brighten empty sky.
+    drawGlass(null);
 
     // 3b) THE SKY. Pinned to the far plane, so it costs a fragment only where
     //     the room did not already draw one — and that is precisely the part

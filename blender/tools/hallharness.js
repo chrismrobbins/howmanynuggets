@@ -124,6 +124,8 @@ const SEAMS = {
   city:    { when: 'post', src: 'H.city = false;' },
   // ✂️ THE EDGE. postSetup rebuilds when this flips, so it is safe post-boot.
   msaa:    { when: 'post', src: 'H.msaa = false;' },
+  // 🪟 THE PANE (§20): false = the paneless hall, every build before it.
+  glass:   { when: 'post', src: 'H.glass = false;' },
   // ⚖️ THE GOVERNOR walks the sample count down on a slow machine. Every
   // measurement in this kit must PIN it, or a long run silently changes the
   // renderer halfway through and the second half of the table is a different

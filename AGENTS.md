@@ -1137,3 +1137,37 @@ story in blender/HANDOFF.md §19.
   from 37.8 to 31.4.
 - The crane prize boxes are no longer blown: `clawLit` 0.46 → 0.30, `clawLitS`
   0.22 → 0.14. You can see the prizes in the far machine now.
+
+## 🪟 THE PANE — the renderer learns about glass (2026-08-12)
+
+Round 4. "Nothing in this renderer is transparent" is written in the handoff five
+times (shop window, jukebox cards, crane prize box, bus shelter, club porthole)
+and every one was answered with the same workaround. This is the capability they
+were working around. Full story in blender/HANDOFF.md §20.
+
+- **The pane pass is ADDITIVE and that is the design, not a shortcut.** Real
+  alpha needs back-to-front sorting and this renderer bakes its geometry into
+  static buffers with a fixed draw order. Glass at night is a REFLECTION over
+  what is behind it, and addition is order-independent — so there is no sort to
+  get wrong. `drawGlass()`: `uGlass = 1`, blend `ONE, ONE`, `depthMask(false)`
+  with the depth TEST still on, draw, restore. Write depth and a pane hides
+  everything after it; drop the test and a wall stops hiding the pane.
+- **It is a branch in FS_LIT2, not a new program.** R, Fresnel, `skyBase`, the
+  city panorama and the specular were all already computed there for the wet
+  road. Indoors there is no sky, so a pane returns the ambient hemisphere.
+- 🚨 **A FLAT PANE DOES NOT READ AS GLASS.** Same `NdotV` at every pixel means a
+  constant Fresnel, so the pane lifts uniformly and reads as "the screen got
+  brighter". `glassDome()` lays it out 5x5 with the centre 28mm proud, so the
+  middle stays clear and the edges rake into reflection. 5 segments and not 3:
+  `quadV` gives one normal per quad, so the ramp arrives in bands and three of
+  them read as stripes.
+- Glazed: the ten cabinet CRTs, both crane machine fronts (the case §16's ledger
+  had ruled out), and the two lit shopfront window bands.
+- Seam `H.glass = false`; `no-glass` in the fallback matrix. WebGL1 never gets
+  it — FS_LIT has no pane branch and is not gaining one.
+- **The table is FLAT and that is reported, not hidden.** Panes cover a few
+  percent of a frame; a whole-frame average cannot see them. Which is the real
+  finding: **this kit measures FRAMES and has never had a way to measure a
+  SURFACE.** Three rounds running have now produced changes it cannot see —
+  §17 (clock is pinned), §18 (mean moves the wrong way for relief), §20 (area
+  too small). A per-region statistic is the obvious next tool.

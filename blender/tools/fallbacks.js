@@ -54,6 +54,7 @@ const MATRIX = [
   { name: 'no-maps', off: ['maps'], why: 'normal/ORM pages never decoded' },
   { name: 'no-mesh', off: ['mesh'], why: 'Blender geometry never decoded: procedural boxes' },
   { name: 'no-cast', off: ['cast'], why: 'articulated parts missing: the regulars go rigid, not headless' },
+  { name: 'no-glass', off: ['glass'], why: 'no additive pane pass: the unglazed hall' },
   { name: 'no-anything', off: ['hdr', 'pbr', 'shadows', 'sky', 'lens', 'city', 'msaa', 'art', 'maps', 'mesh'], why: 'the 2026-08-07 hall' },
   { name: 'webgl1', off: [], webgl1: true, why: 'no WebGL2 context at all' },
 ];

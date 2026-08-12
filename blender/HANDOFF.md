@@ -1484,3 +1484,111 @@ machine now instead of a cream slab.
    porthole). The renderer has no alpha pass at all.
 4. Nothing dynamic casts a shadow.
 5. `06-scoreboard` still photographs its OFFLINE state in every run.
+
+## 20. 🪟 THE PANE (2026-08-12) — the renderer learns about glass
+
+Round 4. Rounds 1–3 took animation, vertical geometry and surface wear, and the
+thing left standing out of the ledger was not a layer that had been upgraded
+badly — it was a capability that had never existed.
+
+**"NOTHING IN THIS RENDERER IS TRANSPARENT"** appears in this handoff five
+times: the shop window (§16), the jukebox title cards (§15), the crane machine's
+prize box (§16, "three times in one session"), the bus shelter's glazing (§10),
+and this session's own club-door porthole. Every single one was answered with the
+same WORKAROUND — *if you want to see into something, do not build the thing you
+would be seeing through* — and every time it was the right call, because the
+renderer genuinely could not do it. There was not one pane of glass in this game.
+
+### It is ADDITIVE, and that is the whole design
+
+Real alpha transparency needs back-to-front sorting, and this renderer has
+nowhere to put one: geometry is baked into a handful of static buffers and the
+draw order is fixed at build time. Sorting would have meant restructuring the
+draw loop.
+
+But glass at night is not really a filter — it is a REFLECTION laid over whatever
+is behind it. And addition does not care what order it happens in. So the
+interior is drawn opaque exactly as it always was, the pane goes over the top
+adding only what it reflects, and **there is no sort to get wrong and no
+depth-order bug to chase**. `drawGlass()` is nine lines: `uGlass = 1`, blend
+`ONE, ONE`, `depthMask(false)` (so a pane occludes nothing) with the depth TEST
+still on (so a wall in front of it still hides it), draw, restore.
+
+The shading is a branch in `FS_LIT2` rather than a new program, because
+everything a pane needs was already computed in there for the wet road: the
+reflection vector, the Fresnel term, `skyBase`, the city panorama and the
+specular. Indoors there is no sky to reflect, so the pane returns the ambient
+hemisphere instead — which already carries the room's own colour.
+
+**Fresnel is the entire look.** Face-on, a pane is nearly invisible and you read
+the lit interior straight through it; at a grazing angle it goes to a sheet of
+reflected sky. That ramp is what makes an eye accept glass instead of a bright
+decal — the same reason the wet road works.
+
+### The domed CRT, which is the part worth copying
+
+The first build glazed each cabinet screen with a FLAT quad and it read as *the
+screen got brighter*, not as *there is glass on it*. The reason is exact: a flat
+pane has the same `NdotV` at every pixel, so its Fresnel term is a CONSTANT and
+the whole pane lifts uniformly. A real CRT bulges. `glassDome()` lays the pane
+out as a 5×5 grid with the centre standing 28mm proud, so the middle faces you
+and stays clear while the edges rake away and go to reflection — a real gradient,
+from geometry, with no shader work. 5 segments and not 3 because `quadV` gives
+each quad ONE face normal, so the ramp arrives in `seg` discrete bands; at 3 they
+read as stripes across the tube.
+
+Glazed this round: **the ten cabinet CRTs** (the most-looked-at surface in the
+building, and a screen with no reflection is the flattest object it is possible
+to put in a room), **both crane machines' fronts** — the exact case §16's ledger
+had ruled out — and **the two lit shopfront windows**, window band only, not the
+fascia and not the garage's roller door.
+
+### The number, stated plainly
+
+| | dead | near | blown | mean | sd | chroma | hard | fps |
+|---|---|---|---|---|---|---|---|---|
+| THE WEAR | 0.408 | 9.603 | 0.007 | 62.247 | 42.875 | 49.137 | 0.856 | 60.1 |
+| THE PANE | 0.405 | 9.562 | 0.007 | 62.405 | 42.943 | 49.088 | 0.860 | 60.2 |
+
+**Flat — every column inside run-to-run noise.** Not hidden and not spun: the
+panes cover a few percent of any frame, so an average over a whole frame cannot
+see them, and no amount of staring at that table would tell you whether this
+round did anything at all.
+
+What justifies it is the 2× crop of `03-westwall`, where the CRT visibly gains a
+reflection with the game still readable through it. This is the third distinct
+way this session has hit the same wall — §17 could not be measured because the
+clock is pinned, §18 had to be judged on `sd` and `hard` because `mean` moves the
+wrong way for relief, and now §20 cannot be measured because the affected area is
+too small a fraction of a frame. **The kit measures FRAMES. It has never had a
+way to measure a SURFACE.**
+
+Honest caveat, recorded so nobody oversells this later: the aggregate says
+nothing, and a reasonable person could look at the table and bin this round. It
+is kept because the crop is unambiguous, because it costs no measurable
+performance, and because it is the capability five previous workarounds were
+written around — the next person who wants a real window can now build one.
+
+### Ledger rows (§9)
+
+| Question | Answer | Why |
+|---|---|---|
+| Transparency — sort the draws? | **No: additive** | Addition is order-independent, so a pane needs no sorting at all. Glass at night is a reflection over what is behind it, not a filter, so additive is also the physically closer model. |
+| A new shader program for glass? | **No, a branch in FS_LIT2** | Everything a pane needs — R, Fresnel, `skyBase`, the city, the specular — was already computed there for the wet road. |
+| Why does a flat pane not read as glass? | **Constant `NdotV` = constant Fresnel** | It lifts uniformly and reads as brightness. DOME it: `glassDome()`, 5×5, centre proud, and the ramp appears. |
+| Segments for a domed pane? | **5, not 3** | `quadV` gives one normal per quad, so the Fresnel ramp comes in `seg` bands. Three of them read as stripes. |
+| Can a pane occlude? | **Never — `depthMask(false)`, depth test ON** | Write depth and the pane hides everything drawn after it; drop the test and a wall stops hiding the pane. |
+
+### Still open, in value order
+
+1. **THE KIT CANNOT MEASURE A SURFACE.** Three rounds in a row have now produced
+   changes that a whole-frame histogram cannot see. A per-REGION statistic — mask
+   a crop to the object under test and report its own dead/near/sd/hard — would
+   have measured all three, and it is the obvious next tool after `pose.js`.
+2. `15-pier` is still the worst tile (32.5 near-dead, 4.87 dead, the only spot
+   above 1% dead black) and has not been touched all session.
+3. `02-aisle` hard is 2.44: the carpet's confetti still does not thin with
+   distance. Brightness varies now; density does not.
+4. Nothing dynamic casts a shadow.
+5. The glass reflects the ambient hemisphere indoors, which is a flat colour —
+   a real cubemap or SSR would put the ROOM in the cabinet glass.
