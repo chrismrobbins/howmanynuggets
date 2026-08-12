@@ -1269,3 +1269,126 @@ looks straight over her head. Pitch is `atan((0.45 - 1.62) / 2.5)`, not a guess.
    maps bake off the STATIC buffers, and the trolley/grab left that buffer.
 6. `hallMeshData.js` is **956KB gzipped**, not the ~334KB three docs still claim.
    Corrected in AGENTS.md and CLAUDE.md this round.
+
+## 18. 🧱 THE VERTICAL PLANE (2026-08-12) — the walls and the doors
+
+Round 2's assessment came straight out of round 1's table, and it was the `hard`
+column — the kit's only ARRANGEMENT metric — that made the call. It splits this
+game clean in two:
+
+| the flat half | hard | the detailed half | hard |
+|---|---|---|---|
+| `12-club` | **0.001** | `02-aisle` (carpet) | 2.167 |
+| `13-drain` | 0.261 | `19-hockey` | 2.018 |
+| `14-croft` | 0.293 | `20-cranes` | 1.786 |
+| `18-vending` | 0.312 | `04-eastwall` | 1.144 |
+| `07-jukebox` | 0.357 | `03-westwall` | 1.129 |
+
+Every frame in the left column has a WALL or a DOOR as its subject. Five sessions
+of art went onto the floor, the ceiling, the props, the terrace across the road
+and the characters; the hall's own walls and the street's game doors were never
+touched once.
+
+And `12-club` measured **0.001** — adjacent pixels essentially never differ. It
+was two quads: a 1.4 x 2.2m painted rectangle and a sign above it, standing in
+for one of five street entrances a player walks up to and opens. §0: if it is
+still a painted quad, model it.
+
+### What shipped
+
+**DIP HOP has a front door.** A real basement entrance: a steel surround, a
+reveal with jambs and a head, the leaf set 0.30 back inside it with a proud
+porthole and a push bar, a canopy carrying the neon, a stoop, a handrail, a
+flyer board and a bracket lamp. It PROJECTS rather than recessing — the door
+sits in the 6m gap `buildStreet` leaves in the terrace and there is a painted
+wall immediately behind it, so the depth is built forward.
+
+**The hall's walls have relief.** `wallPier` (a 1m pilaster stretched by its call
+site, the `trimBase` pattern) down both cabinet rows, the back wall and the
+entrance wall, with `wallCap` at both ends; `wallVent` grilles with real louvre
+blades; `exitSign` over the doors — the only emissive in this room between the
+cabinets and the ceiling; `conduit` runs at picture-rail height; two
+`extinguisher`s, the only red and the only round things on those walls.
+
+**The four wall posters are backlit shadowboxes.** `posterFrame` wears `$POSTER`
+as a sentinel — the §7 cabinet trick applied to wall art, so one model carries
+all four regions — and each throws a light of its own.
+
+### The number
+
+| | dead | near | blown | mean | sd | chroma | hard |
+|---|---|---|---|---|---|---|---|
+| after THE CAST (21 spots) | 0.453 | 9.738 | 0.007 | 63.720 | 41.654 | 49.581 | 0.754 |
+| THE VERTICAL PLANE | 0.453 | 10.053 | 0.008 | 62.903 | 42.870 | 48.886 | **0.833** |
+
+`hard` **+10.4%** overall, and it lands exactly where the work went:
+`04-eastwall` +0.258, `07-jukebox` +0.216, `05-deluxe` +0.205, `03-westwall`
++0.189. Structured contrast (`sd`) is up 2.9% overall and **`12-club` went 23.57
+-> 39.98, +70%**. Its own `hard` went 0.001 -> 0.075.
+
+**Mean is DOWN 1.3% and that is the change working, not failing.** Relief casts
+shadow: pilasters, a canopy and 78mm poster frames all take light out of a wall
+that used to be an evenly lit plane. `sd` rising while `mean` falls is the
+definition of structured contrast, which §1.3 has been saying beats detail since
+the first Blender night. dead is flat, blown moved 0.007 -> 0.008, and both are
+inside §11's standing targets. 60fps.
+
+### Four things this cost time on, in the order they bit
+
+1. **EVERY WALL-MODULE YAW I FIRST WROTE WAS INVERTED.** `hall = (bx, bz, -by)`,
+   so a module built with its bulk at blender +Y lands at hall -Z under yaw 0 —
+   and the yaw has to steer that bulk INTO the room or the relief is built
+   inside the wall, where it is invisible. West wall -PI/2, east +PI/2, back
+   wall PI, entrance wall 0. This is §10's ledger row ("0, not PI... copying the
+   wrong one buried every awning inside the building") in a new costume, and it
+   was caught by deriving it from the transform rather than by rendering it.
+2. **The vent was a SOLID SLAB.** Frame box spanning y 0..0.055 with the six
+   louvre blades at 0.011..0.039 — entirely inside it. That is §14's trap
+   verbatim, walked into directly underneath a comment quoting §14's trap. A
+   frame is FOUR RIM BOXES WITH A HOLE, the same rule as the shop window, the
+   crane's prize box and this round's own door reveal. `preview()` caught it in
+   two seconds, which is §8's loop paying for itself.
+3. **Recessing the posters put them in the dark.** 78mm of shadowbox is 78mm of
+   shadow plus AO, and `03-westwall`'s mean dropped 12 points in one build.
+   `extract()` exempts anything with `em > 0.02` from the AO bake, so a small
+   emissive both lights the art and takes it out of its own frame's shadow — and
+   a backlit poster box is what these are in a real arcade anyway. §16: modelled
+   beautifully and left unlit is still murk.
+4. **THE UV TOOK THREE BUILDS**, and the reason is the useful part. At contact
+   sheet size, "mirrored", "upside down" and "rotated 180" all look identical —
+   like text that is wrong. Two of those want a u flip, one wants v, one wants
+   both, and reasoning it out from view handedness got it wrong twice running.
+   What settled it in one step: zoom to 2x on the BASELINE crop. The quad this
+   replaced reads "PLAY / DIP / REPEAT / THE NUGGET ARCADE" top to bottom, so
+   the vertical ORDER of the words tells you about v and the letter shapes tell
+   you about u — two independent readings instead of one ambiguous one.
+
+Also: the club's neon shipped once as a **0.56m-tall fascia**, which squashed a
+2.2 x 1.1m sign into a 4.4:1 strip that read from the street as a pink glow bar
+with no lettering in it. The round had deleted the identity of the thing it was
+improving. The fascia carries the SIGN's aspect now, not the canopy's.
+
+### Ledger rows (§9)
+
+| Question | Answer | Why |
+|---|---|---|
+| Which yaw for a relief module on a wall? | **Steer the BULK into the room** | Not "front faces -Y" — that is about a model's frontage. A pilaster's visible surface is its far end. West -PI/2, east +PI/2, back PI, entrance 0. |
+| Is v the same way up as geometry z? | **No — v = 0 is the region's TOP** | These sheets are painted into a canvas, where y runs downward, and `extract()` maps v straight into the region rect. Any `set_uv` that has to be READ must invert v. |
+| How do you tell which UV axis is wrong? | **Zoom 2x on a known-good baseline crop** | Word ORDER reads v; letter SHAPE reads u. At contact-sheet size all three failure modes look the same and you will flip the wrong axis. |
+| Recess something and it goes dark? | **Give it a small emissive** | `extract()` exempts `em > 0.02` from the AO bake, so it lights the art AND lifts it out of the frame's own shadow. |
+| Does relief make a wall darker? | **Yes, and that is the point** | Mean fell 1.3% while `sd` rose 2.9%. §1.3: structured contrast beats detail. Judge a relief change on `sd` and `hard`, never on `mean`. |
+| Resize a panel that carries baked text? | **Keep the ART's aspect, not the panel's** | The club fascia at 4.4:1 turned a readable sign into a glow bar. |
+
+### Still open, in value order
+
+1. **The crane prize boxes are still blown to featureless cream slabs** — carried
+   over from §17 untouched. `clawLit`/`clawLitS` on three sides of a small box.
+2. **`15-pier` (34.15 near-dead) and `21-hen` (37.81) are the two worst tiles**
+   and both are dark corners. §16 already flagged the pier's metric as lying;
+   Henrietta's corner is genuinely underlit — she is the only regular standing
+   somewhere with no fixture near her.
+3. **The carpet is STILL the highest `hard` in the game** (2.322 now) — §16's
+   open item 3, and this round raised it further by putting more contrast in the
+   frames it appears in. Uniform full-brightness confetti, no wear paths.
+4. `06-scoreboard` still photographs its OFFLINE state in every run.
+5. Nothing dynamic casts a shadow.

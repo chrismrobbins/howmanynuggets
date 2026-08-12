@@ -2071,6 +2071,33 @@ void main() {
 
     // posters + wall neon
     const poster = (name, wallSide, z, y = 1.55, h = 1.4) => {
+      // 🧱 THE VERTICAL PLANE (§18): a real shadowbox frame instead of a quad
+      // floating 2cm off the wall. $POSTER is a SENTINEL — the §7 cabinet trick
+      // applied to wall art, so ONE model wears all four poster regions. The
+      // artwork itself is untouched; what the frame adds is an EDGE.
+      if (B.model('posterFrame', uv, {
+        x: wallSide < 0 ? -X : X, y: y, z: z,
+        // -PI/2 for the WEST wall, not +PI/2. Worked out from the transform,
+        // not guessed: hall = (bx, bz, -by), so a module built with its bulk at
+        // blender +Y lands at hall -Z under yaw 0, and the yaw has to steer that
+        // bulk INTO the room. Getting this backwards builds the relief inside
+        // the wall, where it is invisible — §10's ledger row, which is there
+        // because copying the wrong one of these buried every awning in the
+        // building. West wall: room is +x, so sin(yaw) must be negative.
+        yaw: wallSide < 0 ? -Math.PI / 2 : Math.PI / 2,
+        remap: { $POSTER: name },
+      })) {
+        // A backlit box throws light, so it gets a fixture like every other
+        // emissive in this room does (installEmissiveLights only derives them
+        // from PLACEMENT). Without this the frame is a lit panel that leaves no
+        // mark on the wall it is bolted to, which is the §11 complaint about
+        // emissives contributing nothing, in miniature.
+        LIGHTS.push({
+          p: [wallSide < 0 ? -X + 0.35 : X - 0.35, y + h / 2, z],
+          c: [0.30, 0.26, 0.34], k: 'marq',
+        });
+        return;
+      }
       const w = h * 0.667, x = wallSide < 0 ? -X + 0.02 : X - 0.02;
       const z1 = wallSide < 0 ? z + w / 2 : z - w / 2;
       const z2 = wallSide < 0 ? z - w / 2 : z + w / 2;
@@ -2080,6 +2107,96 @@ void main() {
     poster('posterBrawl', -1, -11.5);
     poster('posterKnight', 1, -7.5);
     poster('posterPlay', 1, -11.5);
+
+    // ---- 🧱 THE WALLS THEMSELVES (§18) -------------------------------------------
+    // Five sessions of art went onto the floor, the ceiling, the props, the
+    // terrace and the characters. The hall's own walls were never touched: two
+    // tiled quads each, a wainscot to 1.05 and 3.15m of `wall` above it, and
+    // above the cabinets that upper band is the largest unbroken surface in the
+    // building. `07-jukebox` measured `hard 0.357` against the carpet's 2.17 —
+    // a beautifully modelled jukebox standing against a painted plane.
+    //
+    // Everything here is a MAIN-atlas module stretched by its call site (the
+    // `trimBase` pattern, §12) and gated on H.uintIndex like the rest: it adds
+    // ~15k verts to a static buffer already at 85528, and a Uint16 overflow does
+    // not error, it WRAPS (§14, §15, three times now).
+    if (H.uintIndex) {
+      let piers = 0;
+      // PILASTERS down both cabinet rows and the back wall, on the 2.125m panel
+      // module the wall texture already tiles on, so they land ON the painted
+      // joints instead of fighting them.
+      // Derived from PLACEMENT, not from a list typed out here: a cabinet is
+      // 0.92 wide and 0.46 deep and a 90mm pilaster behind one is 288 vertices
+      // of geometry inside a machine. §15's rule about checking PLACEMENT before
+      // putting anything anywhere, applied to the wall instead of the floor.
+      const clearOfCabinet = (x, z) => !PLACEMENT.some(
+        ([, cx, cz]) => Math.abs(cx - x) < 1.2 && Math.abs(cz - z) < 0.62
+      );
+      const pierAt = (x, z, yaw) => {
+        if (!clearOfCabinet(x, z)) return;
+        if (!B.model('wallPier', uv, { x: x, z: z, yaw: yaw, sy: CH })) return;
+        piers++;
+        B.model('wallCap', uv, { x: x, y: CH - 0.16, z: z, yaw: yaw });
+        B.model('wallCap', uv, { x: x, y: 0.0, z: z, yaw: yaw });
+      };
+      for (let i = 0; i <= 9; i++) {
+        const z = -i * 2.125;
+        if (z < ZB) break;
+        pierAt(-X, z, -Math.PI / 2);    // west wall: relief into +x
+        pierAt(X, z, Math.PI / 2);      // east wall: relief into -x
+      }
+      // the back (deluxe) wall: room is +z from ZB, so yaw PI
+      for (const x of [-5.31, -3.19, 3.19, 5.31]) pierAt(x, ZB, Math.PI);
+      // THE ENTRANCE WALL (z=0), which the first pass of this round MISSED —
+      // and `07-jukebox` is the spot that motivated the whole round. It looks at
+      // THIS wall, not a side wall, and it measured `hard 0.357 -> 0.349`: dead
+      // flat, because every module had gone on the cabinet rows instead. Piers
+      // clear of the doorway (x +-1.25), the exit signs (+-1.85) and the two
+      // walk-up props (the jukebox at -4.8, the SAUCE-O-MATIC at 3.1).
+      for (const x of [-6.6, -2.3, 2.3, 6.6]) pierAt(x, 0, 0);
+      // and something ON the wall the jukebox stands against: 3.15m of unbroken
+      // painted panel directly above the best-modelled prop in the room.
+      if (B.model('posterFrame', uv, {
+        x: -4.8, y: 1.98, z: 0, yaw: 0, remap: { $POSTER: 'posterPlay' },
+      })) {
+        LIGHTS.push({ p: [-4.8, 2.68, -0.35], c: [0.30, 0.26, 0.34], k: 'marq' });
+      }
+      B.model('wallVent', uv, { x: 5.15, y: 2.62, z: 0, yaw: 0 });
+      if (!piers) console.warn('arcade: no wall pilasters — running the flat walls');
+
+      // The things a real room has ON its walls, none of which this one had.
+      // Positions checked against PLACEMENT and H.hotspots: a vent dropped on a
+      // cabinet is a cabinet with a grille growing out of it, and a prop on a
+      // hotspot's `stand` is a hotspot the player can no longer reach (§15).
+      for (const [vx, vz, vy, vyaw] of [[-X, -4.3, 2.62, -Math.PI / 2], [X, -12.7, 2.62, Math.PI / 2],
+        [-X, -16.1, 2.62, -Math.PI / 2]]) {
+        B.model('wallVent', uv, { x: vx, y: vy, z: vz, yaw: vyaw });
+      }
+      // EXIT signs over the way out. The only emissive in this room between the
+      // cabinets and the ceiling, so they light a band of wall nothing else
+      // reaches — and every public building in the world has one.
+      // entrance wall (z=0) with the room at z<0: blender +Y already lands at
+      // hall -Z, so this is the ONE wall that wants yaw 0.
+      for (const [ex, ez, eyaw] of [[-1.85, 0.02, 0], [1.85, 0.02, 0]]) {
+        if (B.model('exitSign', uv, { x: ex, y: 2.74, z: ez, yaw: eyaw })) {
+          LIGHTS.push({ p: [ex, 2.86, ez - 0.5], c: [0.14, 0.42, 0.22], k: 'sign' });
+          H.glows.push({ p: [ex, 2.90, ez - 0.22], c: [0.35, 1, 0.55], s: 0.42, a: 0.10, k: 'sign' });
+        }
+      }
+      // CONDUIT at picture-rail height: one long horizontal line down walls that
+      // have no horizontal lines in them. Stretched runs, not a module per
+      // metre — 332 verts x 40 would be a real cost for the same silhouette.
+      for (const [cx, cz, len, cyaw] of [[-X, -9.6, 17.0, -Math.PI / 2], [X, -9.6, 17.0, Math.PI / 2]]) {
+        if (!B.model('conduit', uv, { x: cx, y: 3.16, z: cz, yaw: cyaw, sx: len })) break;
+        for (const jz of [-2.4, -9.6, -16.8]) {
+          B.model('conduitBox', uv, { x: cx, y: 3.16, z: jz, yaw: cyaw });
+        }
+      }
+      // and two extinguishers, which are the only red and the only round thing
+      // on these walls below the neon
+      B.model('extinguisher', uv, { x: -X + 0.11, y: 1.06, z: -2.1, yaw: -Math.PI / 2 });
+      B.model('extinguisher', uv, { x: X - 0.11, y: 1.06, z: -18.2, yaw: Math.PI / 2 });
+    }
     // back-wall flankers for the Knight throne
     B.quad([-4.4, 1.4, ZB + 0.02], [-3.4, 1.4, ZB + 0.02], [-3.4, 2.9, ZB + 0.02], [-4.4, 2.9, ZB + 0.02], uv.posterKnight, {});
     B.quad([3.4, 1.4, ZB + 0.02], [4.4, 1.4, ZB + 0.02], [4.4, 2.9, ZB + 0.02], [3.4, 2.9, ZB + 0.02], uv.posterGolden, {});
@@ -3766,10 +3883,29 @@ void main() {
     // the one and the three). The Hooded Nug's last rumor, three for three.
     {
       const dx0 = -6.7, dx1 = -5.3, dmx = (dx0 + dx1) / 2, dz = 13.86;
-      // the door (faces -z: wind +x → -x, busSign-style)
-      ST.quad([dx1, 0, dz], [dx0, 0, dz], [dx0, 2.2, dz], [dx1, 2.2, dz], suv.beatDoor, { e: 0.18 });
-      // the neon over it
-      ST.quad([dmx + 1.1, 2.38, dz + 0.02], [dmx - 1.1, 2.38, dz + 0.02], [dmx - 1.1, 3.48, dz + 0.02], [dmx + 1.1, 3.48, dz + 0.02], suv.beatSign, { e: 0.4 });
+      // 🧱 THE VERTICAL PLANE (§18). This was TWO QUADS — a 1.4 x 2.2m painted
+      // rectangle and a sign over it — and `12-club` measured `hard 0.001`, the
+      // flattest frame in the game by a factor of 250 against the carpet's 2.17.
+      // §0: if it is still a painted quad, model it. It is a real entrance now,
+      // with a surround, a reveal, a leaf set 0.30 back inside it, a canopy, a
+      // stoop, a handrail and a flyer board.
+      //
+      // yaw PI, like facadeBay: a model's front faces -Y in Blender = the hall's
+      // +Z, and this door faces BACK across the road at the player. Copying the
+      // wrong one of those two buried every awning inside the building once.
+      if (!ST.model('clubDoor', suv, { x: dmx, z: dz, yaw: Math.PI })) {
+        // the door (faces -z: wind +x → -x, busSign-style)
+        ST.quad([dx1, 0, dz], [dx0, 0, dz], [dx0, 2.2, dz], [dx1, 2.2, dz], suv.beatDoor, { e: 0.18 });
+        // the neon over it
+        ST.quad([dmx + 1.1, 2.38, dz + 0.02], [dmx - 1.1, 2.38, dz + 0.02], [dmx - 1.1, 3.48, dz + 0.02], [dmx + 1.1, 3.48, dz + 0.02], suv.beatSign, { e: 0.4 });
+      } else {
+        // The canopy is a real soffit now, so the neon underneath it needs a
+        // fixture light of its own — a sign tucked under an overhang gets none
+        // of the streetlamps (§16's terrace lesson: modelled beautifully and
+        // left unlit is still murk).
+        LIGHTS.push({ p: [dmx, 3.02, dz - 0.55], c: [0.72, 0.16, 0.46], k: 'neon' });
+        LIGHTS.push({ p: [dmx, 2.30, dz - 0.42], c: [0.50, 0.44, 0.38], k: 'marq' });
+      }
       H.glows.push({ p: [dmx, 2.93, 13.6], c: [1, 0.18, 0.63], s: 1.5, a: 0.14, k: 'neon' });
       H.glows.push({ p: [dmx, 2.93, 13.6], c: [0.49, 0.3, 1], s: 2.3, a: 0.06, k: 'neon' });
       H.glows.push({ p: [dmx, 1.55, 13.7], c: [1, 0.4, 0.75], s: 0.5, a: 0.12, k: 'neon' }); // the porthole

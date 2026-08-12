@@ -1065,3 +1065,47 @@ picture that had never been touched at all. Full story in `blender/HANDOFF.md`
   now**: the seam degrades the five regulars and none of the three spots it used
   to sample has a regular in it, so it would have diffed at ~0% and reported a
   seam that never fired. `21-hen` is a new `shoot.js` spot, from her own `stand`.
+
+## 🧱 THE VERTICAL PLANE — the walls and the game doors (2026-08-12)
+
+Round 2 of the same session, picked off round 1's numbers. The `hard` column
+splits this game in two: every frame whose subject is a WALL or a DOOR ran
+0.26-0.42 while the cabinet-and-carpet views ran 1.1-2.2, and `12-club` — DIP
+HOP's front door, one of five street entrances a player walks up to — measured
+**0.001**. It was two quads. Full story in blender/HANDOFF.md §18.
+
+- **`clubDoor` PROJECTS, it does not recess.** The door sits in the 6m gap
+  `buildStreet` leaves in the terrace (bays are skipped from x -9 to -3) with a
+  painted wall right behind it, so there is nowhere to put a recess. The
+  surround stands proud and the leaf is set 0.30 back INSIDE it. A recess is
+  still jambs + a head + a leaf at the back — never a solid box with a door on it.
+- 🚨 **A WALL RELIEF MODULE'S YAW STEERS ITS BULK, NOT ITS FRONTAGE.**
+  `hall = (bx, bz, -by)`, so a module built with its bulk at blender +Y lands at
+  hall -Z under yaw 0 — and the yaw has to point that bulk INTO the room or you
+  have built the relief inside the wall. West -PI/2, east +PI/2, back wall PI,
+  entrance wall 0. Every one of these was inverted in the first pass. It is
+  §10's awning row wearing a different hat.
+- 🚨 **v = 0 IS THE TOP OF A REGION.** The sheets are painted into a canvas
+  (y down) and `extract()` maps a face's v straight into the region rect, so any
+  `set_uv` on something that has to be READ must invert v. And when the text
+  comes out wrong: **zoom 2x on a known-good baseline crop before touching an
+  axis.** At contact-sheet size, mirrored / upside-down / rotated-180 are
+  indistinguishable, and guessing flipped the wrong axis twice in a row. Word
+  ORDER tells you about v; letter SHAPE tells you about u.
+- **A frame is four rim boxes with a HOLE.** `wallVent` shipped its first build
+  as a solid slab with all six louvre blades buried inside the frame box — §14's
+  trap, walked into under a comment quoting §14's trap. `preview()` caught it
+  before the browser did.
+- **Recessing artwork puts it in the dark.** 78mm of shadowbox cost `03-westwall`
+  12 points of mean. `extract()` exempts `em > 0.02` from the AO bake, so a small
+  emissive lights the art and lifts it out of its own frame's shadow — and the
+  posters are backlit boxes now, which is what they are in a real arcade.
+- **Keep the ART's aspect, not the panel's.** The club's neon shipped once on a
+  0.56m fascia, squashing a 2.2 x 1.1m sign into an unreadable glow bar: the
+  round had deleted the identity of the thing it was improving.
+- **Judge relief on `sd` and `hard`, never on `mean`.** Mean fell 1.3% while sd
+  rose 2.9% and hard rose 10.4%. Relief casts shadow; that is the point.
+- `$POSTER` is a sentinel like `$MARQ` and `$BRICK` — one `posterFrame` model
+  wears all four poster regions, remapped per instance.
+- New warning `arcade: no wall pilasters` is whitelisted in `fallbacks.js`, same
+  as `no ceiling ribs`: on `no-mesh` the flat walls ARE the fallback.

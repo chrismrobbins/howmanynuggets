@@ -213,6 +213,51 @@ MATS = {
     "shelterRoof":  ("sw_curb", [0, 0, 1, 1], 0.0, 0.85),
     "shelterWood":  ("sw_woodDark", [0, 0, 1, 1], 0.0, 1.00),
     "shelterLight": ("sw_white", [0, 0, 1, 1], 0.75, 1.0),
+    # -- THE VERTICAL PLANE (§18) ----------------------------------------------------
+    # Every region below was checked against its atlas's own alloc() list before
+    # a single vertex was modelled. That is the lampHot trap and this repo has
+    # walked into it twice: a model naming a region its target sheet does not
+    # have makes Builder.model() bail SILENTLY, for the whole prop.
+    #
+    # MAIN atlas (the hall's own walls).
+    "wallPier":   ("wainscot", [0.05, 0.05, 0.95, 0.95], 0.0, 1.08),
+    "wallPierD":  ("wainscot", [0.05, 0.05, 0.95, 0.95], 0.0, 0.78),
+    "wallCap":    ("metal", [0.06, 0.06, 0.94, 0.94], 0.0, 0.95),
+    "ventFrame":  ("metal", [0.06, 0.06, 0.94, 0.94], 0.0, 0.90),
+    "ventSlat":   ("dark", [0.10, 0.10, 0.90, 0.90], 0.0, 0.66),
+    "exitBody":   ("metal", [0.06, 0.06, 0.94, 0.94], 0.0, 0.78),
+    # sw_green is 0x39ff7a — 255 in the green channel, and §5c's ceiling for a
+    # texel on an {e:1} quad is 176 because the shader does mix(light, 1.45, e).
+    # 0.32 keeps it the brightest thing on that wall without going to a white
+    # slab, and the BLOOM does the glowing. Same reasoning as fixDiff's 0.62.
+    "exitFace":   ("sw_green", [0, 0, 1, 1], 0.32, 0.92),
+    "conduitRun": ("metal", [0.06, 0.06, 0.94, 0.94], 0.0, 0.84),
+    "conduitBox": ("dark", [0.10, 0.10, 0.90, 0.90], 0.0, 1.00),
+    "frameEdge":  ("metal", [0.06, 0.06, 0.94, 0.94], 0.0, 1.12),
+    "frameBack":  ("dark", [0.10, 0.10, 0.90, 0.90], 0.0, 0.80),
+    # $POSTER is a SENTINEL like $MARQ and $BRICK — one frame model wears all
+    # four of the hall's poster regions, remapped per instance by the call site.
+    "posterArt":  ("$POSTER", [0.0, 0.0, 1.0, 1.0], 0.26, 1.02),
+    "extBottle":  ("sw_red", [0, 0, 1, 1], 0.0, 1.05),
+    "extBrass":   ("sw_amber", [0, 0, 1, 1], 0.0, 0.95),
+    "extBracket": ("metal", [0.06, 0.06, 0.94, 0.94], 0.0, 0.72),
+    "extLabel":   ("sw_white", [0, 0, 1, 1], 0.0, 0.86),
+    # STREET atlas (DIP HOP's front door).
+    "clubWall":   ("brick2", [0.02, 0.02, 0.98, 0.98], 0.0, 0.98),
+    "clubSteel":  ("sw_iron", [0, 0, 1, 1], 0.0, 0.98),
+    "clubSteelD": ("sw_iron", [0, 0, 1, 1], 0.0, 0.55),
+    # beatDoor and beatSign carry BAKED ART (a painted porthole, the club's
+    # name). §5b: never sub-rect a region that carries baked text — both wear
+    # the WHOLE region, exactly like vendFace does, and the geometry goes round
+    # them. The emissives match the quads they replace (0.18 / 0.40) so the
+    # sign's brightness is unchanged by this round.
+    "clubLeaf":   ("beatDoor", [0, 0, 1, 1], 0.18, 1.0),
+    "clubFascia": ("beatSign", [0, 0, 1, 1], 0.40, 1.0),
+    "clubStone":  ("sw_curb", [0, 0, 1, 1], 0.0, 1.20),
+    "clubLamp":   ("sw_white", [0, 0, 1, 1], 0.42, 0.95),
+    "clubGlow":   ("sw_party1", [0, 0, 1, 1], 0.62, 1.0),
+    "clubFlyer":  ("sw_white", [0, 0, 1, 1], 0.0, 0.60),
+    "clubVoid":   ("sw_black", [0, 0, 1, 1], 0.0, 1.0),
     # hall trim lives on the MAIN atlas (it is built into B, not ST), so it
     # wears the wainscot panelling the room is already trimmed in.
     "trimWood": ("wainscot", [0.10, 0.10, 0.90, 0.90], 0.0, 1.15),
@@ -3335,3 +3380,324 @@ def export_all(out_dir=None, names=None):
             json.dump(d, fh)
         written.append((ob.name, len(d["verts"]), len(d["tris"])))
     return written
+
+
+# ---- 🧱 THE VERTICAL PLANE (§18) -------------------------------------------------------
+#
+# Five sessions of art went onto the FLOOR (carpet, road, pavement, puddles),
+# the CEILING, the props, the terrace across the road and the characters. Nobody
+# ever touched the hall's own walls or the doors on the street, and the kit's one
+# arrangement metric said so plainly: `hard` splits this game clean in two. The
+# hall interior, where cabinets and carpet give the eye something to land on,
+# runs 1.1–2.2. Every frame whose subject is a WALL or a DOOR runs 0.26–0.42.
+#
+# And `12-club` — DIP HOP's front door, one of five street game entrances a
+# player walks up to — measured **0.001**. The flattest frame in the game, by a
+# factor of 250. It was two quads: a 1.4 x 2.2m painted rectangle and a sign.
+# §0 says if it is still a painted quad, model it.
+
+
+def build_club_door():
+    """DIP HOP's front door: a basement club entrance that projects OUT.
+
+    It projects rather than recessing, and that is the one decision in here
+    worth re-reading. A recess needs somewhere to put the depth, and this door
+    sits in a 6m GAP in the terrace across the road (js/arcade.js skips the bays
+    from x -9 to -3 so a bay does not bury the entrance) with the flat painted
+    wall right behind it. So the surround stands proud of the wall and the LEAF
+    is set back 0.30 inside the surround — the depth is real, it is just built
+    forward instead of backward.
+
+    §16, verbatim, because it is the same shape of mistake twice: a recess is
+    JAMBS + A HEAD + A LEAF AT THE BACK. It is not a solid box with a door
+    drawn inside it. Everything below is a frame with a hole in it.
+    """
+    P = Part("clubDoor")
+    DW, DH = 1.40, 2.20          # the leaf, matching the quad it replaces
+    RV = 0.30                    # reveal depth
+    PW = 0.34                    # pier width
+    hw = DW / 2
+
+    # THE FRONTAGE. The club's own building face, filling its slice of the gap
+    # in the terrace. Painted render over brick (brick2 is a real region — a
+    # second WALL, not a second brick, per §14) rather than more of the terrace.
+    P.box((0, 0.11, 1.95), (DW + PW * 2 + 1.30, 0.18, 3.90), "clubWall")
+    # a rendered plinth where the wall meets the pavement — every basement
+    # frontage in the world has a wet, scuffed 40cm at the bottom
+    P.box((0, 0.05, 0.20), (DW + PW * 2 + 1.30, 0.26, 0.40), "clubStone")
+
+    # THE SURROUND: two piers and a lintel, standing 0.30 proud.
+    for sx in (-1, 1):
+        P.box((sx * (hw + PW / 2), -RV / 2, 1.24), (PW, RV, 2.48), "clubSteel")
+        # a chamfer strip down the inner edge catches the neon
+        P.box((sx * (hw + 0.028), -RV - 0.005, 1.24), (0.056, 0.05, 2.48), "clubSteelD")
+    P.box((0, -RV / 2, 2.36), (DW + PW * 2, RV, 0.24), "clubSteel")
+
+    # THE REVEAL: jambs and a head standing INSIDE the surround, so the eye gets
+    # a shadowed edge on all three sides of the leaf.
+    for sx in (-1, 1):
+        P.box((sx * (hw - 0.035), -RV / 2 + 0.02, 1.10), (0.070, RV - 0.04, 2.20), "clubSteelD")
+    P.box((0, -RV / 2 + 0.02, 2.185), (DW, RV - 0.04, 0.070), "clubSteelD")
+
+    # THE LEAF, at the BACK of the reveal, wearing the whole beatDoor region.
+    P.box((0, 0.005, DH / 2), (DW - 0.14, 0.055, DH - 0.06), "clubLeaf")
+    # v inverted, and u mirrored relative to posterFrame: this model is viewed
+    # from its -Y side (the surround projects that way) where the poster is
+    # viewed from +Y, so the two are opposite-handed. See the note in
+    # build_poster_frame before copying either.
+    P.set_uv("clubLeaf", lambda x, y, z: (0.5 + x / (DW - 0.14),
+                                          1.0 - z / (DH - 0.06)))
+    # the porthole, PROUD of the leaf: a steel ring with a lit lens behind it.
+    # The lens is not glass — nothing in this renderer is transparent (§15/§16,
+    # three times in one session) — it is a LIT DISC with a ring in front of it,
+    # and the eye supplies the glazing.
+    P.cyl((0, -0.020, 1.52), "y", 0.215, 0.215, 0.030, "clubGlow", slices=20)
+    P.limb((0, -0.055, 1.52), (0, -0.020, 1.52), 0.235, 0.250, "clubSteel", slices=20, cap=False)
+    # push bar across the leaf, and a kick plate at the bottom of it
+    P.cyl((0, -0.055, 1.04), "x", 0.026, 0.026, DW - 0.34, "clubSteel", slices=10)
+    for sx in (-1, 1):
+        P.box((sx * (DW / 2 - 0.20), -0.032, 1.04), (0.045, 0.075, 0.115), "clubSteelD")
+    P.box((0, -0.010, 0.20), (DW - 0.20, 0.030, 0.34), "clubSteelD")
+
+    # THE STOOP: one worn step and a threshold plate. The door used to start at
+    # y=0 with nothing under it, which is why it read as a sticker.
+    P.box((0, -RV - 0.10, 0.055), (DW + PW * 2 - 0.10, 0.52, 0.110), "clubStone")
+    P.box((0, -RV / 2, 0.125), (DW - 0.06, RV, 0.020), "clubSteel")
+
+    # THE CANOPY over the lot, with the neon sign on its fascia. Slopes forward
+    # so the underside catches the sign's own light and throws it at the door.
+    CY, CD, FH = 2.62, 0.72, 0.95
+    P.box((0, -CD / 2, CY + 0.10), (DW + PW * 2 + 0.34, CD, 0.075), "clubSteel", taper=0.94)
+    # THE FASCIA CARRIES THE CLUB'S NAME, so it keeps the SIGN's proportions and
+    # not the canopy's. The first build made it 0.56m tall and 2.48 wide, which
+    # squashed a 2.2 x 1.1m sign into a 4.4:1 strip — from the street it read as
+    # a pink glow bar with no lettering in it, i.e. the round deleted the
+    # identity of the thing it was supposed to be improving. 2.30 x 0.95 is the
+    # sign's own aspect, near its original height.
+    P.box((0, -CD, CY + 0.10 + FH / 2), (2.30, 0.085, FH), "clubFascia")
+    P.set_uv("clubFascia", lambda x, y, z: (0.5 + x / 2.30,
+                                            1.0 - (z - CY - 0.10) / FH))
+    # brackets holding it up, and a downlight under it
+    for sx in (-1, 1):
+        P.limb((sx * (hw + PW - 0.04), -0.02, CY + 0.06), (sx * (hw + PW - 0.04), -CD + 0.10, CY + 0.08),
+               0.030, 0.024, "clubSteelD", slices=8)
+    P.box((0, -CD * 0.55, CY + 0.02), (0.34, 0.16, 0.055), "clubLamp")
+
+    # A HANDRAIL down one side. Thin ironwork gets bevel=0 at finish() time —
+    # 20mm bar seen from eight metres does not need one, and the bevel is what
+    # tripled the fire escape's vertex count (§14).
+    for sy in (-1, 1):
+        P.limb((-(hw + PW + 0.30), -0.16 + sy * 0.30, 0.0), (-(hw + PW + 0.30), -0.16 + sy * 0.30, 0.92),
+               0.024, 0.024, "clubSteel", slices=8)
+    P.limb((-(hw + PW + 0.30), -0.46, 0.90), (-(hw + PW + 0.30), 0.14, 0.90),
+           0.026, 0.026, "clubSteel", slices=8)
+
+    # A FLYER BOARD on the other pier — a club door is where a city puts its
+    # posters, and it is a cheap way to break 1.2m of blank steel.
+    for i, (fy, fz, fw, fh) in enumerate(((0.0, 1.86, 0.30, 0.42), (0.02, 1.40, 0.26, 0.36),
+                                          (-0.01, 1.02, 0.28, 0.38), (0.01, 0.60, 0.22, 0.30))):
+        P.box((hw + PW + 0.34 + fy * 0.1, -0.045, fz), (fw, 0.014, fh),
+              "clubFlyer" if i % 2 == 0 else "clubStone")
+
+    # a bracket lamp over the flyers, and the club's bell push
+    P.limb((hw + PW + 0.34, -0.02, 2.30), (hw + PW + 0.34, -0.24, 2.34), 0.022, 0.018,
+           "clubSteelD", slices=8)
+    P.ovoid((hw + PW + 0.34, -0.28, 2.30), (0.13, 0.13, 0.10), "clubLamp", stacks=5, slices=10)
+    P.box((-(hw + 0.10), -RV - 0.02, 1.30), (0.075, 0.035, 0.12), "clubSteelD")
+    P.cyl((-(hw + 0.10), -RV - 0.042, 1.30), "y", 0.022, 0.022, 0.016, "clubGlow", slices=8)
+    return P.finish(bevel=0.007, segments=1, smooth_deg=34)
+
+
+def build_wall_pier():
+    """A 1m pilaster module for the hall's own walls, stretched by its call site.
+
+    The `trimBase` pattern from §12: one metre of a thing that is uniform up its
+    height, scaled by the caller. The hall's walls are two tiled quads each — a
+    wainscot to 1.05 and 3.15m of `wall` above it — and above the cabinets that
+    upper band is the largest unbroken surface in the building. It had a fabric
+    micro-texture and two painted panel joints and nothing else at all.
+
+    Shallow ON PURPOSE (90mm). A deep pilaster in a 15m-wide room eats floor and
+    reads as a buttress; 90mm is a trim detail that catches the neon along one
+    edge, which is the whole job.
+    """
+    P = Part("wallPier")
+    P.box((0, 0.045, 0.5), (0.26, 0.090, 1.0), "wallPier")
+    # the two shadow lines either side, standing a hair proud so the raking
+    # ortho rig can see them (§14: detail sunk below a face renders as nothing)
+    for sx in (-1, 1):
+        P.box((sx * 0.145, 0.052, 0.5), (0.028, 0.104, 1.0), "wallPierD")
+    return P.finish(bevel=0.006, segments=1, smooth_deg=30)
+
+
+def build_wall_cap():
+    """The pilaster's capital and base. Not part of wallPier: that module is
+    stretched to whatever height the wall is, and a stretched capital is a
+    smeared capital."""
+    P = Part("wallCap")
+    P.box((0, 0.055, 0.055), (0.34, 0.110, 0.110), "wallCap")
+    P.box((0, 0.050, 0.135), (0.29, 0.100, 0.050), "wallPierD")
+    return P.finish(bevel=0.006, segments=1, smooth_deg=30)
+
+
+def build_wall_vent():
+    """A return-air grille with real louvre blades.
+
+    Chosen over a painted vent for the reason §1.3 keeps proving: STRUCTURED
+    contrast beats detail. Six blades at an angle give six hard shadow lines
+    that move as you walk past. A picture of a vent gives none.
+    """
+    P = Part("wallVent")
+    W, Hh, D = 0.62, 0.44, 0.075
+    # 🚨 THE FIRST BUILD OF THIS WAS A SOLID SLAB and the preview caught it in
+    # two seconds. The frame was one box spanning y 0..0.055 and the six blades
+    # sat at 0.011..0.039 — entirely INSIDE it. That is §14's trap verbatim
+    # ("anything whose top sits below a panel's face is INSIDE that panel and
+    # renders as nothing"), walked into directly under a comment quoting it.
+    #
+    # So the frame is a FRAME: four rim boxes with a hole in the middle, a dark
+    # back panel set DOWN in the hole, and the blades standing proud of that
+    # back but still inside the rim. Same rule as the shop window and the door
+    # reveal — you build the opening, not a box with the opening drawn on it.
+    RIM = 0.052
+    for sx in (-1, 1):
+        P.box((sx * (W / 2 - RIM / 2), D / 2, Hh / 2), (RIM, D, Hh), "ventFrame")
+    for sz in (0, 1):
+        P.box((0, D / 2, RIM / 2 + sz * (Hh - RIM)), (W - RIM * 2, D, RIM), "ventFrame")
+    # the back of the void, recessed
+    P.box((0, 0.012, Hh / 2), (W - RIM * 2, 0.024, Hh - RIM * 2), "ventSlat")
+    # six blades, angled, standing in the opening and PROUD of the back
+    for i in range(6):
+        z = RIM + 0.026 + i * (Hh - RIM * 2 - 0.052) / 5
+        P.box((0, 0.040, z), (W - RIM * 2 - 0.016, 0.030, 0.028), "ventFrame", taper=0.86)
+    for sx in (-1, 1):
+        P.cyl((sx * (W / 2 - 0.026), D + 0.006, Hh / 2), "y", 0.012, 0.012, 0.016,
+              "ventFrame", slices=8)
+    return P.finish(bevel=0.005, segments=1, smooth_deg=30)
+
+
+def build_exit_sign():
+    """A lit EXIT box on a stem. Every public room in the world has one and this
+    one had none, which is a small thing that reads as a set rather than a
+    building. Also: it is the only emissive in the hall BELOW the ceiling and
+    ABOVE the cabinets, so it lights a band of wall nothing else reaches."""
+    P = Part("exitSign")
+    P.box((0, 0.055, 0.30), (0.075, 0.110, 0.120), "exitBody")     # the stem
+    P.box((0, 0.175, 0.185), (0.46, 0.235, 0.215), "exitBody")     # the body
+    for sy in (-1, 1):
+        # the LIT faces, front and back, standing proud of the carcass so the
+        # bloom has an edge to catch rather than a flush panel
+        P.box((0, 0.175 + sy * 0.122, 0.185), (0.40, 0.014, 0.160), "exitFace")
+    P.box((0, 0.175, 0.302), (0.48, 0.250, 0.030), "exitBody")
+    return P.finish(bevel=0.005, segments=1, smooth_deg=30)
+
+
+def build_conduit():
+    """One metre of surface conduit, stretched by the call site.
+
+    The cheapest possible "this is a real building": a pipe run with junction
+    boxes, at picture-rail height, casting one long horizontal line down a wall
+    that has no horizontal lines in it.
+    """
+    P = Part("conduit")
+    P.cyl((0, 0.042, 0), "x", 0.026, 0.026, 1.0, "conduitRun", slices=10)
+    # saddle clips at both ends, so a run of these reads as clipped to the wall
+    for sx in (-1, 1):
+        P.box((sx * 0.44, 0.030, 0), (0.030, 0.060, 0.070), "conduitRun")
+    return P.finish(bevel=0.004, segments=1, smooth_deg=30)
+
+
+def build_conduit_box():
+    """A junction box for the ends of a conduit run. Its own model because a
+    stretched box is a smeared box."""
+    P = Part("conduitBox")
+    P.box((0, 0.048, 0), (0.135, 0.096, 0.135), "conduitBox")
+    P.box((0, 0.100, 0), (0.105, 0.012, 0.105), "conduitRun")
+    return P.finish(bevel=0.005, segments=1, smooth_deg=30)
+
+
+def build_poster_frame():
+    """A real frame round the hall's four wall posters.
+
+    They were 1.0 x 1.4m quads floating 2cm off the wall. The ART is fine — it
+    is the reason `posterGolden`/`Brawl`/`Knight`/`Play` are on the main sheet —
+    so this does not touch it: `$POSTER` is a SENTINEL (the §7 cabinet trick,
+    now applied to wall art) and the call site remaps it per instance, so one
+    model wears all four. What the frame adds is an EDGE: a mitred rim standing
+    30mm proud, which is a hard highlight down one side and a cast shadow down
+    the other on a wall whose whole problem is that nothing on it has depth.
+    """
+    P = Part("posterFrame")
+    W, Hh = 1.00, 1.40
+    # A SHADOWBOX, not a picture frame, and the first build taught the
+    # difference. At 38mm total depth it measured and previewed as a flat panel:
+    # correct for a frame you stand in front of, useless for one seen from four
+    # to seven metres across a room, which is the only distance anybody sees
+    # these from. The rim projects 78mm and the art sits down inside it, so
+    # there is a real shadow line down one side and a real highlight down the
+    # other — which is the entire reason to model this at all.
+    RIM, DEPTH = 0.055, 0.078
+    P.box((0, 0.009, Hh / 2), (W, 0.018, Hh), "frameBack")
+    P.box((0, 0.026, Hh / 2), (W - RIM * 2, 0.016, Hh - RIM * 2), "posterArt")
+    # 🚨 v IS FLIPPED, AND THAT IS THE ATLAS CONVENTION, NOT A FUDGE.
+    # These sheets are painted into a CANVAS, where y runs DOWNWARD, and
+    # extract() maps a face's v straight into the region rect as
+    # `rect[1] + (rect[3] - rect[1]) * v` — so v = 0 is the region's TOP edge.
+    # Geometry z runs UP. Any set_uv that has to be READ must therefore invert
+    # v, or the artwork ships upside down.
+    #
+    # It took THREE builds to land, and the reason is worth writing down: at a
+    # contact-sheet zoom, "mirrored" and "upside down" and "rotated 180" all
+    # look the same — like text that is wrong. Two of those need a u flip, one
+    # needs a v flip, one needs both, and reasoning about which from the view
+    # handedness got it wrong twice in a row. What settled it in one step was
+    # zooming to 2x on the BASELINE crop: the quad this replaced reads
+    # "PLAY / DIP / REPEAT / THE NUGGET ARCADE" top to bottom, so the vertical
+    # ORDER of those words says whether v is wrong and the letter shapes say
+    # whether u is. Read the axes off a known-good reference separately; do not
+    # derive them, and do not judge either one at contact-sheet size.
+    # §7 trap 4, with a second edge on it.
+    P.set_uv("posterArt", lambda x, y, z: (0.5 - x / (W - RIM * 2),
+                                           1.0 - (z - RIM) / (Hh - RIM * 2)))
+    for sx in (-1, 1):
+        P.box((sx * (W / 2 - RIM / 2), DEPTH / 2, Hh / 2), (RIM, DEPTH, Hh), "frameEdge")
+    for sz in (0, 1):
+        P.box((0, DEPTH / 2, RIM / 2 + sz * (Hh - RIM)), (W - RIM * 2, DEPTH, RIM),
+              "frameEdge")
+    return P.finish(bevel=0.005, segments=1, smooth_deg=30)
+
+
+def build_extinguisher():
+    """A fire extinguisher on a wall bracket. Red, which this room has almost
+    none of below the neon, and round, which this room has almost none of at
+    all."""
+    P = Part("extinguisher")
+    rings = []
+    for v, r, z in ((0.00, 0.055, 0.000), (0.06, 0.082, 0.030), (0.55, 0.090, 0.300),
+                    (0.86, 0.086, 0.470), (0.95, 0.058, 0.520), (1.00, 0.030, 0.545)):
+        rings.append([(math.cos(j / 14 * math.tau) * r, math.sin(j / 14 * math.tau) * r, z)
+                      for j in range(14)])
+    P.loft(rings, "extBottle", cap_a=True, cap_b=True)
+    P.cyl((0, 0, 0.575), "z", 0.026, 0.026, 0.060, "extBrass", slices=10)
+    P.limb((0, 0, 0.600), (0, 0.105, 0.616), 0.020, 0.014, "extBrass", slices=8)
+    P.box((0, 0.030, 0.610), (0.130, 0.030, 0.028), "extBrass")
+    # the bracket, and a label band
+    # the bracket goes INTO the wall: with the bulk-at-+Y convention these
+    # call sites use, -Y is the side that ends up buried.
+    P.box((0, -0.105, 0.250), (0.075, 0.075, 0.045), "extBracket")
+    P.limb((0, 0, 0.190), (0, 0, 0.230), 0.093, 0.093, "extBracket", slices=14, cap=False)
+    P.limb((0, 0, 0.330), (0, 0, 0.375), 0.092, 0.092, "extLabel", slices=14, cap=False)
+    return P.finish(bevel=0.005, segments=1, smooth_deg=36)
+
+
+MODELS.update({
+    "clubDoor": build_club_door,
+    "wallPier": build_wall_pier,
+    "wallCap": build_wall_cap,
+    "wallVent": build_wall_vent,
+    "exitSign": build_exit_sign,
+    "conduit": build_conduit,
+    "conduitBox": build_conduit_box,
+    "posterFrame": build_poster_frame,
+    "extinguisher": build_extinguisher,
+})

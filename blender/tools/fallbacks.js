@@ -20,6 +20,7 @@ const { decode, stats, diff } = require('./png');
 // Warnings a degraded path is SUPPOSED to print. Anything else is a real fault.
 const EXPECTED = [
   /no ceiling ribs/i,          // no-mesh: the flat ceiling is the fallback
+  /no wall pilasters/i,        // no-mesh: the flat walls are the fallback (§18)
   /bloom unavailable/i,        // no FBO at all: render direct
   /no float target/i,          // no half-float: the 8-bit post chain
   /material shader failed/i,   // WebGL2 link failure: the flat renderer
