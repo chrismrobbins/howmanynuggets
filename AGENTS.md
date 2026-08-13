@@ -1593,3 +1593,66 @@ could ever be put behind a menu screen before. `17-title` near **88.9 → 72.5**
 **Still untouched:** `18-heat` (near 84.2 at wide, flat 91.2) and `20-map` (near
 80.2, flat 81.6) are the two worst frames left, and both are now the *only* screens
 with no set behind them.
+
+## 🥊 BRAWLERS ROUND 6 — THE CAST (2026-08-13)
+
+**Beau, from prod, and this is the complaint the prompt's blank was for:** *"the
+characters (enemies and the main playable characters) all seem too 8-bit and the
+graphics just look terrible."*
+
+He is describing something countable. **Every character in this game was drawn with
+TWO fill colours** — a base and a `dark` used for both the outline and the speckles —
+with no light direction, and in the cups' case no silhouette either: `drawCup` was six
+`fillRect`s and **a cup was a RECTANGLE with a stripe across it.** Two flat tones and
+a straight edge is not a style, it is 1985. Rounds 1–5 had lit the room the cast
+stands in and never touched the cast.
+
+**`brawlRamp(hex)` → { rim, lite, base, shade, line }.** Five stops from one base
+colour, and **the hue shift is the part that matters most: lights go WARM, shadows go
+COOL.** A shadow that is only a darker base reads as a dimmed photograph; a shadow
+with blue in it reads as light falling on a thing. Applied to:
+
+- **`nugBody`** — a key from up-and-left (the direction the belt is already lit
+  from), a 1px keyline instead of the 1.6px band that ate a sixth of the sprite, and
+  breading drawn ONE STOP along the ramp in both directions instead of in `dark`.
+  Speckles of `dark` on a flat shape read as DIRT; a stop up and a stop down read as
+  a crumb with a dimple in it. Every call site inherits it — player, crowd, drops,
+  cutscene actors.
+- **`drawCup`** — rebuilt row by row: a **taper** (10px at the rim to 6px at the
+  base), a keyline, a lit edge and a shaded edge per row, a two-pixel specular, and a
+  domed lid with its own ramp. Covers all six grunt archetypes.
+- The player's **boots**, **gloves** (three flat pixels was the entire fist in a game
+  about punching — it has a knuckle and a keyline now), **headband** (a top light and
+  the shadow it throws on the brow) and **eyes** (one catchlight pixel).
+
+**THE FIRST ATTEMPT WAS WORSE THAN WHAT IT REPLACED, and that is the useful part of
+this entry.** Three specific overshoots, all obvious in an 11× crop and invisible in
+every number:
+
+1. **`rim: 1.42 × base + 26 red` is not a highlight, it is a second colour.** On a
+   20px nugget it blew out the whole upper half and the thing looked lit from inside.
+   1.2 and +12. **A ramp on a small sprite has to be QUIET** — the shape does the
+   work; the tones only have to stop it reading as a silhouette. The rim band also
+   has to be a narrow crescent (`lam > 0.80`), not a lit hemisphere (`> 0.60`).
+2. **The lid got seven rows of dome over a ten-row body and every enemy in the game
+   came back a mushroom.** The head must stay smaller than the body. Five rows, the
+   footprint the rig always had.
+3. **A 4×4 dark socket around a 2×2 eye is goggles.** At three pixels of eye there is
+   no room for a socket.
+
+**MEASURED — and the measurement is the other lesson.** The belt band could barely see
+this round: `bandFlat` −1.3%, `bandMean` −1.2% over ten scenes. **That is §19 one level
+deeper than region.js was written for** — the band is a 475×72 box and a fighter is
+30×30 inside it, so even the "surface" metric averages the change away. Pointed at the
+**sprite itself** with `region.js b5-r5 b6-cast 01-kitchen 50 118 30 30`:
+
+| | before | after | |
+|---|---|---|---|
+| `sd` | 36.85 | 39.18 | **+6.3%** — the ramp, directly |
+| `hard` | 9.48 | 9.83 | +3.6% — the keyline |
+| `chroma` | 34.33 | 35.28 | +2.8% |
+| `blown` | 0.67 | 0.11 | −83% — the old flat white eye highlight |
+
+fps 60.2 unchanged (the ramp is cached per colour, and `nugBody` is still cached per
+sprite). Verified at `std` AND `wide`. **If a future round touches a character, point
+`region.js` at a 30×30 box around it — the belt band cannot see the cast.**

@@ -2259,17 +2259,35 @@ function nugBody(r, seed, base, dark) {
   c.width = size; c.height = size;
   const g = c.getContext('2d');
   const cx = size / 2, cy = size / 2;
+  // base === dark is the FLAT request: the front row wants a silhouette, and a
+  // silhouette with a lighting model on it is not a silhouette.
+  const flat = base === dark;
+  const R = brawlRamp(base);
+  const TONES = [R.rim, R.lite, R.base, R.shade];
   for (let py = 0; py < size; py++)
     for (let px2 = 0; px2 < size; px2++) {
       const ang = Math.atan2(py - cy, px2 - cx);
       const wob = Math.sin(ang * 3 + seed) * 1.1 + Math.cos(ang * 5 + seed * 2) * 0.6;
       const d = Math.hypot((px2 - cx) / 1.12, (py - cy) / 0.95);
-      if (d < r + wob) {
-        const edge = d > r + wob - 1.6;
-        const speck = ((px2 * 3 + py * 7 + seed) % 13) === 0;
-        g.fillStyle = edge ? dark : speck ? dark : base;
-        g.fillRect(px2, py, 1, 1);
+      if (d >= r + wob) continue;
+      if (flat) {
+        g.fillStyle = base;
+      } else if (d > r + wob - 1.15) {
+        // ONE pixel of keyline, not the 1.6 that used to eat a sixth of the sprite
+        g.fillStyle = R.line;
+      } else {
+        // a key from up and to the left, which is the light the belt already has
+        const nx = (px2 - cx) / (r || 1), ny = (py - cy) / (r || 1);
+        const lam = -(nx * 0.62 + ny * 0.78);
+        // a NARROW crescent of rim, not a lit hemisphere
+        let t = lam > 0.80 ? 0 : lam > 0.28 ? 1 : lam > -0.45 ? 2 : 3;
+        // the breading. It used to be `dark` specks, which read as DIRT on a flat
+        // shape; one stop down the same ramp reads as a crumb with a dimple in it.
+        if (((px2 * 3 + py * 7 + seed) % 11) === 0) t = Math.min(3, t + 1);
+        else if (((px2 * 5 + py * 3 + seed * 2) % 17) === 0) t = Math.max(0, t - 1);
+        g.fillStyle = TONES[t];
       }
+      g.fillRect(px2, py, 1, 1);
     }
   nugBodyCache[key] = c;
   return c;
@@ -2297,6 +2315,46 @@ function brawlShade(hex, k) {
   const ch = (s) => Math.max(0, Math.min(255, Math.round(((n >> s) & 255) * k)));
   const v = '#' + ((1 << 24) | (ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).slice(1);
   brawlShadeCache[key] = v;
+  return v;
+}
+
+// ---- THE RAMP -------------------------------------------------------------------------
+// Beau, from prod: *"the characters (enemies and the main playable characters) all seem
+// too 8-bit and the graphics just look terrible."* He is describing something specific
+// and countable. Every character in this game was drawn with TWO fill colours — a base
+// and a `dark` used for both the edge and the speckles — with no light direction, no
+// outline, and in the cups' case no silhouette either: a cup was a RECTANGLE with a
+// stripe across it. Two flat tones and a straight edge is not a style, it is 1985.
+//
+// What separates an 8-bit sprite from a 16-bit one, at the same resolution, is almost
+// entirely this: a RAMP of tones lit from one direction, a dark keyline holding the
+// shape, and a silhouette that is not a box. So one base colour now yields five stops,
+// and the hue shift is the part that matters most — lights go WARM, shadows go COOL.
+// A shadow that is only a darker version of the base reads as a dimmed photograph;
+// a shadow with blue in it reads as light falling on a thing.
+const brawlRampCache = {};
+function brawlRamp(hex) {
+  const hit = brawlRampCache[hex];
+  if (hit) return hit;
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const mk = (k, dr, dg, db) => '#' + ((1 << 24)
+    + (Math.max(0, Math.min(255, Math.round(r * k + dr))) << 16)
+    + (Math.max(0, Math.min(255, Math.round(g * k + dg))) << 8)
+    + Math.max(0, Math.min(255, Math.round(b * k + db)))).toString(16).slice(1);
+  // These numbers went out too strong once and it is worth recording where the
+  // ceiling is: rim 1.42 with +26 red made a 20px nugget look lit from the inside,
+  // and the first crop of it was plainly worse than the two flat tones it replaced.
+  // A ramp on a small sprite has to be QUIET — the shape does the work, and the
+  // tones only have to stop it reading as a silhouette.
+  const v = {
+    rim: mk(1.2, 12, 8, 0),
+    lite: mk(1.08, 5, 3, 0),
+    base: hex,
+    shade: mk(0.74, 0, 0, 7),
+    line: mk(0.34, 2, 0, 8),
+  };
+  brawlRampCache[hex] = v;
   return v;
 }
 
@@ -3193,23 +3251,46 @@ function drawPlayer(g, p) {
     g.drawImage(nugBody(7, 4 + p.idx * 2, body, hurtFlash ? '#fff' : brawlShade('#8a5a1d', lk)), x - 9 - f * 6, y - 8);
     g.globalAlpha = 1;
   }
-  px(g, x - 4 + (p.st === 'walk' ? (step < 2 ? -1 : 1) : 0), gy - 2, 3, 2, brawlShade('#8a5a1d', lk));
-  px(g, x + 2 + (p.st === 'walk' ? (step < 2 ? 1 : -1) : 0), gy - 2, 3, 2, brawlShade('#8a5a1d', lk));
+  const BR = brawlRamp(brawlShade('#8a5a1d', lk));
+  const boot = (bx) => {
+    px(g, bx - 1, gy - 3, 5, 3, BR.line);
+    px(g, bx, gy - 3, 3, 2, BR.base);
+    px(g, bx, gy - 3, 2, 1, BR.lite);
+  };
+  boot(x - 4 + (p.st === 'walk' ? (step < 2 ? -1 : 1) : 0));
+  boot(x + 2 + (p.st === 'walk' ? (step < 2 ? 1 : -1) : 0));
   g.drawImage(nugBody(7, 4 + p.idx * 2, body, hurtFlash ? '#fff' : brawlShade('#8a5a1d', lk)), x - 9, y - 8);
-  px(g, x - 6, y - 6, 12, 2, col.band);
-  px(g, x - 8 - (f < 0 ? -15 : 0), y - 5, 3, 1, col.band);
-  px(g, x + f * 2, y - 3, 2, 2, '#fff');
-  px(g, x + f * 5, y - 3, 2, 2, '#fff');
+  // the headband, with a top light and a shadow it casts on the brow
+  const HR = brawlRamp(col.band);
+  px(g, x - 7, y - 7, 14, 3, HR.line);
+  px(g, x - 6, y - 7, 12, 2, HR.base);
+  px(g, x - 6, y - 7, 12, 1, HR.lite);
+  px(g, x - 5, y - 7, 4, 1, HR.rim);
+  px(g, x - 8 - (f < 0 ? -15 : 0), y - 6, 4, 2, HR.line);
+  px(g, x - 8 - (f < 0 ? -15 : 0), y - 6, 3, 1, HR.base);
+  // eyes: the 2x2 whites the rig always had, plus ONE catchlight pixel. The first
+  // cut of this wrapped each eye in a 4x4 dark socket and the nugget came back
+  // wearing goggles — at three pixels of eye there is no room for a socket.
+  px(g, x + f * 2, y - 3, 2, 2, '#f4f4fa');
+  px(g, x + f * 5, y - 3, 2, 2, '#f4f4fa');
   px(g, x + f * 2 + (f > 0 ? 1 : 0), y - 2, 1, 1, '#1a0f08');
   px(g, x + f * 5 + (f > 0 ? 1 : 0), y - 2, 1, 1, '#1a0f08');
+  px(g, x + f * 2 + (f > 0 ? 0 : 1), y - 3, 1, 1, '#fff');
   px(g, x + f * 2 - 1, y - 5, 3, 1, '#42200e');
   px(g, x + f * 4, y - 5, 3, 1, '#42200e');
 
   // `hot` = this glove is in its active frames. A glove that goes white on contact
   // is the cheapest possible way to say WHICH FIST did it.
+  // A GLOVE WITH A KNUCKLE IN IT. Three flat pixels of one colour was the whole
+  // fist in a game about punching.
+  const GR = brawlRamp(col.glove);
   const glove = (gx, gy2, big, hot) => {
-    px(g, gx - 1, gy2 - 1, big ? 4 : 3, big ? 4 : 3, hot ? '#fff' : col.glove);
-    px(g, gx - 1, gy2 + (big ? 3 : 2), big ? 4 : 3, 1, hot ? '#ffe23a' : col.trim);
+    const w = big ? 5 : 4, h = big ? 5 : 4;
+    px(g, gx - 2, gy2 - 2, w, h, hot ? '#ffe9a0' : GR.line);
+    px(g, gx - 1, gy2 - 1, w - 2, h - 2, hot ? '#fff' : GR.base);
+    px(g, gx - 1, gy2 - 1, 1, 1, hot ? '#fff' : GR.rim);
+    px(g, gx + w - 4, gy2 + h - 4, 1, 1, hot ? '#ffe23a' : GR.shade);
+    px(g, gx - 2, gy2 + h - 3, w, 1, hot ? '#ffe23a' : col.trim);
   };
   if (p.st === 'jab' || p.st === 'upper') {
     const m = p.punch;
@@ -3307,33 +3388,76 @@ function drawCup(g, e) {
     px(g, x - hw - e.face * 8, y, w2, big ? 13 : 10, pd);
     g.globalAlpha = 1;
   }
-  px(g, x - 4 + (step ? -1 : 0), gy - 2 - lift, 3, 2, pd);
-  px(g, x + 1 + (step ? 1 : 0), gy - 2 - lift, 3, 2, pd);
-  px(g, x - hw + lean, y, w2, big ? 13 : 10, flash ? '#fff' : cream);
-  px(g, x - hw + lean, y + 3, w2, 2, flash ? '#fff' : pb);
-  px(g, x - hw - 1 + lean, y, w2 + 2, 1, flash ? '#fff' : rim);
-  px(g, x - hw + 1 + lean, y - 4, w2 - 2, 4, flash ? '#fff' : pb);
-  px(g, x - hw + 2 + lean, y - 5, w2 - 4, 1, flash ? '#fff' : pb);
-  px(g, x - hw + 2 + lean, y - 5, 2, 1, flash ? '#fff' : pl);
+  // THE CUP. It was six fillRects: a rectangle, a stripe, a rim, a rectangle for the
+  // lid, and two highlight pixels. A straight-sided box is why these read as 8-bit
+  // regardless of what colour they were painted — a cup TAPERS, and the taper plus a
+  // keyline plus one light direction is the entire difference.
+  const CR = brawlRamp(flash ? '#fff' : brawlShade('#f4f0e6', lk));
+  const SR = brawlRamp(flash ? '#fff' : brawlShade(pal.body, lk));
+  const bh = big ? 13 : 10;
+  const lx = x + lean;
+  // feet, with a toe and a shadow side
+  const ftl = x - 4 + (step ? -1 : 0), ftr = x + 1 + (step ? 1 : 0);
+  px(g, ftl, gy - 2 - lift, 4, 2, SR.line);
+  px(g, ftl, gy - 2 - lift, 3, 1, SR.shade);
+  px(g, ftr, gy - 2 - lift, 4, 2, SR.line);
+  px(g, ftr, gy - 2 - lift, 3, 1, SR.shade);
+  // the body: one row at a time, tapering, keylined, lit from up-left
+  for (let row = 0; row < bh; row++) {
+    const rw = w2 - Math.round((row / (bh - 1)) * (big ? 5 : 4));
+    const rx = Math.round(lx - rw / 2);
+    const ry = y + row;
+    const band = row >= 3 && row <= (big ? 5 : 4);
+    const P = band ? SR : CR;
+    px(g, rx, ry, rw, 1, P.line);
+    if (row < bh - 1) {
+      px(g, rx + 1, ry, rw - 2, 1, P.base);
+      px(g, rx + 1, ry, 1, 1, P.lite);
+      px(g, rx + rw - 2, ry, 1, 1, P.shade);
+    }
+  }
+  // the specular down the lit side — two pixels, and they do more than the taper
+  px(g, Math.round(lx - w2 / 2) + 1, y + 1, 1, 2, CR.rim);
+  // THE LID, which is also the head — and it has to stay SMALLER THAN THE BODY. The
+  // first cut gave it seven rows of dome over a ten-row body and every enemy in the
+  // game came back a mushroom with googly eyes on it. Five rows, the same footprint
+  // the rig always had, with the ramp and the keyline the flat version lacked.
+  const lw = w2 + 2, lrx = Math.round(lx - lw / 2);
+  px(g, lrx, y - 1, lw, 1, SR.line);
+  px(g, lrx + 1, y - 1, lw - 2, 1, SR.lite);
+  px(g, lrx + 1, y - 5, lw - 2, 4, SR.line);
+  px(g, lrx + 2, y - 5, lw - 4, 4, SR.base);
+  px(g, lrx + 2, y - 4, 1, 3, SR.lite);
+  px(g, lrx + lw - 4, y - 4, 1, 3, SR.shade);
+  px(g, lrx + 3, y - 6, lw - 6, 1, SR.line);
+  px(g, lrx + 4, y - 6, lw - 8, 1, SR.base);
   if (!flash) {
     if (e.kind === 'soy') {
       // masked: one narrow visor instead of eyes
       px(g, x - 3 + lean, y - 4, 7, 2, '#0a0a10');
       px(g, x - 2 + lean + (e.face > 0 ? 2 : 0), y - 4, 2, 2, '#ff5252');
+      px(g, x - 2 + lean + (e.face > 0 ? 2 : 0), y - 4, 2, 1, '#ff9a9a');
     } else {
-      px(g, x - 2 + lean + (e.face > 0 ? 1 : 0), y - 3, 1, 1, '#1a0f08');
-      px(g, x + 1 + lean + (e.face > 0 ? 1 : 0), y - 3, 1, 1, '#1a0f08');
-      px(g, x - 3 + lean, y - 4, 2, 1, '#1a0f08');
-      px(g, x + 1 + lean, y - 4, 2, 1, '#1a0f08');
+      const ex = x + lean + (e.face > 0 ? 1 : 0);
+      px(g, ex - 2, y - 4, 2, 2, '#f4f4fa');
+      px(g, ex + 1, y - 4, 2, 2, '#f4f4fa');
+      px(g, ex - 2 + (e.face > 0 ? 1 : 0), y - 3, 1, 1, '#1a0f08');
+      px(g, ex + 1 + (e.face > 0 ? 1 : 0), y - 3, 1, 1, '#1a0f08');
+      px(g, x - 3 + lean, y - 5, 2, 1, SR.line);
+      px(g, x + 1 + lean, y - 5, 2, 1, SR.line);
     }
   }
   // mayo's guard: a little lid held up like a shield
   if (e.guardUp && !flash) {
     const sx = x + e.face * (hw + 2);
-    px(g, sx - 1, y - 2, 3, 9, e.blockT > 0 ? '#fff' : rim);
-    px(g, sx - 1, y - 2, 3, 2, brawlShade('#8a93b8', lk));
+    px(g, sx - 1, y - 3, 4, 11, CR.line);
+    px(g, sx - 1 + (e.face > 0 ? 0 : 1), y - 2, 2, 9, e.blockT > 0 ? '#fff' : CR.base);
+    px(g, sx - 1 + (e.face > 0 ? 0 : 1), y - 2, 2, 2, e.blockT > 0 ? '#fff' : CR.rim);
   }
-  if (e.st === 'windup') px(g, x + e.face * (hw + 2), y - 6, 2, 2, '#ffe23a');
+  if (e.st === 'windup') {
+    px(g, x + e.face * (hw + 3), y - 7, 3, 3, '#1a1408');
+    px(g, x + e.face * (hw + 3), y - 7, 2, 2, '#ffe23a');
+  }
 }
 
 function drawBoss(g, e) {
