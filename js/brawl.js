@@ -1290,7 +1290,300 @@ function brawlStepDrops(dt) {
   }
 }
 
+// ---- PARALLAX -------------------------------------------------------------------------
+// The background was ONE canvas drawn at `drawImage(brawl.bg, -round(cam), 0)`. Dead
+// 1:1 with the camera, which is the one thing a side-scroller must never be: a
+// belt-scroller's entire sense of space comes from layers moving at different rates,
+// and this game had exactly one layer for three acts.
+//
+// Four planes now. `back` draws before the cast, `fore` after it:
+//
+//   far  0.28   the deep distance — sky and skyline outdoors, ceiling indoors
+//   mid  0.60   the middle — a nearer row of towers, ducts, tanks
+//   wall 1.00   everything the game already had, at the rate it already had
+//   fore 1.50   overhead only, and never below y=20 (see below)
+//
+// TWO RULES THIS IS BUILT ON.
+//
+// 1. THE WALL LAYER HAD TO OPEN UP, and clearing a band out of it afterwards is
+//    wrong. The wall was opaque from y 0 to the floor, so a far layer behind it is
+//    a far layer nobody will ever see. What opens it is starting each section's BASE
+//    FILL at `brawlGap(ground)` instead of at zero and leaving every prop exactly
+//    where it is — so the fridge, the vats, the robot arms and the vault door now
+//    stand SILHOUETTED against the sky instead of against more wall. Erasing the
+//    band instead would have decapitated all four of them.
+//
+// 2. THE FOREGROUND STAYS OVERHEAD. A near layer scrolling at 1.5 is the strongest
+//    depth cue available here and also the fastest way to ruin a fighting game: a
+//    fighter is 20px tall standing at y 100-124, and anything drawn over that is a
+//    frame where you cannot see what hit you. Every fore layer here lives in the top
+//    20 pixels. Act 3's ceiling pipes were already up there at 1:1 and simply moved.
+const BRAWL_RATES = { far: 0.28, mid: 0.6, fore: 1.5 };
+
+function brawlLayer(rate, LEN, Hh) {
+  const c = document.createElement('canvas');
+  // A layer at rate r is only ever drawn between 0 and (LEN - W) * r, so this is
+  // exactly as wide as it needs to be — no more, and never less (a layer one pixel
+  // short shows the void at the end of the act).
+  c.width = Math.ceil((LEN - brawl.W) * rate) + brawl.W;
+  c.height = Hh;
+  const g = c.getContext('2d');
+  return { c, g, rate, w: c.width };
+}
+
+function brawlGap(ground) { return Math.max(20, Math.round(ground * 0.26)); }
+
+// A row of towers, bottom-anchored, in whatever space the caller hands over. Used by
+// every act — outdoors it is the skyline, indoors it is the deep end of the room.
+function brawlSkylineRow(g, w, baseY, opts) {
+  const o = opts || {};
+  const step = o.step || 46;
+  for (let i = 0, x = -12; x < w + 20; i++, x += step + ((i * 29) % 18)) {
+    const bw = (o.bw || 34) + ((i * 37) % 22);
+    const bh = (o.bh || 40) + ((i * 53) % (o.bhVar || 44));
+    g.fillStyle = o.body;
+    g.fillRect(x, baseY - bh, bw, bh + 6);
+    if (o.cap && i % 3 === 0) { g.fillStyle = o.cap; g.fillRect(x + bw / 2 - 1, baseY - bh - 7, 2, 7); }
+    // lit windows: a grid with holes in it, which is what a tower at night is
+    // ONE IN SEVEN, not one in three. The first pass lit a third of every grid cell
+    // and a distant city came back as a wall of yellow squares — at this scale a
+    // skyline is mostly DARK with a few lights in it, and the darkness is the read.
+    g.fillStyle = o.lit;
+    for (let r = 0; r * 10 < bh - 12; r++) {
+      for (let q = 0; q * 9 < bw - 8; q++) {
+        if ((q * 7 + r * 13 + i * 11) % 7) continue;
+        g.fillRect(x + 4 + q * 9, baseY - bh + 6 + r * 10, 2, 3);
+      }
+    }
+  }
+}
+
 // ---- pixel rendering: the act strips ------------------------------------------------
+
+// ACT 1's distance is INDOORS, which is the interesting case: what recedes in a
+// restaurant is the ceiling and the room behind the pass. Warm, hazy, low contrast —
+// the far plane of an interior is dim, not dark.
+function brawlBackRestaurant(LEN, Hh, ground) {
+  const GAP = brawlGap(ground);
+  const far = brawlLayer(BRAWL_RATES.far, LEN, Hh);
+  const mid = brawlLayer(BRAWL_RATES.mid, LEN, Hh);
+  const fore = brawlLayer(BRAWL_RATES.fore, LEN, Hh);
+  {
+    const g = far.g, w = far.w;
+    // FOUR SECTIONS, FOUR CEILINGS. The first pass ran one warm restaurant ceiling
+    // the length of the act and hung heat lamps over the walk-in freezer, which
+    // reads as a continuity error rather than as distance. A far layer at rate r is
+    // shown at far-x = cam * r, so a section boundary at world X lands at X * r —
+    // the light up there can follow the room you are actually standing in.
+    const R = BRAWL_RATES.far;
+    const BANDS = [
+      [0, '#241a12', '#120c0a', 'rgba(255,214,140,', '#8a6a24'],          // the kitchen
+      [720 * R, '#101c26', '#0a1218', 'rgba(190,228,244,', '#5d7b8c'],    // the walk-in
+      [1440 * R, '#0b1020', '#070a14', 'rgba(150,175,230,', '#39465c'],   // the dock, open to the night
+      [1960 * R, '#241c08', '#120e04', 'rgba(255,210,58,', '#8a7a3a'],    // the vault
+    ];
+    for (let b = 0; b < BANDS.length; b++) {
+      const [bx, top, bot, glow, lamp] = BANDS[b];
+      const bw2 = (b + 1 < BANDS.length ? BANDS[b + 1][0] : w) - bx + 2;
+      const deep = g.createLinearGradient(0, 0, 0, GAP + 14);
+      deep.addColorStop(0, top);
+      deep.addColorStop(1, bot);
+      g.fillStyle = deep;
+      g.fillRect(bx, 0, bw2, GAP + 14);
+      // the room keeps going: booth backs and racks, deep and small
+      g.save();
+      g.beginPath(); g.rect(bx, 0, bw2, GAP + 14); g.clip();
+      brawlSkylineRow(g, w, GAP + 12, { body: brawlShade(bot, 1.9), lit: lamp, step: 38, bw: 26, bh: 10, bhVar: 12 });
+      g.restore();
+      for (let x = bx + 14; x < bx + bw2; x += 78) {
+        g.fillStyle = '#3a2c14'; g.fillRect(x, 0, 1, 8);
+        g.fillStyle = lamp; g.fillRect(x - 3, 8, 7, 3);
+        const gl = g.createRadialGradient(x, 11, 1, x, 11, 22);
+        gl.addColorStop(0, glow + '0.34)');
+        gl.addColorStop(1, glow + '0)');
+        g.fillStyle = gl;
+        g.fillRect(x - 22, 0, 44, 34);
+      }
+    }
+  }
+  {
+    const g = mid.g, w = mid.w;
+    // an extract duct running the room, with its hangers
+    g.fillStyle = '#2e2620';
+    g.fillRect(0, GAP - 9, w, 9);
+    g.fillStyle = '#3d332a';
+    g.fillRect(0, GAP - 9, w, 2);
+    for (let x = 10; x < w; x += 34) {
+      g.fillStyle = '#241d18';
+      g.fillRect(x, GAP - 9, 3, 9);
+      g.fillRect(x + 12, 0, 2, GAP - 9);
+    }
+    // a hanging rack of pans, because a kitchen ceiling is never empty
+    for (let x = 46; x < w; x += 132) {
+      g.fillStyle = '#4a4038'; g.fillRect(x, GAP - 14, 52, 2);
+      for (let i = 0; i < 4; i++) {
+        g.fillStyle = i % 2 ? '#5d5347' : '#6e6353';
+        g.fillRect(x + 5 + i * 13, GAP - 12, 8, 7);
+        g.fillStyle = '#3a332c';
+        g.fillRect(x + 12 + i * 13, GAP - 11, 5, 1);
+      }
+    }
+  }
+  {
+    const g = fore.g, w = fore.w;
+    // Heat lamps, close enough to be cropped by the frame — and they follow the same
+    // four rooms the far ceiling does, via this layer's own rate. A red heat lamp
+    // hanging over the walk-in freezer is exactly the continuity error the banded
+    // far layer was written to avoid, one plane nearer.
+    const FR = BRAWL_RATES.fore;
+    const TUBE = ['#e8622c', '#bfe4f4', '#8a93b8', '#ffd23a'];
+    const HALO = ['rgba(232,98,44,', 'rgba(190,228,244,', 'rgba(150,175,230,', 'rgba(255,210,58,'];
+    const bandAt = (x) => x < 720 * FR ? 0 : x < 1440 * FR ? 1 : x < 1960 * FR ? 2 : 3;
+    for (let x = 30; x < w; x += 116) {
+      const bi = bandAt(x);
+      g.fillStyle = '#1a120c'; g.fillRect(x + 7, 0, 3, 7);
+      g.fillStyle = '#241811'; g.fillRect(x - 9, 6, 34, 6);
+      g.fillStyle = TUBE[bi]; g.fillRect(x - 6, 12, 28, 2);
+      const gl = g.createRadialGradient(x + 8, 14, 2, x + 8, 14, 26);
+      gl.addColorStop(0, HALO[bi] + '0.3)');
+      gl.addColorStop(1, HALO[bi] + '0)');
+      g.fillStyle = gl;
+      g.fillRect(x - 20, 4, 56, 20);
+    }
+  }
+  return [far, mid, fore];
+}
+
+// ACT 2 is the one that was plainly wrong: a distant skyline painted into the same
+// strip as the kerb, tracking the camera at 1:1. Sky, stars, moon and two rows of
+// towers all live behind the block now.
+function brawlBackNuggetown(LEN, Hh, ground) {
+  const GAP = brawlGap(ground);
+  const far = brawlLayer(BRAWL_RATES.far, LEN, Hh);
+  const mid = brawlLayer(BRAWL_RATES.mid, LEN, Hh);
+  const fore = brawlLayer(BRAWL_RATES.fore, LEN, Hh);
+  {
+    const g = far.g, w = far.w;
+    const sky = g.createLinearGradient(0, 0, 0, ground);
+    sky.addColorStop(0, '#05070f');
+    sky.addColorStop(0.55, '#0b1122');
+    sky.addColorStop(1, '#1d2135');
+    g.fillStyle = sky;
+    g.fillRect(0, 0, w, ground);
+    g.fillStyle = '#8a93b8';
+    for (let i = 0; i < 150; i++) g.fillRect((i * 173) % w, (i * 61) % Math.max(GAP + 8, 20), 1, 1);
+    // the moon, and it belongs out here: at 1:1 it used to slide past at walking pace
+    const mx = Math.round(w * 0.62);
+    g.fillStyle = '#f4ecd4';
+    g.beginPath(); g.arc(mx, 20, 13, 0, 7); g.fill();
+    g.fillStyle = '#0b1122';
+    g.beginPath(); g.arc(mx + 6, 17, 11, 0, 7); g.fill();
+    const mg = g.createRadialGradient(mx, 20, 8, mx, 20, 44);
+    mg.addColorStop(0, 'rgba(200,214,255,0.16)');
+    mg.addColorStop(1, 'rgba(200,214,255,0)');
+    g.fillStyle = mg;
+    g.fillRect(mx - 44, 0, 88, 64);
+    brawlSkylineRow(g, w, GAP + 10, { body: '#0c1120', lit: '#26324c', step: 40, bw: 30, bh: 26, bhVar: 34 });
+  }
+  {
+    const g = mid.g, w = mid.w;
+    brawlSkylineRow(g, w, GAP + 7, {
+      body: '#141a2c', lit: '#8a6c30', cap: '#ff5252', step: 52, bw: 36, bh: 30, bhVar: 40,
+    });
+    // a water tower on the skyline, the one silhouette that says CITY on sight
+    for (let x = Math.round(w * 0.3); x < w; x += Math.round(w * 0.47)) {
+      g.fillStyle = '#141a2c';
+      g.fillRect(x, GAP - 22, 20, 12);
+      g.fillRect(x + 2, GAP - 26, 16, 5);
+      g.fillRect(x + 3, GAP - 10, 2, 12);
+      g.fillRect(x + 15, GAP - 10, 2, 12);
+    }
+  }
+  {
+    const g = fore.g, w = fore.w;
+    // slack wires strung across the street, and they read best CROPPED
+    g.fillStyle = '#0a0c14';
+    for (let x = 0; x < w; x += 3) {
+      const sag = Math.round(Math.sin(x * 0.012) * 4 + 6);
+      g.fillRect(x, sag, 3, 1);
+      if ((x / 3) % 37 === 0) g.fillRect(x, sag, 1, 5);
+    }
+    for (let x = 40; x < w; x += 190) {
+      g.fillStyle = '#0a0c14';
+      g.fillRect(x, 0, 4, 17);
+      g.fillRect(x - 7, 4, 18, 3);
+    }
+  }
+  return [far, mid, fore];
+}
+
+// ACT 3's distance is the rest of the plant: gantries and tank tops in a green haze.
+function brawlBackSauceWorks(LEN, Hh, ground) {
+  const GAP = brawlGap(ground);
+  const far = brawlLayer(BRAWL_RATES.far, LEN, Hh);
+  const mid = brawlLayer(BRAWL_RATES.mid, LEN, Hh);
+  const fore = brawlLayer(BRAWL_RATES.fore, LEN, Hh);
+  {
+    const g = far.g, w = far.w;
+    const deep = g.createLinearGradient(0, 0, 0, GAP + 16);
+    deep.addColorStop(0, '#0a1412');
+    deep.addColorStop(1, '#152220');
+    g.fillStyle = deep;
+    g.fillRect(0, 0, w, GAP + 16);
+    brawlSkylineRow(g, w, GAP + 14, { body: '#101c1c', lit: '#3f6a52', step: 34, bw: 22, bh: 14, bhVar: 16 });
+    // worklights strung down the far bays
+    for (let x = 18; x < w; x += 54) {
+      g.fillStyle = '#c4ffd0'; g.fillRect(x, 6, 2, 2);
+      const gl = g.createRadialGradient(x + 1, 7, 1, x + 1, 7, 15);
+      gl.addColorStop(0, 'rgba(196,255,208,0.24)');
+      gl.addColorStop(1, 'rgba(196,255,208,0)');
+      g.fillStyle = gl;
+      g.fillRect(x - 15, 0, 32, 24);
+    }
+  }
+  {
+    const g = mid.g, w = mid.w;
+    // a gantry: two rails, a deck and its legs
+    g.fillStyle = '#1b2730';
+    g.fillRect(0, GAP - 12, w, 5);
+    g.fillStyle = '#26343f';
+    g.fillRect(0, GAP - 12, w, 1);
+    for (let x = 0; x < w; x += 11) {
+      g.fillStyle = '#141d24';
+      g.fillRect(x, GAP - 7, 2, 7);
+      g.fillRect(x + 5, GAP - 20, 1, 8);
+    }
+    // tank tops rising behind it
+    for (let x = 30; x < w; x += 148) {
+      g.fillStyle = '#1e2b34';
+      g.fillRect(x, GAP - 30, 46, 18);
+      g.fillStyle = '#27363f';
+      g.fillRect(x + 3, GAP - 34, 40, 5);
+      g.fillStyle = '#4a6a52';
+      g.fillRect(x + 8, GAP - 27, 10, 3);
+    }
+  }
+  {
+    const g = fore.g, w = fore.w;
+    // THE PIPES, moved off the wall layer. They were drawn at 1:1 across the whole
+    // ceiling, which is the one place a 1:1 background is most obviously flat.
+    for (const [py, col, h] of [[2, '#2b3a4c', 6], [10, '#22303f', 5], [17, '#334458', 4]]) {
+      g.fillStyle = col;
+      g.fillRect(0, py, w, h);
+      g.fillStyle = brawlShade(col, 1.35);
+      g.fillRect(0, py, w, 1);
+      g.fillStyle = brawlShade(col, 0.55);
+      for (let x = 22; x < w; x += 64) g.fillRect(x, py - 1, 5, h + 2);
+    }
+    // a chain hoist hanging off them
+    for (let x = 90; x < w; x += 320) {
+      g.fillStyle = '#1a222c';
+      for (let y = 21; y < 34; y += 3) g.fillRect(x, y, 2, 2);
+      g.fillRect(x - 3, 34, 8, 5);
+    }
+  }
+  return [far, mid, fore];
+}
 
 // ACT 1 — kitchen → freezer → loading dock → vault (the original shift).
 function brawlStripRestaurant(Hh, ground) {
@@ -1300,33 +1593,40 @@ function brawlStripRestaurant(Hh, ground) {
   c.height = Hh;
   const g = c.getContext('2d');
 
+  // GAP: the wall starts BELOW this and the deep layers show above it. Every prop
+  // keeps its own y, so the tall ones now stand against the distance.
+  const GAP = brawlGap(ground);
   const wallFor = (sec) => sec === 0 ? ['#17222f', '#121b27'] : sec === 1 ? ['#1c2b36', '#16232d'] : ['#231a16', '#1a1310'];
   for (let sec = 0; sec < 3; sec++) {
     const x0 = sec * SEC, [wa, wb] = wallFor(sec);
     g.fillStyle = wa;
-    g.fillRect(x0, 0, SEC, ground);
+    g.fillRect(x0, GAP, SEC, ground - GAP);
     g.fillStyle = wb;
     if (sec === 2) {
       // loading dock: big bricks
-      for (let y = 0; y < ground; y += 8)
-        for (let x = x0 + ((y / 8) % 2 ? 8 : 0); x < x0 + SEC; x += 16)
+      for (let y = GAP; y < ground; y += 8)
+        for (let x = x0 + (((y - GAP) / 8) % 2 ? 8 : 0); x < x0 + SEC; x += 16)
           g.fillRect(x, y, 15, 7);
     } else {
-      for (let y = 0; y < ground; y += 10)
-        for (let x = x0 + ((y / 10) % 2 ? 5 : 0); x < x0 + SEC; x += 10)
+      for (let y = GAP; y < ground; y += 10)
+        for (let x = x0 + (((y - GAP) / 10) % 2 ? 5 : 0); x < x0 + SEC; x += 10)
           g.fillRect(x, y, 9, 9);
     }
-    // top shadow
-    const shade = g.createLinearGradient(0, 0, 0, ground);
+    // top shadow, and a lintel so the cut reads as a soffit and not as a crop
+    const shade = g.createLinearGradient(0, GAP, 0, ground);
     shade.addColorStop(0, 'rgba(0,0,4,0.72)');
     shade.addColorStop(0.6, 'rgba(0,0,4,0.15)');
     shade.addColorStop(1, 'rgba(0,0,4,0)');
     g.fillStyle = shade;
-    g.fillRect(x0, 0, SEC, ground);
+    g.fillRect(x0, GAP, SEC, ground - GAP);
+    g.fillStyle = brawlShade(wa, 1.7);
+    g.fillRect(x0, GAP, SEC, 1);
+    g.fillStyle = brawlShade(wa, 0.5);
+    g.fillRect(x0, GAP + 1, SEC, 2);
   }
 
   // ---- section 1: the kitchen (bunting, fridge, stoves, windows, shelves)
-  const bunY = Math.max(14, ground - 118);
+  const bunY = Math.max(GAP + 7, ground - 118);
   g.fillStyle = '#3a2c14';
   g.fillRect(0, bunY, SEC, 1);
   const flagCols = ['#d32f2f', '#ffe23a', '#26e0ff', '#ff8a3d'];
@@ -1389,27 +1689,28 @@ function brawlStripRestaurant(Hh, ground) {
     g.fillStyle = '#bfe4f4';
     for (let x = x0 + 4; x < x0 + SEC; x += 22) {
       const len = 6 + ((x * 7) % 12);
-      g.fillRect(x, 0, 4, len);
-      g.fillRect(x + 1, len, 2, 4);
+      g.fillRect(x, GAP + 3, 4, len);
+      g.fillRect(x + 1, GAP + 3 + len, 2, 4);
     }
     // frost patches on the wall
     g.fillStyle = 'rgba(190,228,244,0.14)';
     for (let i = 0; i < 26; i++) {
       const fx2 = x0 + 30 + ((i * 173) % (SEC - 60));
-      const fy2 = 20 + ((i * 97) % (ground - 60));
+      const fy2 = GAP + 6 + ((i * 97) % Math.max(20, ground - GAP - 46));
       g.fillRect(fx2, fy2, 14 + (i % 3) * 8, 8 + (i % 2) * 6);
     }
     // hanging frozen nugget slabs on a rail
+    const railY = GAP + 6;
     g.fillStyle = '#565f85';
-    g.fillRect(x0 + 120, 26, SEC - 240, 3);
+    g.fillRect(x0 + 120, railY, SEC - 240, 3);
     for (let i = 0; i < 7; i++) {
       const hx = x0 + 150 + i * 68;
-      g.fillStyle = '#8a93b8'; g.fillRect(hx, 29, 2, 12);
+      g.fillStyle = '#8a93b8'; g.fillRect(hx, railY + 3, 2, 12);
       g.fillStyle = '#c8a76a';
-      g.fillRect(hx - 8, 41, 18, 26);
+      g.fillRect(hx - 8, railY + 15, 18, 26);
       g.fillStyle = '#9db8c9';
-      g.fillRect(hx - 8, 41, 18, 5);
-      g.fillRect(hx - 8, 60, 4, 7);
+      g.fillRect(hx - 8, railY + 15, 18, 5);
+      g.fillRect(hx - 8, railY + 34, 4, 7);
     }
     // stacked ice boxes
     for (const [bx, n] of [[x0 + 90, 3], [x0 + 420, 2], [x0 + 600, 3]])
@@ -1477,7 +1778,8 @@ function brawlStripRestaurant(Hh, ground) {
 
   // warm kitchen fluorescents through to the dock's sodium
   brawlStripFloor(g, LEN, Hh, ground, '#1b2434', '#242f44', '#e8412c', 'rgba(255,238,196,0.15)');
-  return c;
+  const [far, mid, fore] = brawlBackRestaurant(LEN, Hh, ground);
+  return { back: [far, mid, { c, rate: 1 }], fore: [fore] };
 }
 
 // THE BELT. Shared by all three acts (the colours set the mood), and until this
@@ -1569,30 +1871,27 @@ function brawlStripNuggetown(Hh, ground) {
   c.height = Hh;
   const g = c.getContext('2d');
 
-  // night sky base across the whole act — buildings paint over it
-  const sky = g.createLinearGradient(0, 0, 0, ground);
-  sky.addColorStop(0, '#060916');
-  sky.addColorStop(1, '#131a30');
-  g.fillStyle = sky;
-  g.fillRect(0, 0, LEN, ground);
-  g.fillStyle = '#8a93b8';
-  for (let i = 0; i < 160; i++) g.fillRect((i * 173) % LEN, (i * 61) % Math.max(ground - 40, 20), 1, 1);
-  g.fillStyle = '#f4ecd4';
-  g.beginPath(); g.arc(SEC * 2 + 320, 28, 14, 0, 7); g.fill();
-  g.fillStyle = '#131a30';
-  g.beginPath(); g.arc(SEC * 2 + 326, 25, 12, 0, 7); g.fill();
+  // The sky, the 160 stars, the moon and the distant skyline used to be painted RIGHT
+  // HERE, into the same canvas as the kerb, and scrolled with it at 1:1. They are all
+  // on the far plane now (brawlBackNuggetown) — which is the whole point of the round,
+  // because a moon that slides past at walking pace is the single most 1:1 thing a
+  // side-scroller can put on screen.
+  const GAP = brawlGap(ground);
 
   // ---- section 1: grease alley (brick, dumpster, fire escapes, graffiti)
   {
-    g.fillStyle = '#1c1216'; g.fillRect(0, 0, SEC, ground);
+    g.fillStyle = '#1c1216'; g.fillRect(0, GAP, SEC, ground - GAP);
     g.fillStyle = '#140d10';
-    for (let y = 0; y < ground; y += 8)
-      for (let x = ((y / 8) % 2 ? 8 : 0); x < SEC; x += 16) g.fillRect(x, y, 15, 7);
+    for (let y = GAP; y < ground; y += 8)
+      for (let x = (((y - GAP) / 8) % 2 ? 8 : 0); x < SEC; x += 16) g.fillRect(x, y, 15, 7);
+    // a coping course, so the top of the alley wall is a roofline
+    g.fillStyle = '#2a1c22'; g.fillRect(0, GAP, SEC, 3);
+    g.fillStyle = '#0e0a0c'; g.fillRect(0, GAP + 3, SEC, 2);
     // fire escapes
     for (const fx of [90, 420, 660]) {
       g.fillStyle = '#2a3040';
       for (let i = 0; i < 3; i++) {
-        const fy = 18 + i * 32;
+        const fy = GAP + 12 + i * 32;
         g.fillRect(fx, fy, 64, 3);
         g.fillRect(fx + 6, fy - 14, 2, 14); g.fillRect(fx + 56, fy - 14, 2, 14);
         for (let z = 0; z < 8; z++) g.fillRect(fx + 4 + z * 8, fy - 10, 1, 10);
@@ -1636,10 +1935,12 @@ function brawlStripNuggetown(Hh, ground) {
   // ---- section 2: the neon strip (storefronts, signs, an all-night fry bar)
   {
     const x0 = SEC;
-    g.fillStyle = '#171522'; g.fillRect(x0, 0, SEC, ground);
+    g.fillStyle = '#171522'; g.fillRect(x0, GAP, SEC, ground - GAP);
     g.fillStyle = '#100e18';
-    for (let y = 0; y < ground; y += 10)
-      for (let x = x0 + ((y / 10) % 2 ? 5 : 0); x < x0 + SEC; x += 10) g.fillRect(x, y, 9, 9);
+    for (let y = GAP; y < ground; y += 10)
+      for (let x = x0 + (((y - GAP) / 10) % 2 ? 5 : 0); x < x0 + SEC; x += 10) g.fillRect(x, y, 9, 9);
+    g.fillStyle = '#241f33'; g.fillRect(x0, GAP, SEC, 3);
+    g.fillStyle = '#0d0b14'; g.fillRect(x0, GAP + 3, SEC, 2);
     const shopfront = (sx, w2, awning) => {
       g.fillStyle = '#0a0d1c'; g.fillRect(sx, ground - 64, w2, 54);
       g.fillStyle = '#ffe9a0';
@@ -1680,17 +1981,10 @@ function brawlStripNuggetown(Hh, ground) {
   // ---- section 3: the rooftops (parapet, AC units, antennae, skyline)
   {
     const x0 = SEC * 2;
-    // distant skyline against the sky
-    g.fillStyle = '#0d1220';
-    for (let i = 0; i < 12; i++) {
-      const bw = 40 + ((i * 37) % 50), bh = 40 + ((i * 53) % 70);
-      const bx = x0 + i * 68;
-      g.fillRect(bx, ground - 60 - bh, bw, bh + 20);
-      g.fillStyle = '#39465c';
-      for (let z = 0; z < 8; z++)
-        if ((z * 7 + i * 13) % 3 === 0) g.fillRect(bx + 4 + (z % 4) * 9, ground - 50 - bh + Math.floor(z / 4) * 14, 4, 6);
-      g.fillStyle = '#0d1220';
-    }
+    // The rooftop section's own skyline is GONE from this layer — it is the far and
+    // mid planes now, and on a roof that is the difference between a painted backdrop
+    // and standing above a city. What stays here is the roof you fight on.
+    //
     // the roof you fight on: parapet wall along the bottom of the wall zone
     g.fillStyle = '#231f2c'; g.fillRect(x0, ground - 34, SEC, 24);
     g.fillStyle = '#2e2938';
@@ -1759,7 +2053,8 @@ function brawlStripNuggetown(Hh, ground) {
   for (let y = ground; y < Hh; y += 6)
     for (let x = 2180 + (((y - ground) / 6) % 2) * 6; x < LEN; x += 12) g.fillRect(x, y, 6, 6);
   g.fillStyle = '#ffd23a'; g.fillRect(2180, ground, 3, Hh - ground);
-  return c;
+  const [far, mid, fore] = brawlBackNuggetown(LEN, Hh, ground);
+  return { back: [far, mid, { c, rate: 1 }], fore: [fore] };
 }
 
 // ACT 3 — factory floor → vat room → packing line → the coop.
@@ -1770,24 +2065,24 @@ function brawlStripSauceWorks(Hh, ground) {
   c.height = Hh;
   const g = c.getContext('2d');
 
-  // industrial base wall
-  g.fillStyle = '#1a2026'; g.fillRect(0, 0, LEN, ground);
+  // industrial base wall. The coop paints its own full-height wall at 2180, so the
+  // plant's wall stops there and the deep bays show above it everywhere else.
+  const GAP = brawlGap(ground);
+  g.fillStyle = '#1a2026'; g.fillRect(0, GAP, 2180, ground - GAP);
   g.fillStyle = '#131920';
-  for (let y = 0; y < ground; y += 12)
-    for (let x = ((y / 12) % 2 ? 10 : 0); x < LEN; x += 20) g.fillRect(x, y, 19, 11);
-  const shade = g.createLinearGradient(0, 0, 0, ground);
+  for (let y = GAP; y < ground; y += 12)
+    for (let x = (((y - GAP) / 12) % 2 ? 10 : 0); x < 2180; x += 20) g.fillRect(x, y, 19, 11);
+  const shade = g.createLinearGradient(0, GAP, 0, ground);
   shade.addColorStop(0, 'rgba(0,0,4,0.7)');
   shade.addColorStop(0.6, 'rgba(0,0,4,0.12)');
   shade.addColorStop(1, 'rgba(0,0,4,0)');
   g.fillStyle = shade;
-  g.fillRect(0, 0, LEN, ground);
-
-  // pipes run the whole ceiling
-  for (const [py, col] of [[10, '#39465c'], [20, '#2e3d54'], [30, '#39465c']]) {
-    g.fillStyle = col; g.fillRect(0, py, LEN, 6);
-    g.fillStyle = '#565f85';
-    for (let x = 30; x < LEN; x += 90) g.fillRect(x, py - 1, 6, 8);
-  }
+  g.fillRect(0, GAP, 2180, ground - GAP);
+  // a steel channel capping the wall
+  g.fillStyle = '#2b3844'; g.fillRect(0, GAP, 2180, 3);
+  g.fillStyle = '#0d1216'; g.fillRect(0, GAP + 3, 2180, 2);
+  // The three ceiling pipe runs used to be HERE, at 1:1, which is the flattest place
+  // in the frame to put a straight horizontal line. They are the foreground plane now.
 
   // ---- section 1: the factory floor (machines, gauges, hazard stripes)
   {
@@ -1829,7 +2124,7 @@ function brawlStripSauceWorks(Hh, ground) {
         g.fillRect(vx + 16 + ((i * 29) % 88), ground - 96 + ((i * 17) % 68), 3, 3);
       // rim + feed pipe
       g.fillStyle = '#565f85'; g.fillRect(vx - 2, ground - 122, 124, 6);
-      g.fillRect(vx + 54, 34, 10, ground - 156);
+      g.fillRect(vx + 54, GAP + 4, 10, ground - 126 - GAP);
       g.font = '900 10px Consolas, monospace';
       g.fillStyle = '#0a0d14';
       g.fillText(label, vx + 14, ground - 104);
@@ -1894,12 +2189,12 @@ function brawlStripSauceWorks(Hh, ground) {
     for (let i = 0; i < 60; i++)
       g.fillRect(x0 + ((i * 61) % w2), ((i * 91) % ground), 4, 1);
     // the banner
-    g.fillStyle = '#8a1c10'; g.fillRect(x0 + 30, 12, w2 - 60, 26);
+    g.fillStyle = '#8a1c10'; g.fillRect(x0 + 30, 14, w2 - 60, 26);
     g.fillStyle = '#5c1008';
-    for (let x = x0 + 30; x < LEN - 30; x += 12) g.fillRect(x, 36, 8, 5);
+    for (let x = x0 + 30; x < LEN - 30; x += 12) g.fillRect(x, 38, 8, 5);
     g.font = '900 13px Consolas, monospace';
     g.fillStyle = '#ffe23a';
-    g.fillText('MOTHER CLUCKER', x0 + 48, 30);
+    g.fillText('MOTHER CLUCKER', x0 + 48, 32);
     // the throne nest with a giant golden egg
     const nx = x0 + w2 / 2;
     g.fillStyle = '#6d5426';
@@ -1945,7 +2240,8 @@ function brawlStripSauceWorks(Hh, ground) {
   g.fillStyle = '#5c4a1a';
   for (let i = 0; i < 90; i++)
     g.fillRect(2180 + ((i * 41) % (LEN - 2180)), ground + ((i * 29) % (Hh - ground)), 5, 1);
-  return c;
+  const [far, mid, fore] = brawlBackSauceWorks(LEN, Hh, ground);
+  return { back: [far, mid, { c, rate: 1 }], fore: [fore] };
 }
 
 // ---- shared pixel helpers ----------------------------------------------------------
@@ -2845,7 +3141,7 @@ function drawBrawl() {
   const shy = brawl.shake > 0 ? Math.round(brawlJitter(2) * 3 * brawl.shake * 3) : 0;
   g.save();
   g.translate(shx, shy);
-  g.drawImage(brawl.bg, -Math.round(brawl.cam), 0);
+  for (const L of brawl.bg.back) g.drawImage(L.c, -Math.round(brawl.cam * L.rate), 0);
 
   // splats stain the belt where they landed
   for (const s of brawl.splats) {
@@ -3008,6 +3304,9 @@ function drawBrawl() {
   px(g, 0, railY, W, 2, '#2f3849');
   px(g, 0, railY, W, 1, '#556484');
   for (let x = 6; x < W; x += 46) px(g, x, railY, 2, Hh - railY, '#252d3c');
+
+  // the foreground plane, over the cast — and only ever overhead, see BRAWL_RATES
+  for (const L of brawl.bg.fore) g.drawImage(L.c, -Math.round(brawl.cam * L.rate), 0);
 
   drawBrawlHud(g, W, Hh);
   g.restore();

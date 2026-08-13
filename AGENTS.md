@@ -1395,3 +1395,73 @@ fighting game, `blown` on the impact frame IS the impact frame**: before this ro
 a landed punch put about twelve white pixels on a 68,000-pixel screen. The twelve
 stage scenes came back numerically identical to `b1-final`, which is the control —
 nothing outside combat moved.
+
+## 🥊 BRAWLERS ROUND 3 — THE DISTANCE (2026-08-13)
+
+**The layer: parallax, and it had never existed.** The background was ONE canvas
+drawn `drawImage(brawl.bg, -round(cam), 0)` — dead 1:1 with the camera, which is
+the one thing a side-scroller must never be. Act 2 had a *distant skyline and a
+moon* painted into the same canvas as the kerb, so the moon slid past at walking
+pace. `brawl.bg` is `{ back: [...], fore: [...] }` now, four planes:
+
+| | rate | |
+|---|---|---|
+| far | 0.28 | sky + skyline outdoors, the ceiling and the deep room indoors |
+| mid | 0.60 | a nearer tower row, the extract duct, the gantry |
+| wall | 1.00 | everything the game already had, unmoved |
+| fore | 1.50 | overhead only — heat lamps, street wires, the ceiling pipes |
+
+**THE TWO RULES IT IS BUILT ON, and both were learned by nearly getting them wrong.**
+
+**1. Opening the wall layer means starting its BASE FILL lower, not erasing a band
+out of it afterwards.** The wall was opaque from y 0 to the floor, so a far plane
+behind it is a far plane nobody will ever see. Each section's base fill (and its
+brick loop, and its top-shadow gradient) now starts at `brawlGap(ground)` — about
+32px at the default viewport — and **every prop keeps its own y**, so the fridge,
+the icicles, the vats, the robot arms and the vault door stand SILHOUETTED against
+the distance instead of against more wall. Erasing the band instead would have
+decapitated all five. Four things genuinely anchored to y 0 did have to move down
+(act 1's bunting, the icicles, the freezer rail and its slabs, act 2's fire
+escapes), and each got a coping course / lintel at the cut so it reads as a soffit
+rather than as a crop.
+
+**2. The foreground plane stays OVERHEAD.** A near layer at 1.5 is the strongest
+depth cue available here and also the fastest way to ruin a fighting game: a
+fighter is 20px tall standing at y 100–124, and anything drawn over that is a
+frame where you cannot see what hit you. Every fore layer lives in the top 20px.
+Act 3's three ceiling pipe runs were already up there **at 1:1**, which is the
+flattest possible place to put a straight horizontal line, and simply moved.
+
+**Two things the first pass got wrong, both found in the crop, not the table:**
+
+- **One warm restaurant ceiling ran the length of act 1 and hung red heat lamps
+  over the walk-in freezer.** A far layer at rate `r` is displayed at `far-x =
+  cam * r`, so a section boundary at world X lands at `X * r` — which means the
+  light up there CAN follow the room you are standing in. Act 1's far plane and its
+  fore lamps are banded into four now: warm kitchen, cold walk-in, night-blue dock,
+  gold vault.
+- **The skyline lit one grid cell in three and came back as a wall of yellow
+  squares.** One in seven, dimmer, and 2×3 windows instead of 3×4. At this scale a
+  distant city is mostly DARK with a few lights in it, and the darkness is the read.
+
+**MEASURED** (`b2-fist` → `b3-final`, 16 gameplay scenes). This round is the first
+one whose numbers all move the way you would want without an argument:
+
+| | before | after | |
+|---|---|---|---|
+| `dead` (pure black) | 0.42 | 0.20 | −52% |
+| `near` (luma < 20) | 32.4 | 24.6 | −24% |
+| `mean` | 41.5 | 43.7 | +5% |
+| `flat` | 52.9 | 51.8 | −2% |
+
+The two frames that had real pure-black regions were the ones looking up at nothing:
+`03-dock` 2.67 → 0.71 and `04-vault` 3.29 → 1.00. fps 60.5 unchanged with four
+`drawImage` calls per frame instead of one, and all four of 640×480 / 800×400 /
+1440×900 / 1920×1080 render clean (the layer widths are computed from `brawl.W`, so
+they resize with the world).
+
+**`brawlpose.js --seq pan`** exists because none of this can be shot any other way:
+it walks the camera a fifth of a second at a time so the strip shows the planes
+sliding across each other. A layer's width is `ceil((LEN - W) * rate) + W` — exactly
+as wide as it can ever be drawn, and a layer one pixel short shows the void at the
+end of the act.

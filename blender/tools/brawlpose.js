@@ -79,6 +79,18 @@ const SEQS = {
     act: 1, stage: 1, at: [150, 14], cups: [['soy', 164, 14]],
     pre: { hurt: 1 }, n: 30, every: 2, box: [110, 80, 120, 80],
   },
+  // THE PAN. The whole point of round 3, and it cannot be shot any other way: this
+  // walks the camera a long way and samples every fifth of a second, so the strip
+  // shows the four planes sliding across each other. On act 2 the top band is the
+  // skyline that used to track the kerb at 1:1.
+  pan: {
+    what: 'the camera travelling: do the four planes move at four rates?',
+    act: 1, stage: 1, at: [60, 14], keys: { r: true }, n: 8, every: 12, box: [0, 0, 340, 60],
+  },
+  panfactory: {
+    what: 'the same, in the works — the ceiling pipes are the FOREGROUND plane now',
+    act: 2, stage: 0, at: [60, 14], keys: { r: true }, n: 8, every: 12, box: [0, 0, 340, 60],
+  },
   // BLOCKED. Mayo holds a guard against frontal jabs, and a blocked hit has to
   // read differently from a landed one or the player cannot tell why the cup is
   // not dying. Same input as `punch`, different cup.
