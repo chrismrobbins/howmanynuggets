@@ -51,6 +51,16 @@ node blender/tools/brawlpose.js --seq punch --tag b1-punch
 CROP_PIXEL=1 python blender/tools/crop.py strip b1-punch 8 340
 ```
 
+**`BRAWL_WORLD=std|wide|hd`** picks a WORLD PROFILE, and it exists because the first
+version of this harness pinned one viewport and asserted it. `brawl.scale = max(2,
+floor(vh / 200))` with a canvas sized in WORLD pixels means the viewport changes the
+SHAPE of the frame, not just its size: 1020x600 is a 340x200 world at aspect 1.70, and
+Beau's 4K panel produces up to 475x242 at aspect 2.11. Four rounds of composition were
+validated at 1.70 and nowhere else, and what that hid was a cutscene cast sized in
+absolute pixels (so it shrank relative to the shot as the display grew) and 6px text
+that smears when the game magnifies it by 5. **8px minimum in this canvas.** `std` is
+the default so old tags stay comparable; look at anything that matters in both.
+
 **`CROP_PIXEL=1`** switches every resize in `crop.py` to NEAREST at an integer
 scale and never downscales below 1:1. Brawl tags start with `b-`/`b<n>-`, and
 `brawlshoot.js` refuses to write into a tag that already holds hall shots — the

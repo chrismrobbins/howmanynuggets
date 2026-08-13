@@ -1542,3 +1542,54 @@ untouched and still measure badly: `17-title` (near **88.9%**, flat 91.1),
 type and geometry on a flat field. The title in particular is the second frame of
 the game and has no set at all — `brawlCutArt` now has five of them sitting right
 there to borrow from.
+
+## 🥊 BRAWLERS ROUND 5 — THE REAL SCREEN (2026-08-13)
+
+**Beau sent prod screenshots back off a 4K panel and they found a hole in the
+harness itself. Read this before trusting any number in the four rounds above.**
+
+`brawl.scale = max(2, floor(vh / 200))` and the canvas is sized in WORLD pixels, so
+**the viewport does not just change how big this game is — it changes the SHAPE of
+the frame.** `brawlharness.js` pinned 1020×600, which gives a 340×200 world at
+aspect 1.70, and asserted it on every run. That looked like rigour. Beau's
+screenshots came back at aspect **1.76 to 2.11** — a world up to 475×242, twenty-four
+per cent more frame width — and every composition decision in rounds 1–4 had been
+validated at 1.70 and nowhere else.
+
+This is the kit's own §2 rule arriving from a direction it does not cover. "Only
+same-harness deltas mean anything" is about changing the spot table, and *fixing* the
+viewport is the obvious way to obey it. For a game whose world size is a function of
+the window, one viewport is one aspect ratio.
+
+**`BRAWL_WORLD=std|wide|hd`** now selects a profile (`PROFILES` in
+`brawlharness.js`). `std` stays default so every earlier tag remains comparable;
+`wide` is Beau's machine. **Anything that is going to be looked at should be looked
+at in both.** `BAND()` is a fraction of world height now instead of a flat 60px.
+
+**Two faults it immediately exposed, neither visible at 340×200:**
+
+**1. The cutscene cast was sized in ABSOLUTE PIXELS in a frame sized from the
+window.** Twenty pixels of nugget in a 140px picture window is 15% of frame height;
+a two-shot puts its actors at 35–40%. And the bigger the display, the *smaller* the
+actors got relative to the shot. Fixed with no new art: `brawlActor()` paints each
+actor once into an offscreen canvas at native size and `brawlBlit()` draws it at an
+**integer** scale that follows the frame — `brawlCutK(Hh)` gives 2× at 340×200 and
+3× at Beau's 475×242. Integer and NEAREST, because a fractional resample here would
+be the one soft thing in a hard-edged game.
+
+**2. Text below 8px does not survive the upscale.** The diner's specials board was
+`700 6px Consolas` and came back from prod as a smear of overlapping glyphs: the
+browser lays 6px out with subpixel antialiasing *inside the world buffer*, and the
+game then magnifies that by 4 or 5. At scale 3 the smear is three pixels wide and
+invisible in the harness. **8px minimum for anything drawn into this canvas.**
+
+**And the title card got a set**, which is what round 4 said was next: it borrows the
+diner via `brawlCutArt(g, W, Hh, 'diner', true)` — the new `noCast` flag paints the
+SET WITHOUT ITS ACTORS, because the first attempt landed a two-shot straight across
+the logo. `brawlMenuBase` no longer opens by filling the canvas, which is why nothing
+could ever be put behind a menu screen before. `17-title` near **88.9 → 72.5**, flat
+91.1 → 77.7.
+
+**Still untouched:** `18-heat` (near 84.2 at wide, flat 91.2) and `20-map` (near
+80.2, flat 81.6) are the two worst frames left, and both are now the *only* screens
+with no set behind them.

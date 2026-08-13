@@ -47,12 +47,31 @@ function requirePlaywright() {
 
 const BASE = process.env.HALL_URL || 'http://localhost:8787/';
 
-// 1020x600 is not a taste call. brawl.scale = max(2, floor(vh / 200)), and the
-// canvas is sized in WORLD pixels — so vh 600 gives scale 3 and a world exactly
-// 200 tall, vw 1020 gives exactly 340 wide. Any other viewport and the world is
-// a fractional size that changes what "the same frame" means between runs.
-const VW = 1020, VH = 600;
-const WORLD_W = 340, WORLD_H = 200;
+// WORLD PROFILES, and the reason there is more than one is the most useful piece of
+// feedback this game has had. `brawl.scale = max(2, floor(vh / 200))` and the canvas
+// is sized in WORLD pixels, so the viewport does not just change how big the picture
+// is — IT CHANGES THE SHAPE OF THE FRAME. 1020x600 gives a 340x200 world at aspect
+// 1.70. Beau plays on a 4K panel and sent screenshots back at aspect 1.76 to 2.11:
+// a world up to 475x241. Twenty-four per cent more frame width, and every
+// composition decision in rounds 1-4 had been validated at 1.70 and nowhere else.
+//
+// That is this kit's own §2 rule biting from a direction it did not cover — "only
+// same-harness deltas mean anything" is about changing the spot table, and a fixed
+// viewport looked like the safe choice. For a game whose world size is a function
+// of the window it is the opposite: one viewport is one aspect ratio, and a
+// centred composition that reads at 1.70 can be marooned in space at 2.11.
+//
+// `std` stays the default so every earlier tag remains comparable. `wide` is Beau's
+// machine. Anything that is going to be looked at should be looked at in both.
+const PROFILES = {
+  std: { vw: 1020, vh: 600, w: 340, h: 200 },
+  wide: { vw: 1900, vh: 966, w: 475, h: 242 },
+  hd: { vw: 1920, vh: 1080, w: 384, h: 216 },
+};
+const PROFILE = PROFILES[process.env.BRAWL_WORLD || 'std'];
+if (!PROFILE) throw new Error('BRAWL_WORLD must be one of ' + Object.keys(PROFILES).join(', '));
+const VW = PROFILE.vw, VH = PROFILE.vh;
+const WORLD_W = PROFILE.w, WORLD_H = PROFILE.h;
 
 // THE SCENE TABLE. The hall's equivalent is a list of camera positions; this
 // game has no camera to place, so a "spot" here is a SITUATION: which act, which
@@ -154,7 +173,7 @@ async function openBrawl(opts = {}) {
   const dims = await page.evaluate(() => ({ w: brawl.cv.width, h: brawl.cv.height, scale: brawl.scale }));
   if (dims.w !== WORLD_W || dims.h !== WORLD_H) {
     throw new Error(`world is ${dims.w}x${dims.h} (scale ${dims.scale}), expected ${WORLD_W}x${WORLD_H}`
-      + ' — the viewport must be ' + VW + 'x' + VH);
+      + ' — BRAWL_WORLD=' + (process.env.BRAWL_WORLD || 'std') + ' wants a ' + VW + 'x' + VH + ' viewport');
   }
 
   // The storm layer is DOM ON TOP of the canvas. It cannot reach the buffer we
@@ -243,9 +262,9 @@ async function fps(page, ms = 1600) {
 // average is blind to almost everything a character round does — the §19 lesson
 // from region.js, one game over. ground is 124 at this viewport; a cup stands
 // from about ground-18 to ground+34 once depth is counted.
-const BAND = (ground) => [0, ground - 22, WORLD_W, 60];
+const BAND = (ground) => [0, ground - 22, WORLD_W, Math.round(WORLD_H * 0.3)];
 
 module.exports = {
   openBrawl, pose, shotBuffer, fps, SCENES, BASE, requirePlaywright,
-  VW, VH, WORLD_W, WORLD_H, T, BAND,
+  VW, VH, WORLD_W, WORLD_H, T, BAND, PROFILES, PROFILE,
 };

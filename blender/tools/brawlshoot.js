@@ -20,7 +20,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { openBrawl, pose, shotBuffer, fps, SCENES, BAND } = require('./brawlharness');
+const { openBrawl, pose, shotBuffer, fps, SCENES, BAND, PROFILE } = require('./brawlharness');
 const { decode, stats, chroma, staircase, luma } = require('./png');
 
 function arg(name, def) {
@@ -78,6 +78,9 @@ function cropBox(img, [x, y, w, h]) {
   const list = ONLY ? SCENES.filter((s) => s.name.includes(ONLY)) : SCENES;
   if (!list.length) throw new Error('no scene matches --only ' + ONLY);
 
+  console.log('\n  world ' + PROFILE.w + 'x' + PROFILE.h + '  (BRAWL_WORLD='
+    + (process.env.BRAWL_WORLD || 'std') + ', viewport ' + PROFILE.vw + 'x' + PROFILE.vh
+    + ', aspect ' + (PROFILE.w / PROFILE.h).toFixed(2) + ')');
   const f = has('fps') ? await fps(page) : null;
   if (f != null) console.log('  fps ' + f + ' (frozen game unfrozen for 1.6s)');
 

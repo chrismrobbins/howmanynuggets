@@ -2342,9 +2342,13 @@ const BRAWL_P_COLORS = [
 
 // ---- title / heat / cutscene / credits ----------------------------------------------
 
-function brawlMenuBase(g, W, Hh) {
-  g.fillStyle = '#0a0d18';
-  g.fillRect(0, 0, W, Hh);
+// The frame furniture only. It used to open by filling the whole canvas, which is why
+// nothing could ever be put BEHIND a menu screen.
+function brawlMenuBase(g, W, Hh, opaque) {
+  if (opaque !== false) {
+    g.fillStyle = '#0a0d18';
+    g.fillRect(0, 0, W, Hh);
+  }
   // marquee chase lights around the frame
   for (let x = 4; x < W - 4; x += 10) {
     const on = Math.floor(brawl.t * 6 + x / 10) % 3 === 0;
@@ -2355,7 +2359,15 @@ function brawlMenuBase(g, W, Hh) {
 
 function brawlDrawTitle() {
   const g = brawl.g, W = brawl.W, Hh = brawl.Hh;
-  brawlMenuBase(g, W, Hh);
+  // THE TITLE CARD had no set at all — 88.9% of it was under luma 20 and 91% of its
+  // adjacent pixel pairs were identical, on the second frame of the game. It gets the
+  // diner behind it, held down far enough that the logo still owns the frame. Same
+  // trick as the credits, and it costs no new art: round 4 built five sets and this
+  // screen is standing next to them.
+  brawlCutArt(g, W, Hh, 'diner', true);
+  g.fillStyle = 'rgba(8,10,22,0.72)';
+  g.fillRect(0, 0, W, Hh);
+  brawlMenuBase(g, W, Hh, false);
   const cx = W / 2;
   // sauce splat behind the logo
   g.fillStyle = '#5c1008';
@@ -2486,6 +2498,74 @@ function brawlDrawHeat() {
 // The letterbox window is y 14 .. Hh-46 and that is the whole canvas these get. The
 // floor line sits at 0.52 of the frame so there is room under it for the pool.
 
+// CUTSCENE ACTORS, DRAWN AT NATIVE SIZE AND BLITTED AT AN INTEGER SCALE.
+//
+// Beau sent prod screenshots back off a 4K panel and the cast in every cutscene was a
+// twenty-pixel blob in a hundred-and-eighty-pixel frame. Two separate faults, and the
+// harness could not see either one:
+//
+//   1. The cast was too small for a cutscene at ANY size. Twenty pixels in the 140px
+//      picture window is 15% of frame height; a two-shot puts its actors at 35-40%.
+//   2. The cast was sized in ABSOLUTE PIXELS while the frame is sized from the window
+//      — `brawl.scale = max(2, floor(vh / 200))` — so the bigger the display, the
+//      smaller the actors got relative to the shot. The harness ran one viewport.
+//
+// This fixes both without one new pixel of art: paint the actor once into an offscreen
+// canvas at native size, then blit it at an integer scale that follows the frame. 2x on
+// a 340x200 world, 3x on Beau's 475x242. Integer and NEAREST, so it stays crisp — a
+// fractional resample here would be the one soft thing in a hard-edged game.
+const brawlActorCache = {};
+function brawlActor(key, w, h, paint) {
+  const hit = brawlActorCache[key];
+  if (hit) return hit;
+  const cv = document.createElement('canvas');
+  cv.width = w;
+  cv.height = h;
+  const gg = cv.getContext('2d');
+  gg.imageSmoothingEnabled = false;
+  paint(gg);
+  brawlActorCache[key] = cv;
+  return cv;
+}
+
+// The scale a cutscene actor gets, from the height of the picture window itself.
+function brawlCutK(Hh) { return Math.max(2, Math.round((Hh - 60) / 70)); }
+
+// Blit centred on x with the FEET on footY, which is how every other draw call in
+// this file is anchored.
+function brawlBlit(g, cv, x, footY, k) {
+  g.drawImage(cv, 0, 0, cv.width, cv.height,
+    Math.round(x - (cv.width * k) / 2), Math.round(footY - cv.height * k),
+    cv.width * k, cv.height * k);
+}
+
+// The hero and Honey Mustard, at native size, once.
+function brawlActorNug(seed, band) {
+  return brawlActor('nug' + seed + band, 22, 23, (gg) => {
+    gg.drawImage(nugBody(9, seed, '#e8a83e', '#8a5a1d'), 1, 2);
+    px(gg, 4, 6, 15, 3, band);
+    px(gg, 2, 7, 3, 1, band);
+    px(gg, 8, 13, 3, 3, '#fff'); px(gg, 14, 13, 3, 3, '#fff');
+    px(gg, 9, 14, 2, 2, '#1a0f08'); px(gg, 15, 14, 2, 2, '#1a0f08');
+    px(gg, 8, 10, 4, 1, '#42200e'); px(gg, 14, 10, 4, 1, '#42200e');
+    px(gg, 9, 18, 5, 2, '#8a5a1d'); px(gg, 15, 18, 4, 2, '#8a5a1d');
+    px(gg, 5, 20, 5, 3, '#8a5a1d'); px(gg, 13, 20, 5, 3, '#8a5a1d');
+  });
+}
+
+function brawlActorHoney(dim) {
+  return brawlActor('honey' + (dim ? 'd' : ''), 20, 23, (gg) => {
+    const body = dim ? '#d8cfb8' : '#f4f0e6';
+    px(gg, 2, 6, 17, 15, body);
+    px(gg, 1, 5, 19, 2, dim ? '#b8ad94' : '#c9cfe0');
+    px(gg, 2, 11, 17, 4, dim ? '#c98a1a' : '#e8a020');
+    px(gg, 4, 21, 6, 2, '#8a7a5a'); px(gg, 11, 21, 6, 2, '#8a7a5a');
+    px(gg, 5, 1, 5, 5, '#ff2fa0'); px(gg, 12, 1, 5, 5, '#ff2fa0');
+    px(gg, 9, 3, 4, 3, '#ff2fa0');
+    px(gg, 5, 16, 2, 2, '#1a0f08'); px(gg, 13, 16, 2, 2, '#1a0f08');
+  });
+}
+
 // A lit floor and the wedge of light standing on it — the one move that did the most
 // for the belt in round 1, reused because it is what turns a backdrop into a room.
 function brawlCutFloor(g, W, gy, floorCol, poolCol, lipCol) {
@@ -2509,7 +2589,9 @@ function brawlCutShadow(g, x, gy, w, alpha) {
   g.globalAlpha = 1;
 }
 
-function brawlCutArt(g, W, Hh, art) {
+// `noCast` paints the SET without its actors, which is what a menu backdrop wants:
+// the title card borrowed the diner and the two-shot landed straight across the logo.
+function brawlCutArt(g, W, Hh, art, noCast) {
   // The floor line was at 0.52 of the frame, which is where the old tableaus put it,
   // and every one of the new sets came back with fifty pixels of empty floor between
   // the action and the bottom bar. At 0.63 the cast stands in the lower third the way
@@ -2553,27 +2635,27 @@ function brawlCutArt(g, W, Hh, art) {
       px(g, x - 5, gy - 25, 13, 3, '#8a1c3a');
     }
     // the specials board
-    px(g, 16, gy - 58, 46, 30, '#241a0a');
-    px(g, 19, gy - 55, 40, 24, '#12241a');
-    g.font = '700 6px Consolas, monospace';
+    px(g, 14, gy - 60, 56, 34, '#241a0a');
+    px(g, 17, gy - 57, 50, 28, '#12241a');
+    // 8px, not 6. At 6px the browser lays this out with subpixel antialiasing INSIDE
+    // the world buffer and the game then magnifies that by 4 or 5 — Beau's screenshots
+    // came back with "6 PC ..1.99" as a smear of overlapping glyphs. Nothing below 8px
+    // survives an integer upscale, and the harness could not see it because at scale 3
+    // the smear is only three pixels wide.
+    g.font = '900 8px Consolas, monospace';
     g.textAlign = 'left';
     g.fillStyle = '#a5f0c0';
-    g.fillText('6 PC ..1.99', 21, gy - 47);
-    g.fillText('12 PC .3.49', 21, gy - 39);
-    g.fillText('SAUCE FREE', 21, gy - 31);
-    // the cast, twice the size they were
-    brawlCutShadow(g, cx - 34, gy, 17);
-    g.drawImage(nugBody(9, 4, '#e8a83e', '#8a5a1d'), cx - 45, gy - 44);
-    px(g, cx - 41, gy - 39, 15, 3, '#d32f2f');
-    px(g, cx - 39, gy - 32, 3, 3, '#fff'); px(g, cx - 33, gy - 32, 3, 3, '#fff');
-    px(g, cx - 38, gy - 31, 2, 2, '#1a0f08'); px(g, cx - 32, gy - 31, 2, 2, '#1a0f08');
-    brawlCutShadow(g, cx + 24, gy, 15);
-    px(g, cx + 16, gy - 24, 17, 22, '#f4f0e6');
-    px(g, cx + 15, gy - 25, 19, 2, '#c9cfe0');
-    px(g, cx + 16, gy - 18, 17, 4, '#e8a020');
-    px(g, cx + 19, gy - 30, 5, 5, '#ff2fa0'); px(g, cx + 26, gy - 30, 5, 5, '#ff2fa0');
-    px(g, cx + 23, gy - 28, 3, 3, '#ff2fa0');
-    px(g, cx + 20, gy - 13, 2, 2, '#1a0f08'); px(g, cx + 27, gy - 13, 2, 2, '#1a0f08');
+    g.fillText('6PC 1.99', 22, gy - 46);
+    g.fillText('12PC 3.49', 22, gy - 37);
+    px(g, 22, gy - 33, 33, 1, '#3f7a55');
+    // THE CAST, at K times the size the rig draws them in game
+    const K = brawlCutK(Hh);
+    if (!noCast) {
+      brawlCutShadow(g, cx - 15 * K, gy, 11 * K);
+      brawlBlit(g, brawlActorNug(4, '#d32f2f'), cx - 15 * K, gy, K);
+      brawlCutShadow(g, cx + 13 * K, gy, 10 * K);
+      brawlBlit(g, brawlActorHoney(false), cx + 13 * K, gy, K);
+    }
     // a booth back across the near edge, out of focus and cropped — the cheapest
     // foreground plane there is, and it stops the floor running to the bar
     px(g, 0, gy + 16, W, 200, '#150f0a');
@@ -2796,24 +2878,20 @@ function brawlCutArt(g, W, Hh, art) {
     px(g, 8, gy + 6, 14, 200, '#2a1f14');
     px(g, 6, gy + 4, 18, 4, '#3d2c1c');
     px(g, 6, gy + 4, 18, 1, '#6b5236');
-    // the two of them, backlit
-    const px0 = brawl.twoP ? cx - 52 : cx - 34;
-    brawlCutShadow(g, px0 + 11, gy, 17);
-    g.drawImage(nugBody(9, 4, '#c98a2e', '#6b4416'), px0, gy - 44);
-    px(g, px0 + 4, gy - 39, 15, 3, '#a8231b');
-    px(g, px0 + 15, gy - 42, 6, 20, '#ffd27a');
+    // the two of them, backlit, at cutscene scale
+    const K = brawlCutK(Hh);
+    const hx0 = brawl.twoP ? cx - 24 * K : cx - 15 * K;
+    brawlCutShadow(g, hx0, gy, 11 * K);
+    brawlBlit(g, brawlActorNug(4, '#a8231b'), hx0, gy, K);
+    px(g, hx0 + 9 * K, gy - 21 * K, 3, 18 * K, '#ffd27a');
     if (brawl.twoP) {
-      brawlCutShadow(g, cx - 14, gy, 17);
-      g.drawImage(nugBody(9, 6, '#c98a2e', '#6b4416'), cx - 25, gy - 42);
-      px(g, cx - 21, gy - 37, 15, 3, '#25549e');
-      px(g, cx - 10, gy - 40, 6, 18, '#ffd27a');
+      brawlCutShadow(g, cx - 7 * K, gy, 11 * K);
+      brawlBlit(g, brawlActorNug(6, '#25549e'), cx - 7 * K, gy, K);
+      px(g, cx + 2 * K, gy - 21 * K, 3, 18 * K, '#ffd27a');
     }
-    brawlCutShadow(g, cx + 24, gy, 15);
-    px(g, cx + 16, gy - 24, 17, 22, '#d8cfb8');
-    px(g, cx + 16, gy - 18, 17, 4, '#c98a1a');
-    px(g, cx + 31, gy - 24, 2, 22, '#ffe9a0');
-    px(g, cx + 19, gy - 30, 5, 5, '#d8267f'); px(g, cx + 26, gy - 30, 5, 5, '#d8267f');
-    px(g, cx + 20, gy - 13, 2, 2, '#1a0f08'); px(g, cx + 27, gy - 13, 2, 2, '#1a0f08');
+    brawlCutShadow(g, cx + 13 * K, gy, 10 * K);
+    brawlBlit(g, brawlActorHoney(true), cx + 13 * K, gy, K);
+    px(g, cx + 22 * K, gy - 20 * K, 3, 17 * K, '#ffe9a0');
   }
   g.textAlign = 'center';
 }
