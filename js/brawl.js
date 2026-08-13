@@ -695,10 +695,17 @@ function koCup(e, byChainIdx) {
     t: 0,
   });
   updateStormHud();
+  brawlFx(e.x, e.d, e.boss ? 20 : 13, 'spark', e.face, 1);
   if (e.boss) {
     brawl.shake = 0.5;
+    brawl.hitstop = 0.14;
     sfxBrawlBossDown();
-  } else if (brawlRand() < 0.12) {
+  } else {
+    // a KO is the payoff of the whole loop and it used to land softer than a jab
+    brawl.hitstop = Math.max(brawl.hitstop, 0.1);
+    brawl.shake = Math.max(brawl.shake, 0.2);
+  }
+  if (!e.boss && brawlRand() < 0.12) {
     brawlSpawnDrop('rand', e.x, e.d); // cups occasionally drop their lunch money
   }
 }
@@ -722,8 +729,10 @@ function hurtPlayer(p, fromX) {
   }
 }
 
-function brawlFx(x, d, h, kind) {
-  brawl.fx.push({ x, d, h, kind, t: 0 });
+// `dir` is the facing of whatever caused this, so an impact sprays FORWARD
+// instead of symmetrically; `big` is the weight (an upper, a KO, a cyclone).
+function brawlFx(x, d, h, kind, dir, big) {
+  brawl.fx.push({ x, d, h, kind, dir: dir || 0, big: big || 0, t: 0 });
 }
 
 // nearest punchable target for enemy AI (prefers whoever is still standing)
@@ -843,7 +852,7 @@ function stepBrawl(dt, w, h) {
 
   for (let i = brawl.fx.length - 1; i >= 0; i--) {
     brawl.fx[i].t += dt;
-    if (brawl.fx[i].t > 0.25) brawl.fx.splice(i, 1);
+    if (brawl.fx[i].t > (brawl.fx[i].kind === 'spark' ? 0.17 : 0.25)) brawl.fx.splice(i, 1);
   }
   for (let i = brawl.splats.length - 1; i >= 0; i--) {
     const s = brawl.splats[i];
@@ -891,7 +900,7 @@ function brawlStepPlayer(p, dt, len) {
       m.hit.add(e);
       e.hp -= m.dmg;
       brawl.hitstop = 0.04;
-      brawlFx((e.x + p.x) / 2, e.d, 14, 'spark');
+      if (e.hp > 0) brawlFx((e.x + p.x) / 2, e.d, 14, 'spark', Math.sign(e.x - p.x) || 1, 1);
       sfxBrawlHit(true);
       if (e.hp <= 0) koCup(e, 2);
       else {
@@ -939,15 +948,22 @@ function brawlHitEnemies(p, m, hx, isUpper) {
     const frontal = e.face === Math.sign(p.x - e.x);
     if (e.guardUp && frontal && !isUpper && e.st !== 'hurt') {
       e.blockT = 0.25;
-      brawlFx((e.x + hx) / 2, e.d, 10, 'dust');
+      brawl.hitstop = 0.03;
+      brawlFx(e.x + e.face * 7, e.d, 10, 'guard', e.face);
       sfxBrawlSlam();
       continue;
     }
     if (e.guardUp && (isUpper || !frontal)) e.guardUp = false; // guard broken for good
     e.hp -= m.dmg;
     p.meter = Math.min(METER_MAX, p.meter + 9 * brawl.cfg.meterGain * (isUpper ? 1.6 : 1));
-    brawl.hitstop = 0.05;
-    brawlFx((e.x + hx) / 2, e.d, isUpper ? 16 : 11, 'spark');
+    // WEIGHT. Every hit in this game froze the screen for exactly 0.05s and shook
+    // it not at all, so a jab, an upper and a spatula swing all landed identically.
+    brawl.hitstop = isUpper ? 0.075 : 0.045;
+    brawl.shake = Math.max(brawl.shake, isUpper ? 0.17 : 0.07);
+    // only if it SURVIVES: koCup spawns its own, bigger burst, and the first cut of
+    // this stacked the two at the same point and produced a white cloud with a cup
+    // somewhere inside it
+    if (e.hp > 0) brawlFx((e.x + hx) / 2, e.d, isUpper ? 16 : 11, 'spark', p.face, isUpper ? 1 : 0);
     sfxBrawlHit(isUpper);
     if (e.hp <= 0) koCup(e, m.idx);
     else {
@@ -2446,14 +2462,19 @@ function drawPlayer(g, p) {
   const y = gy - 10 - bob;
   const f = p.face;
   const lk = brawlLaneK(p.d);
-  const body = brawlShade(p.rage > 0 && Math.floor(brawl.t * 10) % 3 === 0 ? '#f0722e' : '#e8a83e', lk);
+  // Taking one had no flash of any kind — the enemies have had one since launch
+  // and the player, the thing you are actually watching, just started blinking a
+  // sixth of a second later. Three frames of solid white on the frame it lands.
+  const hurtFlash = p.st === 'hurt' && p.stT < 0.055;
+  const body = hurtFlash ? '#fff'
+    : brawlShade(p.rage > 0 && Math.floor(brawl.t * 10) % 3 === 0 ? '#f0722e' : '#e8a83e', lk);
 
   if (p.ko) {
     // face-down in the sauce, stars optional
     g.save();
     g.translate(x, gy - 4);
     g.rotate(f * 1.5);
-    g.drawImage(nugBody(7, 4 + p.idx * 2, body, brawlShade('#8a5a1d', lk)), -9, -8);
+    g.drawImage(nugBody(7, 4 + p.idx * 2, body, hurtFlash ? '#fff' : brawlShade('#8a5a1d', lk)), -9, -8);
     g.restore();
     if (brawl.twoP && Math.floor(brawl.t * 2) % 2) {
       g.font = '700 7px monospace';
@@ -2463,13 +2484,21 @@ function drawPlayer(g, p) {
     }
     return;
   }
+  if (hurtFlash) {
+    // ONE CLEAN WHITE SILHOUETTE. A white body still wearing its red headband and
+    // its dark pupils reads as a ghost, not as a hit — a flash frame is a SHAPE.
+    g.drawImage(nugBody(7, 4 + p.idx * 2, '#fff', '#fff'), x - 9, y - 8);
+    px(g, x - 5, gy - 2, 4, 2, '#fff');
+    px(g, x + 2, gy - 2, 4, 2, '#fff');
+    return;
+  }
   if (p.st === 'special') {
     // the CYCLONE: a blurred spin with sauce trailing off the gloves
     const ang = p.stT * 26;
     g.save();
     g.translate(x, y - 2);
     g.rotate(ang % (Math.PI * 2));
-    g.drawImage(nugBody(7, 4 + p.idx * 2, body, brawlShade('#8a5a1d', lk)), -9, -8);
+    g.drawImage(nugBody(7, 4 + p.idx * 2, body, hurtFlash ? '#fff' : brawlShade('#8a5a1d', lk)), -9, -8);
     g.restore();
     for (let i = 0; i < 3; i++) {
       const a = ang + i * 2.1;
@@ -2481,12 +2510,12 @@ function drawPlayer(g, p) {
   }
   if (p.st === 'dodge') {
     g.globalAlpha = 0.35;
-    g.drawImage(nugBody(7, 4 + p.idx * 2, body, brawlShade('#8a5a1d', lk)), x - 9 - f * 6, y - 8);
+    g.drawImage(nugBody(7, 4 + p.idx * 2, body, hurtFlash ? '#fff' : brawlShade('#8a5a1d', lk)), x - 9 - f * 6, y - 8);
     g.globalAlpha = 1;
   }
   px(g, x - 4 + (p.st === 'walk' ? (step < 2 ? -1 : 1) : 0), gy - 2, 3, 2, brawlShade('#8a5a1d', lk));
   px(g, x + 2 + (p.st === 'walk' ? (step < 2 ? 1 : -1) : 0), gy - 2, 3, 2, brawlShade('#8a5a1d', lk));
-  g.drawImage(nugBody(7, 4 + p.idx * 2, body, brawlShade('#8a5a1d', lk)), x - 9, y - 8);
+  g.drawImage(nugBody(7, 4 + p.idx * 2, body, hurtFlash ? '#fff' : brawlShade('#8a5a1d', lk)), x - 9, y - 8);
   px(g, x - 6, y - 6, 12, 2, col.band);
   px(g, x - 8 - (f < 0 ? -15 : 0), y - 5, 3, 1, col.band);
   px(g, x + f * 2, y - 3, 2, 2, '#fff');
@@ -2496,23 +2525,45 @@ function drawPlayer(g, p) {
   px(g, x + f * 2 - 1, y - 5, 3, 1, '#42200e');
   px(g, x + f * 4, y - 5, 3, 1, '#42200e');
 
-  const glove = (gx, gy2, big) => {
-    px(g, gx - 1, gy2 - 1, big ? 4 : 3, big ? 4 : 3, col.glove);
-    px(g, gx - 1, gy2 + (big ? 3 : 2), big ? 4 : 3, 1, col.trim);
+  // `hot` = this glove is in its active frames. A glove that goes white on contact
+  // is the cheapest possible way to say WHICH FIST did it.
+  const glove = (gx, gy2, big, hot) => {
+    px(g, gx - 1, gy2 - 1, big ? 4 : 3, big ? 4 : 3, hot ? '#fff' : col.glove);
+    px(g, gx - 1, gy2 + (big ? 3 : 2), big ? 4 : 3, 1, hot ? '#ffe23a' : col.trim);
   };
   if (p.st === 'jab' || p.st === 'upper') {
     const m = p.punch;
-    const ext = Math.sin(Math.min(p.stT / m.active1, 1) * Math.PI) * m.reach;
+    // ANTICIPATION, THROW, RECOVERY. This was one sine hump over [0, active1]:
+    // the fist appeared already extended, peaked, returned to neutral and then sat
+    // there for a third of the move. Nothing in it said a punch was COMING and
+    // nothing said it was over, which is why a still of a punch in this game and a
+    // still of standing still were the same picture.
+    //   0 .. active0   the fist pulls BACK (3px, and the eye reads it)
+    //   active0 .. active1  the throw — and this is exactly the hit window
+    //   active1 .. dur  a short over-pull back into guard
+    const ext = p.stT < m.active0
+      ? -3.2 * (p.stT / m.active0)
+      : p.stT < m.active1
+        ? Math.sin(((p.stT - m.active0) / (m.active1 - m.active0)) * Math.PI) * m.reach
+        : -2.4 * (1 - Math.min(1, (p.stT - m.active1) / Math.max(0.01, m.dur - m.active1)));
+    const live = p.stT >= m.active0 && p.stT <= m.active1;
     if (p.weapon) {
       // the spatula leads the swing
       px(g, x + f * (4 + ext * 0.8), y - 1 - (p.st === 'upper' ? ext * 0.5 : 0), f * 7, 2, '#8a93b8');
       px(g, x + f * (10 + ext * 0.8), y - 3 - (p.st === 'upper' ? ext * 0.5 : 0), f * 4, 6, '#c9d4f0');
     }
+    // the streak: shoulder to fist, so the throw carries speed rather than
+    // teleporting a red square to arm's length for four frames
+    if (ext > 3) {
+      const gx0 = x + f * 3, gx1 = x + f * (4 + ext * (p.st === 'upper' ? 0.7 : 1));
+      px(g, Math.min(gx0, gx1), y - (p.st === 'upper' ? 1 : 0), Math.abs(gx1 - gx0), 1,
+        brawlShade(col.glove, 0.72));
+    }
     if (p.st === 'upper') {
-      glove(x + f * (4 + ext * 0.7), y - 2 - ext * 0.55, true);
+      glove(x + f * (4 + ext * 0.7), y - 2 - ext * 0.55, true, live);
       glove(x - f * 3, y + 1, false);
     } else {
-      glove(x + f * (5 + ext), y - 1, true);
+      glove(x + f * (5 + ext), y - 1, true, live);
       glove(x - f * 2, y + 2, false);
     }
   } else if (p.st === 'hurt') {
@@ -2557,8 +2608,18 @@ function drawCup(g, e) {
   }
   // launched cups leave the floor; the shadow stays on it and shrinks
   brawlShadow(g, x, e.d, big ? 15 : 12, lift);
-  const lean = e.st === 'windup' ? -e.face * 2 : (e.st === 'lunge' || e.st === 'dash' || e.st === 'slam') ? e.face * 3 : 0;
-  const flash = e.st === 'hurt' && Math.floor(e.stT * 30) % 2;
+  // blockT pushes her BACK: a block that does not move the blocker reads as the
+  // punch having passed straight through her
+  const lean = e.blockT > 0 ? -e.face * 3
+    : e.st === 'windup' ? -e.face * 2
+      : (e.st === 'lunge' || e.st === 'dash' || e.st === 'slam') ? e.face * 3 : 0;
+  // THE IMPACT FLASH, and the `e.stT < 0.05` is the whole point. This test used to
+  // be `floor(e.stT * 30) % 2` alone — and e.stT is ZERO on the frame of the hit,
+  // so the flash reporting a punch first appeared SIX FRAMES after it, by which
+  // time the hitstop was over and the cup was already flying. Solid white for the
+  // first three frames (which is exactly the hitstop, since stT cannot advance
+  // while the game is frozen), then the flicker it always had.
+  const flash = e.st === 'hurt' && (e.stT < 0.05 || Math.floor(e.stT * 30) % 2);
   const w2 = big ? 13 : 10, hw = w2 / 2;
   // soy ninjas blur when dashing
   if (e.kind === 'soy' && e.st === 'dash') {
@@ -2602,7 +2663,7 @@ function drawBoss(g, e) {
   const y = gy - 30 + slamRise;
   brawlShadow(g, x, e.d, 18, slamRise < 0 ? -slamRise : 0);
   const step = Math.floor(brawl.t * 6) % 2;
-  const flash = e.st === 'hurt' && Math.floor(e.stT * 30) % 2;
+  const flash = e.st === 'hurt' && (e.stT < 0.05 || Math.floor(e.stT * 30) % 2);
   const body = flash ? '#fff' : '#2e9e53';
   const dark = flash ? '#fff' : '#1c6434';
   px(g, x - 5 + (step ? -1 : 0), gy - 3, 4, 3, dark);
@@ -2625,7 +2686,7 @@ function drawBoss(g, e) {
 function drawDijon(g, e) {
   const x = Math.round(e.x - brawl.cam), gy = entY(e.d);
   const step = Math.floor(brawl.t * 7) % 2;
-  const flash = e.st === 'hurt' && Math.floor(e.stT * 30) % 2;
+  const flash = e.st === 'hurt' && (e.stT < 0.05 || Math.floor(e.stT * 30) % 2);
   const lean = e.st === 'caneWind' ? -e.face * 3 : e.st === 'swipe' ? e.face * 4 : 0;
   const y = gy - 26;
   brawlShadow(g, x, e.d, 17);
@@ -2662,7 +2723,7 @@ function drawDijon(g, e) {
 function drawClucker(g, e) {
   const x = Math.round(e.x - brawl.cam), gy = entY(e.d);
   const step = Math.floor(brawl.t * (e.phase === 3 ? 10 : 6)) % 2;
-  const flash = e.st === 'hurt' && Math.floor(e.stT * 30) % 2;
+  const flash = e.st === 'hurt' && (e.stT < 0.05 || Math.floor(e.stT * 30) % 2);
   const lunge = e.st === 'peck' ? e.face * 6 : e.st === 'peckWind' ? -e.face * 3 : 0;
   const y = gy - 38;
   brawlShadow(g, x, e.d, e.st === 'flap' || e.st === 'flapWind' ? 22 : 28,
@@ -2829,17 +2890,61 @@ function drawBrawl() {
   }
 
   for (const f of brawl.fx) {
-    const t = f.t / 0.25;
+    const life = f.kind === 'spark' ? 0.17 : 0.25;
+    const t = Math.min(1, f.t / life);
     const fx2 = f.x - brawl.cam, fy2 = entY(f.d) - f.h;
     if (f.kind === 'spark') {
-      g.fillStyle = t < 0.5 ? '#fff' : '#ffe23a';
-      for (let i = 0; i < 4; i++) {
-        const a = i * 1.57 + 0.4;
-        px(g, fx2 + Math.cos(a) * t * 8, fy2 + Math.sin(a) * t * 8, 2, 2, g.fillStyle);
+      // THE IMPACT FRAME, and it was the worst frame in the game. Four particles
+      // at radius `t * 8` means that on the frame of contact — the one frame this
+      // whole genre is judged on — all four sat on top of each other and the
+      // entire feedback for a landed punch was ONE YELLOW PIXEL. It expanded from
+      // nothing over a quarter of a second, by which time the hitstop was over,
+      // the victim had been knocked back and the moment had passed.
+      //
+      // So it starts BIG, starts WHITE, and collapses. The cross-shaped core is
+      // the pop; the shards carry the direction of the blow.
+      // EVERY PART OF IT IS KEYLINED. The victim goes solid white on the frame of
+      // contact (see drawCup), and a white star on a white silhouette is nothing at
+      // all — the first version of this landed a beautiful spark that was invisible
+      // in exactly the frame it existed for. A dark backing one pixel proud reads
+      // over the white cup, over the lit belt and over a neon wall.
+      const r = (f.big ? 9 : 7) * (0.5 + (1 - t) * 0.85);
+      const col = t < 0.3 ? '#fff' : t < 0.65 ? '#ffe23a' : '#e8622c';
+      if (t < 0.4) {
+        const cw = f.big ? 9 : 6;
+        px(g, fx2 - cw / 2 - 1, fy2 - 2, cw + 2, 5, '#20130a');
+        px(g, fx2 - 2, fy2 - cw / 2 - 1, 5, cw + 2, '#20130a');
+        px(g, fx2 - cw / 2, fy2 - 1, cw, 3, '#fff');
+        px(g, fx2 - 1, fy2 - cw / 2, 3, cw, '#fff');
       }
+      const n = f.big ? 6 : 5;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2 + 0.5;
+        const len = r * (0.72 + ((i * 37) % 5) * 0.13) * (1 + Math.cos(a) * f.dir * 0.45);
+        const sx2 = fx2 + Math.cos(a) * len, sy2 = fy2 + Math.sin(a) * len * 0.75;
+        px(g, sx2 - 1, sy2 - 1, 3, 3, '#20130a');
+        px(g, sx2, sy2, 2, 2, col);
+      }
+    } else if (f.kind === 'guard') {
+      // a blocked hit has to read DIFFERENTLY from a landed one, or the player
+      // cannot tell that Mayo just ate the jab. Cold, flat, and it rings outward.
+      // keylined for the same reason the spark is, and here it is not optional:
+      // the ONLY cup that guards is Mayo, who is cream-coloured, so a pale blue
+      // ring on her lid was a pale blue ring on a pale blue ring.
+      const r = 4 + t * 7;
+      const gc = t < 0.4 ? '#dff2ff' : '#8ab6d6';
+      for (let i = 0; i < 4; i++) {
+        const a = -0.95 + i * 0.62;
+        const sx3 = fx2 + Math.cos(a) * r * f.dir, sy3 = fy2 + Math.sin(a) * r * 0.8;
+        px(g, sx3 - 1, sy3 - 1, 4, 4, '#0d1a26');
+        px(g, sx3, sy3, 2, 2, gc);
+      }
+      px(g, fx2 - 1, fy2 - 4, 2, 9, '#0d1a26');
+      if (t < 0.45) px(g, fx2 - 1 + f.dir, fy2 - 3, 2, 7, gc);
     } else {
       g.globalAlpha = 1 - t;
       px(g, fx2 - 2, fy2, 5, 2, '#8a93b8');
+      px(g, fx2 - 4 + t * 6, fy2 - 1 - t * 3, 2, 2, '#6f7893');
       g.globalAlpha = 1;
     }
   }

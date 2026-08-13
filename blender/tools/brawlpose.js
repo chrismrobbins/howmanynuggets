@@ -79,6 +79,14 @@ const SEQS = {
     act: 1, stage: 1, at: [150, 14], cups: [['soy', 164, 14]],
     pre: { hurt: 1 }, n: 30, every: 2, box: [110, 80, 120, 80],
   },
+  // BLOCKED. Mayo holds a guard against frontal jabs, and a blocked hit has to
+  // read differently from a landed one or the player cannot tell why the cup is
+  // not dying. Same input as `punch`, different cup.
+  guard: {
+    what: 'a jab into Mayo\'s guard: the block, not the hit',
+    act: 1, stage: 2, at: [140, 14], cups: [['mayo', 155, 14]],
+    pre: { pst: 'jab', pstT: 0 }, n: 14, every: 1, box: [100, 80, 120, 80],
+  },
   // THE BOSS. The Clucker is the biggest rig in the game and the only one with
   // three phases; her peck is where a 38px-tall sprite comes apart if it will.
   clucker: {

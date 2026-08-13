@@ -1321,3 +1321,77 @@ one game over: the crop decides.
   `base === dark` to get a flat silhouette, and without it that request came back
   as whatever body was cached first. (The key had already been fixed once for a
   size collision — see the comment.)
+
+## 🥊 BRAWLERS ROUND 2 — THE FIST (2026-08-13)
+
+Round 1 built the instrument and it reported four defects in the impact frame.
+This is those four, plus what fixing them turned up. **The layer is hit feedback**,
+and it was picked because `brawlpose.js` could show that a landed punch and
+standing still were the same picture — in a beat-em-up, the frame the fist arrives
+IS the product.
+
+**1. The hit spark expanded from radius 0.** Four particles at radius `t * 8`, over
+a quarter of a second. On the frame of contact all four sat on top of each other,
+so the entire feedback for a landed punch was **one yellow pixel**, and by the time
+the star was big the hitstop was over and the cup had already been knocked back.
+It starts BIG, starts WHITE and collapses now, with a cross-shaped core for the pop
+and shards that carry the direction of the blow (`brawlFx(x, d, h, kind, dir, big)`).
+
+**2. Every part of it is KEYLINED, and that is not decoration.** The victim goes
+solid white on contact (below), and the first cut of this shipped a beautiful white
+star that was **invisible in the one frame it existed for**, because it was
+white-on-white. A 1px dark backing makes it read over the flashed cup, over the lit
+belt and over a neon wall. Same treatment on the guard clang for the same reason
+one step further: the only cup that guards is Mayo, and she is cream.
+
+**3. The victim's white flash arrived SIX FRAMES LATE.** The test was
+`e.st === 'hurt' && Math.floor(e.stT * 30) % 2` — and `e.stT` is **zero** on the
+frame of the hit, so `floor(0 * 30) % 2` is 0 and the flash reporting a punch first
+appeared a tenth of a second after it. Now `(e.stT < 0.05 || …)`: solid for three
+frames, then the flicker it always had. **And those three frames are exactly the
+hitstop**, because `stT` cannot advance while the game is frozen — so the fix
+produces the classic impact freeze (frozen frame + white silhouette) for free.
+Patched in all four rigs: `drawCup`, `drawBoss`, `drawDijon`, `drawClucker`.
+
+**4. The player had no hurt flash at all, in either direction.** The enemies have
+had one since launch; the thing you are actually watching just started blinking a
+sixth of a second later. It gets three frames of ONE CLEAN WHITE SILHOUETTE — the
+first attempt left the red headband and the dark pupils on the white body and it
+read as a ghost, not as a hit. **A flash frame is a shape.**
+
+**5. WEIGHT.** Every hit in this game froze the screen for exactly 0.05s and shook
+it not at all, so a jab, an upper, a spatula swing and a KO all landed the same.
+Now: jab 0.045 / upper 0.075 / KO 0.10 / boss KO 0.14 of hitstop, with shake to
+match, and `brawlShadow`'s `lift` already makes the upper's launch read.
+
+**6. A lethal blow spawns ONE bigger burst, not two.** `brawlHitEnemies` only
+sparks `if (e.hp > 0)`; `koCup` throws its own `big` one. Stacking them put a white
+cloud on screen with a cup somewhere inside it.
+
+**7. THE THREE-PHASE PUNCH.** `ext` was one sine hump over `[0, active1]`: the fist
+appeared already extended, peaked, returned to neutral and then sat there for a
+third of the move. Now `0..active0` pulls BACK 3px (anticipation the eye can read),
+`active0..active1` is the throw *and is exactly the hit window*, and `active1..dur`
+is a short over-pull into guard. Plus a shoulder-to-fist streak so the throw
+carries speed instead of teleporting a red square to arm's length, and the glove
+goes **white while its hit is live**, which is the cheapest possible way to say
+which fist did it.
+
+**8. A block now moves the blocker.** `blockT` leans Mayo away from the punch. A
+block that does not move the blocker reads as the punch having gone through her.
+
+**MEASURED — and the metric that matters here is one the hall treats as a defect.**
+`blown` (pixels above luma 247) on the frame of contact:
+
+| scene | before | after |
+|---|---|---|
+| 13-jab | 0.018% | **0.175%** |
+| 14-upper | 0.018% | **0.188%** |
+| 15-cyclone | 0.026% | **0.324%** |
+| 16-ko | 0.026% | **0.124%** |
+
+In the hall, blown highlights read cheap and the column is a warning. **In a
+fighting game, `blown` on the impact frame IS the impact frame**: before this round
+a landed punch put about twelve white pixels on a 68,000-pixel screen. The twelve
+stage scenes came back numerically identical to `b1-final`, which is the control —
+nothing outside combat moved.
