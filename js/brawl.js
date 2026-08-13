@@ -2468,65 +2468,354 @@ function brawlDrawHeat() {
   }
 }
 
-// small pixel tableaus behind the story text
+// ---- THE CARDS ------------------------------------------------------------------------
+// The five screens around the game — title, heat select, cutscene, route map, credits —
+// were the only layer nobody had touched, and by round 3 they measured as the worst
+// frames in it by a distance: the INTRO CUTSCENE, which is the first thing a player
+// ever sees, was 94% PURE BLACK and 95% under luma 20. The credits were 93%. They were
+// five little pixel tableaus floating in a void with letterbox bars over the top.
+//
+// This is GTN S2.13's lesson applied one game over (blender/HANDOFF.md §1): S2.12
+// re-rendered every sprite in that game in Blender, graded to the measured palette, and
+// Beau called it invisible from prod at +4% contrast. What moved the needle was
+// structured CONTENT — plazas, alleys, curbs, shadows, light pools. So none of what
+// follows is a palette change. Every scene gets a SET: a backdrop that fills the
+// letterbox window, a floor with a light pool on it, something framing the edges, and
+// characters big enough to act.
+//
+// The letterbox window is y 14 .. Hh-46 and that is the whole canvas these get. The
+// floor line sits at 0.52 of the frame so there is room under it for the pool.
+
+// A lit floor and the wedge of light standing on it — the one move that did the most
+// for the belt in round 1, reused because it is what turns a backdrop into a room.
+function brawlCutFloor(g, W, gy, floorCol, poolCol, lipCol) {
+  px(g, 0, gy, W, 4, lipCol);
+  px(g, 0, gy + 4, W, 200, floorCol);
+  const pool = g.createRadialGradient(W / 2, gy + 2, 4, W / 2, gy + 2, W * 0.42);
+  pool.addColorStop(0, poolCol + '0.3)');
+  pool.addColorStop(0.5, poolCol + '0.1)');
+  pool.addColorStop(1, poolCol + '0)');
+  g.fillStyle = pool;
+  g.fillRect(0, gy - 40, W, 120);
+}
+
+// Every character on a card gets the contact shadow the cast got in round 1. A
+// cutscene where the actors float is the same defect as a fight where they do.
+function brawlCutShadow(g, x, gy, w, alpha) {
+  g.globalAlpha = alpha == null ? 0.5 : alpha;
+  px(g, x - w / 2 + 2, gy - 2, w - 4, 1, '#05070d');
+  px(g, x - w / 2, gy - 1, w, 2, '#05070d');
+  px(g, x - w / 2 + 2, gy + 1, w - 4, 1, '#05070d');
+  g.globalAlpha = 1;
+}
+
 function brawlCutArt(g, W, Hh, art) {
-  const cx = W / 2, gy = Hh * 0.52;
+  // The floor line was at 0.52 of the frame, which is where the old tableaus put it,
+  // and every one of the new sets came back with fifty pixels of empty floor between
+  // the action and the bottom bar. At 0.63 the cast stands in the lower third the way
+  // a shot is actually framed, and the wall gets the room it needs above them.
+  const cx = W / 2, gy = Math.round(Hh * 0.63);
+  const top = 14, bot = Hh - 46;
+
   if (art === 'diner') {
-    px(g, cx - 70, gy - 10, 140, 8, '#3a2c14');       // the counter
-    px(g, cx - 70, gy - 2, 140, 3, '#241a0a');
-    g.drawImage(nugBody(7, 4, '#e8a83e', '#8a5a1d'), cx - 40, gy - 34);
-    px(g, cx - 37, gy - 30, 12, 2, '#d32f2f');
-    // honey, bow and all
-    px(g, cx + 14, gy - 26, 12, 14, '#f4f0e6');
-    px(g, cx + 14, gy - 22, 12, 3, '#e8a020');
-    px(g, cx + 16, gy - 30, 3, 3, '#ff2fa0'); px(g, cx + 21, gy - 30, 3, 3, '#ff2fa0');
-    px(g, cx + 17, gy - 20, 2, 2, '#1a0f08'); px(g, cx + 22, gy - 20, 2, 2, '#1a0f08');
-    // moonlit window
-    px(g, cx - 20, gy - 66, 40, 26, '#0a0d1c');
-    px(g, cx - 6, gy - 60, 8, 8, '#f4ecd4');
-  } else if (art === 'vault') {
-    px(g, cx - 30, gy - 64, 60, 54, '#8a7a4a');
-    px(g, cx - 22, gy - 56, 44, 40, '#5c5232');
-    px(g, cx - 6, gy - 42, 12, 12, '#ffd23a');
-    // wasabi, flattened
-    px(g, cx - 40, gy - 8, 24, 6, '#2e9e53');
-    px(g, cx - 36, gy - 12, 8, 4, '#ffe23a');
-  } else if (art === 'penthouse') {
-    px(g, cx - 50, gy - 60, 100, 4, '#ffd23a');
-    // dijon face-down, hat rolled away
-    px(g, cx - 16, gy - 10, 26, 8, '#f4f0e6');
-    px(g, cx - 16, gy - 12, 26, 3, '#e6b800');
-    px(g, cx + 22, gy - 12, 14, 8, '#131313');
-    px(g, cx + 26, gy - 16, 8, 4, '#131313');
-  } else if (art === 'coop') {
-    // the clucker looms in silhouette
-    px(g, cx - 26, gy - 66, 52, 46, '#1a0f08');
-    px(g, cx - 12, gy - 78, 24, 16, '#1a0f08');
-    px(g, cx - 4, gy - 84, 10, 8, '#8a1c10');
-    px(g, cx + 12, gy - 74, 8, 4, '#c9541f');
-    px(g, cx + 2, gy - 74, 4, 4, '#ff5252');
-    // the cage
-    px(g, cx + 44, gy - 60, 20, 2, '#565f85');
-    for (let i = 0; i < 4; i++) px(g, cx + 44 + i * 6, gy - 60, 2, 22, '#565f85');
-    px(g, cx + 48, gy - 48, 10, 10, '#f4f0e6');
-    px(g, cx + 50, gy - 52, 3, 3, '#ff2fa0');
-  } else if (art === 'sunrise') {
-    const sun = g.createLinearGradient(0, gy - 80, 0, gy);
-    sun.addColorStop(0, '#2a3550');
-    sun.addColorStop(1, '#c9541f');
-    g.fillStyle = sun;
-    g.fillRect(cx - 90, gy - 80, 180, 76);
-    px(g, cx - 20, gy - 26, 40, 10, '#e8a020');
-    g.drawImage(nugBody(7, 4, '#e8a83e', '#8a5a1d'), cx - 34, gy - 32);
-    px(g, cx - 31, gy - 28, 12, 2, '#d32f2f');
-    if (brawl.twoP) {
-      g.drawImage(nugBody(7, 6, '#e8a83e', '#8a5a1d'), cx - 56, gy - 30);
-      px(g, cx - 53, gy - 26, 12, 2, '#2f6ad3');
+    // NUGGETOWN, CLOSING TIME. A diner: window wall on the night city, a pendant over
+    // the counter, stools, the specials board, and the door that is about to explode.
+    const wall = g.createLinearGradient(0, top, 0, gy);
+    wall.addColorStop(0, '#14202c');
+    wall.addColorStop(1, '#1d2c3a');
+    g.fillStyle = wall;
+    g.fillRect(0, top, W, gy - top);
+    // the window wall, and the city through it
+    const wy = gy - 76, wh = 40;
+    px(g, 10, wy - 4, W - 20, wh + 8, '#0a0f1e');
+    brawlSkylineRow(g, W - 24, wy + wh - 4, { body: '#101828', lit: '#8a6c30', step: 30, bw: 22, bh: 16, bhVar: 20 });
+    px(g, 0, wy - 4, 12, wh + 8, '#26374a');
+    px(g, W - 12, wy - 4, 12, wh + 8, '#26374a');
+    for (let x = 40; x < W - 20; x += 58) px(g, x, wy - 4, 3, wh + 8, '#26374a');
+    px(g, 10, wy - 6, W - 20, 3, '#33465c');
+    px(g, 10, wy + wh + 3, W - 20, 3, '#1a2634');
+    // rain on the glass, because the storm is the whole story
+    g.globalAlpha = 0.3;
+    for (let i = 0; i < 40; i++) px(g, 14 + ((i * 173) % (W - 28)), wy + ((i * 61) % wh), 1, 3, '#9be8ff');
+    g.globalAlpha = 1;
+    // the pendant over the counter
+    px(g, cx - 1, top, 2, 12, '#3a2c14');
+    px(g, cx - 9, gy - 96, 18, 5, '#8a6a24');
+    px(g, cx - 6, gy - 91, 12, 2, '#ffe9a0');
+    brawlCutFloor(g, W, gy, '#1b2434', 'rgba(255,226,170,', '#e8412c');
+    // the counter, with a lip that catches the pendant
+    px(g, 8, gy - 38, W - 16, 12, '#3a2c14');
+    px(g, 8, gy - 40, W - 16, 3, '#5c4a1e');
+    px(g, 8, gy - 37, W - 16, 1, '#8a6a34');
+    px(g, 8, gy - 26, W - 16, 3, '#241a0a');
+    for (let x = 26; x < W - 20; x += 46) {
+      px(g, x, gy - 22, 3, 8, '#2a3040');
+      px(g, x - 5, gy - 25, 13, 3, '#8a1c3a');
     }
-    px(g, cx + 18, gy - 28, 12, 14, '#f4f0e6');
-    px(g, cx + 18, gy - 24, 12, 3, '#e8a020');
-    px(g, cx + 20, gy - 32, 3, 3, '#ff2fa0'); px(g, cx + 25, gy - 32, 3, 3, '#ff2fa0');
+    // the specials board
+    px(g, 16, gy - 58, 46, 30, '#241a0a');
+    px(g, 19, gy - 55, 40, 24, '#12241a');
+    g.font = '700 6px Consolas, monospace';
+    g.textAlign = 'left';
+    g.fillStyle = '#a5f0c0';
+    g.fillText('6 PC ..1.99', 21, gy - 47);
+    g.fillText('12 PC .3.49', 21, gy - 39);
+    g.fillText('SAUCE FREE', 21, gy - 31);
+    // the cast, twice the size they were
+    brawlCutShadow(g, cx - 34, gy, 17);
+    g.drawImage(nugBody(9, 4, '#e8a83e', '#8a5a1d'), cx - 45, gy - 44);
+    px(g, cx - 41, gy - 39, 15, 3, '#d32f2f');
+    px(g, cx - 39, gy - 32, 3, 3, '#fff'); px(g, cx - 33, gy - 32, 3, 3, '#fff');
+    px(g, cx - 38, gy - 31, 2, 2, '#1a0f08'); px(g, cx - 32, gy - 31, 2, 2, '#1a0f08');
+    brawlCutShadow(g, cx + 24, gy, 15);
+    px(g, cx + 16, gy - 24, 17, 22, '#f4f0e6');
+    px(g, cx + 15, gy - 25, 19, 2, '#c9cfe0');
+    px(g, cx + 16, gy - 18, 17, 4, '#e8a020');
+    px(g, cx + 19, gy - 30, 5, 5, '#ff2fa0'); px(g, cx + 26, gy - 30, 5, 5, '#ff2fa0');
+    px(g, cx + 23, gy - 28, 3, 3, '#ff2fa0');
+    px(g, cx + 20, gy - 13, 2, 2, '#1a0f08'); px(g, cx + 27, gy - 13, 2, 2, '#1a0f08');
+    // a booth back across the near edge, out of focus and cropped — the cheapest
+    // foreground plane there is, and it stops the floor running to the bar
+    px(g, 0, gy + 16, W, 200, '#150f0a');
+    px(g, 0, gy + 16, W, 3, '#2e2114');
+    px(g, 0, gy + 16, W, 1, '#4a3620');
+    for (let x = 12; x < W; x += 62) px(g, x, gy + 19, 34, 4, '#241a10');
+    // and the door, lit from outside, one line before it comes off its hinges
+    px(g, W - 54, gy - 74, 46, 64, '#101822');
+    px(g, W - 50, gy - 70, 38, 56, '#1b2a38');
+    px(g, W - 46, gy - 66, 30, 26, '#0a0f1e');
+    px(g, W - 54, gy - 76, 46, 3, '#33465c');
+    const dg = g.createRadialGradient(W - 31, gy - 52, 4, W - 31, gy - 52, 44);
+    dg.addColorStop(0, 'rgba(255,82,82,0.22)');
+    dg.addColorStop(1, 'rgba(255,82,82,0)');
+    g.fillStyle = dg;
+    g.fillRect(W - 76, gy - 96, 76, 92);
+  } else if (art === 'vault') {
+    // WASABI, DOWN. The vault stands open and the gold is the light source.
+    g.fillStyle = '#231a16';
+    g.fillRect(0, top, W, gy - top);
+    g.fillStyle = '#1a1310';
+    for (let y = top; y < gy; y += 8) for (let x = ((y / 8) % 2 ? 8 : 0); x < W; x += 16) g.fillRect(x, y, 15, 7);
+    // the door, big, and the room behind it
+    const vx = cx - 46;
+    px(g, vx - 8, gy - 96, 100, 88, '#3a3428');
+    px(g, vx, gy - 88, 84, 78, '#5c5232');
+    px(g, vx + 4, gy - 84, 40, 74, '#120e06');
+    px(g, vx + 46, gy - 84, 34, 70, '#8a7a4a');
+    px(g, vx + 50, gy - 80, 26, 62, '#5c5232');
+    px(g, vx + 58, gy - 56, 12, 12, '#ffd23a');
+    px(g, vx + 62, gy - 52, 4, 4, '#5c5232');
+    // shelves of sauce inside, the reason anyone is here
+    for (let r = 0; r < 3; r++) {
+      px(g, vx + 6, gy - 74 + r * 22, 36, 3, '#2a1c10');
+      for (let i = 0; i < 4; i++) {
+        const cols = ['#d32f2f', '#e6b800', '#6d3a1e', '#e8622c'];
+        px(g, vx + 8 + i * 9, gy - 84 + r * 22, 7, 10, cols[(i + r) % 4]);
+        px(g, vx + 8 + i * 9, gy - 85 + r * 22, 7, 2, '#f4ecd4');
+      }
+    }
+    brawlCutFloor(g, W, gy, '#241a12', 'rgba(255,210,58,', '#8a7a4a');
+    const spill = g.createLinearGradient(vx + 4, 0, vx + 44, 0);
+    spill.addColorStop(0, 'rgba(255,210,58,0.16)');
+    spill.addColorStop(1, 'rgba(255,210,58,0)');
+    g.fillStyle = spill;
+    g.fillRect(vx + 4, gy - 84, 60, gy);
+    // wasabi, flattened, with his sauce going everywhere
+    g.globalAlpha = 0.45;
+    px(g, 24, gy + 2, 74, 3, '#39c96a');
+    px(g, 34, gy + 5, 50, 2, '#39c96a');
+    g.globalAlpha = 1;
+    brawlCutShadow(g, 60, gy, 40, 0.4);
+    px(g, 34, gy - 10, 52, 10, '#2e9e53');
+    px(g, 34, gy - 12, 52, 3, '#39c96a');
+    px(g, 46, gy - 16, 18, 5, '#ffe23a');
+    px(g, 40, gy - 8, 4, 4, '#0a2814'); px(g, 52, gy - 8, 4, 4, '#0a2814');
+    px(g, 76, gy - 20, 12, 10, '#f4f0e6');
+    px(g, 78, gy - 22, 8, 3, '#c9cfe0');
+  } else if (art === 'penthouse') {
+    // DIJON, DOWN. Gold stripes, the chandelier, and the portrait watching it happen.
+    g.fillStyle = '#3a2f14';
+    g.fillRect(0, top, W, gy - top);
+    g.fillStyle = '#4a3c1a';
+    for (let x = 0; x < W; x += 24) g.fillRect(x, top, 12, gy - top);
+    px(g, 0, gy - 30, W, 5, '#6b5722');
+    px(g, 0, gy - 26, W, 2, '#2a2110');
+    // chandelier
+    px(g, cx - 1, top, 2, 14, '#ffd23a');
+    px(g, cx - 26, top + 14, 52, 3, '#ffd23a');
+    for (let i = 0; i < 6; i++) {
+      px(g, cx - 24 + i * 10, top + 17, 4, 8, '#ffe9a0');
+      px(g, cx - 24 + i * 10, top + 25, 4, 3, '#ffd23a');
+    }
+    const chg = g.createRadialGradient(cx, top + 22, 6, cx, top + 22, 86);
+    chg.addColorStop(0, 'rgba(255,233,160,0.3)');
+    chg.addColorStop(1, 'rgba(255,233,160,0)');
+    g.fillStyle = chg;
+    g.fillRect(cx - 90, top, 180, 120);
+    // the portrait
+    const pxx = 20;
+    px(g, pxx - 6, gy - 92, 84, 74, '#8a7a4a');
+    px(g, pxx, gy - 86, 72, 62, '#1a1408');
+    px(g, pxx + 22, gy - 62, 28, 38, '#f4f0e6');
+    px(g, pxx + 22, gy - 70, 28, 12, '#e6b800');
+    px(g, pxx + 17, gy - 82, 38, 14, '#131313');
+    px(g, pxx + 26, gy - 90, 20, 10, '#131313');
+    px(g, pxx + 29, gy - 66, 4, 4, '#1a0f08'); px(g, pxx + 41, gy - 66, 4, 4, '#1a0f08');
+    g.strokeStyle = '#ffd23a'; g.lineWidth = 1;
+    g.strokeRect(pxx + 39.5, gy - 68.5, 9, 9);
+    brawlCutFloor(g, W, gy, '#2a2110', 'rgba(255,233,160,', '#8a1c3a');
+    // the rug, so the fall lands on something
+    px(g, cx - 60, gy + 6, 140, 12, '#5c1420');
+    px(g, cx - 54, gy + 9, 128, 6, '#8a1c3a');
+    // dijon, face down, hat rolled away
+    brawlCutShadow(g, cx + 6, gy + 4, 44, 0.42);
+    px(g, cx - 18, gy - 8, 48, 10, '#f4f0e6');
+    px(g, cx - 18, gy - 11, 48, 4, '#e6b800');
+    px(g, cx - 12, gy - 14, 14, 4, '#8a1c3a');
+    px(g, cx + 34, gy - 2, 8, 4, '#131313');
+    px(g, cx + 44, gy - 10, 20, 9, '#131313');
+    px(g, cx + 49, gy - 15, 10, 6, '#131313');
+    px(g, cx + 44, gy - 11, 20, 2, '#8a1c3a');
+    px(g, cx + 66, gy - 6, 5, 5, '#ffd23a');
+  } else if (art === 'coop') {
+    // THE MOTHER CLUCKER. Round 1's crowd lesson, one screen over: a silhouette
+    // against light reads instantly, and nothing else at this scale does. She is a
+    // flat black shape with a rim on her and the whole room is behind her.
+    const hot = g.createRadialGradient(cx, gy - 46, 8, cx, gy - 46, W * 0.55);
+    g.fillStyle = '#0d0a06';
+    g.fillRect(0, top, W, gy - top);
+    hot.addColorStop(0, 'rgba(255,168,54,0.55)');
+    hot.addColorStop(0.45, 'rgba(200,84,31,0.22)');
+    hot.addColorStop(1, 'rgba(120,40,14,0)');
+    g.fillStyle = hot;
+    g.fillRect(0, top, W, gy - top + 40);
+    // rafters and hanging chains against the glow
+    px(g, 0, top, W, 5, '#0a0704');
+    for (let x = 12; x < W; x += 44) {
+      px(g, x, top + 5, 3, 16, '#0a0704');
+      for (let y = top + 21; y < top + 34; y += 4) px(g, x + 1, y, 2, 2, '#0a0704');
+    }
+    brawlCutFloor(g, W, gy, '#2c2210', 'rgba(255,168,54,', '#4a3a14');
+    // straw
+    g.fillStyle = '#4a3a14';
+    for (let i = 0; i < 70; i++) g.fillRect((i * 37) % W, gy + 3 + ((i * 53) % 34), 6, 1);
+    // HER: 100px of black chicken
+    const SIL = '#0a0705';
+    brawlCutShadow(g, cx, gy, 74, 0.55);
+    px(g, cx - 36, gy - 54, 72, 50, SIL);
+    px(g, cx - 36, gy - 12, 72, 8, SIL);
+    px(g, cx - 52, gy - 44, 18, 26, SIL);
+    px(g, cx - 60, gy - 38, 12, 18, SIL);
+    px(g, cx + 18, gy - 78, 22, 30, SIL);
+    px(g, cx + 14, gy - 92, 34, 20, SIL);
+    px(g, cx + 20, gy - 100, 8, 9, SIL);
+    px(g, cx + 30, gy - 102, 8, 11, SIL);
+    px(g, cx + 40, gy - 100, 7, 9, SIL);
+    px(g, cx + 46, gy - 86, 16, 6, SIL);
+    px(g, cx + 40, gy - 78, 8, 11, SIL);
+    px(g, cx - 14, gy - 4, 8, 12, SIL); px(g, cx + 8, gy - 4, 8, 12, SIL);
+    // the rim, which is the whole trick
+    px(g, cx + 14, gy - 93, 34, 2, '#ffa836');
+    px(g, cx + 20, gy - 101, 27, 1, '#ffd23a');
+    px(g, cx + 36, gy - 76, 2, 22, '#c9541f');
+    px(g, cx + 32, gy - 54, 6, 44, '#8a3a10');
+    // and the EYE
+    px(g, cx + 26, gy - 86, 5, 4, '#ff2020');
+    px(g, cx + 27, gy - 85, 2, 2, '#ffe23a');
+    // the cage, with Honey in it, off to one side
+    const cgx = 30;
+    px(g, cgx + 15, top + 4, 2, 22, '#565f85');
+    px(g, cgx, top + 26, 34, 3, '#565f85');
+    for (let i = 0; i < 6; i++) px(g, cgx + i * 6, top + 26, 2, 38, '#565f85');
+    px(g, cgx, top + 62, 34, 3, '#565f85');
+    px(g, cgx + 10, top + 40, 14, 18, '#f4f0e6');
+    px(g, cgx + 10, top + 45, 14, 4, '#e8a020');
+    px(g, cgx + 12, top + 35, 4, 4, '#ff2fa0'); px(g, cgx + 18, top + 35, 4, 4, '#ff2fa0');
+    px(g, cgx + 13, top + 50, 2, 2, '#1a0f08'); px(g, cgx + 20, top + 50, 2, 2, '#1a0f08');
+    // feathers on the way down
+    g.fillStyle = '#f4ecd4';
+    for (let i = 0; i < 12; i++) g.fillRect(20 + ((i * 97) % (W - 40)), top + 20 + ((i * 61) % 90), 5, 2);
+  } else if (art === 'sunrise') {
+    // THE ENDING. A real dawn over the harbour, and the storm still turning in it —
+    // docs/casefile.md says the case never closes, so the last frame has to say so.
+    const sky = g.createLinearGradient(0, top, 0, gy);
+    sky.addColorStop(0, '#1d2450');
+    sky.addColorStop(0.45, '#8a4a3a');
+    sky.addColorStop(0.8, '#e08a3a');
+    sky.addColorStop(1, '#ffd27a');
+    g.fillStyle = sky;
+    g.fillRect(0, top, W, gy - top);
+    // the sun, sitting on the water
+    const sy = gy - 26;
+    g.fillStyle = '#fff3c0';
+    g.beginPath(); g.arc(cx + 60, sy, 17, 0, 7); g.fill();
+    const sg = g.createRadialGradient(cx + 60, sy, 10, cx + 60, sy, 70);
+    sg.addColorStop(0, 'rgba(255,243,192,0.4)');
+    sg.addColorStop(1, 'rgba(255,243,192,0)');
+    g.fillStyle = sg;
+    g.fillRect(cx - 20, sy - 70, 160, 140);
+    // the city, and the cranes at the docks
+    brawlSkylineRow(g, W, gy - 30, { body: '#3a2a3a', lit: '#ffb45a', step: 34, bw: 24, bh: 20, bhVar: 26 });
+    for (const kx of [26, 74]) {
+      px(g, kx, gy - 66, 3, 36, '#2a1e2a');
+      px(g, kx - 14, gy - 66, 34, 3, '#2a1e2a');
+      px(g, kx + 16, gy - 63, 2, 12, '#2a1e2a');
+    }
+    // the water, with the sun in it
+    px(g, 0, gy - 30, W, 30, '#6a3a4a');
+    for (let y = gy - 28; y < gy; y += 3) {
+      g.globalAlpha = 0.5 - (gy - y) * 0.012;
+      px(g, 0, y, W, 1, '#c96a4a');
+      g.globalAlpha = 1;
+    }
+    for (let i = 0; i < 26; i++) {
+      const wy2 = gy - 28 + ((i * 7) % 27);
+      px(g, cx + 52 + ((i * 31) % 22) - 10, wy2, 12 - (i % 5), 1, '#ffdf9a');
+    }
+    // THE SWIRL. The stolen storm, still turning past the docks — docs/casefile.md
+    // says the case never closes, so the last frame of the campaign has to say so.
+    // Three straight dashes was the first attempt and it read as render scratches:
+    // weather is a RING, and a ring needs to be drawn as one.
+    const swx = 52, swy = gy - 16;
+    for (let i = 0; i < 3; i++) {
+      const rx = 5 + i * 6, ry = 1.6 + i * 1.7;
+      g.globalAlpha = 0.46 - i * 0.11;
+      g.strokeStyle = i ? '#6ab4d6' : '#9be8ff';
+      g.lineWidth = 1;
+      g.beginPath();
+      g.ellipse(swx, swy, rx, ry, 0, 0.5 + i * 0.7, 5.4 + i * 0.7);
+      g.stroke();
+      g.globalAlpha = 1;
+    }
+    px(g, swx - 1, swy - 1, 2, 2, '#dff2ff');
+    // the pier they are standing on
+    brawlCutFloor(g, W, gy, '#3a2c1c', 'rgba(255,210,122,', '#6b4a28');
+    for (let x = 0; x < W; x += 18) px(g, x, gy + 4, 16, 200, '#33261a');
+    for (let x = 0; x < W; x += 18) px(g, x, gy + 4, 16, 1, '#4a3826');
+    // the near mooring post, cropped by the frame
+    px(g, 8, gy + 6, 14, 200, '#2a1f14');
+    px(g, 6, gy + 4, 18, 4, '#3d2c1c');
+    px(g, 6, gy + 4, 18, 1, '#6b5236');
+    // the two of them, backlit
+    const px0 = brawl.twoP ? cx - 52 : cx - 34;
+    brawlCutShadow(g, px0 + 11, gy, 17);
+    g.drawImage(nugBody(9, 4, '#c98a2e', '#6b4416'), px0, gy - 44);
+    px(g, px0 + 4, gy - 39, 15, 3, '#a8231b');
+    px(g, px0 + 15, gy - 42, 6, 20, '#ffd27a');
+    if (brawl.twoP) {
+      brawlCutShadow(g, cx - 14, gy, 17);
+      g.drawImage(nugBody(9, 6, '#c98a2e', '#6b4416'), cx - 25, gy - 42);
+      px(g, cx - 21, gy - 37, 15, 3, '#25549e');
+      px(g, cx - 10, gy - 40, 6, 18, '#ffd27a');
+    }
+    brawlCutShadow(g, cx + 24, gy, 15);
+    px(g, cx + 16, gy - 24, 17, 22, '#d8cfb8');
+    px(g, cx + 16, gy - 18, 17, 4, '#c98a1a');
+    px(g, cx + 31, gy - 24, 2, 22, '#ffe9a0');
+    px(g, cx + 19, gy - 30, 5, 5, '#d8267f'); px(g, cx + 26, gy - 30, 5, 5, '#d8267f');
+    px(g, cx + 20, gy - 13, 2, 2, '#1a0f08'); px(g, cx + 27, gy - 13, 2, 2, '#1a0f08');
   }
+  g.textAlign = 'center';
 }
 
 function brawlStepCut(dt) {
@@ -2540,9 +2829,20 @@ function brawlStepCut(dt) {
   g.fillStyle = '#05060c';
   g.fillRect(0, 0, W, Hh);
   brawlCutArt(g, W, Hh, scene.art);
-  // letterbox bars
+  // Letterbox bars, with a gradient off the inner edge of each. A hard black line
+  // across a 200px frame reads as a crop; a falloff reads as a frame.
   px(g, 0, 0, W, 14, '#000');
   px(g, 0, Hh - 46, W, 46, '#000');
+  const lb = g.createLinearGradient(0, 14, 0, 26);
+  lb.addColorStop(0, 'rgba(0,0,0,0.72)');
+  lb.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = lb;
+  g.fillRect(0, 14, W, 12);
+  const lb2 = g.createLinearGradient(0, Hh - 60, 0, Hh - 46);
+  lb2.addColorStop(0, 'rgba(0,0,0,0)');
+  lb2.addColorStop(1, 'rgba(0,0,0,0.8)');
+  g.fillStyle = lb2;
+  g.fillRect(0, Hh - 60, W, 14);
   // text box
   g.textAlign = 'left';
   const tx = Math.max(14, W * 0.12);
@@ -2584,6 +2884,12 @@ function brawlStepEnd(dt) {
   const g = brawl.g, W = brawl.W, Hh = brawl.Hh;
   brawl.endT += dt;
   g.fillStyle = '#05060c';
+  g.fillRect(0, 0, W, Hh);
+  // The crawl used to run over PURE BLACK — 93% of the frame, on the screen a player
+  // reaches by clearing the whole campaign. It runs over the ending now, held down
+  // far enough that white 9px text still reads over it.
+  brawlCutArt(g, W, Hh, 'sunrise');
+  g.fillStyle = 'rgba(5,6,12,0.62)';
   g.fillRect(0, 0, W, Hh);
   g.textAlign = 'center';
   g.font = '900 14px Consolas, monospace';

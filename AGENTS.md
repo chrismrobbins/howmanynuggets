@@ -1465,3 +1465,80 @@ it walks the camera a fifth of a second at a time so the strip shows the planes
 sliding across each other. A layer's width is `ceil((LEN - W) * rate) + W` — exactly
 as wide as it can ever be drawn, and a layer one pixel short shows the void at the
 end of the act.
+
+## 🥊 BRAWLERS ROUND 4 — THE CARDS (2026-08-13)
+
+**This round did not have to be chosen. The table chose it.** After three rounds on
+the game, the five screens AROUND the game were the only untouched layer left and
+they measured as the worst frames in it by a distance:
+
+| | dead | near | mean |
+|---|---|---|---|
+| `19-cut-diner` | **94.0%** | 95.6% | 7.9 |
+| `21-credits` | **93.0%** | 93.4% | 13.8 |
+
+Ninety-four per cent PURE BLACK on the intro cutscene, which is the first thing a
+player ever sees, and ninety-three on the screen you reach by clearing the whole
+campaign. They were five small pixel tableaus floating in a `#05060c` void with
+letterbox bars over the top.
+
+**This is GTN S2.13's lesson one game over** (`blender/HANDOFF.md` §1). S2.12
+re-rendered every sprite in that game in Blender, graded to the measured palette,
+shipped, and Beau called it invisible from prod — the harness said +4% contrast.
+What moved the needle was structured CONTENT: plazas, alleys, curbs, shadows, light
+pools. So nothing here is a palette change. **Every scene gets a SET** — a backdrop
+that fills the letterbox window, a floor with a light pool on it, something framing
+the near edge, and characters big enough to act:
+
+- **diner** — a window wall on the rainy night city, a pendant over the counter, the
+  specials board, stools, and the door lit red from outside one line before it comes
+  off its hinges. A booth back crops the near edge.
+- **vault** — the door standing open with three shelves of sauce inside it, gold
+  spilling out across the floor, Wasabi flat in the puddle.
+- **penthouse** — gold stripes, the chandelier, the portrait watching, the rug the
+  fall lands on, and the top hat rolled off to one side.
+- **coop** — **round 1's crowd lesson, one screen over.** A hundred pixels of black
+  chicken against a hot backlight, with a rim on her and one red eye. At this scale
+  a silhouette against light reads instantly and nothing else does.
+- **sunrise** — a real dawn over the harbour: the sun sitting on the water with a
+  glitter path, dock cranes, pier planks, a mooring post cropping the near edge, and
+  THE SWIRL still turning out past the docks, because `docs/casefile.md` says the
+  case never closes and the last frame of the campaign has to say so.
+
+Shared helpers: `brawlCutFloor()` (the lit floor + pool that did the most for the
+belt in round 1) and `brawlCutShadow()` — **a cutscene where the actors float is the
+same defect as a fight where they do.** The letterbox bars got a gradient off each
+inner edge, because a hard black line across a 200px frame reads as a crop and a
+falloff reads as a frame. The credits crawl runs over the ending at 62% dim.
+
+**Two things the first pass got wrong, both found in the crop:**
+- **The floor line was at 0.52 of the frame** — where the old tableaus put it — and
+  every new set came back with fifty pixels of empty floor between the action and
+  the bottom bar. 0.63 puts the cast in the lower third the way a shot is framed.
+- **THE SWIRL was three straight horizontal dashes** and read as render scratches.
+  Weather is a RING and has to be drawn as one.
+
+**MEASURED** (`b3-final` → `b4-ship`):
+
+| | dead | near | mean | flat |
+|---|---|---|---|---|
+| `19-cut-diner` | 94.0 → **30.8** | 95.6 → 42.3 | 7.9 → 31.3 | 96.9 → 59.6 |
+| `21-credits` | 93.0 → **7.0** | 93.4 → 36.9 | 13.8 → 33.4 | 92.3 → 60.8 |
+
+**Read that remaining 30% honestly: it is the letterbox.** The bars are 14px + 46px
+of a 200px frame — 30% of the rows are supposed to be pure black. Inside the picture
+window there is essentially none left. The 16 gameplay scenes came back with a
+max mean delta of **0.0000**, which is the control.
+
+**The scene table went 21 → 25.** §15's lesson from the hall, verbatim: *a spot table
+only measures what it points at.* One cutscene was in the table out of five, and it
+happened to be the one that was 94% black — the other four sets had never been
+photographed by anything in this repo. Per-scene rows stay comparable across every
+tag; the MEAN row is now historical for tags before `b4-cards2`.
+
+**WHAT THIS ROUND DID NOT DO, and it is the obvious next thing.** Three screens are
+untouched and still measure badly: `17-title` (near **88.9%**, flat 91.1),
+`20-map` (near 77.8, flat 80.5) and `18-heat` (near 75.7, flat 85.1). All three are
+type and geometry on a flat field. The title in particular is the second frame of
+the game and has no set at all — `brawlCutArt` now has five of them sitting right
+there to borrow from.

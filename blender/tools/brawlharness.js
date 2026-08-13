@@ -116,6 +116,16 @@ const SCENES = [
   { name: '19-cut-diner', phase: 'cut', cut: 'intro', li: 3 },
   { name: '20-map', act: 1, stage: 2, phase: 'map', mapT: 1.35 },
   { name: '21-credits', phase: 'end', endT: 3.4 },
+  // ADDED IN ROUND 4, and it is §15's lesson from the hall verbatim — a spot table
+  // only measures what it points at. One cutscene was in here out of five, and it
+  // was the one that turned out to be 94% pure black; the other four sets went
+  // unphotographed by anything in this repo until the round that rebuilt them.
+  // The table going 21 -> 25 makes earlier MEAN rows historical. Per-scene rows
+  // stay comparable, which is the half that decides anything.
+  { name: '22-cut-vault', phase: 'cut', cut: 'act2', li: 1 },
+  { name: '23-cut-penthouse', phase: 'cut', cut: 'act3', li: 1 },
+  { name: '24-cut-coop', phase: 'cut', cut: 'finaldoor', li: 1 },
+  { name: '25-cut-sunrise', phase: 'cut', cut: 'ending', li: 3 },
 ];
 
 async function openBrawl(opts = {}) {
