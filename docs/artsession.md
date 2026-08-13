@@ -73,6 +73,14 @@ and tell me.
 | "one commit per round" | Bisectability, and it means you can see progress arriving instead of one enormous drop. |
 | "don't ask permission" | Prod is the review environment; asking costs a round trip. |
 
+## Not for the minigames
+
+This prompt is for the **arcade hall**. The 15 games are different renderers with
+different pipelines and, mostly, no harness — `blender/tools/` drives
+`NuggetArcade._H` and knows nothing about a minigame canvas. There is a separate
+prompt for BATTERED BRAWLERS at `docs/brawlsession.md`; write a new one rather
+than bending this if you take on another game.
+
 ## Variants
 
 **Short session / one evening:** keep everything, change *five rounds* to
