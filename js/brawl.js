@@ -2266,13 +2266,18 @@ function nugBody(r, seed, base, dark) {
   const TONES = [R.rim, R.lite, R.base, R.shade];
   for (let py = 0; py < size; py++)
     for (let px2 = 0; px2 < size; px2++) {
+      // THE WOBBLE SCALES WITH r. It used to be a fixed +-1.7px, which is 19% of a
+      // radius-9 nugget and 6% of a radius-29 one — so the moment the cutscene rig
+      // asked for a big nugget it came back as a smooth BALL. A nugget is lumpy at
+      // every size or it is not a nugget.
+      const amp = r / 8.2;
       const ang = Math.atan2(py - cy, px2 - cx);
-      const wob = Math.sin(ang * 3 + seed) * 1.1 + Math.cos(ang * 5 + seed * 2) * 0.6;
+      const wob = (Math.sin(ang * 3 + seed) * 1.1 + Math.cos(ang * 5 + seed * 2) * 0.6) * amp;
       const d = Math.hypot((px2 - cx) / 1.12, (py - cy) / 0.95);
       if (d >= r + wob) continue;
       if (flat) {
         g.fillStyle = base;
-      } else if (d > r + wob - 1.15) {
+      } else if (d > r + wob - Math.max(1.15, r / 12)) {
         // ONE pixel of keyline, not the 1.6 that used to eat a sixth of the sprite
         g.fillStyle = R.line;
       } else {
@@ -2283,8 +2288,12 @@ function nugBody(r, seed, base, dark) {
         let t = lam > 0.80 ? 0 : lam > 0.28 ? 1 : lam > -0.45 ? 2 : 3;
         // the breading. It used to be `dark` specks, which read as DIRT on a flat
         // shape; one stop down the same ramp reads as a crumb with a dimple in it.
-        if (((px2 * 3 + py * 7 + seed) % 11) === 0) t = Math.min(3, t + 1);
-        else if (((px2 * 5 + py * 3 + seed * 2) % 17) === 0) t = Math.max(0, t - 1);
+        // the crumb CELL grows with the sprite too — single-pixel speckles on a 61px
+        // nugget read as dust, not as breading
+        const cs = Math.max(1, Math.round(r / 9));
+        const qx = Math.floor(px2 / cs), qy = Math.floor(py / cs);
+        if (((qx * 3 + qy * 7 + seed) % 11) === 0) t = Math.min(3, t + 1);
+        else if (((qx * 5 + qy * 3 + seed * 2) % 17) === 0) t = Math.max(0, t - 1);
         g.fillStyle = TONES[t];
       }
       g.fillRect(px2, py, 1, 1);
@@ -2477,7 +2486,15 @@ function brawlDrawTitle() {
 
 function brawlDrawHeat() {
   const g = brawl.g, W = brawl.W, Hh = brawl.Hh;
-  brawlMenuBase(g, W, Hh);
+  // THE HEAT CARD, and Beau's verdict on it was "still broken and looks terrible".
+  // Broken was literal: the flavour text wraps to a variable number of lines starting
+  // at a fixed y, and the best-run line was drawn at a FIXED y0 + cardH - 8. MILD
+  // wraps to five lines. They landed on the same row and overprinted each other.
+  // Terrible was the rest of it: three flat rectangles and an emoji on a black field.
+  brawlCutArt(g, W, Hh, 'vault', true);
+  g.fillStyle = 'rgba(8,10,22,0.74)';
+  g.fillRect(0, 0, W, Hh);
+  brawlMenuBase(g, W, Hh, false);
   const cx = W / 2;
   g.textAlign = 'center';
   g.font = '900 13px Consolas, monospace';
@@ -2489,39 +2506,67 @@ function brawlDrawHeat() {
 
   const keys = Object.keys(BRAWL_HEATS);
   const best = brawlBest();
-  const cardW = Math.min(92, (W - 40) / 3), cardH = Hh * 0.44;
-  const y0 = Hh * 0.24;
+  const cardW = Math.min(112, (W - 34) / 3), cardH = Math.round(Hh * 0.47);
+  const y0 = Math.round(Hh * 0.23);
+  // the wrap width follows the card instead of being a hardcoded 14 characters
+  const wrapAt = Math.max(11, Math.floor(cardW / 4.6));
   keys.forEach((key, i) => {
     const o = BRAWL_HEATS[key];
     const locked = key === 'hell' && !brawlHellUnlocked();
     const x0 = cx + (i - 1) * (cardW + 10) - cardW / 2;
     const sel = i === brawl.heatSel;
-    px(g, x0, y0, cardW, cardH, sel ? '#141b2c' : '#0d1220');
-    g.strokeStyle = sel && Math.floor(brawl.t * 3) % 2 ? '#ffe23a' : locked ? '#39465c' : '#565f85';
+    const TINT = { mild: '#9bd4ff', spicy: '#ff7a3d', hell: '#ff2f2f' }[key];
+    // a panel with a lit top and a floor, not a flat rectangle
+    const pan = g.createLinearGradient(0, y0, 0, y0 + cardH);
+    pan.addColorStop(0, sel ? '#1d2740' : '#111726');
+    pan.addColorStop(1, sel ? '#0e1424' : '#0a0e18');
+    g.fillStyle = pan;
+    g.fillRect(x0, y0, cardW, cardH);
+    // the heat's own colour as a ribbon across the head of the card
+    const RB = brawlRamp(locked ? '#39465c' : TINT);
+    px(g, x0, y0, cardW, 7, RB.line);
+    px(g, x0, y0, cardW, 5, RB.base);
+    px(g, x0, y0, cardW, 1, RB.rim);
+    px(g, x0, y0 + cardH - 2, cardW, 2, RB.line);
+    g.strokeStyle = sel && Math.floor(brawl.t * 3) % 2 ? '#ffe23a' : locked ? '#39465c' : '#48566f';
     g.lineWidth = 2;
     g.strokeRect(x0 + 0.5, y0 + 0.5, cardW - 1, cardH - 1);
+    if (sel) {
+      // the selected card is LIT, which is how the belt tells you where you are
+      const gl = g.createRadialGradient(x0 + cardW / 2, y0 + 26, 4, x0 + cardW / 2, y0 + 26, cardW);
+      gl.addColorStop(0, 'rgba(255,226,58,0.16)');
+      gl.addColorStop(1, 'rgba(255,226,58,0)');
+      g.fillStyle = gl;
+      g.fillRect(x0, y0, cardW, cardH);
+    }
     g.font = '900 16px Consolas, monospace';
     g.fillStyle = '#fff';
-    g.fillText(locked ? '🔒' : o.emoji, x0 + cardW / 2, y0 + 22);
+    g.fillText(locked ? '🔒' : o.emoji, x0 + cardW / 2, y0 + 28);
     g.font = '900 11px Consolas, monospace';
     g.fillStyle = locked ? '#565f85' : key === 'hell' ? '#ff5252' : '#e8ecf4';
-    g.fillText(o.name, x0 + cardW / 2, y0 + 38);
-    g.font = '700 8px Consolas, monospace';
+    g.fillText(o.name, x0 + cardW / 2, y0 + 44);
+    g.font = '900 8px Consolas, monospace';
     g.fillStyle = locked ? '#39465c' : '#ffe23a';
-    g.fillText(locked ? 'SEALED' : '×' + o.mult + ' SCORE', x0 + cardW / 2, y0 + 50);
-    // flavor, wrapped by hand
+    g.fillText(locked ? 'SEALED' : '×' + o.mult + ' SCORE', x0 + cardW / 2, y0 + 56);
+    px(g, x0 + 10, y0 + 61, cardW - 20, 1, locked ? '#2a3444' : '#3a465c');
+    // flavour, wrapped to the card's own width, and the line counter is KEPT
+    g.font = '700 8px Consolas, monospace';
     g.fillStyle = locked ? '#39465c' : '#8a93b8';
     const words = (locked ? 'clear the campaign on SPICY. then we will see you in hell.' : o.flavor).split(' ');
-    let line = '', ly = y0 + 62;
+    let line = '', ly = y0 + 72;
     for (const wd of words) {
-      if ((line + ' ' + wd).length > 14) { g.fillText(line, x0 + cardW / 2, ly); ly += 9; line = wd; }
+      if ((line + ' ' + wd).length > wrapAt) { g.fillText(line, x0 + cardW / 2, ly); ly += 9; line = wd; }
       else line = line ? line + ' ' + wd : wd;
     }
-    if (line) g.fillText(line, x0 + cardW / 2, ly);
+    if (line) { g.fillText(line, x0 + cardW / 2, ly); ly += 9; }
+    // ...and the best-run line goes BELOW whatever the wrap produced, not at a fixed
+    // offset that five lines of flavour will land on top of.
     const b = best[key];
     if (b && !locked) {
+      const by2 = Math.min(y0 + cardH - 7, Math.max(ly + 3, y0 + cardH - 16));
+      px(g, x0 + 6, by2 - 7, cardW - 12, 9, 'rgba(10,24,14,0.75)');
       g.fillStyle = '#39c96a';
-      g.fillText(b.clears ? 'CLEARED ×' + b.clears : 'best: act ' + b.acts, x0 + cardW / 2, y0 + cardH - 8);
+      g.fillText(b.clears ? 'CLEARED ×' + b.clears : 'best: act ' + b.acts, x0 + cardW / 2, by2);
     }
   });
 
@@ -2597,38 +2642,99 @@ function brawlBlit(g, cv, x, footY, k) {
     cv.width * k, cv.height * k);
 }
 
-// The hero and Honey Mustard, at native size, once.
-function brawlActorNug(seed, band) {
-  return brawlActor('nug' + seed + band, 22, 23, (gg) => {
-    gg.drawImage(nugBody(9, seed, '#e8a83e', '#8a5a1d'), 1, 2);
-    px(gg, 4, 6, 15, 3, band);
-    px(gg, 2, 7, 3, 1, band);
-    px(gg, 8, 13, 3, 3, '#fff'); px(gg, 14, 13, 3, 3, '#fff');
-    px(gg, 9, 14, 2, 2, '#1a0f08'); px(gg, 15, 14, 2, 2, '#1a0f08');
-    px(gg, 8, 10, 4, 1, '#42200e'); px(gg, 14, 10, 4, 1, '#42200e');
-    px(gg, 9, 18, 5, 2, '#8a5a1d'); px(gg, 15, 18, 4, 2, '#8a5a1d');
-    px(gg, 5, 20, 5, 3, '#8a5a1d'); px(gg, 13, 20, 5, 3, '#8a5a1d');
-  });
+// THE CAST, DRAWN BIG AT NATIVE PIXEL DENSITY — not blitted at a raster scale.
+//
+// The first version of this painted a 22px actor into an offscreen canvas and drew it
+// at 2x or 3x. It made the cast the right SIZE and Beau spotted the cost instantly
+// from prod: *"the characters in the cut scene seem pixelated worse than normal."*
+// He is exactly right and it is arithmetic — the whole canvas is already magnified by
+// `brawl.scale`, so a 3x raster blit gives those sprites pixels three times the size
+// of every other pixel in the frame. In a game where the pixel grid is the medium,
+// that reads as a lower-resolution character pasted into a higher-resolution shot.
+//
+// So: scale the RADIUS, not the raster. nugBody is procedural and takes any r, and the
+// cup is drawn row by row anyway, so both can simply be built bigger — same silhouette,
+// same ramp, same one-pixel keyline, at the frame's own pixel density. `u` is the detail
+// unit derived from the sprite so the face stays in proportion.
+function brawlCutNug(g, x, footY, K, bandCol, warm) {
+  // Going native cost SIZE at first — r 14/19 gave a 31/41px sprite where the 3x
+  // raster blit had given 66px. The radius is free, so buy it straight back: this is
+  // the whole advantage of scaling the geometry instead of the pixels.
+  const r = 6 + Math.round(7.6 * K);                 // K2 -> 21 (45px), K3 -> 29 (61px)
+  const img = nugBody(r, 4, warm ? '#c98a2e' : '#e8a83e', warm ? '#6b4416' : '#8a5a1d');
+  const sz = img.width;
+  const bx = Math.round(x - sz / 2), by = Math.round(footY - sz + 1);
+  const u = Math.max(2, Math.round(r / 6));
+  const BR = brawlRamp(warm ? '#6b4416' : '#8a5a1d');
+  // feet first, so the body overlaps them
+  px(g, bx + u * 2, footY - u, u * 2, u, BR.line);
+  px(g, bx + sz - u * 4, footY - u, u * 2, u, BR.line);
+  g.drawImage(img, bx, by);
+  // the headband, with the light on top and the shadow it throws
+  const HR = brawlRamp(bandCol);
+  px(g, bx + u, by + u * 1.6, sz - u * 2, u * 1.4, HR.line);
+  px(g, bx + u, by + u * 1.6, sz - u * 2, u, HR.base);
+  px(g, bx + u + 1, by + u * 1.6, Math.round(u * 2.5), Math.max(1, u / 2), HR.rim);
+  // eyes: white, pupil, catchlight
+  const ey = by + Math.round(u * 3.4), ew = Math.max(2, u);
+  const e1 = bx + Math.round(sz * 0.42), e2 = bx + Math.round(sz * 0.66);
+  px(g, e1, ey, ew, ew, '#f4f4fa');
+  px(g, e2, ey, ew, ew, '#f4f4fa');
+  px(g, e1 + Math.max(1, ew - 2), ey + Math.max(1, ew - 2), Math.max(1, ew / 2), Math.max(1, ew / 2), '#1a0f08');
+  px(g, e2 + Math.max(1, ew - 2), ey + Math.max(1, ew - 2), Math.max(1, ew / 2), Math.max(1, ew / 2), '#1a0f08');
+  px(g, e1, ey, 1, 1, '#fff');
+  // the mouth
+  px(g, bx + Math.round(sz * 0.46), by + Math.round(u * 5.2), Math.round(u * 2.2), u, '#a8231b');
 }
 
-function brawlActorHoney(dim) {
-  return brawlActor('honey' + (dim ? 'd' : ''), 20, 23, (gg) => {
-    const body = dim ? '#d8cfb8' : '#f4f0e6';
-    px(gg, 2, 6, 17, 15, body);
-    px(gg, 1, 5, 19, 2, dim ? '#b8ad94' : '#c9cfe0');
-    px(gg, 2, 11, 17, 4, dim ? '#c98a1a' : '#e8a020');
-    px(gg, 4, 21, 6, 2, '#8a7a5a'); px(gg, 11, 21, 6, 2, '#8a7a5a');
-    px(gg, 5, 1, 5, 5, '#ff2fa0'); px(gg, 12, 1, 5, 5, '#ff2fa0');
-    px(gg, 9, 3, 4, 3, '#ff2fa0');
-    px(gg, 5, 16, 2, 2, '#1a0f08'); px(gg, 13, 16, 2, 2, '#1a0f08');
-  });
+// Honey Mustard, same recipe as drawCup's rows so she is the same KIND of object as
+// the cups you fight, just bigger and not trying to hit you.
+function brawlCutCup(g, x, footY, K, sauce, cream) {
+  const cw = 10 + Math.round(7.8 * K);               // K2 -> 26, K3 -> 33
+  const bh = Math.round(cw * 1.05);
+  const CR = brawlRamp(cream), SR = brawlRamp(sauce);
+  const u = Math.max(2, Math.round(cw / 8));
+  const top = footY - bh;
+  for (let row = 0; row < bh; row++) {
+    const rw = cw - Math.round((row / (bh - 1)) * (cw * 0.34));
+    const rx = Math.round(x - rw / 2), ry = top + row;
+    const band = row > bh * 0.28 && row < bh * 0.5;
+    const P = band ? SR : CR;
+    px(g, rx, ry, rw, 1, P.line);
+    if (row < bh - 1) {
+      px(g, rx + 1, ry, rw - 2, 1, P.base);
+      px(g, rx + 1, ry, 1, 1, P.lite);
+      px(g, rx + rw - 2, ry, 1, 1, P.shade);
+    }
+  }
+  px(g, Math.round(x - cw / 2) + 1, top + 2, 1, u, CR.rim);
+  // feet
+  px(g, Math.round(x - cw * 0.34), footY - u, u * 2, u, CR.line);
+  px(g, Math.round(x + cw * 0.06), footY - u, u * 2, u, CR.line);
+  // the lid, and the bow that makes her Honey and not a grunt
+  const lw = cw + u, lrx = Math.round(x - lw / 2), lt = top - u * 2;
+  px(g, lrx, top - 1, lw, 1, SR.line);
+  px(g, lrx + 1, top - 1, lw - 2, 1, SR.lite);
+  px(g, lrx + 1, lt, lw - 2, u * 2, SR.line);
+  px(g, lrx + 2, lt, lw - 4, u * 2, SR.base);
+  px(g, lrx + 2, lt, 1, u * 2, SR.lite);
+  const PR = brawlRamp('#ff2fa0');
+  px(g, lrx + Math.round(lw * 0.12), lt - u * 2, Math.round(lw * 0.3), u * 2, PR.line);
+  px(g, lrx + Math.round(lw * 0.12), lt - u * 2, Math.round(lw * 0.3), u, PR.base);
+  px(g, lrx + Math.round(lw * 0.58), lt - u * 2, Math.round(lw * 0.3), u * 2, PR.line);
+  px(g, lrx + Math.round(lw * 0.58), lt - u * 2, Math.round(lw * 0.3), u, PR.base);
+  px(g, lrx + Math.round(lw * 0.42), lt - u, Math.round(lw * 0.16), u, PR.shade);
+  // eyes on the cup, not the lid
+  const ey = top + Math.round(bh * 0.56), ew = Math.max(2, u);
+  px(g, Math.round(x - cw * 0.26), ey, ew, ew, '#1a0f08');
+  px(g, Math.round(x + cw * 0.12), ey, ew, ew, '#1a0f08');
 }
 
 // A lit floor and the wedge of light standing on it — the one move that did the most
 // for the belt in round 1, reused because it is what turns a backdrop into a room.
 function brawlCutFloor(g, W, gy, floorCol, poolCol, lipCol) {
   px(g, 0, gy, W, 4, lipCol);
-  px(g, 0, gy + 4, W, 200, floorCol);
+  px(g, 0, gy + 4, W, Math.max(8, 200), floorCol);
   const pool = g.createRadialGradient(W / 2, gy + 2, 4, W / 2, gy + 2, W * 0.42);
   pool.addColorStop(0, poolCol + '0.3)');
   pool.addColorStop(0.5, poolCol + '0.1)');
@@ -2706,20 +2812,23 @@ function brawlCutArt(g, W, Hh, art, noCast) {
     g.fillText('6PC 1.99', 22, gy - 46);
     g.fillText('12PC 3.49', 22, gy - 37);
     px(g, 22, gy - 33, 33, 1, '#3f7a55');
-    // THE CAST, at K times the size the rig draws them in game
+    // THE CAST, built big at native pixel density
     const K = brawlCutK(Hh);
     if (!noCast) {
       brawlCutShadow(g, cx - 15 * K, gy, 11 * K);
-      brawlBlit(g, brawlActorNug(4, '#d32f2f'), cx - 15 * K, gy, K);
+      brawlCutNug(g, cx - 15 * K, gy, K, '#d32f2f', false);
       brawlCutShadow(g, cx + 13 * K, gy, 10 * K);
-      brawlBlit(g, brawlActorHoney(false), cx + 13 * K, gy, K);
+      brawlCutCup(g, cx + 13 * K, gy, K, '#e8a020', '#f4f0e6');
     }
-    // a booth back across the near edge, out of focus and cropped — the cheapest
-    // foreground plane there is, and it stops the floor running to the bar
-    px(g, 0, gy + 16, W, 200, '#150f0a');
-    px(g, 0, gy + 16, W, 3, '#2e2114');
-    px(g, 0, gy + 16, W, 1, '#4a3620');
-    for (let x = 12; x < W; x += 62) px(g, x, gy + 19, 34, 4, '#241a10');
+    // A booth back across the near edge. It used to be 200px tall, which on Beau's
+    // 242-tall world painted a THIRD OF THE FRAME near-black between the set and the
+    // letterbox bar — the shot looked like it had been cropped off at the knees. It is
+    // anchored to the bottom bar now and only as tall as it needs to be to read.
+    const bb = Math.max(gy + 14, Hh - 46 - 13);
+    px(g, 0, bb, W, Hh - 46 - bb, '#150f0a');
+    px(g, 0, bb, W, 3, '#2e2114');
+    px(g, 0, bb, W, 1, '#4a3620');
+    for (let x = 12; x < W; x += 62) px(g, x, bb + 3, 34, 4, '#241a10');
     // and the door, lit from outside, one line before it comes off its hinges
     px(g, W - 54, gy - 74, 46, 64, '#101822');
     px(g, W - 50, gy - 70, 38, 56, '#1b2a38');
@@ -2760,7 +2869,9 @@ function brawlCutArt(g, W, Hh, art, noCast) {
     spill.addColorStop(1, 'rgba(255,210,58,0)');
     g.fillStyle = spill;
     g.fillRect(vx + 4, gy - 84, 60, gy);
-    // wasabi, flattened, with his sauce going everywhere
+    // wasabi, flattened, with his sauce going everywhere — unless this set is being
+    // used as a menu backdrop, where a green shape in the corner is just a distraction
+    if (noCast) { g.textAlign = 'center'; return; }
     g.globalAlpha = 0.45;
     px(g, 24, gy + 2, 74, 3, '#39c96a');
     px(g, 34, gy + 5, 50, 2, '#39c96a');
@@ -2930,26 +3041,26 @@ function brawlCutArt(g, W, Hh, art, noCast) {
     px(g, swx - 1, swy - 1, 2, 2, '#dff2ff');
     // the pier they are standing on
     brawlCutFloor(g, W, gy, '#3a2c1c', 'rgba(255,210,122,', '#6b4a28');
-    for (let x = 0; x < W; x += 18) px(g, x, gy + 4, 16, 200, '#33261a');
+    for (let x = 0; x < W; x += 18) px(g, x, gy + 4, 16, Hh - 46 - gy - 4, '#33261a');
     for (let x = 0; x < W; x += 18) px(g, x, gy + 4, 16, 1, '#4a3826');
     // the near mooring post, cropped by the frame
-    px(g, 8, gy + 6, 14, 200, '#2a1f14');
+    px(g, 8, gy + 6, 14, Hh - 46 - gy - 6, '#2a1f14');
     px(g, 6, gy + 4, 18, 4, '#3d2c1c');
     px(g, 6, gy + 4, 18, 1, '#6b5236');
     // the two of them, backlit, at cutscene scale
     const K = brawlCutK(Hh);
     const hx0 = brawl.twoP ? cx - 24 * K : cx - 15 * K;
     brawlCutShadow(g, hx0, gy, 11 * K);
-    brawlBlit(g, brawlActorNug(4, '#a8231b'), hx0, gy, K);
-    px(g, hx0 + 9 * K, gy - 21 * K, 3, 18 * K, '#ffd27a');
+    brawlCutNug(g, hx0, gy, K, '#a8231b', true);
+    px(g, hx0 + 8 * K, gy - 19 * K, 2, 17 * K, '#ffd27a');
     if (brawl.twoP) {
       brawlCutShadow(g, cx - 7 * K, gy, 11 * K);
-      brawlBlit(g, brawlActorNug(6, '#25549e'), cx - 7 * K, gy, K);
-      px(g, cx + 2 * K, gy - 21 * K, 3, 18 * K, '#ffd27a');
+      brawlCutNug(g, cx - 7 * K, gy, K, '#25549e', true);
+      px(g, cx + 1 * K, gy - 19 * K, 2, 17 * K, '#ffd27a');
     }
     brawlCutShadow(g, cx + 13 * K, gy, 10 * K);
-    brawlBlit(g, brawlActorHoney(true), cx + 13 * K, gy, K);
-    px(g, cx + 22 * K, gy - 20 * K, 3, 17 * K, '#ffe9a0');
+    brawlCutCup(g, cx + 13 * K, gy, K, '#c98a1a', '#d8cfb8');
+    px(g, cx + 21 * K, gy - 18 * K, 2, 16 * K, '#ffe9a0');
   }
   g.textAlign = 'center';
 }
@@ -3468,17 +3579,31 @@ function drawBoss(g, e) {
   brawlShadow(g, x, e.d, 18, slamRise < 0 ? -slamRise : 0);
   const step = Math.floor(brawl.t * 6) % 2;
   const flash = e.st === 'hurt' && (e.stT < 0.05 || Math.floor(e.stT * 30) % 2);
-  const body = flash ? '#fff' : '#2e9e53';
-  const dark = flash ? '#fff' : '#1c6434';
-  px(g, x - 5 + (step ? -1 : 0), gy - 3, 4, 3, dark);
-  px(g, x + 2 + (step ? 1 : 0), gy - 3, 4, 3, dark);
+  // WASABI. He was a flat green rectangle with a white label on it, which is what
+  // Beau was pointing at when he asked for the bosses: the grunts got a ramp in round
+  // 6 and the three characters the campaign is BUILT around did not.
+  const R = brawlRamp(flash ? '#fff' : '#2e9e53');
+  const body = flash ? '#fff' : R.base;
+  const dark = flash ? '#fff' : R.line;
+  px(g, x - 5 + (step ? -1 : 0), gy - 4, 5, 4, dark);
+  px(g, x + 2 + (step ? 1 : 0), gy - 4, 5, 4, dark);
+  px(g, x - 9, y + 5, 18, 24, dark);          // the keyline, all the way round
   px(g, x - 8, y + 6, 16, 22, body);
-  px(g, x - 8, y + 6, 3, 22, flash ? '#fff' : '#39c96a');
-  px(g, x - 6, y + 12, 12, 9, flash ? '#fff' : '#f4f0e6');
-  px(g, x - 4, y + 15, 8, 1, dark);
-  px(g, x - 4, y + 18, 6, 1, dark);
-  px(g, x - 5, y + 2, 10, 4, dark);
-  px(g, x - 2, y - 3, 4, 5, flash ? '#fff' : '#ffe23a');
+  px(g, x - 8, y + 6, 2, 22, flash ? '#fff' : R.lite);
+  px(g, x + 6, y + 6, 2, 22, flash ? '#fff' : R.shade);
+  px(g, x - 8, y + 6, 16, 1, flash ? '#fff' : R.rim);
+  const LR = brawlRamp('#f4f0e6');
+  px(g, x - 7, y + 11, 14, 11, flash ? '#fff' : LR.line);
+  px(g, x - 6, y + 12, 12, 9, flash ? '#fff' : LR.base);
+  px(g, x - 6, y + 12, 12, 1, flash ? '#fff' : LR.rim);
+  px(g, x - 4, y + 15, 8, 1, R.line);
+  px(g, x - 4, y + 18, 6, 1, R.line);
+  px(g, x - 6, y + 1, 12, 5, dark);           // the neck
+  px(g, x - 5, y + 2, 10, 3, flash ? '#fff' : R.shade);
+  const CR2 = brawlRamp('#ffe23a');
+  px(g, x - 3, y - 4, 6, 6, flash ? '#fff' : CR2.line);
+  px(g, x - 2, y - 3, 4, 5, flash ? '#fff' : CR2.base);
+  px(g, x - 2, y - 3, 4, 1, flash ? '#fff' : CR2.rim);
   if (!flash) {
     px(g, x - 4 + (e.face > 0 ? 1 : 0), y + 8, 2, 2, '#1a0f08');
     px(g, x + 2 + (e.face > 0 ? 1 : 0), y + 8, 2, 2, '#1a0f08');
@@ -3494,20 +3619,38 @@ function drawDijon(g, e) {
   const lean = e.st === 'caneWind' ? -e.face * 3 : e.st === 'swipe' ? e.face * 4 : 0;
   const y = gy - 26;
   brawlShadow(g, x, e.d, 17);
-  const body = flash ? '#fff' : '#e6b800';
-  const dark = flash ? '#fff' : '#9c7c00';
-  px(g, x - 5 + (step ? -1 : 0), gy - 3, 4, 3, dark);
-  px(g, x + 2 + (step ? 1 : 0), gy - 3, 4, 3, dark);
+  // DIJON. Same treatment: a ramp on the cup, the sash and the hat, and a keyline
+  // holding the tailoring together.
+  const DR = brawlRamp(flash ? '#fff' : '#e6b800');
+  const CU = brawlRamp(flash ? '#fff' : '#f4f0e6');
+  const body = flash ? '#fff' : DR.base;
+  const dark = flash ? '#fff' : DR.line;
+  px(g, x - 5 + (step ? -1 : 0), gy - 4, 5, 4, dark);
+  px(g, x + 2 + (step ? 1 : 0), gy - 4, 5, 4, dark);
   // the cup, tall and tailored
-  px(g, x - 7 + lean, y + 4, 14, 20, flash ? '#fff' : '#f4f0e6');
+  px(g, x - 8 + lean, y + 3, 16, 22, flash ? '#fff' : CU.line);
+  px(g, x - 7 + lean, y + 4, 14, 20, flash ? '#fff' : CU.base);
+  px(g, x - 7 + lean, y + 4, 2, 20, flash ? '#fff' : CU.lite);
+  px(g, x + 5 + lean, y + 4, 2, 20, flash ? '#fff' : CU.shade);
+  px(g, x - 7 + lean, y + 8, 14, 4, dark);
   px(g, x - 7 + lean, y + 8, 14, 3, body);
-  px(g, x - 8 + lean, y + 4, 16, 1, flash ? '#fff' : '#c9cfe0');
+  px(g, x - 7 + lean, y + 8, 14, 1, flash ? '#fff' : DR.rim);
+  px(g, x - 9 + lean, y + 3, 18, 2, flash ? '#fff' : CU.line);
+  px(g, x - 8 + lean, y + 3, 16, 1, flash ? '#fff' : CU.rim);
   // cravat
   px(g, x - 2 + lean, y + 12, 4, 5, flash ? '#fff' : '#8a1c3a');
   // head band + top hat
+  px(g, x - 7 + lean, y - 3, 14, 8, dark);
   px(g, x - 6 + lean, y - 2, 12, 6, body);
-  px(g, x - 8 + lean, y - 6, 16, 4, flash ? '#fff' : '#131313');
-  px(g, x - 5 + lean, y - 14, 10, 9, flash ? '#fff' : '#131313');
+  px(g, x - 6 + lean, y - 2, 12, 1, flash ? '#fff' : DR.rim);
+  const HT = brawlRamp(flash ? '#fff' : '#232323');
+  px(g, x - 9 + lean, y - 7, 18, 5, HT.line);
+  px(g, x - 8 + lean, y - 6, 16, 4, HT.base);
+  px(g, x - 8 + lean, y - 6, 16, 1, HT.lite);
+  px(g, x - 6 + lean, y - 15, 12, 10, HT.line);
+  px(g, x - 5 + lean, y - 14, 10, 9, HT.base);
+  px(g, x - 5 + lean, y - 14, 3, 9, HT.lite);
+  px(g, x - 5 + lean, y - 14, 10, 1, HT.rim);
   px(g, x - 5 + lean, y - 7, 10, 1, flash ? '#fff' : '#8a1c3a');
   if (!flash) {
     px(g, x - 3 + lean + (e.face > 0 ? 1 : 0), y, 2, 2, '#1a0f08');
@@ -3532,16 +3675,27 @@ function drawClucker(g, e) {
   const y = gy - 38;
   brawlShadow(g, x, e.d, e.st === 'flap' || e.st === 'flapWind' ? 22 : 28,
     e.st === 'flap' ? 7 : 0, 0.5);
-  const body = flash ? '#fff' : '#f4ecd4';
-  const dark = flash ? '#fff' : '#c9c0a8';
+  // THE MOTHER CLUCKER. She gets the RAMP but deliberately NOT the keyline the other
+  // two bosses got, and this is a rule about rigs rather than about her: Wasabi and
+  // Dijon are single stacked forms, so an outline drawn round each part lands on the
+  // silhouette. She is eight OVERLAPPING rectangles — body, tail, wing, neck, head,
+  // comb, beak, wattle — and outlining each one drew borders through the middle of the
+  // character. Her head and neck came back as two floating white boxes. Binned on
+  // sight. Doing her properly means redrawing the parts so they share edges; a keyline
+  // is not something you can add to a rig that overlaps itself.
+  const CK = brawlRamp(flash ? '#fff' : '#f4ecd4');
+  const body = flash ? '#fff' : CK.base;
+  const dark = flash ? '#fff' : CK.shade;
+  const line = flash ? '#fff' : CK.line;
   const mad = e.phase === 3;
   // scaly legs
   px(g, x - 6 + (step ? -2 : 0), gy - 8, 3, 8, flash ? '#fff' : '#c9541f');
   px(g, x + 4 + (step ? 2 : 0), gy - 8, 3, 8, flash ? '#fff' : '#c9541f');
   px(g, x - 8 + (step ? -2 : 0), gy - 1, 6, 2, flash ? '#fff' : '#c9541f');
   px(g, x + 3 + (step ? 2 : 0), gy - 1, 6, 2, flash ? '#fff' : '#c9541f');
-  // the great body
+  // the great body. NO KEYLINE ON HER — see the note above drawClucker.
   px(g, x - 13 + lunge, y + 10, 26, 20, body);
+  px(g, x - 13 + lunge, y + 10, 26, 1, flash ? '#fff' : CK.lite);
   px(g, x - 13 + lunge, y + 24, 26, 6, dark);
   // tail feathers
   px(g, x - e.face * 16 + lunge, y + 6, 4, 12, body);
@@ -3551,7 +3705,9 @@ function drawClucker(g, e) {
   px(g, x - 6 + lunge, y + 12 + wingUp, 14, 8, dark);
   // neck + head
   px(g, x + e.face * 8 + lunge, y - 2, 8, 14, body);
+  px(g, x + e.face * 8 + lunge, y - 2, 2, 14, flash ? '#fff' : CK.lite);
   px(g, x + e.face * 7 + lunge, y - 8, 11, 9, body);
+  px(g, x + e.face * 7 + lunge, y - 8, 11, 1, flash ? '#fff' : CK.lite);
   // comb
   px(g, x + e.face * 9 + lunge, y - 12, 3, 4, flash ? '#fff' : '#d32f2f');
   px(g, x + e.face * 12 + lunge, y - 13, 3, 5, flash ? '#fff' : '#d32f2f');

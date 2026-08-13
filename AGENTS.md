@@ -1656,3 +1656,59 @@ deeper than region.js was written for** — the band is a 475×72 box and a figh
 fps 60.2 unchanged (the ramp is cached per colour, and `nugBody` is still cached per
 sprite). Verified at `std` AND `wide`. **If a future round touches a character, point
 `region.js` at a 30×30 box around it — the belt band cannot see the cast.**
+
+## 🥊 BRAWLERS ROUND 7 — THE HEAT CARD, THE TWO-SHOT, TWO OF THREE BOSSES (2026-08-13)
+
+Three things Beau named from prod screenshots. **One of the three fixes had to be
+binned, and that one is the most useful entry here.**
+
+**1. THE HEAT SCREEN WAS LITERALLY BROKEN.** The flavour text wraps to a *variable*
+number of lines from a fixed `y`, and the best-run line was drawn at a **fixed**
+`y0 + cardH - 8`. MILD wraps to five lines. They landed on the same row and
+overprinted — `best: act 1` straight through `cups, generous crates.` The wrap width
+follows the card now, the cards are wider (`min(112, (W-34)/3)`, so three lines not
+five), and the best-run line is placed BELOW whatever the wrap produced with a
+`min(y0 + cardH - 7, …)` clamp. It also stops being three flat rectangles on a black
+field: the vault set behind it, a gradient panel, the heat's own colour as a ribbon
+across the head of each card, and the selected card is LIT. **near 75.7 → 52.2, flat
+85.1 → 51.6, mean 27.9 → 35.3.**
+
+**2. THE CUTSCENE CAST WAS PIXELATED WORSE THAN THE GAME**, and the diagnosis is
+arithmetic. Round 5 made the cast the right SIZE by painting a 22px actor into an
+offscreen canvas and blitting it at 3×. The whole canvas is *already* magnified by
+`brawl.scale`, so those sprites had pixels three times the size of every other pixel
+in the frame — a low-resolution character pasted into a high-resolution shot.
+**Scale the GEOMETRY, not the raster.** `brawlCutNug` / `brawlCutCup` build the same
+silhouette and the same ramp at r 21–29 and cw 26–33, at the frame's own density, with
+a detail unit `u` derived from the sprite so the face stays in proportion.
+
+Two follow-on defects fell straight out of it, and both were latent in `nugBody` from
+the day it was written: **its wobble was a fixed ±1.7px**, which is 19% of a radius-9
+nugget and 6% of a radius-29 one — so the first big nugget came back a smooth BALL.
+The wobble, the crumb cell and the keyline all scale with `r` now, which also makes
+every existing call site slightly better. And the diner's **booth back was 200px
+tall**, which on a 242-tall world painted a third of the frame near-black between the
+set and the letterbox; it is anchored to the bar (`Hh - 46 - 13`) now. Three other
+`200`-height fills got the same treatment.
+
+**3. THE BOSSES — and the Clucker is RAMP-ONLY on purpose.** Wasabi was a flat green
+rectangle with a white label; he and Dijon now have round 6's ramp, a keyline, a lit
+edge, a shaded edge and a rim on the cap/hat. **Keylining the Mother Clucker turned
+her head and neck into two floating white boxes and was binned on sight.**
+
+**The rule that came out of it, which is about RIGS and not about her:** Wasabi and
+Dijon are single stacked forms, so an outline drawn around each part lands on the
+silhouette. She is **eight overlapping rectangles** — body, tail, wing, neck, head,
+comb, beak, wattle — and outlining each one draws borders *through the middle of the
+character*. **A keyline is not something you can add to a rig that overlaps itself.**
+Doing her properly means redrawing the parts so they share edges, which is a round of
+its own. She keeps the ramp and a lit top edge, which are safe on overlapping forms
+because they do not introduce new boundaries.
+
+**And a metric note:** the boss frame stats did not move (`04-vault` mean 47.2 → 47.2)
+and `region.js` on a 34×42 box around Wasabi reported `sd` **down** 3.4% — because the
+keyline and the shade replaced pure-white label area with mid-tones, which narrows the
+variance inside the box even though the sprite plainly reads better. Round 6 said point
+`region.js` at the sprite; round 7 adds that even there, **for a keyline change the crop
+is the only judge.** Verified at `std` and `wide`. fps 60. `20-map` is now the last
+screen in the game with nothing behind it.
