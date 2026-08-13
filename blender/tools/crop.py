@@ -21,6 +21,23 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_shots')
 
 
+# 🥊 PIXEL MODE. CROP_PIXEL=1 makes every resize in this file NEAREST at an
+# INTEGER scale, and never downscales below 1:1. It exists for BATTERED BRAWLERS,
+# whose world is 340x200 and whose whole subject is individual pixels: LANCZOS
+# doubling a 20px-tall character to fit a 430px tile is a picture of a blur, and
+# the question in that game is always the silhouette. The hall renders at 900+
+# and wants LANCZOS, so this is opt-in and off by default.
+PIXEL = os.environ.get('CROP_PIXEL') == '1'
+
+
+def _rs(im, tw):
+    """Resize a tile to about `tw` wide, honouring pixel mode."""
+    if PIXEL:
+        k = max(1, round(tw / im.width))
+        return im if k == 1 else im.resize((im.width * k, im.height * k), Image.NEAREST)
+    return im.resize((tw, max(1, round(im.height * tw / im.width))), Image.LANCZOS)
+
+
 def _p(rel):
     return rel if os.path.isabs(rel) else os.path.join(ROOT, rel)
 
@@ -64,7 +81,7 @@ def sheet(tag, cols=4, tw=430):
     tiles = []
     for f in _shots(tag):
         im = Image.open(os.path.join(d, f)).convert('RGB')
-        im = im.resize((tw, round(im.height * tw / im.width)), Image.LANCZOS)
+        im = _rs(im, tw)
         name = f[:-4]
         r = stats.get(name)
         cap = name if not r else '%s  dead %.1f  near %.1f  blown %.2f  mean %.0f' % (
@@ -90,11 +107,10 @@ def ab(tag_a, tag_b, tw=560):
     for f in common:
         a = Image.open(os.path.join(da, f)).convert('RGB')
         b = Image.open(os.path.join(db, f)).convert('RGB')
-        h = round(a.height * tw / a.width)
-        a = a.resize((tw, h), Image.LANCZOS)
-        b = b.resize((tw, h), Image.LANCZOS)
-        pair = Image.new('RGB', (tw * 2 + 6, h), (8, 8, 10))
-        pair.paste(a, (0, 0)); pair.paste(b, (tw + 6, 0))
+        a, b = _rs(a, tw), _rs(b, tw)
+        w2, h = a.width, a.height
+        pair = Image.new('RGB', (w2 * 2 + 6, h), (8, 8, 10))
+        pair.paste(a, (0, 0)); pair.paste(b, (w2 + 6, 0))
         tiles.append(_label(pair, '%s      %s  |  %s' % (f[:-4], tag_a, tag_b)))
     if not tiles:
         raise SystemExit('no shots in common')
@@ -144,7 +160,7 @@ def tunesheet(spot, tw=430):
         if not os.path.exists(f):
             continue
         im = Image.open(f).convert('RGB')
-        im = im.resize((tw, round(im.height * tw / im.width)), Image.LANCZOS)
+        im = _rs(im, tw)
         tiles.append(_label(im, c))
     if not tiles:
         raise SystemExit('no tune shots for ' + spot)
@@ -175,7 +191,7 @@ def strip(tag, cols=4, tw=430):
     tiles = []
     for f in files:
         im = Image.open(os.path.join(d, f)).convert('RGB')
-        im = im.resize((tw, max(1, round(im.height * tw / im.width))), Image.LANCZOS)
+        im = _rs(im, tw)
         tiles.append(_label(im, f.replace('.png', '')))
     cols = min(cols, len(tiles))
     rows = (len(tiles) + cols - 1) // cols

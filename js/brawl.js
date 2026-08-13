@@ -252,6 +252,28 @@ const brawl = {
   players: [],
 };
 
+// ---- determinism ---------------------------------------------------------------------
+// A harness that cannot put this game in the same place twice cannot measure it,
+// and a belt-scroller is nothing BUT random placement: every cup's depth lane,
+// speed, waddle phase and golden roll, every wander spawn, every crate drop, and
+// the screen shake itself. So every Math.random() in this file goes through
+// brawlRand(). Unseeded it IS Math.random (the shipped game is untouched);
+// brawlDebug({ seed }) turns it into a mulberry32 and the same run comes back
+// frame-for-frame, which is what makes an A/B diff mean anything.
+let brawlSeedState = 0;
+function brawlSeed(s) {
+  brawl.seed = s == null ? null : (s | 0);
+  brawlSeedState = brawl.seed || 0;
+}
+function brawlRand() {
+  if (brawl.seed == null) return Math.random();
+  brawlSeedState = (brawlSeedState + 0x6d2b79f5) | 0;
+  let t = brawlSeedState;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
 function brawlAct() { return BRAWL_ACTS[brawl.act]; }
 function brawlLen() { return brawlAct().len; }
 
@@ -527,16 +549,16 @@ function spawnCup(kind, side, atX) {
     return;
   }
   const c = CUPS[kind];
-  const golden = Math.random() < 0.05;
+  const golden = brawlRand() < 0.05;
   brawl.enemies.push({
     kind,
-    x: atX + side * (brawl.W * 0.5 + 12 + Math.random() * 26),
-    d: 3 + Math.random() * (DEPTH_MAX - 6),
+    x: atX + side * (brawl.W * 0.5 + 12 + brawlRand() * 26),
+    d: 3 + brawlRand() * (DEPTH_MAX - 6),
     hp: c.hp + brawl.cfg.hpUp + Math.floor(shiftUp / 2),
-    speed: c.speed * (0.85 + Math.random() * 0.3) * brawl.cfg.speed * (1 + shiftUp * 0.1) * (golden ? 1.5 : 1),
+    speed: c.speed * (0.85 + brawlRand() * 0.3) * brawl.cfg.speed * (1 + shiftUp * 0.1) * (golden ? 1.5 : 1),
     st: 'walk', stT: 0, face: -side, dead: false, golden,
     guardUp: !!c.guard, blockT: 0,
-    waddle: Math.random() * 7,
+    waddle: brawlRand() * 7,
   });
 }
 
@@ -559,14 +581,14 @@ function triggerAmbush(amb) {
 
 function pickBrawlCup() {
   const pool = brawlAct().wander;
-  return pool[(Math.random() * pool.length) | 0];
+  return pool[(brawlRand() * pool.length) | 0];
 }
 
 // ---- pickups ---------------------------------------------------------------------
 
 function brawlSpawnDrop(kind, x, d) {
   if (kind === 'rand') {
-    const r = Math.random();
+    const r = brawlRand();
     kind = r < brawl.cfg.dropFries ? 'fries' : r < 0.62 ? 'gold' : r < 0.84 ? 'spatula' : 'hotsauce';
   }
   brawl.drops.push({ kind, x, d, t: 0 });
@@ -676,7 +698,7 @@ function koCup(e, byChainIdx) {
   if (e.boss) {
     brawl.shake = 0.5;
     sfxBrawlBossDown();
-  } else if (Math.random() < 0.12) {
+  } else if (brawlRand() < 0.12) {
     brawlSpawnDrop('rand', e.x, e.d); // cups occasionally drop their lunch money
   }
 }
@@ -720,6 +742,10 @@ function brawlNearestPlayer(e) {
 function stepBrawl(dt, w, h) {
   if (!brawl.on) return;
   if (brawl.cv.width !== Math.ceil(w / brawl.scale)) brawlLayout();
+  // brawlDebug({freeze:1}): redraw the exact same state forever. The harness sets
+  // a pose, then screenshots; without this the rAF loop walks the clock between
+  // the two and every "same frame" A/B is really two different frames.
+  if (brawl.frozen) { brawlRedraw(); return; }
   brawl.t += dt;
 
   if (brawl.phase === 'title') { brawlDrawTitle(); return; }
@@ -775,8 +801,8 @@ function stepBrawl(dt, w, h) {
 
   // stray grunts wander in between ambushes so the walk stays lively
   if (!brawl.locked && leadX > brawl.wanderAt && brawl.ambushIdx < act.ambushes.length) {
-    brawl.wanderAt = leadX + 170 + Math.random() * 120;
-    if (Math.random() < 0.45) spawnCup(pickBrawlCup(), 1, brawl.cam + brawl.W / 2);
+    brawl.wanderAt = leadX + 170 + brawlRand() * 120;
+    if (brawlRand() < 0.45) spawnCup(pickBrawlCup(), 1, brawl.cam + brawl.W / 2);
   }
 
   for (const p of brawl.players) brawlStepPlayer(p, dt, len);
@@ -1007,7 +1033,7 @@ function brawlStepEnemies(dt) {
         });
       } else if (e.st === 'throw' && e.stT > 0.7) {
         e.st = 'walk';
-        if (Math.random() < 0.4) e.x -= e.face * 8;
+        if (brawlRand() < 0.4) e.x -= e.face * 8;
       }
     } else if (c.dasher) {
       // soy ninja: hangs back, then blurs across the lane
@@ -1147,8 +1173,8 @@ function brawlStepBoss(e, p, dt, wu, seekD, dx, adx, add) {
     seekD();
     if (e.cd <= 0) {
       if (adx < 30 && add < DEPTH_HIT + 4) { e.st = 'peckWind'; e.stT = 0; }
-      else if (e.phase >= 2 && adx < 90 && Math.random() < 0.5) { e.st = 'flapWind'; e.stT = 0; }
-      else if (e.phase === 3 && Math.random() < 0.4) { e.st = 'stompWind'; e.stT = 0; }
+      else if (e.phase >= 2 && adx < 90 && brawlRand() < 0.5) { e.st = 'flapWind'; e.stT = 0; }
+      else if (e.phase === 3 && brawlRand() < 0.4) { e.st = 'stompWind'; e.stT = 0; }
       else if (adx > 50) { e.st = 'eggWind'; e.stT = 0; }
     }
   } else if (e.st === 'peckWind' && e.stT > 0.45 * wu / rage) {
@@ -1433,22 +1459,89 @@ function brawlStripRestaurant(Hh, ground) {
     g.fillRect(vx - 40, ground - 130, 170, 130);
   }
 
-  brawlStripFloor(g, LEN, Hh, ground, '#1b2434', '#242f44', '#e8412c');
+  // warm kitchen fluorescents through to the dock's sodium
+  brawlStripFloor(g, LEN, Hh, ground, '#1b2434', '#242f44', '#e8412c', 'rgba(255,238,196,0.15)');
   return c;
 }
 
-// checker/backsplash floor shared by the acts (colors set the mood per act)
-function brawlStripFloor(g, LEN, Hh, ground, a, b, lip) {
-  g.fillStyle = '#233242';
+// THE BELT. Shared by all three acts (the colours set the mood), and until this
+// round it was twelve identical rows of a 6px checker from the wall to the bottom
+// of the screen — the same pattern at the same brightness at every depth, which
+// is wallpaper laid flat, not a floor. It is also THIRTY PER CENT OF EVERY PIXEL
+// IN THIS GAME, so it was the largest single surface here and the least worked.
+//
+// Four things going on now, all of them the floor telling you where you are:
+//
+//   PERSPECTIVE  rows get taller and cells get wider toward the viewer, so the
+//                belt recedes instead of tiling.
+//   THE RAMP     each row is lit by its distance. The back of the belt sits in
+//                the wall's shadow; the front catches the room.
+//   THE POOLS    overhead light, every 210px. 12-coop was the best-looking tile
+//                in the baseline sheet by a distance, and the only thing it had
+//                that the other eleven did not was one light pool on the floor.
+//   WEAR         grease and scuffs, because a kitchen floor at closing time is
+//                not a clean gradient either.
+function brawlStripFloor(g, LEN, Hh, ground, a, b, lip, pool) {
+  // the wall/floor junction: skirting, the lip, then the shadow the wall throws
+  g.fillStyle = brawlShade(b, 0.62);
   g.fillRect(0, ground - 8, LEN, 8);
   g.fillStyle = lip;
   g.fillRect(0, ground - 8, LEN, 1);
-  for (let y = ground; y < Hh; y += 6) {
-    const row = (y - ground) / 6;
-    for (let x = (row % 2) * 6 - 6; x < LEN + 6; x += 12) {
-      g.fillStyle = a; g.fillRect(x, y, 6, 6);
-      g.fillStyle = b; g.fillRect(x + 6, y, 6, 6);
+  g.fillStyle = brawlShade(lip, 0.45);
+  g.fillRect(0, ground - 7, LEN, 1);
+
+  let y = ground, r = 0;
+  while (y < Hh) {
+    const rh = 4 + Math.floor(r * 0.55);
+    const cw = 7 + Math.floor(r * 1.15);
+    // The ramp brightens FORWARD past the original flat value, it does not just
+    // darken backward: the first pass ran 0.56..1.16 on colours whose luma was
+    // already 30, the whole belt came out dimmer than the checker it replaced,
+    // and a contact shadow on a luma-17 floor has nothing to be darker than.
+    const k = 0.72 + Math.min(1, (y - ground) / (Hh - ground)) * 0.62;
+    const ca = brawlShade(a, k), cb = brawlShade(b, k);
+    const off = (r % 2) * cw;
+    for (let x = -cw + off; x < LEN + cw; x += cw * 2) {
+      g.fillStyle = ca; g.fillRect(x, y, cw, rh);
+      g.fillStyle = cb; g.fillRect(x + cw, y, cw, rh);
     }
+    y += rh;
+    r++;
+  }
+
+  // ambient occlusion where the belt meets the wall. Kept SHALLOW on purpose:
+  // the first pass ran 15px at 0.46 and the back lane went murky enough to lose
+  // a cup standing in it, and depth you cannot fight in is not depth.
+  const ao = g.createLinearGradient(0, ground, 0, ground + 11);
+  ao.addColorStop(0, 'rgba(0,0,4,0.30)');
+  ao.addColorStop(1, 'rgba(0,0,4,0)');
+  g.fillStyle = ao;
+  g.fillRect(0, ground, LEN, 11);
+
+  // the light pools, offset so no two acts pool in the same place
+  for (let lx = 90 + (ground % 40); lx < LEN + 100; lx += 210) {
+    const gl = g.createRadialGradient(lx, ground + 15, 3, lx, ground + 15, 104);
+    gl.addColorStop(0, pool || 'rgba(255,244,214,0.13)');
+    gl.addColorStop(0.55, (pool || 'rgba(255,244,214,0.13)').replace(/[\d.]+\)$/, '0.045)'));
+    gl.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gl;
+    g.fillRect(lx - 106, ground - 6, 212, Hh - ground + 6);
+  }
+
+  // Grease and scuffs. The first pass drew 40px bars at 0.14 across the whole
+  // belt and they read as render artifacts rather than as a floor nobody mopped
+  // — long, straight, horizontal and evenly lit is what a bug looks like. Short,
+  // low-contrast, and biased toward the FRONT rows (where a real floor is closer
+  // to camera and its wear is bigger) reads as grease.
+  const beltH = Math.max(10, Hh - ground);
+  for (let i = 0; i < LEN / 16; i++) {
+    const wx = (i * 173) % LEN;
+    const t = ((i * 97) % 100) / 100;
+    const wy = ground + 6 + Math.round(t * t * (beltH - 16));
+    g.globalAlpha = 0.05 + ((i * 37) % 5) * 0.011;
+    g.fillStyle = i % 6 === 0 ? '#f4ecd4' : '#000';
+    g.fillRect(wx, wy, 4 + (i % 4) * 4 + Math.round(t * 7), 1 + (i % 3 === 0 ? 1 : 0));
+    g.globalAlpha = 1;
   }
 }
 
@@ -1642,7 +1735,8 @@ function brawlStripNuggetown(Hh, ground) {
     g.fillStyle = '#c92f5c'; g.fillRect(x0 + 132, ground - 38, 60, 3);
   }
 
-  brawlStripFloor(g, LEN, Hh, ground, '#191921', '#22222c', '#e6b800');
+  // street sodium off the neon strip
+  brawlStripFloor(g, LEN, Hh, ground, '#191921', '#22222c', '#e6b800', 'rgba(255,190,96,0.15)');
   // penthouse floor: red carpet with gold trim over the asphalt
   g.fillStyle = '#5c1020'; g.fillRect(2180, ground, LEN - 2180, Hh - ground);
   g.fillStyle = '#7a1830';
@@ -1825,7 +1919,8 @@ function brawlStripSauceWorks(Hh, ground) {
       g.fillRect(x0 + 20 + ((i * 47) % (w2 - 40)), ground - 16 - ((i * 23) % 30), 5, 2);
   }
 
-  brawlStripFloor(g, LEN, Hh, ground, '#20242c', '#2a2f3a', '#ffe23a');
+  // the works runs on cold green worklights
+  brawlStripFloor(g, LEN, Hh, ground, '#20242c', '#2a2f3a', '#ffe23a', 'rgba(196,255,208,0.13)');
   // metal plate rivets
   g.fillStyle = '#39465c';
   for (let x = 24; x < 2180; x += 48) { g.fillRect(x, ground + 8, 2, 2); g.fillRect(x, Hh - 8, 2, 2); }
@@ -1842,7 +1937,10 @@ function brawlStripSauceWorks(Hh, ground) {
 // One lumpy pixel nugget body, deterministic per seed. Cached per (seed, r).
 const nugBodyCache = {};
 function nugBody(r, seed, base, dark) {
-  const key = r + '|' + seed + '|' + base; // r+seed ADDED collided (8,4)≡(6,6): wrong-size sprite from cache
+  // r+seed ADDED collided (8,4)≡(6,6): wrong-size sprite from cache. `dark` is in
+  // the key too now — the front row asks for base===dark to get a flat silhouette,
+  // and without it that request came back as whatever body was cached first.
+  const key = r + '|' + seed + '|' + base + '|' + dark;
   if (nugBodyCache[key]) return nugBodyCache[key];
   const size = r * 2 + 3;
   const c = document.createElement('canvas');
@@ -1872,6 +1970,58 @@ function px(g, x, y, w, h, color) {
 
 // Everything below draws in SCREEN space: worldX - cam, ground + depth.
 function entY(d) { return brawl.ground + 4 + d; }
+
+// ---- light, such as it is ------------------------------------------------------------
+// This game had no lighting model of any kind: every surface was authored at full
+// brightness as a colour literal, and the three acts were told apart by palette
+// alone. This multiply IS the lighting rig. Cached because a 200px-tall frame
+// calls it a few hundred times and the inputs are a handful of literals.
+const brawlShadeCache = {};
+function brawlShade(hex, k) {
+  const key = hex + '|' + k;
+  const hit = brawlShadeCache[key];
+  if (hit) return hit;
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (s) => Math.max(0, Math.min(255, Math.round(((n >> s) & 255) * k)));
+  const v = '#' + ((1 << 24) | (ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).slice(1);
+  brawlShadeCache[key] = v;
+  return v;
+}
+
+// THE LANE. The belt is 30 world px deep and a fighter is 20 px tall, so depth
+// was carried entirely by y position — and 10px of y on a 200px screen reads as
+// "standing further up the wall", not "standing further away". A punch only
+// connects within DEPTH_HIT of your own lane, which made the game's central rule
+// the one thing you could not see. Four quantized steps, not thirty, so
+// nugBody's per-colour cache stays four entries wide instead of thirty.
+const BRAWL_LANES = [0.80, 0.88, 0.95, 1.02];
+function brawlLaneK(d) {
+  return BRAWL_LANES[Math.max(0, Math.min(3, Math.floor(d / 7.6)))];
+}
+
+// THE CONTACT SHADOW. Not one thing in this game cast one, in a genre whose
+// whole read is who is standing where — and the depth sort to hang it off has
+// been sitting in drawBrawl the entire time, used for draw order only.
+//
+// `lift` is how far off the belt the body is drawn (the upper's launch, a boss's
+// slam hop): the shadow stays on the floor and shrinks, which is the only cue in
+// the game that says AIRBORNE.
+const BRAWL_SHADOW = '#05070d';
+function brawlShadow(g, x, d, w, lift, alpha) {
+  const y = entY(d);
+  const k = 1 - Math.min(0.5, (lift || 0) * 0.075);
+  const ww = Math.max(3, Math.round(w * k));
+  // A lozenge built from a half-width profile, one row per entry. It has to be
+  // CONTIGUOUS: the first version was assembled from three rects with a stacking
+  // bug that left row y+1 empty, and a shadow with a gap in it does not read as a
+  // shadow — it reads as a dark bar lying on the floor behind your feet.
+  const prof = ww > 18 ? [3, 1, 0, 1, 3] : [2, 0, 1, 3];
+  g.globalAlpha = (alpha == null ? 0.62 : alpha) * (0.55 + k * 0.45);
+  for (let i = 0; i < prof.length; i++) {
+    px(g, x - ww / 2 + prof[i], y - 2 + i, ww - prof[i] * 2, 1, BRAWL_SHADOW);
+  }
+  g.globalAlpha = 1;
+}
 
 const BRAWL_P_COLORS = [
   { band: '#d32f2f', glove: '#d32f2f', trim: '#f4f0e6' },
@@ -2284,20 +2434,26 @@ function drawMap() {
 
 function drawPlayer(g, p) {
   const col = BRAWL_P_COLORS[p.idx];
-  if (p.iT > 0 && !p.ko && Math.floor(brawl.t * 16) % 2) return;
   const step = Math.floor(p.walk) % 4;
   const bob = p.st === 'walk' ? (step % 2) : Math.floor(brawl.t * 2.5) % 2;
   const x = Math.round(p.x - brawl.cam), gy = entY(p.d);
+  // The shadow is drawn BEFORE the invuln blink and does not blink with it: the
+  // one frame in two where drawPlayer used to return early was a frame with no
+  // player on screen at all, and losing your own character for half a second
+  // after every hit is worse than the flicker was ever worth.
+  brawlShadow(g, x, p.d, p.ko ? 18 : p.st === 'dodge' ? 11 : 14, 0, p.ko ? 0.44 : 0.62);
+  if (p.iT > 0 && !p.ko && Math.floor(brawl.t * 16) % 2) return;
   const y = gy - 10 - bob;
   const f = p.face;
-  const body = p.rage > 0 && Math.floor(brawl.t * 10) % 3 === 0 ? '#f0722e' : '#e8a83e';
+  const lk = brawlLaneK(p.d);
+  const body = brawlShade(p.rage > 0 && Math.floor(brawl.t * 10) % 3 === 0 ? '#f0722e' : '#e8a83e', lk);
 
   if (p.ko) {
     // face-down in the sauce, stars optional
     g.save();
     g.translate(x, gy - 4);
     g.rotate(f * 1.5);
-    g.drawImage(nugBody(7, 4 + p.idx * 2, body, '#8a5a1d'), -9, -8);
+    g.drawImage(nugBody(7, 4 + p.idx * 2, body, brawlShade('#8a5a1d', lk)), -9, -8);
     g.restore();
     if (brawl.twoP && Math.floor(brawl.t * 2) % 2) {
       g.font = '700 7px monospace';
@@ -2313,24 +2469,24 @@ function drawPlayer(g, p) {
     g.save();
     g.translate(x, y - 2);
     g.rotate(ang % (Math.PI * 2));
-    g.drawImage(nugBody(7, 4 + p.idx * 2, body, '#8a5a1d'), -9, -8);
+    g.drawImage(nugBody(7, 4 + p.idx * 2, body, brawlShade('#8a5a1d', lk)), -9, -8);
     g.restore();
     for (let i = 0; i < 3; i++) {
       const a = ang + i * 2.1;
       px(g, x + Math.cos(a) * 13 - 1, y - 2 + Math.sin(a) * 6, 3, 3, col.glove);
     }
-    px(g, x - 4 + (step ? -1 : 1), gy - 2, 3, 2, '#8a5a1d');
-    px(g, x + 2 + (step ? 1 : -1), gy - 2, 3, 2, '#8a5a1d');
+    px(g, x - 4 + (step ? -1 : 1), gy - 2, 3, 2, brawlShade('#8a5a1d', lk));
+    px(g, x + 2 + (step ? 1 : -1), gy - 2, 3, 2, brawlShade('#8a5a1d', lk));
     return;
   }
   if (p.st === 'dodge') {
     g.globalAlpha = 0.35;
-    g.drawImage(nugBody(7, 4 + p.idx * 2, body, '#8a5a1d'), x - 9 - f * 6, y - 8);
+    g.drawImage(nugBody(7, 4 + p.idx * 2, body, brawlShade('#8a5a1d', lk)), x - 9 - f * 6, y - 8);
     g.globalAlpha = 1;
   }
-  px(g, x - 4 + (p.st === 'walk' ? (step < 2 ? -1 : 1) : 0), gy - 2, 3, 2, '#8a5a1d');
-  px(g, x + 2 + (p.st === 'walk' ? (step < 2 ? 1 : -1) : 0), gy - 2, 3, 2, '#8a5a1d');
-  g.drawImage(nugBody(7, 4 + p.idx * 2, body, '#8a5a1d'), x - 9, y - 8);
+  px(g, x - 4 + (p.st === 'walk' ? (step < 2 ? -1 : 1) : 0), gy - 2, 3, 2, brawlShade('#8a5a1d', lk));
+  px(g, x + 2 + (p.st === 'walk' ? (step < 2 ? 1 : -1) : 0), gy - 2, 3, 2, brawlShade('#8a5a1d', lk));
+  g.drawImage(nugBody(7, 4 + p.idx * 2, body, brawlShade('#8a5a1d', lk)), x - 9, y - 8);
   px(g, x - 6, y - 6, 12, 2, col.band);
   px(g, x - 8 - (f < 0 ? -15 : 0), y - 5, 3, 1, col.band);
   px(g, x + f * 2, y - 3, 2, 2, '#fff');
@@ -2373,39 +2529,51 @@ function drawCup(g, e) {
   const pal = e.golden ? GOLD : CUPS[e.kind];
   const step = Math.floor(brawl.t * 8 + (e.waddle || 0)) % 2;
   const x = Math.round(e.x - brawl.cam), gy = entY(e.d);
-  let y = gy - 12;
-  if (e.launch) y -= 6;
+  // The launch lift, in ONE place. It used to be applied to `y` only, so an
+  // upper sent the cup's body six pixels into the air and left its FEET standing
+  // on the belt — invisible while nothing in this game was grounded, and the
+  // first thing the new contact shadow put on screen.
+  const lift = e.launch ? 6 : 0;
+  let y = gy - 12 - lift;
   const big = e.kind === 'mayo';
   if (big) y -= 3;
+  // the lane the cup is standing in, applied to everything except the hurt flash
+  // (a flash is light, not paint) and the eyes (1px of ink either reads or does not)
+  const lk = brawlLaneK(e.d);
+  const cream = brawlShade('#f4f0e6', lk), rim = brawlShade('#c9cfe0', lk);
+  const pb = brawlShade(pal.body, lk), pd = brawlShade(pal.dark, lk), pl = brawlShade(pal.lite, lk);
   if (e.dead) {
     const t = Math.min(e.stT / 0.5, 1);
+    brawlShadow(g, x, e.d, 11 + t * 5, 0, 0.4 * (1 - t));
     g.save();
     g.translate(x, gy - 4);
     g.rotate(e.face * t * 1.5);
     g.globalAlpha = 1 - t * 0.8;
-    px(g, -5, -8 + t * 6, 10, 8 - t * 5, '#f4f0e6');
-    px(g, -5, -11 + t * 8, 10, 3, pal.body);
+    px(g, -5, -8 + t * 6, 10, 8 - t * 5, cream);
+    px(g, -5, -11 + t * 8, 10, 3, pb);
     g.restore();
     g.globalAlpha = 1;
     return;
   }
+  // launched cups leave the floor; the shadow stays on it and shrinks
+  brawlShadow(g, x, e.d, big ? 15 : 12, lift);
   const lean = e.st === 'windup' ? -e.face * 2 : (e.st === 'lunge' || e.st === 'dash' || e.st === 'slam') ? e.face * 3 : 0;
   const flash = e.st === 'hurt' && Math.floor(e.stT * 30) % 2;
   const w2 = big ? 13 : 10, hw = w2 / 2;
   // soy ninjas blur when dashing
   if (e.kind === 'soy' && e.st === 'dash') {
     g.globalAlpha = 0.4;
-    px(g, x - hw - e.face * 8, y, w2, big ? 13 : 10, pal.dark);
+    px(g, x - hw - e.face * 8, y, w2, big ? 13 : 10, pd);
     g.globalAlpha = 1;
   }
-  px(g, x - 4 + (step ? -1 : 0), gy - 2, 3, 2, pal.dark);
-  px(g, x + 1 + (step ? 1 : 0), gy - 2, 3, 2, pal.dark);
-  px(g, x - hw + lean, y, w2, big ? 13 : 10, flash ? '#fff' : '#f4f0e6');
-  px(g, x - hw + lean, y + 3, w2, 2, flash ? '#fff' : pal.body);
-  px(g, x - hw - 1 + lean, y, w2 + 2, 1, flash ? '#fff' : '#c9cfe0');
-  px(g, x - hw + 1 + lean, y - 4, w2 - 2, 4, flash ? '#fff' : pal.body);
-  px(g, x - hw + 2 + lean, y - 5, w2 - 4, 1, flash ? '#fff' : pal.body);
-  px(g, x - hw + 2 + lean, y - 5, 2, 1, flash ? '#fff' : pal.lite);
+  px(g, x - 4 + (step ? -1 : 0), gy - 2 - lift, 3, 2, pd);
+  px(g, x + 1 + (step ? 1 : 0), gy - 2 - lift, 3, 2, pd);
+  px(g, x - hw + lean, y, w2, big ? 13 : 10, flash ? '#fff' : cream);
+  px(g, x - hw + lean, y + 3, w2, 2, flash ? '#fff' : pb);
+  px(g, x - hw - 1 + lean, y, w2 + 2, 1, flash ? '#fff' : rim);
+  px(g, x - hw + 1 + lean, y - 4, w2 - 2, 4, flash ? '#fff' : pb);
+  px(g, x - hw + 2 + lean, y - 5, w2 - 4, 1, flash ? '#fff' : pb);
+  px(g, x - hw + 2 + lean, y - 5, 2, 1, flash ? '#fff' : pl);
   if (!flash) {
     if (e.kind === 'soy') {
       // masked: one narrow visor instead of eyes
@@ -2421,8 +2589,8 @@ function drawCup(g, e) {
   // mayo's guard: a little lid held up like a shield
   if (e.guardUp && !flash) {
     const sx = x + e.face * (hw + 2);
-    px(g, sx - 1, y - 2, 3, 9, e.blockT > 0 ? '#fff' : '#c9cfe0');
-    px(g, sx - 1, y - 2, 3, 2, '#8a93b8');
+    px(g, sx - 1, y - 2, 3, 9, e.blockT > 0 ? '#fff' : rim);
+    px(g, sx - 1, y - 2, 3, 2, brawlShade('#8a93b8', lk));
   }
   if (e.st === 'windup') px(g, x + e.face * (hw + 2), y - 6, 2, 2, '#ffe23a');
 }
@@ -2432,6 +2600,7 @@ function drawBoss(g, e) {
   const slamRise = e.st === 'windup' ? -Math.sin(Math.min(e.stT / 0.55, 1) * Math.PI) * 8 :
     e.st === 'slam' && e.stT < 0.15 ? 3 : 0;
   const y = gy - 30 + slamRise;
+  brawlShadow(g, x, e.d, 18, slamRise < 0 ? -slamRise : 0);
   const step = Math.floor(brawl.t * 6) % 2;
   const flash = e.st === 'hurt' && Math.floor(e.stT * 30) % 2;
   const body = flash ? '#fff' : '#2e9e53';
@@ -2459,6 +2628,7 @@ function drawDijon(g, e) {
   const flash = e.st === 'hurt' && Math.floor(e.stT * 30) % 2;
   const lean = e.st === 'caneWind' ? -e.face * 3 : e.st === 'swipe' ? e.face * 4 : 0;
   const y = gy - 26;
+  brawlShadow(g, x, e.d, 17);
   const body = flash ? '#fff' : '#e6b800';
   const dark = flash ? '#fff' : '#9c7c00';
   px(g, x - 5 + (step ? -1 : 0), gy - 3, 4, 3, dark);
@@ -2495,6 +2665,8 @@ function drawClucker(g, e) {
   const flash = e.st === 'hurt' && Math.floor(e.stT * 30) % 2;
   const lunge = e.st === 'peck' ? e.face * 6 : e.st === 'peckWind' ? -e.face * 3 : 0;
   const y = gy - 38;
+  brawlShadow(g, x, e.d, e.st === 'flap' || e.st === 'flapWind' ? 22 : 28,
+    e.st === 'flap' ? 7 : 0, 0.5);
   const body = flash ? '#fff' : '#f4ecd4';
   const dark = flash ? '#fff' : '#c9c0a8';
   const mad = e.phase === 3;
@@ -2537,6 +2709,7 @@ function drawCrate(g, c) {
   const x = Math.round(c.x - brawl.cam), gy = entY(c.d);
   const s = 14;
   const rock = c.hp === 1 ? Math.round(Math.sin(brawl.t * 20) * 1) : 0;
+  brawlShadow(g, x + rock, c.d, 15, 0, 0.42);
   px(g, x - s / 2 + rock, gy - s, s, s, '#6d5426');
   px(g, x - s / 2 + rock, gy - s, s, 2, '#8a6c34');
   px(g, x - s / 2 + rock, gy - 2, s, 2, '#8a6c34');
@@ -2549,6 +2722,7 @@ function drawDrop(g, drop) {
   const x = Math.round(drop.x - brawl.cam), gy = entY(drop.d);
   const bob = Math.round(Math.sin(drop.t * 3 + drop.x) * 1.5);
   const y = gy - 8 + bob;
+  brawlShadow(g, x, drop.d, 8, 6 + bob, 0.38);
   if (drop.kind === 'fries') {
     px(g, x - 4, y - 2, 8, 6, '#d32f2f');
     px(g, x - 3, y - 6, 2, 4, '#ffe23a');
@@ -2596,10 +2770,18 @@ function drawBrawlHud(g, W, Hh) {
   });
 }
 
+// Per-frame jitter as a HASH OF THE CLOCK, not a die roll. Reads identically to
+// random while the game runs, and a frozen frame photographs the same twice —
+// with brawlRand() here, every redraw of one held frame shook somewhere else.
+function brawlJitter(k) {
+  const s = Math.sin(brawl.t * 1237.13 + k * 91.7) * 43758.5453;
+  return (s - Math.floor(s)) - 0.5;
+}
+
 function drawBrawl() {
   const g = brawl.g, W = brawl.W, Hh = brawl.Hh;
-  const shx = brawl.shake > 0 ? Math.round((Math.random() - 0.5) * 4 * brawl.shake * 3) : 0;
-  const shy = brawl.shake > 0 ? Math.round((Math.random() - 0.5) * 3 * brawl.shake * 3) : 0;
+  const shx = brawl.shake > 0 ? Math.round(brawlJitter(1) * 4 * brawl.shake * 3) : 0;
+  const shy = brawl.shake > 0 ? Math.round(brawlJitter(2) * 3 * brawl.shake * 3) : 0;
   g.save();
   g.translate(shx, shy);
   g.drawImage(brawl.bg, -Math.round(brawl.cam), 0);
@@ -2630,6 +2812,9 @@ function drawBrawl() {
 
   for (const b of brawl.blobs) {
     const bx = b.x - brawl.cam, by = entY(b.d);
+    // a thrown blob arcs (b.y is negative going up) — its shadow is the only
+    // thing that says which lane it is going to land in
+    if (!b.wave && !b.feather) brawlShadow(g, bx, b.d, 5, -b.y, 0.34);
     if (b.wave) {
       const hgt = 3 + Math.floor((Math.sin(b.t * 20) + 1) * 1.5);
       px(g, bx - 2, by - hgt, 4, hgt, '#39c96a');
@@ -2674,15 +2859,50 @@ function drawBrawl() {
     }
   }
 
-  // the crowd of nugget spectators (screen-space — they follow the fight)
+  // THE FRONT ROW (screen-space — the crowd follows the fight). Thirteen
+  // identical dark-brown blobs used to bounce at the very bottom edge with a
+  // third of each one clipped off the canvas, which read as debris on the floor
+  // rather than as people. What turns a row of lumps into a crowd is something
+  // for them to stand BEHIND: heads and shoulders over a rail, three shades of
+  // nugget, five heights, and a fist up when the hype is on.
+  // Two attempts at this failed before the third worked, and the reason is worth
+  // writing down: at five pixels a head, a brown nugget on a dark floor is a
+  // brown lump and no amount of shading fixes it. A crowd reads when it is a
+  // SILHOUETTE AGAINST LIGHT — flat black shapes, a warm haze behind them, and a
+  // one-pixel rim where the light wraps the top of each head. That is also why
+  // every arcade cabinet ever built put its audience in front of the marquee.
   const hype = brawl.crowdHype;
-  for (let i = 0; i < Math.ceil(W / 26); i++) {
-    const cx = i * 26 + ((i * 7) % 9);
+  const railY = Hh - 14;
+  const GLOW = ['rgba(255,214,140,', 'rgba(255,152,72,', 'rgba(168,255,198,'][brawl.act] || 'rgba(255,214,140,';
+  const hazeTop = railY - 21;
+  const hz = g.createLinearGradient(0, hazeTop, 0, railY + 2);
+  hz.addColorStop(0, GLOW + '0)');
+  hz.addColorStop(1, GLOW + (0.17 + hype * 0.13) + ')');
+  g.fillStyle = hz;
+  g.fillRect(0, hazeTop, W, railY + 2 - hazeTop);
+
+  const SIL = '#0a0b11';
+  const rim = GLOW + '0.65)';
+  for (let i = 0; i < Math.ceil(W / 19) + 1; i++) {
+    const cx = i * 19 + ((i * 11) % 8);
+    const tall = (i * 13) % 5;
     const bounce = (Math.floor(brawl.t * (4 + hype * 6) + i) % 2) * (1 + Math.round(hype * 2));
-    g.globalAlpha = 0.85;
-    g.drawImage(nugBody(6, i % 7, '#3a2c14', '#241a0a'), cx, Hh - 12 - bounce);
-    g.globalAlpha = 1;
+    const cy = railY - 9 - tall - bounce;
+    px(g, cx - 1, cy + 6, 12, 10, SIL);              // shoulders, down into the rail
+    g.drawImage(nugBody(5, i % 7, SIL, SIL), cx, cy);
+    px(g, cx + 2, cy, 6, 1, rim);                    // the light wrapping the head
+    if (hype > 0.3 && (i % 2) === (Math.floor(brawl.t * 3) % 2)) {
+      const fx3 = cx + (i % 2 ? -2 : 9);
+      px(g, fx3, cy - 5, 3, 7, SIL);                 // a fist up
+      px(g, fx3, cy - 6, 3, 1, rim);
+    }
   }
+  // the rail: mesh, a top bar that catches the room, and a post every 46px
+  px(g, 0, railY, W, Hh - railY, '#0e1119');
+  for (let x = 0; x < W; x += 4) px(g, x, railY + 3, 2, Hh - railY - 3, '#151a26');
+  px(g, 0, railY, W, 2, '#2f3849');
+  px(g, 0, railY, W, 1, '#556484');
+  for (let x = 6; x < W; x += 46) px(g, x, railY, 2, Hh - railY, '#252d3c');
 
   drawBrawlHud(g, W, Hh);
   g.restore();
@@ -2886,3 +3106,155 @@ function sfxBrawlCluck() {
   brawlTone(520, 0.1, 0.2, 0.08, 'square');
   brawlTone(392, 0.18, 0.24, 0.06, 'sawtooth');
 }
+
+// ---- the test seam ------------------------------------------------------------------
+// Blaster, Storm Drain and The Undercroft all expose one; this game did not, and
+// that is why nothing in blender/tools/ had ever photographed it. Same contract as
+// croftDebug: every field is optional, order is fixed (seed → rules → place →
+// pose → clock), and it always returns the state it left behind.
+//
+//   brawlDebug({ seed: 7, heat: 'spicy', act: 1, stage: 1, freeze: 1 })
+//   brawlDebug({ clear: 1, place: [{ kind:'mayo', x: 260, d: 16, face: -1 }] })
+//   brawlDebug({ pst: 'upper', pstT: 0.09 })        // mid-punch, active frames
+//   brawlDebug({ freeze: 0, steps: 6, stepDt: 1/60 })  // fixed-timestep sim
+function brawlRedraw() {
+  const ph = brawl.phase;
+  // dt 0 makes the step functions pure draws — they advance nothing at zero.
+  if (ph === 'title') return brawlDrawTitle();
+  if (ph === 'heat') return brawlDrawHeat();
+  if (ph === 'cut') return brawlStepCut(0);
+  if (ph === 'end') return brawlStepEnd(0);
+  if (ph === 'map') return drawMap();
+  return drawBrawl();
+}
+
+window.brawlDebug = function (opts) {
+  opts = opts || {};
+  if (!brawl.on) return { error: 'brawl is not running — startStorm() then setStormMode("brawl")' };
+  if (opts.seed !== undefined) brawlSeed(opts.seed);
+  if (opts.heat && BRAWL_HEATS[opts.heat]) {
+    brawl.heat = opts.heat;
+    brawl.cfg = BRAWL_HEATS[opts.heat];
+  }
+  if (opts.shift != null) brawl.shift = opts.shift;
+  if (opts.twoP != null) {
+    brawl.twoP = !!opts.twoP;
+    brawl.players = brawl.twoP ? [brawlMakePlayer(0), brawlMakePlayer(1)] : [brawlMakePlayer(0)];
+  }
+  if (!brawl.players.length) brawl.players = [brawlMakePlayer(0)];
+
+  // Jump straight into a stage — no title, no heat card, no cutscene. The ambush
+  // cursor is advanced past everything behind us, or the jump immediately fires
+  // act 1's first wave in the middle of the vat room.
+  if (opts.act != null || opts.stage != null) {
+    const a = opts.act != null ? opts.act : brawl.act;
+    brawlStartAct(a);
+    brawl.stage = Math.max(0, Math.min(BRAWL_ACTS[a].stages.length - 1, opts.stage != null ? opts.stage : 0));
+    const x0 = BRAWL_ACTS[a].stages[brawl.stage].x0;
+    brawl.ambushIdx = BRAWL_ACTS[a].ambushes.filter((am) => am.x < x0).length;
+    brawlPlayStage();
+    brawl.goT = 0;
+    brawl.banner && brawl.banner.classList.remove('show');
+    clearTimeout(brawl.bannerT);
+  }
+  if (opts.phase) {
+    brawl.phase = opts.phase;
+    if (opts.phase === 'cut') brawl.cut = { key: opts.cut || 'intro', li: opts.li || 0, ch: 1e4, next: null };
+    if (opts.phase === 'end') brawl.endT = opts.endT != null ? opts.endT : 2.2;
+    if (opts.phase === 'map') brawl.mapT = opts.mapT != null ? opts.mapT : 1.2;
+  }
+  if (opts.heatSel != null) brawl.heatSel = opts.heatSel;
+
+  if (opts.clear) {
+    brawl.enemies = []; brawl.blobs = []; brawl.fx = [];
+    brawl.splats = []; brawl.drops = [];
+    brawl.locked = false; brawl.hitstop = 0; brawl.shake = 0;
+  }
+  // Exact placement. spawnCup() rolls depth, speed and a golden chance, which is
+  // right for the game and useless for a table: two runs must photograph the same
+  // cup in the same lane.
+  if (opts.place) {
+    for (const s of opts.place) {
+      spawnCup(s.kind, 1, 0);
+      const e = brawl.enemies[brawl.enemies.length - 1];
+      if (s.x != null) e.x = s.x;
+      if (s.d != null) e.d = s.d;
+      if (s.face != null) e.face = s.face;
+      if (s.hp != null) e.hp = s.hp;
+      if (s.st) { e.st = s.st; e.stT = s.stT || 0; }
+      if (s.golden != null) e.golden = !!s.golden;
+      if (s.bossPhase != null) e.phase = s.bossPhase;
+      if (s.launch != null) e.launch = s.launch;
+    }
+  }
+  if (opts.locked != null) brawl.locked = !!opts.locked;
+  if (opts.drop) brawlSpawnDrop(opts.drop[0], opts.drop[1], opts.drop[2]);
+
+  const p = brawl.players[0];
+  if (opts.at) { p.x = opts.at[0]; p.d = opts.at[1]; }
+  if (opts.at2 && brawl.players[1]) { brawl.players[1].x = opts.at2[0]; brawl.players[1].d = opts.at2[1]; }
+  if (opts.face != null) p.face = opts.face;
+  if (opts.hearts != null) p.hearts = opts.hearts;
+  if (opts.meter != null) p.meter = opts.meter;
+  if (opts.rage != null) p.rage = opts.rage;
+  if (opts.weapon != null) p.weapon = opts.weapon ? { uses: opts.weapon } : null;
+  if (opts.walk != null) p.walk = opts.walk;
+  // iT is the post-hit blink, and it makes drawPlayer() return early on half the
+  // frames. A pose shot with it live is a coin flip on whether there is a player
+  // in the picture at all.
+  if (opts.iT != null) p.iT = opts.iT;
+  if (opts.pst) {
+    p.st = opts.pst;
+    p.stT = opts.pstT || 0;
+    p.punch = null;
+    if (opts.pst === 'jab' || opts.pst === 'upper') {
+      const mv = PUNCH_CHAIN[opts.pst === 'upper' ? 2 : 0];
+      p.punch = { ...mv, idx: opts.pst === 'upper' ? 2 : 0, hit: new Set() };
+    } else if (opts.pst === 'special') {
+      p.punch = { dmg: SPECIAL_DMG, hit: new Set() };
+    }
+    if (opts.pst === 'ko') { p.ko = true; p.koT = opts.pstT || 0.6; p.st = 'idle'; }
+  }
+  if (opts.cam != null) brawl.cam = opts.cam;
+  if (opts.crowdHype != null) brawl.crowdHype = opts.crowdHype;
+  if (opts.t != null) brawl.t = opts.t;
+  // Held input, so `steps` can walk a real walk cycle instead of teleporting a
+  // pose. { l, r, u, dn } — the same object the keyboard handler writes.
+  if (opts.keys) Object.assign(p.keys, opts.keys);
+  if (opts.hurt) hurtPlayer(p, p.x + p.face * 12);
+
+  // Fixed-timestep advance: the only honest way to look at a fighting game. Runs
+  // the REAL step function, so hitstop, knockback and the AI all behave, but the
+  // clock is ours instead of the display's.
+  if (opts.steps) {
+    const dt = opts.stepDt || 1 / 60;
+    const was = brawl.frozen;
+    brawl.frozen = false;
+    for (let i = 0; i < opts.steps; i++) stepBrawl(dt, window.innerWidth, window.innerHeight);
+    brawl.frozen = was;
+  }
+  if (opts.freeze != null) brawl.frozen = !!opts.freeze;
+  if (brawl.frozen) brawlRedraw();
+
+  return {
+    phase: brawl.phase, frozen: !!brawl.frozen, seed: brawl.seed,
+    heat: brawl.heat, shift: brawl.shift, twoP: brawl.twoP,
+    act: brawl.act, stage: brawl.stage, stageName: brawlAct().stages[brawl.stage].name,
+    t: +brawl.t.toFixed(3), cam: Math.round(brawl.cam), len: brawlLen(),
+    locked: brawl.locked, ambushIdx: brawl.ambushIdx, kos: brawl.kos,
+    W: brawl.W, Hh: brawl.Hh, scale: brawl.scale, ground: brawl.ground,
+    players: brawl.players.map((q) => ({
+      x: Math.round(q.x), d: Math.round(q.d), st: q.st, stT: +q.stT.toFixed(3),
+      face: q.face, hearts: q.hearts, ko: q.ko, meter: Math.round(q.meter),
+    })),
+    enemies: brawl.enemies.map((e) => ({
+      kind: e.kind, x: Math.round(e.x), d: Math.round(e.d), st: e.st,
+      hp: e.hp, dead: e.dead, boss: !!e.boss, golden: !!e.golden,
+    })),
+    counts: {
+      enemies: brawl.enemies.length, blobs: brawl.blobs.length, fx: brawl.fx.length,
+      splats: brawl.splats.length, drops: brawl.drops.length,
+      crates: brawl.crates.filter((c) => !c.broken).length,
+    },
+  };
+};

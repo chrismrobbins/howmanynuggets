@@ -1203,3 +1203,121 @@ produced changes this kit could not see. Full story in blender/HANDOFF.md §21.
   smooth ramp 1.62376 -> 1.62025), not a bob. A fresh camera reads **0.00000**.
   It resets the camera to open floor first now. Raising the threshold would have
   blinded the only guard protecting a behaviour Beau asked for by name.
+
+## 🥊 BRAWLERS ROUND 1 — THE GROUND (2026-08-13)
+
+**Everything above this heading is about the arcade HALL.** This is the first
+graphics work anyone has done on a *minigame*, and the first thing it needed was
+an instrument, because `blender/tools/` could not photograph BATTERED BRAWLERS at
+all: every tool there sits on `hallharness.js`, which calls
+`NuggetArcade.enter()` and teleports `_H` around a 3D room. Brawlers is canvas 2D,
+340x200, 185 `fillRect` calls, no camera and no renderer to degrade. Only `png.js`
+and `crop.py` transferred. See `blender/tools/README.md` and `docs/brawlsession.md`.
+
+**THE SEAM.** `brawlDebug({...})` (js/brawl.js, bottom) — Blaster, Storm Drain and
+The Undercroft all had one; this game did not, which is most of why nothing had
+ever measured it. Same contract as `croftDebug`: optional fields, fixed order
+(seed → rules → place → pose → clock), returns the state it left behind.
+
+- **The dice are pinnable.** Every `Math.random()` in brawl.js goes through
+  `brawlRand()`; unseeded it *is* `Math.random`, and `brawlDebug({seed})` makes it
+  a mulberry32. A belt-scroller is random placement end to end — depth lane,
+  speed, waddle phase, golden roll, wander spawns, crate drops — so without this
+  an A/B is comparing different cups.
+- **The screen shake is a HASH OF THE CLOCK now, not a die roll** (`brawlJitter`).
+  It reads identically while the game runs, and a held frame photographs the same
+  twice; with `brawlRand()` in there, every redraw of one frozen frame shook
+  somewhere else.
+- **`brawlDebug({freeze:1})`** redraws one state forever (`brawlRedraw()`, which
+  calls the step functions at dt 0 — they are pure draws at zero).
+  **`brawlDebug({steps:n, stepDt:1/60})`** runs the REAL `stepBrawl` at a fixed
+  timestep, which is the only honest way to look at a fighting game.
+- Shoot `brawl.cv.toDataURL()`, **not** a page screenshot: the world buffer, at
+  world resolution, so the storm HUD and the round banner cannot get in the frame
+  and no resampling touches a game that is displayed at an integer scale.
+
+**WHAT THE INSTRUMENT FOUND, and none of it is visible in a still frame:**
+
+1. **Nothing in this game cast a shadow**, in a genre whose entire read is who is
+   standing where — and `drawables.sort((a,b) => a.d - b.d)` has been sitting in
+   `drawBrawl` the whole time, used for draw order only. A punch connects within
+   `DEPTH_HIT` of your own lane, so the game's central rule was the one thing you
+   could not see.
+2. **An uppercut launched a cup's body six pixels into the air and left its FEET
+   standing on the belt.** `y -= 6` was applied to the body only. Invisible while
+   nothing was grounded; the first thing the new shadow put on screen.
+3. **The victim's white flash first appears SIX FRAMES after the hit.** It is
+   keyed `Math.floor(e.stT * 30) % 2`, and `e.stT` is 0 on the frame of impact —
+   so the most important frame in the game is the one frame with no feedback in
+   it. (Round 2's problem, recorded here because the tool found it now.)
+4. **The hit spark expands from radius 0**, so at impact all four particles are on
+   top of each other: one yellow pixel. Also round 2's problem.
+5. A jab freezes the game for five frames (`hitstop = 0.05` at dt 1/60).
+
+**WHAT SHIPPED THIS ROUND — the belt, which was 30% of every pixel in the game
+and the least worked surface in it.** `brawlStripFloor` was twelve identical rows
+of a 6px checker at one brightness from the wall to the bottom of the screen.
+
+- **`brawlShade(hex, k)`** is the entire lighting model: one multiply, cached.
+  This game had none — every surface was authored at full brightness as a literal
+  and the three acts were told apart by palette alone.
+- **The belt**: perspective (rows taller and cells wider toward the viewer), a
+  light ramp per row, ambient occlusion at the wall junction, **light pools every
+  210px in the act's own colour**, and grease. 12-coop was the best-looking tile
+  in the baseline sheet by a distance and the only thing it had that the other
+  eleven did not was one painted light pool on the floor.
+- **`brawlShadow()`** — contact shadows for players, cups, all three bosses,
+  crates, drops and thrown blobs, drawn inside the existing depth sort. `lift`
+  makes the shadow shrink and stay on the floor while the body is airborne, which
+  is the only AIRBORNE cue in the game.
+- **`brawlLaneK(d)`** — four quantized depth shades on the cast (`nugBody`'s cache
+  stays four entries wide per body instead of thirty).
+- **THE FRONT ROW.** The crowd was thirteen identical dark-brown blobs bouncing at
+  the very bottom edge with a third of each clipped off the canvas; they read as
+  debris. Two rewrites failed before the third worked, and the reason is the note
+  to keep: **at five pixels a head, a brown nugget on a dark floor is a brown lump
+  and no amount of shading fixes it.** A crowd reads as a SILHOUETTE AGAINST
+  LIGHT — flat black shapes, a warm haze behind them in the act's colour, a 1px
+  rim where the light wraps each head, and a rail to stand behind.
+
+**MEASURED** (`b-base` → `b1-final`, the 16 gameplay scenes; the five UI screens
+are untouched and came back byte-identical, which is the control):
+
+| | before | after | |
+|---|---|---|---|
+| `flat` whole frame | 70.9 | 52.9 | −25% |
+| **`flat` belt band** | **79.6** | **40.5** | **−49%** |
+| `bandMean` | 45.5 | 47.5 | +4% |
+| `hard` | 2.66 | 4.12 | +55% |
+| `near` | 26.5 | 32.4 | +23% |
+| `chroma` | 44.6 | 41.8 | −6% |
+
+`flat` (adjacent pixel pairs with IDENTICAL luma) is new, and it is the metric
+this game needed: 185 `fillRect` calls means large dead-flat areas are its
+characteristic failure, and no histogram statistic can see one. It is
+`staircase()` pointed the other way — that counts hard edges, this counts the
+absence of any edge.
+
+**Two columns moved the "wrong" way and both changes are keeping.** `near` rose
+because a light ramp, an AO gradient, contact shadows and a dark rail all add dark
+pixels — the frame is not dimmer, `mean` went UP. `chroma` fell because lane
+shading darkens saturated colour and shadows are neutral. §17/§18's lesson,
+one game over: the crop decides.
+
+**Balance notes, learned by getting them wrong first:**
+- The ramp must brighten FORWARD past the original flat value, not just darken
+  backward. The first pass ran 0.56..1.16 on colours whose luma was already 30,
+  the belt came out dimmer than the checker it replaced, and a contact shadow on a
+  luma-17 floor has nothing to be darker than.
+- The AO is 11px at 0.30, not 15px at 0.46: the back lane went murky enough to
+  lose a cup standing in it, and depth you cannot fight in is not depth.
+- Grease must be short, low-contrast and biased toward the front rows. 40px bars
+  at 0.14 across the whole belt read as render artifacts — long, straight,
+  horizontal and evenly lit is what a *bug* looks like.
+- `brawlShadow` builds its lozenge from a half-width profile, one row per entry,
+  because it has to be CONTIGUOUS. The first version had a stacking bug that left
+  one row empty and it read as a dark bar lying on the floor behind your feet.
+- `nugBody`'s cache key now includes `dark`. The front row asks for
+  `base === dark` to get a flat silhouette, and without it that request came back
+  as whatever body was cached first. (The key had already been fixed once for a
+  size collision — see the comment.)

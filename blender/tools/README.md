@@ -26,6 +26,46 @@ export PW_PATH=/path/to/node_modules  # (or install playwright next to the repo)
 | `pose.js` | *Does the rig hold up through its CYCLE?* Walks the clock at one spot and shoots the frames. `--look <npc>` frames a regular off its own hotspot; `--talk <npc>` opens the real dialogue. |
 | `png.js` | PNG decode + stats + frame diff in node stdlib. No image dependency by design. |
 
+### 🥊 …and the BRAWLERS kit (a second harness, on purpose)
+
+Everything above drives the arcade HALL: it teleports `NuggetArcade._H` around a
+3D room, its spots are world coordinates with a yaw, and its seams are WebGL
+flags. **None of it works on a minigame canvas.** BATTERED BRAWLERS is 2900 lines
+of canvas 2D pixel art whose entire world is 340x200, with no camera to aim and
+no renderer to degrade — so it gets its own rig. `png.js` and `crop.py` are the
+only two files both kits share, because they take PNG bytes and know nothing
+about either game.
+
+| | what it answers |
+|---|---|
+| `brawlharness.js` | The rig. Pins the dice (`brawlDebug({seed})` → mulberry32), freezes the clock, and reads the CANVAS BUFFER at world resolution instead of screenshotting the page. |
+| `brawlshoot.js` | *Did the picture get better?* 21 scenes — twelve stages, four combat situations, five screens — with the hall's columns plus **BAND** (the belt band alone) and **flat** (adjacent pixel pairs that are IDENTICAL). |
+| `brawlpose.js` | *Does it read in MOTION?* `--seq punch\|upper\|ko\|walk\|lane\|hurt\|clucker` steps the REAL `stepBrawl` at a fixed 1/60 and dumps the frames, with a per-frame state log beside them. |
+
+```bash
+node blender/tools/brawlshoot.js --tag b-base
+CROP_PIXEL=1 python blender/tools/crop.py sheet b-base
+CROP_PIXEL=1 python blender/tools/crop.py ab b-base b1-ground
+
+node blender/tools/brawlpose.js --seq punch --tag b1-punch
+CROP_PIXEL=1 python blender/tools/crop.py strip b1-punch 8 340
+```
+
+**`CROP_PIXEL=1`** switches every resize in `crop.py` to NEAREST at an integer
+scale and never downscales below 1:1. Brawl tags start with `b-`/`b<n>-`, and
+`brawlshoot.js` refuses to write into a tag that already holds hall shots — the
+first run of it wrote 21 kitchen walls into `baseline` and the contact sheet came
+back half arcade.
+
+**A brawl-specific lesson, and it is 3c with the volume up.** Four things this
+round found are invisible to *any* single frame, at *any* pinned clock:
+the hit spark expands from radius 0, so at the moment of impact it is one yellow
+pixel; the victim's white flash is keyed off `floor(stT*30)%2`, so it first
+appears SIX FRAMES after the hit it is reporting; a jab freezes the game for five
+frames of hitstop; and an uppercut used to launch a cup's body six pixels into
+the air and leave its FEET standing on the belt. A beat-em-up is judged in
+motion, and `brawlpose.js` is the only tool in this repo that can see it.
+
 ```bash
 node blender/tools/shoot.js --tag baseline
 #   ... make a change ...
