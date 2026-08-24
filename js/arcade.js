@@ -2933,6 +2933,7 @@ void main() {
         const dropped = (H.best && H.best.beat > 0) || remixed;
         const dove = typeof drainSawStorm === 'function' && drainSawStorm();
         const delved = typeof croftFoundDoor === 'function' && croftFoundDoor();
+        const jackpot = typeof fortuneJackpotHit === 'function' && fortuneJackpotHit();
         const party = typeof nugFoundersDay === 'function' && nugFoundersDay();
         // Season 2: the street-racing ladder is rumor-adjacent commerce
         const races = typeof gtaRacesWon === 'function' ? gtaRacesWon() : 0;
@@ -2952,6 +2953,9 @@ void main() {
             party ? { t: "founder's day, Hood. got a rumor for THE big one?", next: 'founders' } : null,
             { t: 'there are cellar doors on the arcade\'s east wall. lit from inside.', next: 'croftDoors' },
             { t: 'the gutter grate across the road… it\'s GLOWING.', next: 'drainGrate' },
+            jackpot
+              ? { t: 'the slot machine inside paid out THREE SPIRALS, Hood.', next: 'fortuneJack' }
+              : { t: 'there\'s a slot machine inside now. free play.', next: 'fortuneNew' },
             { t: 'the pickle put his case file in a glass box.', next: 'hoodBoard' },
             { t: 'somebody\'s been painting checkers on the roads.', next: 'races' },
             { t: 'there\'s a CLUB across the street now.', next: 'beatClub' },
@@ -2971,6 +2975,22 @@ void main() {
         },
         founders2: { line: 'meaning the founder never LEFT, friend. you don\'t keep lighting one candle for somebody who\'s gone. *taps hood* free rumor. founder\'s day special. tell your friends where rumors come from.', opts: [] },
         founders3: { line: '*a very long pause* that\'s what the last town said. …enjoy the party, friend. genuinely. even I take one night off. *does a small, private two-step under the hood*', opts: [] },
+        fortuneNew: {
+          line: '*the hooded nugget nods slowly, like you\'ve confirmed something* a machine that pays you in nuggets, in a town where the nuggets fell out of the SKY once. free play, friend. nothing in this town is free — some things just bill you later. *taps hood* look CLOSE at the middle reel. tell me what you see.',
+          opts: [
+            { t: 'it\'s… a spiral?', next: 'fortuneSpiral' },
+            { t: 'it\'s a slot machine, Hood. relax.', next: 'fortuneRelax' },
+          ],
+        },
+        fortuneSpiral: { line: '*very quietly* the harbor makes that shape. after midnight. when it thinks nobody\'s watching. *straightens up* line up three of them and come find me. I\'ll be aging a NEW rumor.', opts: [] },
+        fortuneRelax: { line: '*the hood tilts, wounded* that\'s what they said about the pier, friend. and the basement. and the grate. I am five for five and the house is COUNTING on you not noticing it makes six.', opts: [] },
+        fortuneJack: {
+          line: '*the hooded nugget goes as still as the lamppost* three. spirals. *long pause* friend, a machine only remembers a shape somebody SHOWED it. somebody stood where you\'re standing, saw what you saw in the harbor, and carved it into a REEL. *leans in, barely audible* the house remembers. that\'s not a slogan. that\'s a CONFESSION.',
+          opts: [
+            { t: 'so who built the machine?', next: 'fortuneWho' },
+          ],
+        },
+        fortuneWho: { line: 'no maker\'s plate. no serial. paid in full, delivered at night — I asked the bus driver, the bus driver asked ME to stop asking. *taps hood* sixth rumor, friend, and it walked in the FRONT DOOR: follow the machine\'s money and you find whoever\'s been feeding the case since the Incident.', opts: [] },
         drainGrate: {
           line: dove
             ? 'you already KNOW what\'s under that grate. you kicked past the clogs and the water went still and something the size of a WEATHER SYSTEM used the mains like a bus lane. *taps hood, shakily* fourth rumor. cashed. by you. again.'
@@ -3183,6 +3203,7 @@ void main() {
         const tags = typeof drainTagCount === 'function' ? drainTagCount() : 0;
         const salvage = typeof drainSalvageDone === 'function' && drainSalvageDone();
         const manifest = typeof reelManifestFound === 'function' && reelManifestFound();
+        const jackpot = typeof fortuneJackpotHit === 'function' && fortuneJackpotHit();
         return {
         root: {
           line: party
@@ -3198,6 +3219,7 @@ void main() {
               : evid > 0 ? { t: 'been picking things up around town. evidence things.', next: 'evid' } : null,
             dove ? { t: 'detective. pull the DPW maps. I saw it IN THE PIPES.', next: 'drainSaw' } : null,
             delved ? { t: 'there\'s a door under the fort. it isn\'t on the plans.', next: 'croftDoor' } : null,
+            jackpot ? { t: 'detective. the slot machine paid out three spirals.', next: 'fortuneJack' } : null,
             salvage ? { t: 'I pulled all eight DPW tags out of the mains.', next: 'salvage' }
               : tags > 0 ? { t: "there's brass wired into those pipes, detective.", next: 'salvage' } : null,
             manifest ? { t: 'I fished a bottle out of the deep. paperwork inside.', next: 'manifest' } : null,
@@ -3273,6 +3295,13 @@ void main() {
         drainSaw2: { line: 'dredge WHAT, kid? it IS the water. *writes "jurisdiction: the municipal plumbing" and stares at it* I became a detective for parking fraud.', opts: [] },
         drainSaw3: { line: 'that sign predates the Incident by nine years. *flat stare* the DPW knew something. the DPW always knows something. they just file it under "flow".', opts: [] },
         // 🚪 THE DOOR (THE UNDERCROFT) — tag seventy-seven finally parses
+        fortuneJack: {
+          line: '*he flips the notepad open before you finish the sentence* a FREE slot machine. no coin box. no maker\'s plate. paying out in nuggets it should not have, wearing the harbor\'s favorite shape on the middle reel. *writes "WHO COMPS A WHOLE TOWN"* kid, in my experience a house that pays you to play is a house washing something. usually money. *looks toward the arcade* occasionally weather.',
+          opts: [
+            { t: 'want me to stop playing it?', next: 'fortuneJack2' },
+          ],
+        },
+        fortuneJack2: { line: '*flat stare* absolutely not. keep pulling that lever and keep your receipts. right now you\'re the only informant I\'ve got INSIDE the house. *writes "EXHIBIT: 3 SPIRALS, PAID IN FULL"* the case grew a casino, kid. it stays open.', opts: [] },
         croftDoor: {
           line: '*he does not reach for the notepad. that\'s how you know it\'s bad.* say it again. slowly. …a vault door. UNDER the fort. gold in the seam, water on the far side, moving harbor-way. *now he opens the notepad — straight to the salvage section, tag seventy-seven* "it likes the pipes better than the bay. LEAVE IT A DOOR." unsigned. *looks up, and for once the rain waits* somebody didn\'t just leave it a door, kid. somebody BUILT it one.',
           opts: [
@@ -3436,6 +3465,10 @@ void main() {
       got: () => typeof croftFoundDoor === 'function' && croftFoundDoor(),
       filed: 'Floors under the fort no drawing admits to, ending at a vault door: gold in the seam, water behind it, moving harbor-way. Tag 077 said "leave it a door." Somebody built it one.',
       open: 'Delve beneath Fort Nugget until the stairs land somewhere that isn\'t on the plans.' },
+    { i: '🎰', t: 'THE PAYOUT', src: 'REEL OF FORTUNE',
+      got: () => typeof fortuneJackpotHit === 'function' && fortuneJackpotHit(),
+      filed: 'A free machine with no maker\'s plate, wearing the harbor\'s favorite shape on its middle reel — and it PAID on it. A machine only remembers a shape somebody showed it.',
+      open: 'Work the house machine until all three reels agree on the 🌀.' },
   ];
 
   function lockerFiledCount() {
@@ -4597,6 +4630,57 @@ void main() {
           act: () => cakeWish(cxm, 1.3, czm),
         });
       }
+    }
+
+    // ---- 🎰 REEL OF FORTUNE (game 16) --------------------------------------------
+    // The house machine, standing in Brawlers' old west-wall spot under the
+    // neon phrase — THE TWIN THRONES freed the wall the same day the game was
+    // asked for. It is a WALK-UP like the jukebox, not a cabinet: the main
+    // atlas is full at 10, and a slot machine is its own furniture anyway.
+    // Face art is one street-atlas region (fortuneFace); the marquee strip is
+    // re-drawn proud + hotter by a second quad sampling that sub-rect. Built
+    // here in buildStreet like the crime-scene tape — street page, hall floor.
+    {
+      const fx2 = -6.94, fz = -16.8, fz1 = fz + 0.4, fz2 = fz - 0.4; // faces +x → z descending
+      const fy0 = 0.14, fy1 = 2.1;
+      // plinth, carcass sides + top (iron), then the painted face
+      ST.quad([-7.49, 0, fz1 + 0.02], [fx2 + 0.02, 0, fz1 + 0.02], [fx2 + 0.02, fy0, fz1 + 0.02], [-7.49, fy0, fz1 + 0.02], suv.sw_black, {});
+      ST.quad([fx2, fy0, fz1], [fx2, fy0, fz2], [fx2, fy1, fz2], [fx2, fy1, fz1], suv.fortuneFace, { e: 0.3 });
+      // the marquee band again, 12mm proud and warmer — it is the sign.
+      // e 0.4, not more: at 0.62 "REEL OF FORTUNE" bloomed into a gold slab,
+      // which is the morning's readable-neon lesson repeating on day one.
+      ST.quad([fx2 - 0.012, fy1 - 0.42, fz1], [fx2 - 0.012, fy1 - 0.42, fz2],
+        [fx2 - 0.012, fy1, fz2], [fx2 - 0.012, fy1, fz1],
+        sub(suv.fortuneFace, 0, 0, 1, 0.2), { e: 0.4 });
+      ST.quad([-7.49, 0, fz1], [fx2, 0, fz1], [fx2, fy1, fz1], [-7.49, fy1, fz1], suv.sw_iron, { tint: 0.6 });
+      ST.quad([fx2, 0, fz2], [-7.49, 0, fz2], [-7.49, fy1, fz2], [fx2, fy1, fz2], suv.sw_iron, { tint: 0.6 });
+      ST.quad([-7.49, fy1, fz1], [fx2, fy1, fz1], [fx2, fy1, fz2], [-7.49, fy1, fz2], suv.sw_iron, { tint: 0.75 });
+      // amber edge tube crowning the face
+      ST.quad([fx2 - 0.02, fy1 - 0.05, fz1], [fx2 - 0.02, fy1 - 0.05, fz2],
+        [fx2 - 0.02, fy1, fz2], [fx2 - 0.02, fy1, fz1], suv.sw_amber, { e: 0.5 });
+      // the LEVER, on the machine's right shoulder (the -z side): iron arm,
+      // red ball, both facing the room — enough silhouette to read from the aisle
+      ST.quad([fx2 - 0.02, 1.06, fz2 - 0.05], [fx2 - 0.02, 1.06, fz2 - 0.11],
+        [fx2 - 0.02, 1.56, fz2 - 0.09], [fx2 - 0.02, 1.56, fz2 - 0.03], suv.sw_iron, { tint: 0.9 });
+      ST.quad([fx2 - 0.02, 1.56, fz2 + 0.01], [fx2 - 0.02, 1.56, fz2 - 0.13],
+        [fx2 - 0.02, 1.7, fz2 - 0.13], [fx2 - 0.02, 1.7, fz2 + 0.01], suv.sw_red, { e: 0.18 });
+      // lights: the marquee throws gold into the aisle, the windows glow soft
+      LIGHTS.push({ p: [fx2 + 1.0, 1.9, fz], c: [0.55, 0.42, 0.16], k: 'marq' });
+      H.glows.push({ p: [fx2 + 0.12, fy1 - 0.2, fz], c: [1, 0.82, 0.3], s: 0.9, a: 0.14, k: 'neon' });
+      H.glows.push({ p: [fx2 + 0.1, 1.15, fz], c: [0.5, 0.85, 1], s: 0.7, a: 0.09, k: 'crt' });
+      H.propBoxes.push({ min: [-7.5, 0, fz2 - 0.16], max: [fx2 + 0.05, fy1 + 0.05, fz1 + 0.06] });
+      H.hotspots.push({
+        kind: 'fortune',
+        x: fx2, z: fz, r: 2.4,
+        min: [-7.5, 0, fz2 - 0.16], max: [fx2 + 0.1, fy1 + 0.05, fz1 + 0.06],
+        stand: [fx2 + 1.1, EYE, fz],
+        label: '🎰 REEL OF FORTUNE — FREE SPINS, HONEST REELS (ASK NOBODY)',
+        act: () => {
+          H.lastCab = null;
+          H.lastSpot = { stand: [fx2 + 1.1, fz], look: [fx2, 1.4, fz] };
+          launchGame('fortune');
+        },
+      });
     }
 
     // ---- THE CATCH INCIDENT: police tape seals the catch cabinet ----------------

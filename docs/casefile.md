@@ -109,6 +109,7 @@ conversation and reads them via these globals:
 | `nugDrainTags` | `drainTagCount()` (0–8) / `drainSalvageDone()` | pulling the 🏷️ DPW SALVAGE TAGS out of the mains |
 | `nugReelManifest` | `reelManifestFound()` | snagging 🍾 THE SYNDICATE MANIFEST off the deep bottom |
 | `nugCroftDoor` | `croftFoundDoor()` | finding 🚪 THE DOOR beneath Fort Nugget (The Undercroft, the B4+ stairs; also unlocks THE DARK BELOW oath) |
+| `nugFortuneJack` | `fortuneJackpotHit()` | lining up 🌀🌀🌀 — THE STORM JACKPOT in Reel of Fortune (also unlocks THE RIGGED WHEEL tier). Canon-safe: the swirl on the reels is ARTWORK somebody carved from memory; nothing moved, the case grew a casino, it stays open |
 
 **Adding an exhibit?** Put its reader in this table AND add a row to
 `LOCKER_EXHIBITS` in js/arcade.js, or it exists but nobody can see it. Every

@@ -31,6 +31,11 @@ const ArcadeArt = (() => {
     { mode: 'beat', title: 'DIP HOP', icon: '🎧', c1: '#ff2fa0', c2: '#7c4dff', tag: 'SAUCE SESSIONS · NIGHTLY' },
     { mode: 'drain', title: 'STORM DRAIN', icon: '🕳️', c1: '#39ff7a', c2: '#ffd23a', tag: 'ALL PIPES LEAD TO THE HARBOR' },
     { mode: 'croft', title: 'THE UNDERCROFT', icon: '🕯️', c1: '#ffb020', c2: '#7c4ded', tag: 'WHAT THE FORT FORGOT' },
+    // game 16 — a walk-up machine INSIDE the hall (Brawlers' old wall), but a
+    // STREET_GAMES entry all the same: the main atlas is FULL at 10 cabinets,
+    // and a slot machine is its own furniture anyway. Face art lives on the
+    // street page (fortuneFace); scoreboard + leaderboards ride this entry.
+    { mode: 'fortune', title: 'REEL OF FORTUNE', icon: '🎰', c1: '#ffd23a', c2: '#ff2fa0', tag: 'THE HOUSE REMEMBERS' },
   ];
 
   const NEON = ['#ff2fa0', '#26e0ff', '#ffe23a', '#7c4dff', '#39ff7a'];
@@ -1542,6 +1547,8 @@ const ArcadeArt = (() => {
     // but the regions are allocated unconditionally so the packing never shifts)
     alloc('foundersBanner', 256, 96, pFoundersBanner);
     alloc('cakeSide', 96, 64, pCakeSide);
+    // 🎰 game 16 — the slot machine's face (see the note on STREET_GAMES)
+    alloc('fortuneFace', 128, 224, pFortuneFace);
     const SW2 = {
       iron: '#3a4256', wood: '#6d5426', woodDark: '#42320e', red: '#e8412c',
       amber: '#ffb020', curb: '#3c3c46', black: '#0a0a12', white: '#f4f0e6',
@@ -1842,6 +1849,88 @@ const ArcadeArt = (() => {
   }
 
   // The Department of Public Works would like a word. The word is NO.
+  // 🎰 REEL OF FORTUNE — the machine's whole front in one region. Marquee in
+  // the top fifth (re-drawn brighter by a second quad sampling that sub-rect),
+  // three reel windows on the payline, controls below. Text draws at runtime
+  // like every identity mark in the hall, so it stays crisp at any atlas
+  // scale. §5c: nothing here exceeds ~200 luma — the marquee quad runs hot.
+  function pFortuneFace(g, w, h) {
+    g.fillStyle = '#221a38';
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#4a3f76'; g.lineWidth = 4;
+    g.strokeRect(2, 2, w - 4, h - 4);
+
+    // marquee band (top 20% — the e-hot sub-rect)
+    g.fillStyle = '#120c22';
+    g.fillRect(6, 6, w - 12, h * 0.2 - 8);
+    g.textAlign = 'center';
+    g.fillStyle = '#d8a832';
+    g.font = '900 15px Impact, Haettenschweiler, sans-serif';
+    g.fillText('REEL OF', w / 2, h * 0.085);
+    g.fillStyle = '#c86490';
+    g.fillText('FORTUNE', w / 2, h * 0.16);
+    g.fillStyle = '#b09a56';
+    for (let i = 0; i < 9; i++) {
+      g.beginPath(); g.arc(10 + (i * (w - 20)) / 8, h * 0.185, 1.6, 0, 7); g.fill();
+    }
+
+    // reel box: cream windows, a symbol resting in each, payline arrows
+    g.fillStyle = '#0c0918';
+    g.fillRect(8, h * 0.24, w - 16, h * 0.34);
+    const wy = h * 0.27, wh = h * 0.28, ww = (w - 32) / 3;
+    const drawWin = (i, paint) => {
+      const wx = 12 + i * (ww + 4);
+      g.fillStyle = '#e6e0cf'; g.fillRect(wx, wy, ww, wh);
+      g.strokeStyle = '#4a3f76'; g.lineWidth = 2; g.strokeRect(wx, wy, ww, wh);
+      paint(wx + ww / 2, wy + wh / 2);
+    };
+    drawWin(0, (cx, cy) => { // a golden nug
+      g.fillStyle = '#d8a028';
+      g.beginPath(); g.ellipse(cx, cy, ww * 0.26, ww * 0.2, 0.3, 0, 7); g.fill();
+      g.fillStyle = '#efd07a';
+      g.beginPath(); g.ellipse(cx - 2, cy - 2, ww * 0.09, ww * 0.06, 0.3, 0, 7); g.fill();
+    });
+    drawWin(1, (cx, cy) => { // THE SWIRL, mid-turn
+      g.strokeStyle = '#2ab4cc'; g.lineWidth = 2.5; g.lineCap = 'round';
+      g.beginPath();
+      for (let a = 0; a < 4.4; a += 0.2) {
+        const rr = 1.5 + a * 2.1;
+        const x = cx + Math.cos(a * 1.7) * rr, y = cy + Math.sin(a * 1.7) * rr;
+        a === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
+      }
+      g.stroke();
+    });
+    drawWin(2, (cx, cy) => { // a star
+      g.fillStyle = '#d8c22e';
+      g.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const rr = i % 2 ? 4 : 9, a = -Math.PI / 2 + (i * Math.PI) / 5;
+        g[i ? 'lineTo' : 'moveTo'](cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+      }
+      g.closePath(); g.fill();
+    });
+    g.fillStyle = '#c8506e';
+    g.beginPath(); g.moveTo(4, wy + wh / 2 - 4); g.lineTo(10, wy + wh / 2); g.lineTo(4, wy + wh / 2 + 4); g.fill();
+    g.beginPath(); g.moveTo(w - 4, wy + wh / 2 - 4); g.lineTo(w - 10, wy + wh / 2); g.lineTo(w - 4, wy + wh / 2 + 4); g.fill();
+
+    // controls: the button, the plate, the promise
+    g.fillStyle = '#9e2a34';
+    g.beginPath(); g.arc(w / 2, h * 0.68, 9, 0, 7); g.fill();
+    g.fillStyle = '#c8505a';
+    g.beginPath(); g.arc(w / 2 - 2, h * 0.67, 4, 0, 7); g.fill();
+    g.fillStyle = '#cfd4e6';
+    g.font = '900 9px Consolas, monospace';
+    g.fillText('FREE PLAY', w / 2, h * 0.78);
+    g.fillStyle = '#8a86a8';
+    g.font = '700 7px Consolas, monospace';
+    g.fillText('THE HOUSE REMEMBERS', w / 2, h * 0.83);
+    // coin slot (ornamental — nobody pays in nuggetown) + kick vents
+    g.fillStyle = '#0c0918';
+    g.fillRect(w / 2 - 7, h * 0.86, 14, 5);
+    g.fillStyle = '#332a52';
+    for (let i = 0; i < 4; i++) g.fillRect(14, h * 0.91 + i * 4, w - 28, 2);
+  }
+
   function pDrainSign(g, w, h) {
     // sawhorse board: hazard stripes up top, stencilled plea below
     g.fillStyle = '#1a1206';

@@ -1,0 +1,52 @@
+/* 🎰 REEL OF FORTUNE — the layer, the banner, and nothing it doesn't need.
+   Same school as croft.css: a fixed fullscreen world div that only exists
+   while body.fortune-mode is on, one chunky-pixel canvas inside it. */
+
+#fortuneWorld {
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 9990; /* the games' layer — same plane as croft/drain */
+  background: #131024;
+}
+
+body.fortune-mode #fortuneWorld { display: block; }
+
+#fortuneWorld canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+/* big-moment banner (FEVER / JACKPOT / THE HOUSE WINS) */
+.fortune-banner {
+  position: absolute;
+  left: 50%;
+  top: 16%;
+  transform: translate(-50%, -8px);
+  text-align: center;
+  font-family: 'Courier New', monospace;
+  color: #ffe9a0;
+  text-shadow: 0 0 14px rgba(255, 210, 58, 0.55), 0 2px 0 #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.fortune-banner.show { opacity: 1; transform: translate(-50%, 0); }
+.fortune-banner b {
+  display: block;
+  font-size: clamp(26px, 5vw, 44px);
+  letter-spacing: 2px;
+}
+.fortune-banner span {
+  display: block;
+  margin-top: 4px;
+  font-size: clamp(12px, 1.8vw, 16px);
+  color: #bfc6ff;
+  text-shadow: 0 1px 0 #000;
+}

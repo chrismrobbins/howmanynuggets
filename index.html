@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="css/beat.css" />
   <link rel="stylesheet" href="css/drain.css" />
   <link rel="stylesheet" href="css/croft.css" />
+  <link rel="stylesheet" href="css/fortune.css" />
   <link rel="stylesheet" href="css/arcade.css" />
   <link rel="stylesheet" href="css/locker.css" />
   <link rel="stylesheet" href="css/multiplayer.css" />
@@ -113,6 +114,7 @@
         <div class="score-tile"><div class="game">🎧</div><div class="game-name">Dip Hop</div><div class="best" id="myBeat">0</div></div>
         <div class="score-tile"><div class="game">🕳️</div><div class="game-name">Drain</div><div class="best" id="myDrain">0</div></div>
         <div class="score-tile"><div class="game">🕯️</div><div class="game-name">Croft</div><div class="best" id="myCroft">0</div></div>
+        <div class="score-tile"><div class="game">🎰</div><div class="game-name">Fortune</div><div class="best" id="myFortune">0</div></div>
       </div>
     </div>
 
@@ -161,6 +163,7 @@
       <button type="button" data-mode="beat" title="Dip Hop — DJ DRIP's sauce sessions. when the beat drops, drop with it.">🎧</button>
       <button type="button" data-mode="drain" title="Storm Drain — dive the flooded pipes under Nuggetown. mind the air. mind what passes.">🕳️</button>
       <button type="button" data-mode="croft" title="The Undercroft — the cellars beneath Fort Nugget. clear the room, take one relic, mind your lantern.">🕯️</button>
+      <button type="button" data-mode="fortune" title="Reel of Fortune — the house machine. press to spin, press to stop each reel. three of a kind pays.">🎰</button>
     </span>
     <button id="stormStop" type="button">Stop</button>
   </div>
@@ -219,6 +222,9 @@
 
   <!-- The Undercroft: roguelite crawl beneath Fort Nugget (canvas injected by js/croft.js) -->
   <div id="croftWorld"></div>
+
+  <!-- Reel of Fortune: the house slot machine (canvas injected by js/fortune.js) -->
+  <div id="fortuneWorld"></div>
 
   <!-- Account modal: log in / create account / signed-in menu -->
   <div class="modal-overlay" id="authModal">
@@ -313,6 +319,7 @@
         <button type="button" data-game="beat">🎧 Dip Hop</button>
         <button type="button" data-game="drain">🕳️ Drain</button>
         <button type="button" data-game="croft">🕯️ Croft</button>
+        <button type="button" data-game="fortune">🎰 Fortune</button>
       </div>
       <div id="lbBody"><div class="lb-loading">Loading…</div></div>
     </div>
@@ -416,6 +423,7 @@
   <script src="js/beat.js"></script>
   <script src="js/drain.js"></script>
   <script src="js/croft.js"></script>
+  <script src="js/fortune.js"></script>
   <script src="js/hallBoot.js"></script>
   <script src="js/hallArt.js"></script>
   <script src="js/hallMaps.js"></script>

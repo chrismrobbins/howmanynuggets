@@ -151,6 +151,27 @@ already bitten someone.
 > is NEW (tier/depth/air/gear/offerGear/pickGear — depth teleports keep the spawn
 > clocks and sublevel counter in step so a jump doesn't back-spawn a screenful).
 > Verified 29/29 headless (natural triggers, pacing, freeze, per-dive reset).
+> **2026-08-24 — 🎰 REEL OF FORTUNE (game 16, mode `fortune`, js/fortune.js):**
+> a one-button SKILL-STOP slot machine — press to spin, press to stop each
+> reel where your timing lands it (fixed strips, deterministic spin-down, no
+> RNG anywhere). Three of a kind pays; 🥇 golden nug is WILD; 3× 💀 SOGGY
+> wipes your streak; three wins running lights 🔥 FEVER (5 spins, ×2). Tiers
+> via ArcadeKit.tierSelect (`fortune` store key): PENNY ANTE / HIGH ROLLER /
+> 🌀 THE RIGGED WHEEL (earned). 🌀🌀🌀 = THE STORM JACKPOT (1500× perFlyer),
+> sets `nugFortuneJack` / `fortuneJackpotHit()` — Hood + Dill react, 16th
+> case-board exhibit (THE PAYOUT). Canon-safe: the swirl on the reels is
+> artwork somebody carved FROM MEMORY; nothing moved; the case grew a casino.
+> It is the SIXTH walk-up machine and it stands INSIDE THE HALL, in Brawlers'
+> old west-wall spot (x −7.02, z −16.8, freed by THE TWIN THRONES the same
+> day): the main atlas is FULL at 10 cabinets, so it is an `ArcadeArt.
+> STREET_GAMES` entry with its face on the STREET atlas (`fortuneFace`, one
+> region + a hotter sub-rect re-draw for the marquee — kept at e 0.4, because
+> 0.62 bloomed "REEL OF FORTUNE" into a slab the very day the readable-neon
+> rule was written). Prop + hotspot are built in buildStreet like the
+> crime-scene tape. Test seam: `window.fortuneDebug` (state/press/rig/
+> pickTier — `rig(a,b,c)` pins the NEXT spin's payline through the REAL
+> payout path). Verified headless: exact payout math at every rung, fever,
+> jackpot flag, banking, hall launch/return, zero atlas overflow.
 > **2026-08-08 (later the same night) — 🕯️ THE UNDERCROFT (game 15, mode
 > `croft`, js/croft.js):** the FIFTH street game, and the first built AROUND
 > the pick-1-of-3 deal — a roguelite crawl under Fort Nugget: single-screen

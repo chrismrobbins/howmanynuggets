@@ -50,14 +50,15 @@ const MODE_HINTS = {
   beat:    'the beat drops — drop with it! D F J K (or ← ↓ ↑ →) dunk on the beat · PERFECT dips build HYPE',
   drain:   'dive the pipes under Nuggetown — ← → steer · HOLD space/↑ to kick · 🫧 is life · thread THE CLOGS · listen for what passes',
   croft:   'beneath Fort Nugget — WASD/←→↑↓ move · X/click slash · clear the room, take ONE relic · mind your lantern · find THE DOOR',
+  fortune: 'the house machine — press to SPIN · press again to STOP each reel · three of a kind pays · 🥇 is wild · mind the 💀',
 };
-const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘', run: '🏃', knight: '⚔️', brawl: '🥊', ranch: '🐔', kart: '🏎️', reel: '🎣', gta: '🚗', beat: '🎧', drain: '🕳️', croft: '🕯️' };
+const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘', run: '🏃', knight: '⚔️', brawl: '🥊', ranch: '🐔', kart: '🏎️', reel: '🎣', gta: '🚗', beat: '🎧', drain: '🕳️', croft: '🕯️', fortune: '🎰' };
 
 // Free-roam games draw their own rich in-game HUD, so the storm card backs
 // off to a slim translucent pill — hover it (or tap the game badge on touch)
 // to bring back the hint + mode switch. See .storm-hud.compact in storm.css.
 const MODE_COMPACT_HUD = new Set(['gta', 'beat', 'croft']);
-const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated', run: 'ran', knight: 'vanquished', brawl: 'sauced', ranch: 'harvested', kart: 'delivered', reel: 'reeled in', gta: 'boosted', beat: 'dropped', drain: 'plumbed', croft: 'delved' };
+const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated', run: 'ran', knight: 'vanquished', brawl: 'sauced', ranch: 'harvested', kart: 'delivered', reel: 'reeled in', gta: 'boosted', beat: 'dropped', drain: 'plumbed', croft: 'delved', fortune: 'won' };
 
 // Self-contained minigames run their own entities and pause the storm's own
 // falling-nugget spawner + auto-complete (like Flappy). Catch and Blaster both
@@ -181,7 +182,8 @@ function pausesStorm() {
          storm.mode === 'run' || storm.mode === 'knight' || storm.mode === 'brawl' ||
          storm.mode === 'ranch' || storm.mode === 'kart' || storm.mode === 'reel' ||
          storm.mode === 'gta' || storm.mode === 'beat' || storm.mode === 'blaster' ||
-         storm.mode === 'drain' || storm.mode === 'croft';
+         storm.mode === 'drain' || storm.mode === 'croft' ||
+         storm.mode === 'fortune';
 }
 
 const storm = {
@@ -239,6 +241,7 @@ function setStormMode(mode) {
   syncBeat();
   syncDrain();
   syncCroft();
+  syncFortune();
   nugDailyMarkSwitch();
   updateStormHud();
 }
@@ -359,6 +362,9 @@ function updateStormHud() {
   } else if (storm.mode === 'croft') {
     stormLabel.textContent = '🕯️ The Undercroft';
     stormTally.textContent = croftTally();
+  } else if (storm.mode === 'fortune') {
+    stormLabel.textContent = '🎰 Reel of Fortune';
+    stormTally.textContent = fortuneTally();
   } else if (storm.mode === 'flappy') {
     stormLabel.textContent = '🐤 Flappy Nug';
     stormTally.textContent = flappyTally();
@@ -452,6 +458,7 @@ function stepStorm(ts) {
   else if (storm.mode === 'beat') stepBeat(dt, w, h);
   else if (storm.mode === 'drain') stepDrain(dt, w, h);
   else if (storm.mode === 'croft') stepCroft(dt, w, h);
+  else if (storm.mode === 'fortune') stepFortune(dt, w, h);
 
   updateStormHud();
 
@@ -550,6 +557,7 @@ function stopStorm(completed = false) {
   syncBeat();
   syncDrain();
   syncCroft();
+  syncFortune();
   if (completed) {
     // Leave a short victory-lap summary in the HUD, then tuck it away.
     stormLabel.textContent = '✅ Storm complete';
