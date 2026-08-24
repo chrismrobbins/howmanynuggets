@@ -151,27 +151,34 @@ already bitten someone.
 > is NEW (tier/depth/air/gear/offerGear/pickGear — depth teleports keep the spawn
 > clocks and sublevel counter in step so a jump doesn't back-spawn a screenful).
 > Verified 29/29 headless (natural triggers, pacing, freeze, per-dive reset).
-> **2026-08-24 — 🎰 REEL OF FORTUNE (game 16, mode `fortune`, js/fortune.js):**
-> a one-button SKILL-STOP slot machine — press to spin, press to stop each
-> reel where your timing lands it (fixed strips, deterministic spin-down, no
-> RNG anywhere). Three of a kind pays; 🥇 golden nug is WILD; 3× 💀 SOGGY
-> wipes your streak; three wins running lights 🔥 FEVER (5 spins, ×2). Tiers
-> via ArcadeKit.tierSelect (`fortune` store key): PENNY ANTE / HIGH ROLLER /
-> 🌀 THE RIGGED WHEEL (earned). 🌀🌀🌀 = THE STORM JACKPOT (1500× perFlyer),
-> sets `nugFortuneJack` / `fortuneJackpotHit()` — Hood + Dill react, 16th
-> case-board exhibit (THE PAYOUT). Canon-safe: the swirl on the reels is
-> artwork somebody carved FROM MEMORY; nothing moved; the case grew a casino.
-> It is the SIXTH walk-up machine and it stands INSIDE THE HALL, in Brawlers'
-> old west-wall spot (x −7.02, z −16.8, freed by THE TWIN THRONES the same
-> day): the main atlas is FULL at 10 cabinets, so it is an `ArcadeArt.
-> STREET_GAMES` entry with its face on the STREET atlas (`fortuneFace`, one
-> region + a hotter sub-rect re-draw for the marquee — kept at e 0.4, because
-> 0.62 bloomed "REEL OF FORTUNE" into a slab the very day the readable-neon
-> rule was written). Prop + hotspot are built in buildStreet like the
-> crime-scene tape. Test seam: `window.fortuneDebug` (state/press/rig/
-> pickTier — `rig(a,b,c)` pins the NEXT spin's payline through the REAL
-> payout path). Verified headless: exact payout math at every rung, fever,
-> jackpot flag, banking, hall launch/return, zero atlas overflow.
+> **2026-08-24 — 🎡 REEL OF FORTUNE (game 16, mode `fortune`, js/fortune.js):**
+> WHEEL OF FORTUNE, nugget-sized — the friend's pun was the GAME SHOW, and
+> the first build heard "slot machine" (corrected the same day; if a request
+> names a franchise, build the franchise). HOLD to wind the wheel (the power
+> meter sweeps — your release IS the spin, deterministic physics, no RNG
+> anywhere), land a wedge, pick a letter (type A–Z or tap the board): a hit
+> banks the wedge value per occurrence (vowels pay HALF), a miss costs a 🎟️
+> turn token, 💀 BANKRUPT (×2 wedges) wipes the round bank. Solve the phrase
+> → bank pays out + 100 × remaining tokens. THE PUZZLES ARE ALL TRUE — case
+> quotes, tag texts, rumors (FORTUNE_PUZZLES; Dill NOTICES). One wedge is the
+> 🌀 SWIRL: land it, bank it with a correct letter, then SOLVE that board =
+> THE STORM JACKPOT (1500× perFlyer), sets `nugFortuneJack` /
+> `fortuneJackpotHit()` — Hood + Dill react, 16th case-board exhibit (THE
+> PAYOUT). Tiers via ArcadeKit.tierSelect (`fortune` store key): PENNY ANTE
+> (4 🎟️) / PRIME TIME (3) / 🌀 THE RIGGED WHEEL (2, earned). It is the SIXTH
+> walk-up machine and stands INSIDE THE HALL, Brawlers' old west-wall spot
+> (x −7.02, z −16.8, freed by THE TWIN THRONES the same day): main atlas is
+> FULL at 10 cabinets, so it is an `ArcadeArt.STREET_GAMES` entry with its
+> face on the STREET atlas (`fortuneFace` — wheel + mini puzzle board; the
+> marquee sub-rect re-draw stays at e 0.4, because 0.62 bloomed the title
+> into a slab the day the readable-neon rule was written). Prop + hotspot in
+> buildStreet like the crime-scene tape. Test seam: `window.fortuneDebug`
+> (state / land(wedge) / guess(ch) / setPuzzle(i) / pickTier — land+guess
+> drive the REAL handlers). Puzzle deck advances via localStorage
+> `nugFortunePz`, sequential on purpose (a quit mid-board re-deals the same
+> board — the wheel remembers). Verified headless: bank math, vowel half-pay,
+> token loss, bankrupt, out-of-turns forfeit, solve bonus, jackpot flag +
+> RIGGED unlock, banking, hall launch/return, zero atlas overflow.
 > **2026-08-08 (later the same night) — 🕯️ THE UNDERCROFT (game 15, mode
 > `croft`, js/croft.js):** the FIFTH street game, and the first built AROUND
 > the pick-1-of-3 deal — a roguelite crawl under Fort Nugget: single-screen

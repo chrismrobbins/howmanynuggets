@@ -35,7 +35,7 @@ const ArcadeArt = (() => {
     // STREET_GAMES entry all the same: the main atlas is FULL at 10 cabinets,
     // and a slot machine is its own furniture anyway. Face art lives on the
     // street page (fortuneFace); scoreboard + leaderboards ride this entry.
-    { mode: 'fortune', title: 'REEL OF FORTUNE', icon: '🎰', c1: '#ffd23a', c2: '#ff2fa0', tag: 'THE HOUSE REMEMBERS' },
+    { mode: 'fortune', title: 'REEL OF FORTUNE', icon: '🎡', c1: '#ffd23a', c2: '#ff2fa0', tag: 'THE HOUSE KNOWS THE WORDS' },
   ];
 
   const NEON = ['#ff2fa0', '#26e0ff', '#ffe23a', '#7c4dff', '#39ff7a'];
@@ -1849,11 +1849,13 @@ const ArcadeArt = (() => {
   }
 
   // The Department of Public Works would like a word. The word is NO.
-  // 🎰 REEL OF FORTUNE — the machine's whole front in one region. Marquee in
-  // the top fifth (re-drawn brighter by a second quad sampling that sub-rect),
-  // three reel windows on the payline, controls below. Text draws at runtime
-  // like every identity mark in the hall, so it stays crisp at any atlas
-  // scale. §5c: nothing here exceeds ~200 luma — the marquee quad runs hot.
+  // 🎡 REEL OF FORTUNE — the machine's whole front in one region: a WHEEL
+  // machine, game-show school (the friend's pun was Wheel of Fortune, and the
+  // first build heard "slot machine" — corrected same day). Marquee in the
+  // top fifth (re-drawn brighter by a second quad sampling that sub-rect),
+  // the big wedge wheel mid-face, a mini puzzle board below it. Text draws at
+  // runtime like every identity mark in the hall, so it stays crisp at any
+  // atlas scale. §5c: nothing here exceeds ~200 luma — the marquee runs hot.
   function pFortuneFace(g, w, h) {
     g.fillStyle = '#221a38';
     g.fillRect(0, 0, w, h);
@@ -1874,61 +1876,66 @@ const ArcadeArt = (() => {
       g.beginPath(); g.arc(10 + (i * (w - 20)) / 8, h * 0.185, 1.6, 0, 7); g.fill();
     }
 
-    // reel box: cream windows, a symbol resting in each, payline arrows
-    g.fillStyle = '#0c0918';
-    g.fillRect(8, h * 0.24, w - 16, h * 0.34);
-    const wy = h * 0.27, wh = h * 0.28, ww = (w - 32) / 3;
-    const drawWin = (i, paint) => {
-      const wx = 12 + i * (ww + 4);
-      g.fillStyle = '#e6e0cf'; g.fillRect(wx, wy, ww, wh);
-      g.strokeStyle = '#4a3f76'; g.lineWidth = 2; g.strokeRect(wx, wy, ww, wh);
-      paint(wx + ww / 2, wy + wh / 2);
-    };
-    drawWin(0, (cx, cy) => { // a golden nug
-      g.fillStyle = '#d8a028';
-      g.beginPath(); g.ellipse(cx, cy, ww * 0.26, ww * 0.2, 0.3, 0, 7); g.fill();
-      g.fillStyle = '#efd07a';
-      g.beginPath(); g.ellipse(cx - 2, cy - 2, ww * 0.09, ww * 0.06, 0.3, 0, 7); g.fill();
-    });
-    drawWin(1, (cx, cy) => { // THE SWIRL, mid-turn
-      g.strokeStyle = '#2ab4cc'; g.lineWidth = 2.5; g.lineCap = 'round';
-      g.beginPath();
-      for (let a = 0; a < 4.4; a += 0.2) {
-        const rr = 1.5 + a * 2.1;
-        const x = cx + Math.cos(a * 1.7) * rr, y = cy + Math.sin(a * 1.7) * rr;
-        a === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
-      }
-      g.stroke();
-    });
-    drawWin(2, (cx, cy) => { // a star
-      g.fillStyle = '#d8c22e';
-      g.beginPath();
-      for (let i = 0; i < 10; i++) {
-        const rr = i % 2 ? 4 : 9, a = -Math.PI / 2 + (i * Math.PI) / 5;
-        g[i ? 'lineTo' : 'moveTo'](cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
-      }
-      g.closePath(); g.fill();
-    });
+    // THE WHEEL: sixteen wedges, two of them wrong, one of them a story
+    const cx = w / 2, cy = h * 0.42, r = w * 0.36;
+    const COLS = ['#5a3688', '#8a3468', '#365a88', '#36885e'];
+    for (let i = 0; i < 16; i++) {
+      const a0 = -Math.PI / 2 + (i / 16) * Math.PI * 2;
+      const a1 = -Math.PI / 2 + ((i + 1) / 16) * Math.PI * 2;
+      g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, r, a0, a1); g.closePath();
+      g.fillStyle = i === 4 || i === 12 ? '#141018' : i === 8 ? '#0c3844' : COLS[i % 4];
+      g.fill();
+      g.strokeStyle = '#120c22'; g.lineWidth = 1.5; g.stroke();
+    }
+    // the swirl wedge's mark
+    g.save();
+    g.translate(cx + Math.cos(-Math.PI / 2 + (8.5 / 16) * Math.PI * 2) * r * 0.66,
+      cy + Math.sin(-Math.PI / 2 + (8.5 / 16) * Math.PI * 2) * r * 0.66);
+    g.strokeStyle = '#2ab4cc'; g.lineWidth = 2; g.lineCap = 'round';
+    g.beginPath();
+    for (let a = 0; a < 4.2; a += 0.25) {
+      const rr = 1 + a * 1.6;
+      const x = Math.cos(a * 1.8) * rr, y = Math.sin(a * 1.8) * rr;
+      a === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
+    }
+    g.stroke();
+    g.restore();
+    // hub + pointer
+    g.fillStyle = '#d8b23a';
+    g.beginPath(); g.arc(cx, cy, r * 0.16, 0, 7); g.fill();
     g.fillStyle = '#c8506e';
-    g.beginPath(); g.moveTo(4, wy + wh / 2 - 4); g.lineTo(10, wy + wh / 2); g.lineTo(4, wy + wh / 2 + 4); g.fill();
-    g.beginPath(); g.moveTo(w - 4, wy + wh / 2 - 4); g.lineTo(w - 10, wy + wh / 2); g.lineTo(w - 4, wy + wh / 2 + 4); g.fill();
+    g.beginPath();
+    g.moveTo(cx - 4, cy - r - 6); g.lineTo(cx + 4, cy - r - 6); g.lineTo(cx, cy - r + 2);
+    g.closePath(); g.fill();
 
-    // controls: the button, the plate, the promise
-    g.fillStyle = '#9e2a34';
-    g.beginPath(); g.arc(w / 2, h * 0.68, 9, 0, 7); g.fill();
-    g.fillStyle = '#c8505a';
-    g.beginPath(); g.arc(w / 2 - 2, h * 0.67, 4, 0, 7); g.fill();
+    // the mini puzzle board: a phrase mid-solve (it reads _HE _ASE
+    // STAYS OPE_ if you squint, which is the point)
+    g.fillStyle = '#0c0918';
+    g.fillRect(8, h * 0.66, w - 16, h * 0.15);
+    const tiles = ['THE', 'CASE', 'STAYS', 'OPEN'];
+    let tx = 13;
+    const ty = h * 0.685, ts = 9;
+    g.font = 'bold 7px monospace';
+    for (const word of tiles) {
+      for (const c of word) {
+        const hidden = 'TCO'.includes(c);
+        g.fillStyle = hidden ? '#2c2452' : '#e6e0cf';
+        g.fillRect(tx, ty, ts - 1, ts + 2);
+        if (!hidden) { g.fillStyle = '#1a1430'; g.fillText(c, tx + ts / 2 - 0.5, ty + ts / 2 + 1); }
+        tx += ts;
+      }
+      tx += 4;
+      if (tx > w - 30) { tx = 13; }
+    }
+
     g.fillStyle = '#cfd4e6';
     g.font = '900 9px Consolas, monospace';
-    g.fillText('FREE PLAY', w / 2, h * 0.78);
+    g.fillText('FREE PLAY', w / 2, h * 0.87);
     g.fillStyle = '#8a86a8';
     g.font = '700 7px Consolas, monospace';
-    g.fillText('THE HOUSE REMEMBERS', w / 2, h * 0.83);
-    // coin slot (ornamental — nobody pays in nuggetown) + kick vents
-    g.fillStyle = '#0c0918';
-    g.fillRect(w / 2 - 7, h * 0.86, 14, 5);
+    g.fillText('THE HOUSE KNOWS THE WORDS', w / 2, h * 0.91);
     g.fillStyle = '#332a52';
-    for (let i = 0; i < 4; i++) g.fillRect(14, h * 0.91 + i * 4, w - 28, 2);
+    for (let i = 0; i < 3; i++) g.fillRect(14, h * 0.94 + i * 3.4, w - 28, 2);
   }
 
   function pDrainSign(g, w, h) {

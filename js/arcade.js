@@ -2954,8 +2954,8 @@ void main() {
             { t: 'there are cellar doors on the arcade\'s east wall. lit from inside.', next: 'croftDoors' },
             { t: 'the gutter grate across the road… it\'s GLOWING.', next: 'drainGrate' },
             jackpot
-              ? { t: 'the slot machine inside paid out THREE SPIRALS, Hood.', next: 'fortuneJack' }
-              : { t: 'there\'s a slot machine inside now. free play.', next: 'fortuneNew' },
+              ? { t: 'the wheel landed the SPIRAL, Hood. and then I solved its puzzle.', next: 'fortuneJack' }
+              : { t: 'there\'s a wheel game inside now. free play.', next: 'fortuneNew' },
             { t: 'the pickle put his case file in a glass box.', next: 'hoodBoard' },
             { t: 'somebody\'s been painting checkers on the roads.', next: 'races' },
             { t: 'there\'s a CLUB across the street now.', next: 'beatClub' },
@@ -2976,21 +2976,21 @@ void main() {
         founders2: { line: 'meaning the founder never LEFT, friend. you don\'t keep lighting one candle for somebody who\'s gone. *taps hood* free rumor. founder\'s day special. tell your friends where rumors come from.', opts: [] },
         founders3: { line: '*a very long pause* that\'s what the last town said. …enjoy the party, friend. genuinely. even I take one night off. *does a small, private two-step under the hood*', opts: [] },
         fortuneNew: {
-          line: '*the hooded nugget nods slowly, like you\'ve confirmed something* a machine that pays you in nuggets, in a town where the nuggets fell out of the SKY once. free play, friend. nothing in this town is free — some things just bill you later. *taps hood* look CLOSE at the middle reel. tell me what you see.',
+          line: '*the hooded nugget nods slowly, like you\'ve confirmed something* a game show, friend. in OUR arcade. spin the wheel, guess the letters, solve the phrase. *leans in* have you READ the phrases? go read the phrases. then count the wedges. sixteen. now tell me what\'s carved on the one between the thirty and the ten.',
           opts: [
             { t: 'it\'s… a spiral?', next: 'fortuneSpiral' },
-            { t: 'it\'s a slot machine, Hood. relax.', next: 'fortuneRelax' },
+            { t: 'it\'s a word game, Hood. relax.', next: 'fortuneRelax' },
           ],
         },
-        fortuneSpiral: { line: '*very quietly* the harbor makes that shape. after midnight. when it thinks nobody\'s watching. *straightens up* line up three of them and come find me. I\'ll be aging a NEW rumor.', opts: [] },
-        fortuneRelax: { line: '*the hood tilts, wounded* that\'s what they said about the pier, friend. and the basement. and the grate. I am five for five and the house is COUNTING on you not noticing it makes six.', opts: [] },
+        fortuneSpiral: { line: '*very quietly* the harbor makes that shape. after midnight. when it thinks nobody\'s watching. *straightens up* land it, bank it, and SOLVE whatever board it\'s riding — then come find me. I\'ll be aging a NEW rumor.', opts: [] },
+        fortuneRelax: { line: '*the hood tilts, wounded* a word game whose every phrase is TRUE, friend. "leave it a door." "mind the clogs." somebody fed that machine the whole case file and called it a PUZZLE. I am five for five and the house is COUNTING on you not noticing it makes six.', opts: [] },
         fortuneJack: {
-          line: '*the hooded nugget goes as still as the lamppost* three. spirals. *long pause* friend, a machine only remembers a shape somebody SHOWED it. somebody stood where you\'re standing, saw what you saw in the harbor, and carved it into a REEL. *leans in, barely audible* the house remembers. that\'s not a slogan. that\'s a CONFESSION.',
+          line: '*the hooded nugget goes as still as the lamppost* the spiral. banked. and the board SOLVED under it. *long pause* friend, a wheel only carries a shape somebody CARVED into it, and a puzzle only knows words somebody WROTE. somebody stood where you\'re standing, saw what you saw in the harbor, and turned it into a GAME SHOW. *barely audible* the house knows the words. that\'s not a slogan. that\'s a CONFESSION.',
           opts: [
             { t: 'so who built the machine?', next: 'fortuneWho' },
           ],
         },
-        fortuneWho: { line: 'no maker\'s plate. no serial. paid in full, delivered at night — I asked the bus driver, the bus driver asked ME to stop asking. *taps hood* sixth rumor, friend, and it walked in the FRONT DOOR: follow the machine\'s money and you find whoever\'s been feeding the case since the Incident.', opts: [] },
+        fortuneWho: { line: 'no maker\'s plate. no serial. paid in full, delivered at night — I asked the bus driver, the bus driver asked ME to stop asking. *taps hood* sixth rumor, friend, and it walked in the FRONT DOOR: whoever writes the machine\'s puzzles has been READING THE CASE FILE. follow the words home.', opts: [] },
         drainGrate: {
           line: dove
             ? 'you already KNOW what\'s under that grate. you kicked past the clogs and the water went still and something the size of a WEATHER SYSTEM used the mains like a bus lane. *taps hood, shakily* fourth rumor. cashed. by you. again.'
@@ -3219,7 +3219,7 @@ void main() {
               : evid > 0 ? { t: 'been picking things up around town. evidence things.', next: 'evid' } : null,
             dove ? { t: 'detective. pull the DPW maps. I saw it IN THE PIPES.', next: 'drainSaw' } : null,
             delved ? { t: 'there\'s a door under the fort. it isn\'t on the plans.', next: 'croftDoor' } : null,
-            jackpot ? { t: 'detective. the slot machine paid out three spirals.', next: 'fortuneJack' } : null,
+            jackpot ? { t: 'detective. the wheel machine — I banked the spiral and solved its board.', next: 'fortuneJack' } : null,
             salvage ? { t: 'I pulled all eight DPW tags out of the mains.', next: 'salvage' }
               : tags > 0 ? { t: "there's brass wired into those pipes, detective.", next: 'salvage' } : null,
             manifest ? { t: 'I fished a bottle out of the deep. paperwork inside.', next: 'manifest' } : null,
@@ -3296,12 +3296,12 @@ void main() {
         drainSaw3: { line: 'that sign predates the Incident by nine years. *flat stare* the DPW knew something. the DPW always knows something. they just file it under "flow".', opts: [] },
         // 🚪 THE DOOR (THE UNDERCROFT) — tag seventy-seven finally parses
         fortuneJack: {
-          line: '*he flips the notepad open before you finish the sentence* a FREE slot machine. no coin box. no maker\'s plate. paying out in nuggets it should not have, wearing the harbor\'s favorite shape on the middle reel. *writes "WHO COMPS A WHOLE TOWN"* kid, in my experience a house that pays you to play is a house washing something. usually money. *looks toward the arcade* occasionally weather.',
+          line: '*he flips the notepad open before you finish the sentence* a FREE wheel game. no coin box. no maker\'s plate. the harbor\'s favorite shape carved on one wedge — and kid, I played it once. the puzzles. *reads from the notepad, flatly* "leave it a door." "do not touch the tape." "who pours a foundation around a door." *looks up* that machine is quoting MY CASE FILE back at the town, one letter at a time. *writes "WHO WRITES THE PUZZLES"* somebody turned the evidence into entertainment.',
           opts: [
             { t: 'want me to stop playing it?', next: 'fortuneJack2' },
           ],
         },
-        fortuneJack2: { line: '*flat stare* absolutely not. keep pulling that lever and keep your receipts. right now you\'re the only informant I\'ve got INSIDE the house. *writes "EXHIBIT: 3 SPIRALS, PAID IN FULL"* the case grew a casino, kid. it stays open.', opts: [] },
+        fortuneJack2: { line: '*flat stare* absolutely not. keep spinning and keep your receipts. every board it deals you is a page somebody\'s SEEN, which makes you the only informant I\'ve got inside the house. *writes "EXHIBIT: THE SPIRAL, BANKED. THE BOARD, SOLVED."* the case grew a game show, kid. it stays open.', opts: [] },
         croftDoor: {
           line: '*he does not reach for the notepad. that\'s how you know it\'s bad.* say it again. slowly. …a vault door. UNDER the fort. gold in the seam, water on the far side, moving harbor-way. *now he opens the notepad — straight to the salvage section, tag seventy-seven* "it likes the pipes better than the bay. LEAVE IT A DOOR." unsigned. *looks up, and for once the rain waits* somebody didn\'t just leave it a door, kid. somebody BUILT it one.',
           opts: [
@@ -3465,10 +3465,10 @@ void main() {
       got: () => typeof croftFoundDoor === 'function' && croftFoundDoor(),
       filed: 'Floors under the fort no drawing admits to, ending at a vault door: gold in the seam, water behind it, moving harbor-way. Tag 077 said "leave it a door." Somebody built it one.',
       open: 'Delve beneath Fort Nugget until the stairs land somewhere that isn\'t on the plans.' },
-    { i: '🎰', t: 'THE PAYOUT', src: 'REEL OF FORTUNE',
+    { i: '🎡', t: 'THE PAYOUT', src: 'REEL OF FORTUNE',
       got: () => typeof fortuneJackpotHit === 'function' && fortuneJackpotHit(),
-      filed: 'A free machine with no maker\'s plate, wearing the harbor\'s favorite shape on its middle reel — and it PAID on it. A machine only remembers a shape somebody showed it.',
-      open: 'Work the house machine until all three reels agree on the 🌀.' },
+      filed: 'A free wheel game with no maker\'s plate, the harbor\'s favorite shape on one wedge, and every puzzle a quote from this file. A wheel only carries what somebody carved; a puzzle only knows what somebody wrote.',
+      open: 'Land the 🌀, bank it with a letter, and solve the board it\'s riding.' },
   ];
 
   function lockerFiledCount() {
@@ -4674,7 +4674,7 @@ void main() {
         x: fx2, z: fz, r: 2.4,
         min: [-7.5, 0, fz2 - 0.16], max: [fx2 + 0.1, fy1 + 0.05, fz1 + 0.06],
         stand: [fx2 + 1.1, EYE, fz],
-        label: '🎰 REEL OF FORTUNE — FREE SPINS, HONEST REELS (ASK NOBODY)',
+        label: '🎡 REEL OF FORTUNE — SPIN · GUESS · SOLVE (FREE, ASK NOBODY WHY)',
         act: () => {
           H.lastCab = null;
           H.lastSpot = { stand: [fx2 + 1.1, fz], look: [fx2, 1.4, fz] };

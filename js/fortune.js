@@ -1,83 +1,108 @@
-// ---- 🎰 REEL OF FORTUNE --------------------------------------------------------------
-// "THE HOUSE REMEMBERS."
+// ---- 🎡 REEL OF FORTUNE --------------------------------------------------------------
+// "THE HOUSE KNOWS THE WORDS."
 //
-// A one-button skill-stop slot machine (mode key: fortune), named by a friend
-// of the arcade and delivered on request. Game 16, the SIXTH walk-up machine
-// inside the hall itself — Brawlers' old west-wall spot, under the neon.
+// A friend named it and the name is the brief: WHEEL OF FORTUNE, nugget-sized.
+// Game 16 (mode key: fortune) — spin the big wheel, pick a letter, solve the
+// phrase. HOLD to wind the wheel up (the power meter sweeps — your release is
+// the spin, no RNG anywhere), land a wedge, then guess: a letter that's IN the
+// puzzle banks the wedge value per appearance (vowels pay half — this house
+// has standards), a letter that isn't costs a turn token. 💀 BANKRUPT wipes
+// the round bank. Solve the phrase and the bank pays out, plus a bonus for
+// every token you didn't burn.
 //
-// It is a SKILL game wearing a slot machine's clothes: the reels are visible
-// and honest, and every press stops the NEXT reel where your timing lands it
-// (a short, fixed spin-down — aimable, like the pachislo parlors intended).
-// Line up three of a kind on the payline. The GOLDEN NUG is wild. Three 💀
-// SOGGY FRIES and the house takes your streak. Three wins running lights
-// FEVER (double pay, five spins).
+// And the lore, which is the part the detective can't let go of: one wedge
+// carries a 🌀 SWIRL nobody at the house will explain, and the PUZZLES ARE
+// ALL TRUE — case quotes, salvage-tag texts, rumors. Bank the swirl (land it,
+// then guess right) and SOLVE that puzzle, and the machine pays THE STORM
+// JACKPOT — and remembers that you saw it (localStorage nugFortuneJack, read
+// via fortuneJackpotHit()). Canon-safe: a wheel only carries a shape somebody
+// carved into it, and a puzzle only knows words somebody WROTE. Nothing
+// moved. The case grew a game show. It stays open.
 //
-// And the lore: the reels carry a 🌀 SWIRL nobody at the house will explain.
-// Line up all three and the machine pays THE STORM JACKPOT — and remembers
-// that you saw it (localStorage nugFortuneJack, read via fortuneJackpotHit()).
-// Detective Dill has opinions about this machine's odds. Canon-safe: the
-// swirl on the reels is ARTWORK. Probably. Nothing moved. The case stays open.
-//
-// Scoring mirrors the other games: every payout is perFlyer-scaled into
-// storm.caught; stopStorm() banks it. Spins are free — this house deals in
-// nuggets, not quarters.
+// Scoring mirrors the other games: everything is perFlyer-scaled into
+// storm.caught; stopStorm() banks it. Free play, obviously.
 
 const fortuneWorld = document.getElementById('fortuneWorld');
 
-// The reel strips. FIXED arrays, not shuffled at runtime — the game is
-// deterministic given your timing, and the harness can aim at outcomes.
-// 20 stops per reel: nug 6 · cup 5 · star 4 · gold 2 · soggy 2 · swirl 1.
-const FORTUNE_STRIPS = [
-  [0, 1, 0, 2, 5, 1, 0, 3, 2, 1, 0, 4, 2, 1, 0, 3, 4, 2, 0, 1],
-  [1, 0, 2, 0, 1, 3, 0, 5, 1, 2, 4, 0, 1, 2, 3, 0, 4, 1, 0, 2],
-  [0, 2, 1, 3, 0, 1, 4, 2, 0, 5, 1, 0, 2, 4, 1, 3, 0, 1, 2, 0],
+// The wheel. 16 wedges, fixed order — deterministic, and the harness can name
+// its landing. 'BK' = bankrupt, 'SW' = the swirl (worth 50 when you convert it).
+const FORTUNE_WEDGES = [25, 5, 50, 15, 'BK', 20, 75, 10, 'SW', 30, 10, 40, 'BK', 20, 100, 15];
+const FORTUNE_SWIRL_VAL = 50;
+const FORTUNE_SOLVE_BONUS = 100;     // × remaining tokens, on a solve
+const FORTUNE_JACKPOT_PAY = 1500;    // swirl banked + puzzle solved
+
+// The board. Every phrase is TRUE — pulled from the case file, the tags, the
+// rumors and the menu. That's the joke, and it's also Exhibit 16.
+const FORTUNE_PUZZLES = [
+  ['THE CASE',   'THE STORM IS ALIVE IN THE HARBOR'],
+  ['THE CASE',   'LEAVE IT A DOOR'],
+  ['THE TOWN',   'NUGGETOWN AFTER DARK'],
+  ['RUMORS',     'THE HOUSE ALWAYS WINS'],
+  ['THE MENU',   'EXTRA SAUCE NO QUESTIONS'],
+  ['THE TOWN',   'THE PIER AT MIDNIGHT'],
+  ['THE CASE',   'DO NOT TOUCH THE TAPE'],
+  ['THE ARCADE', 'INSERT ABSOLUTELY NO COINS'],
+  ['THE CASE',   'THE CASE STAYS OPEN'],
+  ['RUMORS',     'ONE MORE DIVE'],
+  ['THE TOWN',   'THE REGULARS KNOW SOMETHING'],
+  ['RUMORS',     'BATTER IS THICKER THAN WATER'],
+  ['RUMORS',     'SOMETHING GOLDEN CIRCLES THE PIER'],
+  ['THE ARCADE', 'TWO NUGGETS ENTER ONE LEAVES'],
+  ['THE ARCADE', 'THE JUKEBOX KNOWS THE WORDS'],
+  ['THE TOWN',   'ASK THE CHICKEN'],
+  ['THE CASE',   'IT LIKES THE PIPES BETTER THAN THE BAY'],
+  ['RUMORS',     'MIND THE CLOGS'],
+  ['THE CASE',   'WHO POURS A FOUNDATION AROUND A DOOR'],
+  ['THE MENU',   'CRISPY OUTSIDE TENDER INSIDE'],
+  ['THE ARCADE', 'FREE PLAY FOREVER'],
+  ['RUMORS',     'SIX FOR SIX SAYS THE HOOD'],
+  ['THE CASE',   'DETECTIVE DILL NEVER SLEEPS'],
+  ['THE MENU',   'GOLDEN ON THE OUTSIDE'],
 ];
-// symbol ids: 0 NUG, 1 SAUCE CUP, 2 STAR, 3 GOLDEN NUG (wild), 4 SOGGY, 5 SWIRL
-const FORTUNE_PAY3 = [15, 25, 50, 250, 0, 1500];   // three-of-a-kind by symbol
-const FORTUNE_PAY2 = 4;                             // any natural pair
-const FORTUNE_JACKPOT = 5;                          // the swirl's id
-const FORTUNE_SOGGY = 4;
 
 const FORTUNE_TIERS = [
-  { key: 'penny',  emoji: '🪙', name: 'PENNY ANTE', mult: 1, speed: 6.5,
-    blurb: 'kind reels. warm up your thumb.' },
-  { key: 'roller', emoji: '💰', name: 'HIGH ROLLER', mult: 2, speed: 9,
-    blurb: 'the house watches. the reels mean it.' },
-  { key: 'rigged', emoji: '🌀', name: 'THE RIGGED WHEEL', mult: 3, speed: 12.5,
-    blurb: 'you know too much. so do the reels.', lockNote: 'land the storm jackpot' },
+  { key: 'penny',  emoji: '🪙', name: 'PENNY ANTE', mult: 1, tokens: 4,
+    blurb: 'a kind wheel and four turns. warm up.' },
+  { key: 'roller', emoji: '📺', name: 'PRIME TIME', mult: 2, tokens: 3,
+    blurb: 'the real show. the house watches.' },
+  { key: 'rigged', emoji: '🌀', name: 'THE RIGGED WHEEL', mult: 3, tokens: 2,
+    blurb: 'you know too much. so does the wheel.', lockNote: 'bank the swirl, solve the board' },
 ];
+
+const FORTUNE_VOWELS = new Set(['A', 'E', 'I', 'O', 'U']);
+const FORTUNE_AZ = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 const fortune = {
   on: false, cv: null, g: null, banner: null, tierPick: null,
-  W: 320, Hh: 200, scale: 3,
-  phase: 'idle',        // tier | idle | spin | payout
+  W: 380, Hh: 210, scale: 3,
+  phase: 'idle',           // tier | idle | charging | spinning | guess | between
   cfg: FORTUNE_TIERS[0],
-  reels: [],            // { pos, v, state: 'spin'|'stopping'|'stopped', target }
-  t: 0, spins: 0, streak: 0, feverLeft: 0,
-  lastWin: 0, lastLine: null, payoutT: 0, lever: 0,
-  confetti: [], bannerT: 0,
-  rigNext: null,        // debug: force the next spin's payline [a,b,c]
+  angle: 0, vel: 0, power: 0, chargeT: 0,
+  puzzleIdx: 0, category: '', phrase: '', revealed: new Set(), guessed: new Set(),
+  bank: 0, tokens: 3, swirlBanked: false, wedge: null,
+  puzzles: 0, solves: 0, betweenT: 0, flashT: 0, flashMsg: '',
+  t: 0, confetti: [], bannerT: 0,
+  hit: { wheel: null, letters: null }, // canvas hit regions, rebuilt per draw
 };
 
 function fortuneActive() { return storm.mode === 'fortune' && storm.running; }
 
-// Did the reels ever line up the storm? Street NPCs react; tier 3 unlocks.
+// Did the wheel ever pay THE STORM JACKPOT? Street NPCs react; tier 3 unlocks.
 function fortuneJackpotHit() {
   try { return localStorage.getItem('nugFortuneJack') === '1'; } catch (e) { return false; }
 }
 
 function fortuneTally() {
-  if (fortune.phase === 'tier') return '🎰 choose your stakes…';
-  const bits = ['🎰 spin ' + fortune.spins];
-  if (fortune.feverLeft > 0) bits.push('🔥 FEVER ×2 (' + fortune.feverLeft + ')');
-  else if (fortune.streak > 0) bits.push('streak ' + fortune.streak + '/3');
-  if (fortune.lastWin > 0 && fortune.phase === 'payout') bits.push('+' + fmt.format(fortune.lastWin));
+  if (fortune.phase === 'tier') return '🎡 pick your show…';
+  const bits = ['🎡 board ' + (fortune.puzzles + 1), 'bank ' + fmt.format(Math.round(fortune.bank * storm.perFlyer * fortune.cfg.mult))];
+  bits.push('🎟️'.repeat(Math.max(0, fortune.tokens)) || '🎟️×0');
+  if (fortune.swirlBanked) bits.push('🌀 BANKED');
   return bits.join(' · ');
 }
 
 function fortuneLayout() {
   const vw = window.innerWidth, vh = window.innerHeight;
-  fortune.scale = Math.max(3, Math.floor(vh / 210));
+  fortune.scale = Math.max(2, Math.floor(vh / 230));
   fortune.W = Math.ceil(vw / fortune.scale);
   fortune.Hh = Math.ceil(vh / fortune.scale);
   if (fortune.cv) { fortune.cv.width = fortune.W; fortune.cv.height = fortune.Hh; }
@@ -96,14 +121,14 @@ function syncFortune() {
       fortune.banner = document.createElement('div');
       fortune.banner.className = 'fortune-banner';
       fortuneWorld.appendChild(fortune.banner);
-      fortune.cv.addEventListener('pointerdown', (e) => { e.preventDefault(); fortunePress(); });
+      fortune.cv.addEventListener('pointerdown', fortunePointerDown);
+      fortune.cv.addEventListener('pointerup', fortunePointerUp);
     }
     // the amount input autofocuses on load and eats keys — let go of it
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    fortune.t = 0; fortune.spins = 0; fortune.streak = 0; fortune.feverLeft = 0;
-    fortune.lastWin = 0; fortune.confetti.length = 0; fortune.rigNext = null;
+    fortune.t = 0; fortune.puzzles = 0; fortune.solves = 0;
+    fortune.confetti.length = 0;
     fortuneLayout();
-    fortuneResetReels();
     openFortuneTier();
   } else {
     if (fortune.tierPick) { fortune.tierPick.close(); fortune.tierPick = null; }
@@ -117,123 +142,143 @@ function openFortuneTier() {
     t.key === 'rigged' && !fortuneJackpotHit() ? { ...t, locked: true } : t);
   fortune.tierPick = ArcadeKit.tierSelect({
     storeKey: 'fortune',
-    title: '🎰 Name your stakes',
-    note: fortuneJackpotHit() ? 'the reels remember you · 1 · 2 · 3'
-      : 'press to SPIN · press to STOP each reel · three of a kind pays',
+    title: '🎡 Pick your show',
+    note: fortuneJackpotHit() ? 'the wheel remembers you · 1 · 2 · 3'
+      : 'HOLD to spin · pick a letter · solve the phrase · mind the 💀',
     tiers,
-    onPick: (key, t) => { fortune.tierPick = null; fortune.cfg = t; fortune.phase = 'idle'; },
+    onPick: (key, t) => { fortune.tierPick = null; fortune.cfg = t; fortuneNewBoard(true); },
   });
 }
 
-function fortuneResetReels() {
-  fortune.reels = FORTUNE_STRIPS.map((s, i) => ({
-    pos: (i * 7) % s.length, v: 0, state: 'stopped', target: 0,
-  }));
+function fortuneNewBoard(freshRun) {
+  // Sequential through the deck from a persisted cursor, so back-to-back
+  // sessions don't open on the same phrase — deterministic, never shuffled.
+  let start = 0;
+  try { start = parseInt(localStorage.getItem('nugFortunePz') || '0', 10) || 0; } catch (e) { }
+  const idx = (start + (freshRun ? 0 : 1)) % FORTUNE_PUZZLES.length;
+  try { localStorage.setItem('nugFortunePz', String(idx)); } catch (e) { }
+  fortuneSetPuzzle(idx);
+  if (!freshRun) fortune.puzzles++;
 }
 
-// ---- the one button ---------------------------------------------------------------
+function fortuneSetPuzzle(i) {
+  const [cat, phrase] = FORTUNE_PUZZLES[((i % FORTUNE_PUZZLES.length) + FORTUNE_PUZZLES.length) % FORTUNE_PUZZLES.length];
+  fortune.puzzleIdx = i;
+  fortune.category = cat;
+  fortune.phrase = phrase;
+  fortune.revealed = new Set();
+  fortune.guessed = new Set();
+  fortune.bank = 0;
+  fortune.tokens = fortune.cfg.tokens;
+  fortune.swirlBanked = false;
+  fortune.wedge = null;
+  fortune.phase = 'idle';
+}
 
-function fortunePress() {
-  if (!fortuneActive()) return;
-  if (fortune.phase === 'idle') {
-    fortune.phase = 'spin';
-    fortune.spins++;
-    fortune.lever = 1;   // pull the arm
-    for (const r of fortune.reels) { r.state = 'spin'; r.v = fortune.cfg.speed; }
+// ---- the wheel ------------------------------------------------------------------------
+
+function fortuneStartCharge() {
+  if (fortune.phase !== 'idle') return;
+  fortune.phase = 'charging';
+  fortune.chargeT = 0;
+}
+
+function fortuneRelease() {
+  if (fortune.phase !== 'charging') return;
+  // the meter ping-pongs; your release IS the spin — deterministic, aimable
+  const k = fortune.power;
+  fortune.vel = 5.5 + k * 13.5;      // rad/s
+  fortune.phase = 'spinning';
+}
+
+function fortuneWedgeAt(angle) {
+  const n = FORTUNE_WEDGES.length;
+  // pointer at 12 o'clock; wheel angle rotates the wedges under it
+  const a = ((-angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+  return Math.floor((a / (Math.PI * 2)) * n) % n;
+}
+
+function fortuneLanded(idx) {
+  const w = FORTUNE_WEDGES[idx];
+  fortune.wedge = w;
+  if (w === 'BK') {
+    fortune.bank = 0;
+    fortune.swirlBanked = false;
+    fortune.phase = 'idle';
+    fortuneBanner('💀 BANKRUPT', 'the house reclaims the bank — the board stays');
     return;
   }
-  if (fortune.phase === 'spin') {
-    // stop the next spinning reel where the timing lands it
-    const r = fortune.reels.find((x) => x.state === 'spin');
-    if (!r) return;
-    const i = fortune.reels.indexOf(r);
-    // ~a symbol and a half of honest spin-down, then snap. Aimable.
-    let target = Math.ceil(r.pos + r.v * 0.16);
-    if (fortune.rigNext) {
-      // debug seam: land this reel on the rigged symbol's nearest stop AHEAD
-      const want = fortune.rigNext[i], strip = FORTUNE_STRIPS[i];
-      for (let k = 0; k < strip.length; k++) {
-        const idx = (target + k) % strip.length;
-        if (strip[idx] === want) { target = target + k; break; }
-      }
+  fortune.phase = 'guess';
+  if (w === 'SW') fortuneFlash('🌀 THE SWIRL — name a letter to bank it');
+  else fortuneFlash('pick a letter · ' + w + ' a piece' + (FORTUNE_VOWELS.size ? ' · vowels half' : ''));
+}
+
+// ---- guessing -------------------------------------------------------------------------
+
+function fortuneGuess(chRaw) {
+  if (fortune.phase !== 'guess') return;
+  const ch = String(chRaw || '').toUpperCase();
+  if (!/^[A-Z]$/.test(ch) || fortune.guessed.has(ch)) return;
+  fortune.guessed.add(ch);
+
+  const count = fortune.phrase.split('').filter((c) => c === ch).length;
+  const w = fortune.wedge;
+  const val = w === 'SW' ? FORTUNE_SWIRL_VAL : w;
+
+  if (count > 0) {
+    fortune.revealed.add(ch);
+    const per = FORTUNE_VOWELS.has(ch) ? Math.ceil(val / 2) : val;
+    fortune.bank += per * count;
+    if (w === 'SW') {
+      fortune.swirlBanked = true;
+      fortuneBanner('🌀 SWIRL BANKED', 'solve this board and the storm pays out');
+    } else {
+      fortuneFlash(ch + ' ×' + count + ' · +' + (per * count) + ' banked');
     }
-    r.state = 'stopping';
-    r.target = target;
-  }
-}
-
-// ---- the spin ----------------------------------------------------------------------
-
-function fortuneLineSym(i) {
-  const strip = FORTUNE_STRIPS[i], r = fortune.reels[i];
-  return strip[((Math.round(r.pos) % strip.length) + strip.length) % strip.length];
-}
-
-function fortuneEvaluate() {
-  const line = [fortuneLineSym(0), fortuneLineSym(1), fortuneLineSym(2)];
-  fortune.lastLine = line;
-  fortune.rigNext = null;
-
-  // three soggy fries: the house takes the streak and pays a lesson
-  if (line.every((s) => s === FORTUNE_SOGGY)) {
-    fortune.streak = 0; fortune.feverLeft = 0; fortune.lastWin = 0;
-    fortuneBanner('💀 THE HOUSE WINS', 'soggy across the line — streak surrendered');
-    return;
-  }
-
-  // wild logic: golden nugs substitute for anything except the swirl
-  const natural = (want) => line.every((s) => s === want);
-  let base = 0, name = '';
-  if (natural(FORTUNE_JACKPOT)) {
-    base = FORTUNE_PAY3[FORTUNE_JACKPOT];
-    name = 'jackpot';
+    // solved?
+    const letters = new Set(fortune.phrase.replace(/[^A-Z]/g, '').split(''));
+    const done = [...letters].every((c) => fortune.revealed.has(c));
+    if (done) { fortuneSolve(); return; }
+    fortune.phase = 'idle';
   } else {
-    for (let sym = 3; sym >= 0; sym--) { // check gold first — it pays best
-      if (sym === FORTUNE_SOGGY) continue;
-      if (line.every((s) => s === sym || (s === 3 && sym !== FORTUNE_JACKPOT))) {
-        base = FORTUNE_PAY3[sym]; name = '3× ' + FORTUNE_SYM_NAMES[sym];
-        break;
-      }
+    fortune.tokens--;
+    if (fortune.tokens <= 0) {
+      // the house keeps the board: reveal it, pay nothing, deal the next
+      fortune.revealed = new Set(FORTUNE_AZ.split(''));
+      fortune.bank = 0;
+      fortune.swirlBanked = false;
+      fortune.phase = 'between';
+      fortune.betweenT = 2.6;
+      fortuneBanner('🎟️ OUT OF TURNS', 'the house keeps the board — read it and weep');
+    } else {
+      fortune.phase = 'idle';
+      fortuneFlash('no ' + ch + ' · 🎟️ ' + fortune.tokens + ' left');
     }
-    if (!base) {
-      // a natural pair (wilds count) — small consolation
-      for (let a = 0; a < 3; a++) for (let b = a + 1; b < 3; b++) {
-        const A = line[a], B = line[b];
-        if (A === FORTUNE_SOGGY || B === FORTUNE_SOGGY) continue;
-        if (A === B || A === 3 || B === 3) { base = FORTUNE_PAY2; name = 'pair'; a = 3; break; }
-      }
-    }
-  }
-
-  if (base > 0) {
-    const fever = fortune.feverLeft > 0 ? 2 : 1;
-    const worth = Math.max(1, Math.round(storm.perFlyer * base * fortune.cfg.mult * fever));
-    storm.caught += worth;
-    fortune.lastWin = worth;
-    if (fortune.feverLeft > 0) fortune.feverLeft--;
-    else {
-      fortune.streak++;
-      if (fortune.streak >= 3) {
-        fortune.streak = 0; fortune.feverLeft = 5;
-        fortuneBanner('🔥 FEVER', 'five spins at DOUBLE pay — the reels run hot');
-      }
-    }
-    if (name === 'jackpot') {
-      try { localStorage.setItem('nugFortuneJack', '1'); } catch (e) { /* no storage */ }
-      fortuneBanner('🌀 THE STORM JACKPOT', 'the reels remember. tell the detective. or don’t.');
-      fortuneConfetti(90);
-    } else if (base >= FORTUNE_PAY3[3]) {
-      fortuneBanner('🥇 GOLDEN LINE', '+' + fmt.format(worth));
-      fortuneConfetti(40);
-    }
-  } else {
-    fortune.lastWin = 0;
-    if (fortune.feverLeft > 0) fortune.feverLeft--;
-    else fortune.streak = 0;
   }
 }
 
-const FORTUNE_SYM_NAMES = ['nug', 'sauce', 'star', 'gold', 'soggy', 'swirl'];
+function fortuneSolve() {
+  const bonus = FORTUNE_SOLVE_BONUS * Math.max(0, fortune.tokens);
+  let pay = (fortune.bank + bonus) * fortune.cfg.mult;
+  let jack = false;
+  if (fortune.swirlBanked) {
+    pay += FORTUNE_JACKPOT_PAY * fortune.cfg.mult;
+    jack = true;
+    try { localStorage.setItem('nugFortuneJack', '1'); } catch (e) { /* no storage */ }
+  }
+  const worth = Math.max(1, Math.round(storm.perFlyer * pay));
+  storm.caught += worth;
+  fortune.solves++;
+  fortune.phase = 'between';
+  fortune.betweenT = jack ? 3.4 : 2.4;
+  if (jack) {
+    fortuneBanner('🌀 THE STORM JACKPOT', 'the wheel knew. the puzzle knew. tell the detective. or don’t.');
+    fortuneConfetti(90);
+  } else {
+    fortuneBanner('✅ SOLVED', '+' + fmt.format(worth) + ' nuggets' + (fortune.tokens > 0 ? ' · ' + fortune.tokens + ' 🎟️ bonus' : ''));
+    fortuneConfetti(30);
+  }
+}
 
 function fortuneBanner(top, sub) {
   if (!fortune.banner) return;
@@ -242,11 +287,16 @@ function fortuneBanner(top, sub) {
   fortune.bannerT = 2.4;
 }
 
+function fortuneFlash(msg) {
+  fortune.flashMsg = msg;
+  fortune.flashT = 2.2;
+}
+
 function fortuneConfetti(n) {
   for (let i = 0; i < n; i++) {
     fortune.confetti.push({
-      x: fortune.W / 2 + (Math.random() - 0.5) * 40,
-      y: fortune.Hh * 0.35,
+      x: fortune.W / 2 + (Math.random() - 0.5) * 60,
+      y: fortune.Hh * 0.3,
       vx: (Math.random() - 0.5) * 90,
       vy: -30 - Math.random() * 55,
       life: 1.4 + Math.random() * 0.9,
@@ -255,42 +305,35 @@ function fortuneConfetti(n) {
   }
 }
 
+// ---- the frame ------------------------------------------------------------------------
+
 function stepFortune(dt, w, h) {
   syncFortune();
   if (!fortune.on) return;
   fortune.t += dt;
   if (fortune.cv.width !== Math.ceil(w / fortune.scale)) fortuneLayout();
-  fortune.lever = Math.max(0, fortune.lever - dt * 2.4);
   if (fortune.bannerT > 0) {
     fortune.bannerT -= dt;
     if (fortune.bannerT <= 0) fortune.banner.classList.remove('show');
   }
+  if (fortune.flashT > 0) fortune.flashT -= dt;
 
-  // reels
-  if (fortune.phase === 'spin') {
-    let allStopped = true;
-    for (const r of fortune.reels) {
-      if (r.state === 'spin') { r.pos += r.v * dt; allStopped = false; }
-      else if (r.state === 'stopping') {
-        // glide onto the target — fast while far, easing to a stop, capped so
-        // it can never overshoot. No random anywhere: your timing IS the spin.
-        const d = r.target - r.pos;
-        r.pos += Math.min(d, (1.6 + d * 7) * dt);
-        if (r.target - r.pos <= 0.015) { r.pos = r.target; r.state = 'stopped'; }
-        else allStopped = false;
-      }
+  if (fortune.phase === 'charging') {
+    fortune.chargeT += dt;
+    const c = (fortune.chargeT / 1.1) % 2;          // 1.1s up, 1.1s down
+    fortune.power = c < 1 ? c : 2 - c;
+  } else if (fortune.phase === 'spinning') {
+    fortune.angle += fortune.vel * dt;
+    fortune.vel -= (0.55 + fortune.vel * 0.85) * dt; // friction + drag
+    if (fortune.vel <= 0.12) {
+      fortune.vel = 0;
+      fortuneLanded(fortuneWedgeAt(fortune.angle));
     }
-    if (allStopped) {
-      fortune.phase = 'payout';
-      fortune.payoutT = 0.9;
-      fortuneEvaluate();
-    }
-  } else if (fortune.phase === 'payout') {
-    fortune.payoutT -= dt;
-    if (fortune.payoutT <= 0) fortune.phase = 'idle';
+  } else if (fortune.phase === 'between') {
+    fortune.betweenT -= dt;
+    if (fortune.betweenT <= 0) fortuneNewBoard(false);
   }
 
-  // confetti
   for (let i = fortune.confetti.length - 1; i >= 0; i--) {
     const p = fortune.confetti[i];
     p.life -= dt;
@@ -301,138 +344,149 @@ function stepFortune(dt, w, h) {
   fortuneDraw();
 }
 
-// ---- drawing ------------------------------------------------------------------------
-
-function fortuneSymbol(g, sym, cx, cy, s, dim) {
-  g.save();
-  g.translate(cx, cy);
-  g.globalAlpha = dim ? 0.45 : 1;
-  if (sym === 0) {          // nug: golden blob
-    g.fillStyle = '#e8a83a';
-    g.beginPath(); g.ellipse(0, 0, s * 0.42, s * 0.34, 0.3, 0, 7); g.fill();
-    g.fillStyle = '#f7ce6b';
-    g.beginPath(); g.ellipse(-s * 0.1, -s * 0.08, s * 0.16, s * 0.11, 0.3, 0, 7); g.fill();
-  } else if (sym === 1) {   // sauce cup
-    g.fillStyle = '#d8dbe6';
-    g.beginPath(); g.moveTo(-s * 0.3, -s * 0.22); g.lineTo(s * 0.3, -s * 0.22);
-    g.lineTo(s * 0.22, s * 0.34); g.lineTo(-s * 0.22, s * 0.34); g.closePath(); g.fill();
-    g.fillStyle = '#d8323c';
-    g.fillRect(-s * 0.26, -s * 0.3, s * 0.52, s * 0.14);
-  } else if (sym === 2) {   // star
-    g.fillStyle = '#ffe23a';
-    g.beginPath();
-    for (let i = 0; i < 10; i++) {
-      const rr = i % 2 ? s * 0.18 : s * 0.42, a = -Math.PI / 2 + (i * Math.PI) / 5;
-      g[i ? 'lineTo' : 'moveTo'](Math.cos(a) * rr, Math.sin(a) * rr);
-    }
-    g.closePath(); g.fill();
-  } else if (sym === 3) {   // golden nug (wild): bigger, ringed
-    g.strokeStyle = '#fff3c0'; g.lineWidth = 2;
-    g.beginPath(); g.arc(0, 0, s * 0.46, 0, 7); g.stroke();
-    g.fillStyle = '#ffd23a';
-    g.beginPath(); g.ellipse(0, 0, s * 0.36, s * 0.3, -0.25, 0, 7); g.fill();
-    g.fillStyle = '#fff3c0';
-    g.beginPath(); g.ellipse(-s * 0.09, -s * 0.07, s * 0.13, s * 0.09, -0.25, 0, 7); g.fill();
-  } else if (sym === 4) {   // soggy fry: grey, drooped
-    g.strokeStyle = '#8b8f9c'; g.lineWidth = Math.max(2, s * 0.16); g.lineCap = 'round';
-    g.beginPath(); g.moveTo(-s * 0.3, -s * 0.25);
-    g.quadraticCurveTo(s * 0.05, -s * 0.05, s * 0.1, s * 0.35); g.stroke();
-    g.beginPath(); g.moveTo(-s * 0.05, -s * 0.3);
-    g.quadraticCurveTo(s * 0.25, -s * 0.1, s * 0.28, s * 0.3); g.stroke();
-  } else if (sym === 5) {   // THE SWIRL
-    g.strokeStyle = '#26e0ff'; g.lineWidth = Math.max(2, s * 0.12); g.lineCap = 'round';
-    g.beginPath();
-    for (let a = 0; a < 4.6; a += 0.18) {
-      const rr = s * 0.09 + a * s * 0.075;
-      const x = Math.cos(a + fortune.t * 1.6) * rr, y = Math.sin(a + fortune.t * 1.6) * rr;
-      a === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
-    }
-    g.stroke();
-    g.fillStyle = '#ffd23a';
-    g.beginPath(); g.arc(0, 0, s * 0.08, 0, 7); g.fill();
-  }
-  g.restore();
-}
+// ---- drawing --------------------------------------------------------------------------
 
 function fortuneDraw() {
   const g = fortune.g, W = fortune.W, Hh = fortune.Hh, t = fortune.t;
-  // the room: deep casino violet, a pool of light on the machine
   g.fillStyle = '#131024';
   g.fillRect(0, 0, W, Hh);
-  const grad = g.createRadialGradient(W / 2, Hh * 0.42, 10, W / 2, Hh * 0.42, Hh * 0.75);
-  grad.addColorStop(0, '#2a2247'); grad.addColorStop(1, '#131024');
+  const grad = g.createRadialGradient(W / 2, Hh * 0.5, 10, W / 2, Hh * 0.5, Hh * 0.85);
+  grad.addColorStop(0, '#28204a'); grad.addColorStop(1, '#131024');
   g.fillStyle = grad; g.fillRect(0, 0, W, Hh);
 
-  // machine face
-  const mw = Math.min(W * 0.72, 250), mh = Math.min(Hh * 0.86, 176);
-  const mx = (W - mw) / 2, my = (Hh - mh) / 2 + 4;
-  g.fillStyle = '#1d1833'; g.fillRect(mx - 6, my - 6, mw + 12, mh + 12);
-  g.strokeStyle = '#544a86'; g.lineWidth = 2; g.strokeRect(mx - 6, my - 6, mw + 12, mh + 12);
-
-  // marquee: title + chase bulbs
-  g.fillStyle = '#0d0a1c'; g.fillRect(mx, my, mw, 26);
-  g.font = 'bold 13px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillStyle = fortune.feverLeft > 0 ? '#ff2fa0' : '#ffd23a';
-  g.fillText('REEL OF FORTUNE', mx + mw / 2, my + 13);
-  for (let i = 0; i < 12; i++) {
-    const on = (Math.floor(t * 6) + i) % 3 === 0;
-    g.fillStyle = on ? '#ffe9a0' : '#4b3f76';
-    g.fillRect(mx + 6 + (i * (mw - 12)) / 11 - 1, my + 23, 3, 3);
+  // ---- the puzzle board, studio-style, top of the frame
+  const words = fortune.phrase.split(' ');
+  const lines = [];
+  let cur = '';
+  for (const wd of words) {
+    const test = cur ? cur + ' ' + wd : wd;
+    if (test.length > 14 && cur) { lines.push(cur); cur = wd; } else cur = test;
   }
-
-  // the reel box: three windows, three rows visible, payline in the middle
-  const bw = mw - 24, bx = mx + 12, by = my + 34, bh = mh - 76;
-  const rw = Math.floor(bw / 3) - 6, sym = Math.min(rw * 0.8, bh / 3.1);
-  g.fillStyle = '#0a0817'; g.fillRect(bx - 4, by - 4, bw + 8, bh + 8);
-  for (let i = 0; i < 3; i++) {
-    const wx = bx + i * (rw + 8), strip = FORTUNE_STRIPS[i], r = fortune.reels[i];
-    g.save();
-    g.beginPath(); g.rect(wx, by, rw, bh); g.clip();
-    g.fillStyle = '#efeadb'; g.fillRect(wx, by, rw, bh);
-    // paper shading top/bottom so the drum reads as a drum
-    const sh = g.createLinearGradient(0, by, 0, by + bh);
-    sh.addColorStop(0, 'rgba(30,20,60,0.55)'); sh.addColorStop(0.28, 'rgba(30,20,60,0)');
-    sh.addColorStop(0.72, 'rgba(30,20,60,0)'); sh.addColorStop(1, 'rgba(30,20,60,0.55)');
-    const frac = r.pos - Math.round(r.pos);
-    for (let row = -2; row <= 2; row++) {
-      const idx = ((Math.round(r.pos) + row) % strip.length + strip.length) % strip.length;
-      const cy = by + bh / 2 - (row + (Math.round(r.pos) - r.pos)) * (bh / 2.6);
-      fortuneSymbol(g, strip[idx], wx + rw / 2, cy, sym, row !== 0 || Math.abs(frac) > 0.25);
-    }
-    g.fillStyle = sh; g.fillRect(wx, by, rw, bh);
-    g.restore();
-    g.strokeStyle = r.state === 'spin' ? '#26e0ff' : '#544a86';
-    g.lineWidth = 2; g.strokeRect(wx, by, rw, bh);
-  }
-  // payline arrows
-  const py = by + bh / 2;
-  g.fillStyle = fortune.phase === 'payout' && fortune.lastWin > 0 ? '#39ff7a' : '#ff2fa0';
-  g.beginPath(); g.moveTo(bx - 10, py - 5); g.lineTo(bx - 3, py); g.lineTo(bx - 10, py + 5); g.closePath(); g.fill();
-  g.beginPath(); g.moveTo(bx + bw + 10, py - 5); g.lineTo(bx + bw + 3, py); g.lineTo(bx + bw + 10, py + 5); g.closePath(); g.fill();
-
-  // the lever, riding its pull
-  const lx = mx + mw + 9, lyTop = my + 40 + fortune.lever * 34, lyBase = my + 86;
-  g.strokeStyle = '#8b8f9c'; g.lineWidth = 3;
-  g.beginPath(); g.moveTo(lx, lyBase); g.lineTo(lx, lyTop); g.stroke();
-  g.fillStyle = '#d8323c';
-  g.beginPath(); g.arc(lx, lyTop - 4, 5, 0, 7); g.fill();
-  g.fillStyle = '#2a2247'; g.fillRect(lx - 4, lyBase, 8, 8);
-
-  // readout: streak lamps + prompt + last win
-  const ry = by + bh + 12;
-  for (let i = 0; i < 3; i++) {
-    g.fillStyle = (fortune.feverLeft > 0 || i < fortune.streak) ? '#ff9d2f' : '#3a3160';
-    g.beginPath(); g.arc(mx + 16 + i * 12, ry, 4, 0, 7); g.fill();
-  }
-  g.font = 'bold 9px monospace'; g.textAlign = 'center';
-  g.fillStyle = '#bfc6ff';
-  const prompt = fortune.phase === 'idle'
-    ? (fortune.feverLeft > 0 ? '🔥 FEVER · press to SPIN (×2 pay)' : 'press to SPIN')
-    : fortune.phase === 'spin' ? 'press to STOP reel ' + (fortune.reels.filter((r) => r.state !== 'spin').length + 1)
-      : fortune.lastWin > 0 ? '+' + fmt.format(fortune.lastWin) + ' nuggets' : 'the house nods. again?';
-  g.fillText(prompt, mx + mw / 2, ry + 1);
+  if (cur) lines.push(cur);
+  const tw = Math.min(15, Math.floor((W - 20) / 15)), th = tw + 4;
+  // start below the storm pill (fortune is MODE_COMPACT_HUD — the card
+  // collapses to a slim pill top-centre; the puzzle IS the game, it hides
+  // behind nothing)
+  const boardY = 26;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  lines.forEach((line, li) => {
+    const y = boardY + li * (th + 2);
+    const x0 = W / 2 - (line.length * (tw + 1)) / 2;
+    line.split('').forEach((c, ci) => {
+      const x = x0 + ci * (tw + 1);
+      if (c === ' ') return;
+      const shown = fortune.revealed.has(c);
+      g.fillStyle = shown ? '#efeadb' : '#2c2452';
+      g.fillRect(x, y, tw, th);
+      g.strokeStyle = '#544a86'; g.lineWidth = 1; g.strokeRect(x, y, tw, th);
+      if (shown) {
+        g.fillStyle = '#1a1430';
+        g.font = 'bold ' + (tw - 3) + 'px monospace';
+        g.fillText(c, x + tw / 2, y + th / 2 + 1);
+      }
+    });
+  });
+  const boardBot = boardY + lines.length * (th + 2) + 4;
+  g.font = 'bold 8px monospace';
   g.fillStyle = '#7f88b8';
-  g.fillText('3× 🥇 pays big · 🌀🌀🌀 is the STORY · 💀💀💀 is the house', mx + mw / 2, ry + 13);
+  g.fillText('— ' + fortune.category + ' —', W / 2, boardBot + 4);
+
+  // ---- THE WHEEL, left half
+  const r = Math.min(W * 0.21, (Hh - boardBot - 26) * 0.52);
+  const cx = Math.max(r + 12, W * 0.26), cy = boardBot + 18 + r;
+  fortune.hit.wheel = { cx, cy, r };
+  const n = FORTUNE_WEDGES.length;
+  for (let i = 0; i < n; i++) {
+    const a0 = fortune.angle + (i / n) * Math.PI * 2 - Math.PI / 2;
+    const a1 = fortune.angle + ((i + 1) / n) * Math.PI * 2 - Math.PI / 2;
+    const wv = FORTUNE_WEDGES[i];
+    g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, r, a0, a1); g.closePath();
+    g.fillStyle = wv === 'BK' ? '#141018'
+      : wv === 'SW' ? '#0c3844'
+        : wv === 100 ? '#7a5c14'
+          : ['#472a6e', '#6e2a52', '#2a4a6e', '#2a6e4e'][i % 4];
+    g.fill();
+    g.strokeStyle = '#131024'; g.lineWidth = 1.5; g.stroke();
+    // wedge label, standing on the rim
+    const am = (a0 + a1) / 2;
+    g.save();
+    g.translate(cx + Math.cos(am) * r * 0.72, cy + Math.sin(am) * r * 0.72);
+    g.rotate(am + Math.PI / 2);
+    g.font = 'bold ' + Math.max(7, r * 0.16) + 'px monospace';
+    if (wv === 'BK') { g.fillStyle = '#8b8f9c'; g.fillText('💀', 0, 0); }
+    else if (wv === 'SW') {
+      g.strokeStyle = '#26e0ff'; g.lineWidth = 1.5; g.lineCap = 'round';
+      g.beginPath();
+      for (let a = 0; a < 4.2; a += 0.25) {
+        const rr = 0.8 + a * (r * 0.022);
+        const x = Math.cos(a * 1.8) * rr, y = Math.sin(a * 1.8) * rr;
+        a === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
+      }
+      g.stroke();
+    } else { g.fillStyle = '#f2ecdc'; g.fillText(String(wv), 0, 0); }
+    g.restore();
+  }
+  // hub + pointer
+  g.fillStyle = '#d8b23a';
+  g.beginPath(); g.arc(cx, cy, r * 0.14, 0, 7); g.fill();
+  g.fillStyle = fortune.phase === 'spinning' ? '#ffe9a0' : '#ff2fa0';
+  g.beginPath();
+  g.moveTo(cx - 5, cy - r - 7); g.lineTo(cx + 5, cy - r - 7); g.lineTo(cx, cy - r + 3);
+  g.closePath(); g.fill();
+
+  // power meter while charging
+  if (fortune.phase === 'charging') {
+    g.fillStyle = '#0c0918';
+    g.fillRect(cx - r, cy + r + 6, r * 2, 7);
+    g.fillStyle = fortune.power > 0.8 ? '#39ff7a' : '#ffd23a';
+    g.fillRect(cx - r + 1, cy + r + 7, (r * 2 - 2) * fortune.power, 5);
+  }
+
+  // ---- readout column + letter board, right half
+  const rx = cx + r + 14, rw = W - rx - 8;
+  g.textAlign = 'left';
+  g.font = 'bold 9px monospace';
+  g.fillStyle = '#ffd23a';
+  g.fillText('BANK  ' + fmt.format(Math.round(fortune.bank * storm.perFlyer * fortune.cfg.mult)), rx, boardBot + 20);
+  g.fillStyle = '#bfc6ff';
+  g.fillText('TURNS ' + '🎟️'.repeat(Math.max(0, fortune.tokens)), rx, boardBot + 32);
+  if (fortune.swirlBanked) {
+    g.fillStyle = '#26e0ff';
+    g.fillText('🌀 SWIRL BANKED', rx, boardBot + 44);
+  }
+
+  // the letter board: A–Z in two rows, tap or type
+  const ly = Hh - 42, lw = Math.min(13, Math.floor(rw / 13));
+  fortune.hit.letters = { x: rx, y: ly, w: lw, rows: 2, cols: 13 };
+  g.textAlign = 'center';
+  for (let i = 0; i < 26; i++) {
+    const col = i % 13, row = (i / 13) | 0;
+    const x = rx + col * (lw + 1), y = ly + row * (lw + 5);
+    const ch = FORTUNE_AZ[i];
+    const used = fortune.guessed.has(ch);
+    const inPz = used && fortune.phrase.includes(ch);
+    g.fillStyle = used ? (inPz ? '#1d4232' : '#241c3a') : (FORTUNE_VOWELS.has(ch) ? '#4a3a14' : '#2c2452');
+    g.fillRect(x, y, lw, lw + 2);
+    g.fillStyle = used ? (inPz ? '#39a06a' : '#4a4468') : '#e6e0cf';
+    g.font = 'bold ' + (lw - 4) + 'px monospace';
+    g.fillText(ch, x + lw / 2, y + (lw + 2) / 2 + 1);
+  }
+
+  // prompt line
+  g.font = 'bold 9px monospace';
+  g.fillStyle = fortune.phase === 'guess' ? '#39ff7a' : '#bfc6ff';
+  const prompt = fortune.phase === 'idle'
+    ? 'HOLD space / hold the wheel — release to SPIN'
+    : fortune.phase === 'charging' ? 'release to spin!'
+      : fortune.phase === 'spinning' ? 'round and round…'
+        : fortune.phase === 'guess'
+          ? (fortune.wedge === 'SW' ? '🌀 name a letter to BANK THE SWIRL' : 'pick a letter · ' + fortune.wedge + ' apiece · vowels half')
+          : '';
+  if (prompt) g.fillText(prompt, rx + rw / 2, Hh - 8);
+  if (fortune.flashT > 0 && fortune.phase !== 'guess') {
+    g.fillStyle = '#7f88b8';
+    g.fillText(fortune.flashMsg, rx + rw / 2, boardBot + 58);
+  }
 
   // confetti over everything
   for (const p of fortune.confetti) {
@@ -443,31 +497,67 @@ function fortuneDraw() {
   g.globalAlpha = 1;
 }
 
-// ---- input ---------------------------------------------------------------------------
+// ---- input ----------------------------------------------------------------------------
+
+function fortunePointerDown(e) {
+  if (!fortuneActive() || fortune.phase === 'tier') return;
+  e.preventDefault();
+  const rect = fortune.cv.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width) * fortune.W;
+  const y = ((e.clientY - rect.top) / rect.height) * fortune.Hh;
+  if (fortune.phase === 'guess' && fortune.hit.letters) {
+    const L = fortune.hit.letters;
+    const col = Math.floor((x - L.x) / (L.w + 1)), row = Math.floor((y - L.y) / (L.w + 5));
+    if (col >= 0 && col < 13 && row >= 0 && row < 2) {
+      fortuneGuess(FORTUNE_AZ[row * 13 + col]);
+      return;
+    }
+  }
+  if (fortune.phase === 'idle') fortuneStartCharge();
+}
+
+function fortunePointerUp(e) {
+  if (!fortuneActive()) return;
+  e.preventDefault();
+  fortuneRelease();
+}
 
 document.addEventListener('keydown', (e) => {
   if (!fortuneActive() || fortune.phase === 'tier') return;
   if (document.querySelector('.modal-overlay.active')) return;
-  if (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyE' || e.code === 'KeyX') {
+  if (e.code === 'Space' || e.code === 'Enter') {
     e.preventDefault();
-    fortunePress();
+    if (!e.repeat) fortuneStartCharge();
+    return;
   }
+  if (/^Key[A-Z]$/.test(e.code) && fortune.phase === 'guess') {
+    e.preventDefault();
+    fortuneGuess(e.code.slice(3));
+  }
+});
+document.addEventListener('keyup', (e) => {
+  if (!fortuneActive()) return;
+  if (e.code === 'Space' || e.code === 'Enter') fortuneRelease();
 });
 
 // ---- test seam -------------------------------------------------------------------------
-// The harness can't aim a millisecond press, so rig() pins the NEXT spin's
-// payline; everything else (payout math, fever, banking) runs the real path.
+// The harness can't time a physics spin, so land() names the wedge and runs
+// the REAL landing handler; guess() runs the real guess path; setPuzzle()
+// deals a named board. Everything else — banking, tokens, jackpot — is live.
 window.fortuneDebug = {
   state: () => ({
-    phase: fortune.phase, spins: fortune.spins, streak: fortune.streak,
-    fever: fortune.feverLeft, lastWin: fortune.lastWin, line: fortune.lastLine,
-    tier: fortune.cfg.key,
+    phase: fortune.phase, puzzle: fortune.phrase, category: fortune.category,
+    bank: fortune.bank, tokens: fortune.tokens, swirl: fortune.swirlBanked,
+    solves: fortune.solves, puzzles: fortune.puzzles, tier: fortune.cfg.key,
+    revealed: [...fortune.revealed].join(''),
   }),
-  press: () => fortunePress(),
-  rig: (a, b, c) => { fortune.rigNext = [a, b, c]; },
+  land: (i) => fortuneLanded(((i % FORTUNE_WEDGES.length) + FORTUNE_WEDGES.length) % FORTUNE_WEDGES.length),
+  guess: (ch) => fortuneGuess(ch),
+  setPuzzle: (i) => fortuneSetPuzzle(i),
+  wedges: () => FORTUNE_WEDGES.slice(),
   pickTier: (i) => {
     if (fortune.tierPick) { fortune.tierPick.close(); fortune.tierPick = null; }
     fortune.cfg = FORTUNE_TIERS[i] || FORTUNE_TIERS[0];
-    fortune.phase = 'idle';
+    fortuneNewBoard(true);
   },
 };
