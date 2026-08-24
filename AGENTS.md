@@ -315,7 +315,10 @@ already bitten someone.
   facing into the wall, and a scoreboard was once wound backwards).
 - **Placement collisions.** Check `PLACEMENT`, `H.hotspots`, and prop
   positions before placing anything: the east wall z=-14.2..-17.4 is the
-  live scoreboard, west wall z=-16.8 is Battered Brawlers (the old
+  live scoreboard, and the BACK WALL is 👑 THE TWIN THRONES (2026-08-24):
+  Knight at (-1.75, -18.7) and Battered Brawlers at (1.75, -18.7), both
+  deluxe, torches outboard + one shared centre pole. Brawlers' old west-wall
+  spot (z=-16.8) is open wall now (the
   poke-the-drape reveal gate was removed — mode key stays `brawl`), the
   entrance zone has a vending machine / change machine / velvet ropes.
   West wall front (-7.02, -2.2) is FAST FOOD (mode `kart`, the 10th
