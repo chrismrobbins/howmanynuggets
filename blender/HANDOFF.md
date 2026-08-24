@@ -1801,3 +1801,36 @@ frame-identical to shipped minus the furniture.
   `nugHallTierAuto` into that browser profile. Playwright contexts are fresh
   per launch, so the kit never sees a stale verdict — but a REAL browser will,
   which is the point.
+
+## 23. 🪧 THE SIGHTLINE RULE (2026-08-24) — the walls were eating the signs
+
+Beau's prod screenshots, three in a row: pilasters standing in front of the
+leaderboard (player names amputated to "…IS ROBBINS"), a wall vent parked dead
+centre of the neon phrase ("HOW MA[vent]UGS?"), and the interior NUGGET ARCADE
+band hiding behind the vestibule header with only "NUGGET" peeking over.
+
+One cause, three costumes: **wall furniture only ever checked PLACEMENT** —
+cabinets — so every round that bolted something to a wall (piers §18, vents
+§18, conduit §18, the vestibule §12) checked for cabinets and walked straight
+through the wall ART. And the kit never saw it because every spot shoots from
+a hotspot's stand at eye level — nobody had ever pointed a camera UP at a sign
+from off-axis, which is how a player actually reads a wall.
+
+What changed (all in buildScene):
+
+- `WALL_ART_Z` + `clearOfWallArt()`: piers on the SIDE walls skip the
+  scoreboard/phrase band (z −13.9..−17.7). Add to that list when wall art
+  gains a new address; check it before bolting anything to a side wall.
+- The west vent moved off the phrase (−16.1 → −9.5).
+- The conduit runs END at the sign band now (12.6m centred at −7.4, terminal
+  junction box at −13.58) instead of running 17m through both signs' tops.
+- The interior marquee moved UP to crown the vestibule header (y 3.26..4.16,
+  x ±1.8 — same aspect, sized to the header-to-ceiling band). The vestibule
+  header spans y 2.60..3.20 and stands 0.67m proud: anything on the entrance
+  wall between those heights is invisible from inside the room.
+
+The general rule, third phrasing of the same lesson (§15 "a spot table only
+measures what it points at", §16 "add a spot that looks AT it"): **an object's
+placement check must include everything a PLAYER can read, not just everything
+the code calls a collision.** Signs, boards and lettering are the first things
+an eye goes to and the last things any collision table knows about.

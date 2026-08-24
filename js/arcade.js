@@ -2312,8 +2312,17 @@ void main() {
       const clearOfCabinet = (x, z) => !PLACEMENT.some(
         ([, cx, cz]) => Math.abs(cx - x) < 1.2 && Math.abs(cz - z) < 0.62
       );
+      // 🪧 THE SIGHTLINE RULE (2026-08-24, from Beau's prod screenshots): the
+      // module grid only ever checked PLACEMENT — cabinets — so it walked two
+      // piers straight through the scoreboard (east) and two through the neon
+      // phrase (west), both spanning z -14.2..-17.4. Wall furniture has to
+      // clear the wall ART too: a pier that lands on a sign amputates it.
+      const WALL_ART_Z = [[-13.9, -17.7]]; // scoreboard + phrase band, with margin
+      const clearOfWallArt = (z) =>
+        !WALL_ART_Z.some(([hi, lo]) => z <= hi && z >= lo);
       const pierAt = (x, z, yaw) => {
         if (!clearOfCabinet(x, z)) return;
+        if (Math.abs(Math.abs(x) - X) < 0.5 && !clearOfWallArt(z)) return;
         if (!B.model('wallPier', uv, { x: x, z: z, yaw: yaw, sy: CH })) return;
         piers++;
         B.model('wallCap', uv, { x: x, y: CH - 0.16, z: z, yaw: yaw });
@@ -2348,8 +2357,11 @@ void main() {
       // Positions checked against PLACEMENT and H.hotspots: a vent dropped on a
       // cabinet is a cabinet with a grille growing out of it, and a prop on a
       // hotspot's `stand` is a hotspot the player can no longer reach (§15).
+      // (the third vent used to sit at west z -16.1 — dead centre of the neon
+      // phrase, "HOW MA[vent]UGS?" on prod. Sightline rule: moved to -9.5,
+      // clear of both posters and the sign band.)
       for (const [vx, vz, vy, vyaw] of [[-X, -4.3, 2.62, -Math.PI / 2], [X, -12.7, 2.62, Math.PI / 2],
-        [-X, -16.1, 2.62, -Math.PI / 2]]) {
+        [-X, -9.5, 2.62, -Math.PI / 2]]) {
         B.model('wallVent', uv, { x: vx, y: vy, z: vz, yaw: vyaw });
       }
       // EXIT signs over the way out. The only emissive in this room between the
@@ -2366,9 +2378,14 @@ void main() {
       // CONDUIT at picture-rail height: one long horizontal line down walls that
       // have no horizontal lines in them. Stretched runs, not a module per
       // metre — 332 verts x 40 would be a real cost for the same silhouette.
-      for (const [cx, cz, len, cyaw] of [[-X, -9.6, 17.0, -Math.PI / 2], [X, -9.6, 17.0, Math.PI / 2]]) {
+      // Sightline rule: the run used to be 17m and crossed the top of the
+      // scoreboard AND the neon phrase (both start at z -14.2, the pipe ran at
+      // y 3.16 straight through their lettering). It STOPS at the sign band now
+      // and dies into a junction box, which is what real conduit does when a
+      // wall has something big mounted on it.
+      for (const [cx, cz, len, cyaw] of [[-X, -7.4, 12.6, -Math.PI / 2], [X, -7.4, 12.6, Math.PI / 2]]) {
         if (!B.model('conduit', uv, { x: cx, y: 3.16, z: cz, yaw: cyaw, sx: len })) break;
-        for (const jz of [-2.4, -9.6, -16.8]) {
+        for (const jz of [-2.4, -9.6, -13.58]) {
           B.model('conduitBox', uv, { x: cx, y: 3.16, z: jz, yaw: cyaw });
         }
       }
@@ -2620,7 +2637,13 @@ void main() {
 
     // the big exterior sign + a smaller one inside above the doors
     SGN.quad([-3.4, 2.75, 0.12], [3.4, 2.75, 0.12], [3.4, 4.45, 0.12], [-3.4, 4.45, 0.12], uv.sign, { e: 1 });
-    SGN.quad([2.2, 2.72, -0.06], [-2.2, 2.72, -0.06], [-2.2, 3.82, -0.06], [2.2, 3.82, -0.06], uv.sign, { e: 1 });
+    // The interior marquee over the way out. It used to sit at y 2.72..3.82 —
+    // and then §12's vestibule dropped a 0.6m header over the doorway spanning
+    // y 2.60..3.20, hiding the sign's whole bottom half from everywhere in the
+    // room (Beau's prod screenshot: "NUGGET" peeking over a grey slab). Raised
+    // to crown the header instead — same aspect, sized to the band between the
+    // header top (3.20) and the ceiling.
+    SGN.quad([1.8, 3.26, -0.06], [-1.8, 3.26, -0.06], [-1.8, 4.16, -0.06], [1.8, 4.16, -0.06], uv.sign, { e: 1 });
     for (const gx of [-2.2, 0, 2.2])
       H.glows.push({ p: [gx, 3.6, 0.4], c: [1, 0.75, 0.3], s: 2.4, a: 0.2, k: 'sign' });
     H.glows.push({ p: [0, 3.3, -0.4], c: [1, 0.4, 0.6], s: 1.8, a: 0.12, k: 'sign' });
