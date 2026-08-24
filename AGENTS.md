@@ -1712,3 +1712,41 @@ variance inside the box even though the sprite plainly reads better. Round 6 sai
 `region.js` at the sprite; round 7 adds that even there, **for a keyline change the crop
 is the only judge.** Verified at `std` and `wide`. fps 60. `20-map` is now the last
 screen in the game with nothing behind it.
+
+## 🎚 THE HOUSE CALL + 🧹 THE CLEARING (2026-08-24) — performance is a feature now
+
+A friend's machine froze at the arcade door (no walk-in, no bar) and ran the
+hall as a slideshow after skip. Root causes: `build()` was one synchronous slab
+inside a click handler (3.7s on a FAST machine — atlas paint, geometry decode,
+shadow bake), and every quality knob except the MSAA governor was a constant.
+Full ledger in **blender/HANDOFF.md §22**. What to know before touching the hall:
+
+- **`build()` is `async` and STAGED** — it yields between stages and drives a
+  `HallBoot` job so the boot bar covers the build, not just the downloads. Do
+  not add synchronous heavy work to `enter()`; add a stage inside `build()`
+  (or a `HallBoot.job` if it's a payload).
+- **`perfTier()` decides low/med/high BEFORE building** (renderer string,
+  deviceMemory, cores; WebGL1 → low). The tier sets atlas density (low = 1×),
+  whether shadows bake at all, the DPR cap, and the starting LADDER rung.
+- **THE GOVERNOR walks a 7-rung LADDER** (MSAA 4/2/off → renderScale 0.8 →
+  no mirror pass → 0.62 + 8 lights → 8-bit post) and **persists its landing**
+  in `nugHallTierAuto`. `NuggetArcade.quality('low'|'med'|'high'|'auto')` is
+  the player override. `H.msaaAuto = false` pins the whole ladder (the seam
+  name the kit already pins).
+- **The mirror pass is skippable now** (`H.mirror === false` → floors draw
+  opaque). If you add reflective geometry, it must tolerate the mirror being
+  off. New per-frame costs should check `H.rung` before spending.
+- **🚨 Every sampler uniform needs a legal binding on every path.** Skipping
+  the shadow bake left two `sampler2DShadow`s defaulted to unit 0 next to the
+  albedo `sampler2D` and a strict driver refused EVERY lit draw — the room
+  rendered as sky and sprites, latent since shadows shipped for any machine
+  whose bake failed. `H.texFlatD` (1×1 depth) is the standing fix; follow the
+  pattern if you add samplers.
+- **🧹 THE CLEARING removed THE FLOOR PLAN's furniture** (air hockey, both
+  crane machines + their animated claws and glass, five stools) for
+  performance, on Beau's call. Models remain in blender/hallmesh.py if a
+  lighter version ever returns. Kit: spots `19-hockey`/`20-cranes` are now
+  `19-openfloor`; motion.js dropped its claw channels.
+- **Harness note:** `openHall` pins `localStorage.nugHallQuality = 'high'`
+  before enter, or every measurement on this SwiftShader box would be shot at
+  the LOW tier against tables shot at high. Keep that pin.

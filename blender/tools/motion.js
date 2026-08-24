@@ -68,8 +68,9 @@ const CHANNELS = [
   // recomputes the formula keeps sweeping while the real draw is frozen.
   ['boat.roll', 'NuggetArcade._H.boat ? (NuggetArcade._H.boat.roll || 0) : 0', 0.06, 9000, 'still'],
   ['boat.heave', 'NuggetArcade._H.boat ? (NuggetArcade._H.boat.heave || 0) : 0', 0.03, 9000, 'still'],
-  ['claw.travel', 'NuggetArcade._H.claw ? (NuggetArcade._H.claw.travel || 0) : 0', 0.2, 9000, 'still'],
-  ['claw.swing', 'NuggetArcade._H.claw ? (NuggetArcade._H.claw.swing || 0) : 0', 0.2, 9000, 'still'],
+  // (claw.travel / claw.swing left with THE CLEARING, 2026-08-24 — the crane
+  // machines were removed for performance along with the rest of the FLOOR
+  // PLAN furniture.)
   // 🌫 the motion layer. A plume that never rises and a splash that never
   // expands both photograph perfectly, which is exactly why they need a
   // channel here rather than an eyeball.

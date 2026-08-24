@@ -81,8 +81,10 @@ const RAW = [
   // two walk-to props, and could not have seen the middle of this room either
   // — because until now there was nothing in the middle of this room. These
   // two stand in the aisle and look ACROSS the floor, not down it.
-  ['19-hockey',     0.4,  -4.2,  [-3.0, -7.6], -0.10],  // the air hockey table
-  ['20-cranes',     0.4,  -4.2,  [3.5, -7.4],  -0.02],  // the two crane cabinets
+  // (19-hockey and 20-cranes left with 🧹 THE CLEARING, 2026-08-24: the FLOOR
+  // PLAN furniture was removed for performance. One spot still looks across
+  // the reopened floor so the mid-room carpet keeps a witness.)
+  ['19-openfloor',  0.4,  -4.2,  [-3.0, -7.6], -0.10],
   // ADDED (THE CAST, §17). Henrietta is the only regular with a real neck, so
   // she carries the only genuine head turn and the only piece of BEHAVIOUR in
   // the game (the peck) — and there was no spot pointed at her, which is the
@@ -195,6 +197,15 @@ async function openHall(opts = {}) {
   });
 
   await page.goto(BASE, { waitUntil: 'load' });
+  // 🎚 PIN THE TIER, before anything builds. THE HOUSE CALL decides a quality
+  // tier from the renderer string at build time, and this box renders through
+  // SwiftShader — unpinned, every measurement in the kit would be shot at the
+  // LOW tier (1x atlas, no shadow bake, no mirror pass) and compared against
+  // tables that were shot at high. Same class of bug as an unpinned clock.
+  // (H.msaaAuto = false below pins the RUNG; this pins what gets BUILT.)
+  await page.evaluate(() => {
+    try { localStorage.setItem('nugHallQuality', 'high'); } catch (e) { }
+  });
   // The amount input autofocuses; keystrokes meant for the hall land in it.
   await page.evaluate(() => document.activeElement && document.activeElement.blur());
 

@@ -1729,3 +1729,75 @@ numbers this kit had to be EXTENDED to see.
    cubemap or SSR would put the actual ROOM in the cabinet glass.
 5. `15-pier` still reads 32.3 near-dead and 4.87 dead. It is a night harbour with
    a boat in it now; **stop reading its near-dead number.**
+
+## 22. 🎚 THE HOUSE CALL (2026-08-24) — the hall learns to fit the machine it's on
+
+A friend of Beau's clicked into the arcade and the tab froze — no walk-in
+scene, no bar, nothing — and when he gave up and hit skip, the room ran as a
+slideshow. Five art sessions of upgrades had been validated on exactly two
+machines (this dev box and Beau's), and every quality knob in the renderer was
+a harness seam, which is to say: a constant, everywhere, for everyone.
+
+**What shipped** (all in js/arcade.js; verified headless at every tier):
+
+- **The build is STAGED.** `build()` used to be one synchronous slab inside a
+  click handler — 3.7s of atlas paint, geometry decode and shadow bake on THIS
+  machine, and this machine is fast. It is `async` now, yields between stages,
+  and registers a `HallBoot` job (`hallbuild`) so the boot bar covers the build
+  as well as the downloads. The boot screen stays up for BOTH acts.
+- **A TIER is decided before anything expensive is built** (`perfTier`):
+  `low` / `med` / `high` off the unmasked renderer string (SwiftShader/software
+  → low), deviceMemory, hardwareConcurrency, and old-integrated-GPU patterns.
+  The tier picks atlas density (low = 1×, the pre-RELIGHT texel density),
+  whether the shadow maps bake at all, the DPR ceiling (1.75 / 1.5 / 1.0) and
+  the starting rung. WebGL1 is always tier low.
+- **THE GOVERNOR walks a LADDER now, not just MSAA**: 4× → 2× → off →
+  renderScale 0.8 → +no mirror pass → 0.62 + 8 lights → +8-bit post. The
+  mirror pass is the whole world drawn twice, and rung 4 down trades it for a
+  matte floor (a dry night, not a hole). `H.renderScale` works because the
+  canvas is CSS-stretched: the backing store IS the render resolution.
+- **The landing is persisted** (`nugHallTierAuto`), so a machine that had to
+  fight down the ladder boots straight into a hall it can afford next visit.
+  `NuggetArcade.quality('low'|'med'|'high'|'auto')` is the player override
+  (`nugHallQuality`), and 'auto' clears both.
+- **`uNumLights`** in FS_LIT2: the 16-light loop is per-fragment ALU and the
+  rung can halve it. WebGL1's 8-light shader is untouched.
+- **Attract screens** stop repainting from the street (ten CRTs, none visible
+  out there — 180 texture uploads/sec pointed at a wall) and drop to one
+  repaint per frame on low rungs; the scoreboard redraws 2×/sec outside.
+- **🧹 THE CLEARING**: THE FLOOR PLAN's furniture is REMOVED — air hockey
+  table, both crane machines (their split trolley/grab buffers, glass panes,
+  five lights and glows), all five stools. Beau's call, from the friend's
+  report. ~11k verts, four draws ×2 passes, and the busiest sightline in the
+  room. The models stay in blender/hallmesh.py + hallMeshData if a lighter
+  hall ever wants one back. Kit updates: `19-hockey`/`20-cranes` spots →
+  `19-openfloor`; motion.js dropped its claw channels; `drawClaw` is gone.
+
+**🚨 THE LATENT BUG THE LOW TIER EXPOSED (worth re-reading).** Skipping the
+shadow bake left `uShadowH`/`uShadowS` (both `sampler2DShadow`) at their
+default sampler unit — 0, where the albedo `sampler2D` sits — and a strict
+driver (ANGLE/D3D11 here) refuses EVERY lit draw with "two textures of
+different types use the same sampler location". The room rendered as a sky and
+some glow sprites: no walls, no floor, no cabinets. This was latent for every
+machine whose `bakeShadows` failed, since the day shadows shipped — the
+`H.shadows = false` seam never caught it because that seam leaves the maps
+BOUND. The fix is a 1×1 depth texture (`H.texFlatD`, COMPARE_REF_TO_TEXTURE)
+that units 3/4 always bind when the real maps are absent. The rule for next
+time: **a sampler uniform you sometimes don't set is a draw you sometimes
+don't get** — every sampler in a program needs a legal binding on every path.
+
+**Measured** (SwiftShader-class software path, 1280×760, governor unpinned):
+boot main-thread stalls 3754ms → max ~600ms chunks with a moving bar; hall fps
+31 → 42 at rung 4 before the governor has even finished walking. High tier is
+frame-identical to shipped minus the furniture.
+
+**Harness rules that changed:**
+- `openHall` now pins `localStorage.nugHallQuality = 'high'` BEFORE enter —
+  THE HOUSE CALL would otherwise tier this SwiftShader box as `low` and every
+  measurement would be shot at 1× atlas with no shadows against tables shot at
+  high. Same class of bug as an unpinned clock. `H.msaaAuto = false` still
+  pins the rung; the localStorage pin covers what gets BUILT.
+- The governor persists its verdict; a probe run that lets it walk will write
+  `nugHallTierAuto` into that browser profile. Playwright contexts are fresh
+  per launch, so the kit never sees a stale verdict — but a REAL browser will,
+  which is the point.

@@ -569,6 +569,9 @@ uniform highp sampler2DShadow uShadowH, uShadowS;
 uniform mat4 uShadowMatH, uShadowMatS;
 uniform float uShadowAmt;
 uniform vec3 uLightPos[16]; uniform vec3 uLightColor[16];
+// 🎚 THE HOUSE CALL: a weak GPU pays for this loop per FRAGMENT, so the light
+// count is a dial now, not a constant. 16 everywhere the machine can afford it.
+uniform int uNumLights;
 uniform vec3 uAmbUp, uAmbDown, uFogColor, uCamPos, uSkyAmb, uGndAmb;
 uniform float uFogDensity, uAlpha, uMirror, uBoost, uNrmScale, uSpecAmt, uWet, uTime, uSkyAmt, uSkyRefl;
 uniform float uGlass, uGlassAmt;
@@ -793,6 +796,7 @@ void main() {
     + outside * mix(uGndAmb, uSkyAmb * mix(0.30, 1.0, shadow), dome);
   vec3 spec = vec3(0.0);
   for (int i = 0; i < 16; i++) {
+    if (i >= uNumLights) break;
     vec3 d = uLightPos[i] - vWorld;
     float dist = length(d);
     vec3 L = d / max(dist, 0.001);
@@ -2481,86 +2485,17 @@ void main() {
       H.propBoxes.push({ min: [cx2 - 0.4, 0, cz - 0.35], max: [cx2 + 0.4, 1.6, cz + 0.35] });
     }
 
-    // ---- 🎱 THE FLOOR PLAN -----------------------------------------------------
-    // Ten cabinets against the walls and twelve metres by eighteen of empty
-    // carpet between them. Every act this session has been the STREET, and the
-    // hall is where the games are — so this is the room getting furniture.
-    //
-    // 🚨 Gated on H.uintIndex like the shopfronts: the hall's static buffer was
-    // already at 69863 and these add ~11k. Uint16 does not error on overflow,
-    // it WRAPS (§14, §15). Without it you get the room exactly as it shipped.
-    //
-    // Kept OUT of the central aisle (|x| < 2) on purpose: click-to-walk drives
-    // straight at its target with no pathfinding, so the walk from the door to
-    // the deluxe cabinet at (0, -18.7) has to stay clear or it wedges.
-    if (H.uintIndex) {
-      // The air hockey table is here for its LIGHT before its shape. Every
-      // other emissive in this room is at eye level or above — marquees, CRTs,
-      // neon trim, ceiling tubes — so the floor only ever got spill. A big
-      // pale lit plane at waist height in the middle is how an arcade actually
-      // glows, and the carpet has never had anything to catch.
-      const ax = -3.0, az = -7.6;
-      if (B.model('airHockey', uv, { x: ax, z: az })) {
-        H.propBoxes.push({ min: [ax - 1.28, 0, az - 0.78], max: [ax + 1.28, 0.95, az + 0.78] });
-        LIGHTS.push({ p: [ax, 1.02, az], c: [0.72, 0.80, 0.95], k: 'tube' });
-        LIGHTS.push({ p: [ax + 0.95, 1.95, az - 0.70], c: [0.55, 0.10, 0.10], k: 'crt' });
-        H.glows.push({ p: [ax, 0.86, az], c: [0.80, 0.90, 1], s: 2.6, a: 0.09, k: 'pool' });
-      }
-      // Two crane cabinets facing the door. A tall lit box is the cheapest
-      // silhouette there is and this room has exactly one shape in it, ten
-      // times over.
-      //
-      // 🕹 ARTICULATED (§17). Both of these have stood dead still since THE
-      // FLOOR PLAN, and a crane machine whose claw never moves is not a crane
-      // machine, it is a vending machine full of toys. The BODY still bakes
-      // into the hall's static buffer; the trolley and the grab are their own
-      // buffers drawn per-instance with their own matrices. If `claw_body` is
-      // not available the whole one-piece `claw` bakes in exactly as it shipped
-      // — a still machine, never a machine with a hole in the top.
-      const clawAt = [[3.5, -6.5], [3.5, -8.35]];
-      const clawSplit = HallMesh && HallMesh.on && HallMesh.on()
-        && !!HallMesh.get('claw_body') && !!HallMesh.get('claw_trolley')
-        && !!HallMesh.get('claw_grab');
-      for (const [cx3, cz3] of clawAt) {
-        if (!B.model(clawSplit ? 'claw_body' : 'claw', uv, { x: cx3, z: cz3 })) break;
-        H.propBoxes.push({ min: [cx3 - 0.55, 0, cz3 - 0.54], max: [cx3 + 0.55, 2.35, cz3 + 0.54] });
-        LIGHTS.push({ p: [cx3, 1.52, cz3 - 0.55], c: [0.60, 0.48, 0.30], k: 'marq' });
-        LIGHTS.push({ p: [cx3, 2.22, cz3 - 0.50], c: [0.52, 0.10, 0.32], k: 'neon' });
-        H.glows.push({ p: [cx3, 2.17, cz3 - 0.52], c: [1, 0.20, 0.66], s: 0.9, a: 0.13, k: 'neon' });
-      }
-      // 🪟 and the crane cabinets finally get their front pane (§20). §16's
-      // ledger says the front of the prize box was deliberately NOT built —
-      // "if you want to see INTO something, do not build the thing you would be
-      // seeing through" — because an opaque box in front of a lit interior is a
-      // black card. That was the right call for an opaque renderer. It is not
-      // the constraint any more: an additive pane adds a reflection and hides
-      // nothing, so the prizes stay visible AND the machine reads as glazed.
-      for (const [cx3, cz3] of clawAt) {
-        GL.quad([cx3 - 0.44, 1.06, cz3 + 0.472], [cx3 + 0.44, 1.06, cz3 + 0.472],
-          [cx3 + 0.44, 2.01, cz3 + 0.472], [cx3 - 0.44, 2.01, cz3 + 0.472],
-          uv.sw_glass, { tint: 0.80 });
-      }
-      if (clawSplit) {
-        // built at the ORIGIN and placed by the draw call, so one buffer serves
-        // both machines and each can be at a different point in its cycle
-        const TRB = new Builder(), GRB = new Builder();
-        if (TRB.model('claw_trolley', uv, {}) && GRB.model('claw_grab', uv, {})) {
-          H.claw = {
-            at: clawAt,
-            trolley: TRB.upload(gl),
-            grab: GRB.upload(gl),
-            pivot: HallMesh.get('claw_grab').pivot || [0, 0, 0],
-          };
-        }
-      }
-      // Stools. A cabinet with no seat in front of it reads as a display
-      // piece rather than a machine somebody uses. Not at every cabinet —
-      // half of them, so the room looks lived in and not laid out.
-      for (const [sx3, sz3] of [[-5.72, -5.5], [-5.72, -13.5], [5.72, -9.5], [5.72, -2.2], [0.62, -17.5]]) {
-        if (!B.model('stool', uv, { x: sx3, z: sz3, yaw: sx3 < 0 ? 1.6 : -1.6 })) break;
-        H.propBoxes.push({ min: [sx3 - 0.28, 0, sz3 - 0.28], max: [sx3 + 0.28, 0.72, sz3 + 0.28] });
-      }
-    }
+    // ---- 🧹 THE CLEARING (2026-08-24) -------------------------------------------
+    // THE FLOOR PLAN's furniture stood here: an air hockey table, two crane
+    // machines (articulated trolleys, glass panes, their own lights) and five
+    // stools. A friend's machine choked on the hall and Beau called it: the
+    // mid-floor set goes. It was ~11k vertices, four extra draw calls a frame
+    // (×2 with the mirror pass), five light fixtures and a glass pass in the
+    // busiest sightline in the game — and the room reads fine as what it always
+    // was: ten cabinets, a scoreboard, and carpet you can actually cross.
+    // The models still live in blender/hallmesh.py + hallMeshData if a lighter
+    // hall ever wants one back (the kit's 19-hockey/20-cranes spots went with
+    // them; H.claw and drawClaw() too — motion.js dropped its claw channels).
 
     // ---- the JUKEBOX (further left) — three loops and an OFF switch ------------
     // Built entirely from existing atlas regions (the main page is FULL): dark
@@ -4825,8 +4760,103 @@ void main() {
 
   // ---- init ---------------------------------------------------------------------------
 
-  function build() {
+  // ---- 🎚 THE HOUSE CALL — quality that fits the machine ---------------------
+  //
+  // Five art sessions gave this hall an HDR pipeline, 4x MSAA, a bloom pyramid,
+  // baked shadows, a mirror pass and 4096px texture pages — and one governor
+  // that only knew how to give up antialiasing. A friend's laptop froze at the
+  // door and ran the room as a slideshow, because every knob except one was a
+  // constant. The knobs were all already here as harness seams; this wires them
+  // to a LADDER the governor can actually climb down, and to a TIER the hall
+  // decides before it spends a single expensive millisecond building.
+  //
+  // Rules, same spirit as THE GOVERNOR's:
+  //   - the ladder only ever walks DOWN in a session. No oscillation.
+  //   - the landing is PERSISTED (nugHallTierAuto), so a machine that had to
+  //     fight its way down boots straight into a hall it can afford next time.
+  //   - `nugHallQuality` (low/med/high) is the player's override and beats the
+  //     auto verdict; NuggetArcade.quality('low'|'med'|'high'|'auto') sets it.
+  //   - H.msaaAuto === false pins EVERYTHING, because a measurement kit that
+  //     lets the renderer change mid-table is measuring two different rooms
+  //     (blender/tools pins it — same seam name it always pinned).
+  //
+  // TIER = what to build (atlas density, shadow bake, DPR ceiling).
+  // RUNG = what to render per frame (MSAA, render scale, mirror pass, lights).
+  const TIERS = {
+    high: { rung: 0, dpr: 1.75, atlas: 2, shadows: true, lights: 16 },
+    med:  { rung: 1, dpr: 1.5,  atlas: 2, shadows: true, lights: 16 },
+    low:  { rung: 4, dpr: 1.0,  atlas: 1, shadows: false, lights: 8 },
+  };
+  const LADDER = [
+    { msaa: 4, scale: 1.0,  mirror: true },
+    { msaa: 2, scale: 1.0,  mirror: true },
+    { msaa: 0, scale: 1.0,  mirror: true },
+    { msaa: 0, scale: 0.8,  mirror: true },
+    // the mirror pass draws the whole world a second time; below here the
+    // floors go matte and the frame gets that world back
+    { msaa: 0, scale: 0.8,  mirror: false },
+    { msaa: 0, scale: 0.62, mirror: false, lights: 8 },
+    // the last resort: the 8-bit post chain, which is the shipped fallback for
+    // GPUs with no float attachment — half the bandwidth on the biggest target
+    { msaa: 0, scale: 0.62, mirror: false, lights: 8, hdr: false },
+  ];
+
+  function perfTier(gl, gl2) {
+    let want = null, auto = null;
+    try {
+      want = localStorage.getItem('nugHallQuality');
+      auto = localStorage.getItem('nugHallTierAuto');
+    } catch (e) { /* no storage, decide fresh */ }
+    if (TIERS[want]) return want;
+    if (TIERS[auto]) return auto;
+    if (!gl2) return 'low'; // no material shader, no post chain worth paying for
+    // The renderer string is the most honest thing a GPU says about itself.
+    // WEBGL_debug_renderer_info is absorbed into RENDERER on current browsers;
+    // ask both ways and take whatever answers.
+    let rend = '';
+    try {
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      rend = String((dbg && gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL))
+        || gl.getParameter(gl.RENDERER) || '');
+    } catch (e) { /* keep '' */ }
+    if (/swiftshader|software|llvmpipe|microsoft basic/i.test(rend)) return 'low';
+    const mem = navigator.deviceMemory || 8;      // absent on Firefox/Safari -> 8
+    const cores = navigator.hardwareConcurrency || 8;
+    if (mem <= 2 || cores <= 2) return 'low';
+    if (mem <= 4 || cores <= 4) return 'med';
+    // old integrated parts that report a real GPU and render like they don't:
+    // Intel HD/UHD 4xx-6xx and pre-Adreno-6xx mobile silicon
+    if (/intel.*\b(hd|uhd)\b.*\b[456]\d\d\b/i.test(rend)) return 'med';
+    if (/\bmali-|adreno \(tm\) [1-5]\d\d\b/i.test(rend)) return 'med';
+    return 'high';
+  }
+
+  // Everything a rung controls is a per-frame read that already existed as a
+  // seam; postSetup rebuilds on the next frame when msaaWant or the canvas
+  // size changes, so applying a rung is just assignment.
+  function applyRung(i) {
+    const r = LADDER[Math.max(0, Math.min(LADDER.length - 1, i))];
+    H.rung = i;
+    H.msaaWant = r.msaa;
+    H.renderScale = r.scale;
+    H.mirror = r.mirror;
+    H.maxLights = Math.min(H.tierLights || MAX_LIGHTS, r.lights || MAX_LIGHTS);
+    H.hdr = r.hdr === false ? false : H.hdrCap;
+  }
+
+  // The build is STAGED. It used to be one synchronous slab inside a click
+  // handler — atlas paint, geometry decode, texture upload, shadow bake, all
+  // before the browser could draw a single pixel of progress — and on a slow
+  // machine that is a multi-second freeze that reads as a crash (a friend's
+  // laptop proved it). Each stage yields to the event loop so the boot bar
+  // keeps painting and the tab stays alive; the ledger job keeps it honest.
+  const bootYield = () => new Promise((res) => setTimeout(res, 0));
+
+  async function build() {
     if (H.built) return true;
+    const ledger = (typeof HallBoot !== 'undefined')
+      ? HallBoot.job('hallbuild', 'BUILDING THE HALL', 3) : null;
+    const stage = (frac) => { if (ledger) ledger.step(frac); return bootYield(); };
     const root = document.getElementById('arcadeHall');
     root.innerHTML =
       '<canvas></canvas>' +
@@ -4864,8 +4894,17 @@ void main() {
     // real antialiasing, and it needs the WebGL2 handle to do it.
     H.gl2 = gl2 || null;
     H.msaa = true;      // harness seam: false = the aliased frame that shipped
-    H.msaaWant = 4;     // THE GOVERNOR walks this down if the frame cannot pay
-    H.msaaAuto = true;  // harness seam: false pins the sample count
+    H.msaaAuto = true;  // harness seam: false pins tier, rung and sample count
+    // 🎚 THE HOUSE CALL: decide what this machine can afford BEFORE spending a
+    // single expensive millisecond building for a machine it isn't on.
+    H.tier = perfTier(gl, gl2);
+    const T = TIERS[H.tier];
+    H.tierLights = T.lights;
+    H.dprCap = T.dpr;
+    applyRung(T.rung);
+    if (H.tier !== 'high')
+      console.info('arcade: quality tier "' + H.tier + '" (rung ' + H.rung
+        + ') — override with NuggetArcade.quality("high")');
 
     // THE POWER PLANT: a WebGL2 context gets the material shader; WebGL1 keeps
     // the renderer that shipped, verbatim. `H.pbr = false` in a harness gives
@@ -4912,7 +4951,7 @@ void main() {
     H.uni = {};
     for (const name of ['uProj', 'uView', 'uModel', 'uTex', 'uLightPos', 'uLightColor',
       'uAmbUp', 'uAmbDown', 'uFogColor', 'uCamPos', 'uFogDensity', 'uAlpha', 'uMirror', 'uBoost',
-      'uNrm', 'uOrm', 'uNrmScale', 'uSpecAmt', 'uWet', 'uTime', 'uEmisGain',
+      'uNrm', 'uOrm', 'uNrmScale', 'uSpecAmt', 'uWet', 'uTime', 'uEmisGain', 'uNumLights',
       'uPuddle', 'uCity', 'uCityTex', 'uCityLat',
       'uSkyAmb', 'uGndAmb', 'uSkyAmt', 'uSkyRefl', 'uSkyHorizon', 'uSkyZenith', 'uSkyGlow',
       'uSkyGround', 'uMoonDir', 'uSkyT',
@@ -4969,28 +5008,60 @@ void main() {
     H.texFlatN = makeSolidTexture(gl, [128, 128, 255, 255]);
     H.texFlatS = makeSolidTexture(gl, [179, 0, 0, 255]);
     H.mapsFor = new Map();
+    // 🚨 And a 1×1 depth texture so the sampler2DShadow uniforms ALWAYS have a
+    // legal binding. Latent since the shadow maps landed: with no bake (bake
+    // failure then, the low tier now), uShadowH/uShadowS defaulted to unit 0 —
+    // where the albedo sampler2D sits — and a strict driver kills EVERY lit
+    // draw with "two textures of different types use the same sampler
+    // location". The room renders as sky and glow sprites and nothing else.
+    // uShadowAmt is 0 on that path, so what this samples never reaches a pixel;
+    // it exists to make the draw legal, not to shadow anything.
+    H.texFlatD = null;
+    if (H.pbr) {
+      const dtex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, dtex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, 1, 1, 0,
+        gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL);
+      H.texFlatD = dtex;
+    }
 
-    // THE RELIGHT's texel density, but only if the GPU will take the page. A
-    // 4096 main atlas plus a 2048x4096 street page is well inside every desktop
-    // limit and inside most mobile ones; anything that says otherwise gets the
-    // density that shipped, which is a smaller texture and not a broken hall.
+    await stage(0.12);   // shaders compiled; let the boot bar catch up
+
+    // THE RELIGHT's texel density, but only if the GPU will take the page AND
+    // the tier says the machine can afford to paint, upload and sample it — a
+    // low-tier device gets the density that shipped for a year, which is a
+    // smaller texture and not a broken hall (4x less canvas paint at boot, 4x
+    // less texture memory at play).
     const maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 2048;
-    H.atlasScale = maxTex >= 4096 ? 2 : 1;
+    H.atlasScale = (maxTex >= 4096 && T.atlas === 2) ? 2 : 1;
     ArcadeArt.setScale(H.atlasScale);
 
-    const atlas = ArcadeArt.makeAtlas();
+    const atlas = ArcadeArt.makeAtlas();       // the big canvas paint
+    await stage(0.36);
     H.texAtlas = makeTexture(gl, atlas.canvas);
     H.texGlow = makeTexture(gl, ArcadeArt.makeGlow());
-    H.bufs = buildScene(gl, atlas.uv);
+    await stage(0.45);
+    H.bufs = buildScene(gl, atlas.uv);         // hall geometry decode + upload
+    await stage(0.55);
     const street = ArcadeArt.makeStreetAtlas();
+    await stage(0.72);
     H.texStreet = makeTexture(gl, street.canvas);
-    H.bufsStreet = buildStreet(gl, street.uv);
-    registerMaps(gl, H.texAtlas, atlas);
+    H.bufsStreet = buildStreet(gl, street.uv); // street geometry decode + upload
+    await stage(0.84);
+    registerMaps(gl, H.texAtlas, atlas);       // normal + ORM page uploads
     registerMaps(gl, H.texStreet, street);
     ensureCityTexture(gl);
+    await stage(0.94);
     // Baked ONCE, here, off the static buffers. Nothing that casts a shadow
-    // worth having in this hall ever moves.
-    bakeShadows(gl);
+    // worth having in this hall ever moves. A low-tier machine skips the bake
+    // entirely — the maps would cost boot time to make and per-fragment
+    // compares to read, and H.shadow = null is a seam the renderer already had.
+    if (T.shadows) bakeShadows(gl);
+    else H.shadow = null;
     H.builtHallArt = (typeof HallArt !== 'undefined' && HallArt.on() ? 'a' : '-') +
       (typeof HallMaps !== 'undefined' && HallMaps.on() ? 'm' : '-');
 
@@ -5047,12 +5118,18 @@ void main() {
     gl.enable(gl.CULL_FACE);
     gl.clearColor(FOG[0], FOG[1], FOG[2], 1);
 
+    if (ledger) ledger.done(true);
     H.built = true;
     return true;
   }
 
+  // 🎚 The backing store IS the render resolution — the canvas is CSS-stretched
+  // to the container, so dropping this is a free upscale through the browser's
+  // own compositor. dprCap comes from the tier, renderScale from the rung; on a
+  // machine that can pay full price both are 1-ish and nothing changed.
   function resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+    const dpr = Math.min(window.devicePixelRatio || 1, H.dprCap || 1.75)
+      * (H.renderScale || 1);
     const w = (innerWidth * dpr) | 0, hh = (innerHeight * dpr) | 0;
     if (H.canvas.width !== w || H.canvas.height !== hh) {
       H.canvas.width = w;
@@ -5407,49 +5484,66 @@ void main() {
   }
 
   function enter() {
-    if (!H.built && artPending()) {
+    if (H.building) return; // a build is in flight; it finishes the job itself
+    if (!H.built) {
+      // The boot screen stays up for BOTH acts now: the payload downloads AND
+      // the staged build. It used to come down between them, and the build —
+      // one synchronous slab back then — froze the tab with no bar on screen.
       const root = document.getElementById('arcadeHall');
       if (root) bootScreen(root);
-      // Three sources can be the last to settle, so `go` may fire up to three
-      // times — the flag makes the close idempotent. The short hold lets the
-      // bar actually land on 100: cutting away at 91% reads as a crash.
-      const go = () => {
-        if (artPending() || H.bootClosing) return;
-        H.bootClosing = true;
-        setTimeout(() => { H.bootClosing = false; bootScreenDown(); enter(); }, 520);
+      H.building = true;
+      const proceed = () => {
+        build().then((ok) => {
+          // The short hold lets the bar actually land on 100: cutting away at
+          // 91% reads as a crash.
+          setTimeout(() => {
+            H.building = false;
+            bootScreenDown();
+            if (!ok) {
+              // the boot screen shows the hall root; if the hall can't build,
+              // put it back before handing the player to the flat storm
+              if (root && !H.active) root.classList.remove('active');
+              fallbackLaunch();
+              return;
+            }
+            enterNow();
+          }, 380);
+        }).catch((err) => {
+          console.error('Nugget Arcade hall failed to build:', err);
+          H.building = false;
+          bootScreenDown();
+          if (root && !H.active) root.classList.remove('active');
+          fallbackLaunch();
+        });
       };
-      if (typeof HallBoot !== 'undefined') HallBoot.whenAll(go);
-      for (const m of [typeof HallMesh !== 'undefined' && HallMesh,
-        typeof HallArt !== 'undefined' && HallArt,
-        typeof HallMaps !== 'undefined' && HallMaps,
-        typeof HallSky !== 'undefined' && HallSky])
-        if (m && m.whenReady) m.whenReady(go);
+      if (artPending()) {
+        // Three sources can be the last to settle, so `go` may fire up to
+        // three times — the flag makes the build start once.
+        const go = () => {
+          if (artPending() || H.bootGo) return;
+          H.bootGo = true;
+          proceed();
+        };
+        if (typeof HallBoot !== 'undefined') HallBoot.whenAll(go);
+        for (const m of [typeof HallMesh !== 'undefined' && HallMesh,
+          typeof HallArt !== 'undefined' && HallArt,
+          typeof HallMaps !== 'undefined' && HallMaps,
+          typeof HallSky !== 'undefined' && HallSky])
+          if (m && m.whenReady) m.whenReady(go);
+      } else proceed();
       return;
     }
-    bootScreenDown();
-    try {
-      // The boot screen shows the hall root; if the hall can't build, put it
-      // back before handing the player to the flat storm.
-      if (!build()) {
-        const root = document.getElementById('arcadeHall');
-        if (root && !H.active) root.classList.remove('active');
-        fallbackLaunch();
-        return;
-      }
-      // THE GRAND REOPENING: if the Blender sheet finished decoding after the
-      // atlases were baked, re-bake them once — the hall must never keep
-      // procedural paint just because it built too fast. Same for the material
-      // maps: a late HallMaps means every region is sitting on flat normals.
-      const artSig = (typeof HallArt !== 'undefined' && HallArt.on() ? 'a' : '-') +
-        (typeof HallMaps !== 'undefined' && HallMaps.on() ? 'm' : '-');
-      if (H.builtHallArt !== artSig) rebakeAtlases();
-    } catch (err) {
-      console.error('Nugget Arcade hall failed to build:', err);
-      const root = document.getElementById('arcadeHall');
-      if (root && !H.active) root.classList.remove('active');
-      fallbackLaunch();
-      return;
-    }
+    // THE GRAND REOPENING: if the Blender sheet finished decoding after the
+    // atlases were baked, re-bake them once — the hall must never keep
+    // procedural paint just because it built too fast. Same for the material
+    // maps: a late HallMaps means every region is sitting on flat normals.
+    const artSig = (typeof HallArt !== 'undefined' && HallArt.on() ? 'a' : '-') +
+      (typeof HallMaps !== 'undefined' && HallMaps.on() ? 'm' : '-');
+    if (H.builtHallArt !== artSig) rebakeAtlases();
+    enterNow();
+  }
+
+  function enterNow() {
     H.active = true;
     H.suspended = false;
     H.state = 'intro';
@@ -5851,9 +5945,16 @@ void main() {
   }
 
   function updateAttracts() {
+    // 🎚 Ten live CRTs, none of them visible from the street — repainting and
+    // re-uploading three 256×192 textures a frame out there was 180 uploads a
+    // second pointed at a wall. And a struggling machine repaints one, not
+    // three: a slower attract loop on a screen the player is walking past
+    // beats three more milliseconds off every frame.
+    if (H.cam.z > 1.5) return;
     const games = ArcadeArt.GAMES;
     const gl = H.gl;
-    for (let k = 0; k < 3; k++) {
+    const per = (H.rung || 0) >= 3 ? 1 : 3;
+    for (let k = 0; k < per; k++) {
       const game = games[H.attractIdx % games.length];
       H.attractIdx++;
       const c = H.screenCv[game.mode];
@@ -6027,7 +6128,9 @@ void main() {
     // 0) the sky UNDER the floor, painted before anything else. The mirror
     //    pass and the translucent floor then leave 13% of it showing, which is
     //    the whole reason the wet sidewalk now has a sky in it.
-    drawSky(basis, -1, true);
+    // 🎚 no mirror pass, no under-floor sky — nothing would show through.
+    const mirrorOn = H.mirror !== false;
+    if (mirrorOn) drawSky(basis, -1, true);
 
     gl.useProgram(H.progLit);
     for (const k of ['aPos', 'aNormal', 'aUV', 'aExtra']) gl.enableVertexAttribArray(H.attr[k]);
@@ -6083,15 +6186,22 @@ void main() {
       }
       const sh = H.shadow && H.shadows !== false;
       gl.uniform1f(H.uni.uShadowAmt, sh ? SHADOW_AMT : 0);
+      // the shadow samplers are ALWAYS pointed at units 3/4 and units 3/4 are
+      // ALWAYS bound to a depth texture — the real maps or the 1×1 dummy —
+      // because a sampler2DShadow left on unit 0 shares it with the albedo
+      // sampler2D and a strict driver refuses every draw (see H.texFlatD).
+      gl.uniform1i(H.uni.uShadowH, 3);
+      gl.uniform1i(H.uni.uShadowS, 4);
       if (sh) {
         gl.uniformMatrix4fv(H.uni.uShadowMatH, false, H.shadow[0].mat);
         gl.uniformMatrix4fv(H.uni.uShadowMatS, false, H.shadow[1].mat);
-        gl.uniform1i(H.uni.uShadowH, 3);
-        gl.uniform1i(H.uni.uShadowS, 4);
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, H.shadow[0].tex);
         gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, H.shadow[1].tex);
-        gl.activeTexture(gl.TEXTURE0);
+      } else {
+        gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, H.texFlatD);
+        gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, H.texFlatD);
       }
+      gl.activeTexture(gl.TEXTURE0);
     }
     useTex(H.texAtlas);
 
@@ -6100,7 +6210,9 @@ void main() {
     // call, and it means the hall, the street and the pier stop competing for
     // the same eight slots — each place is simply lit by its own fixtures.
     const sl = signLevel(H.t);
-    const nLights = H.pbr ? MAX_LIGHTS : 8;
+    // 🎚 the rung can halve the loop on a machine that pays per fragment for it
+    const nLights = H.pbr ? Math.min(H.maxLights || MAX_LIGHTS, MAX_LIGHTS) : 8;
+    if (H.pbr) gl.uniform1i(H.uni.uNumLights, nLights);
     const cx = H.cam.x, cy = H.cam.y, cz = H.cam.z;
     // Rank by what a fixture is WORTH from here, not by how close it is. With
     // sixty-odd lights in the room, pure distance let three dim control-panel
@@ -6281,33 +6393,7 @@ void main() {
       gl.uniform1f(H.uni.uGlass, 0);
     }
 
-    // 🕹 the crane machines' moving halves (§17). One buffer each, drawn once
-    // per cabinet, so the two machines can be at different points in the cycle
-    // — two claws sweeping in lockstep would read as one machine seen twice.
-    function drawClaw(pre, opts) {
-      const C = H.claw;
-      if (!C) return;
-      for (let i = 0; i < C.at.length; i++) {
-        const [cx, cz] = C.at[i];
-        // ~7.4s per sweep. The first pass ran at 0.42 (a 15-second cycle) and
-        // motion.js caught what that really meant: a 9s window could not even
-        // contain one period. A machine moving that slowly is not reading as a
-        // machine moving, it is reading as a still frame you happened to catch.
-        const t = H.t * 0.85 + i * 2.31;             // the offset is the whole point
-        const travel = Math.sin(t) * 0.30;           // along the gantry, in x
-        // the grab lags the trolley and swings — a mass on a cable does not
-        // arrive when the thing carrying it does
-        const swing = -Math.cos(t) * 0.165;
-        // published for blender/tools/motion.js, which must read the value the
-        // renderer ACTUALLY used: a channel that recomputes the formula would
-        // keep sweeping happily while the real draw was frozen.
-        if (i === 0) { C.travel = travel; C.swing = swing; }
-        const at = mTrans(cx + travel, 0, cz);
-        drawLit(C.trolley, pre ? mMul(pre, at) : at, opts);
-        const g = mMul(at, aboutPivot(C.pivot, mRotZ(swing)));
-        drawLit(C.grab, pre ? mMul(pre, g) : g, opts);
-      }
-    }
+    // (the crane machines and their drawClaw() left with THE CLEARING)
 
     // ⚓ she rides the swell (§21). Roll dominates, pitch is a third of it and
     // out of phase, and the heave is small — a moored boat pivots about her own
@@ -6357,36 +6443,40 @@ void main() {
       useTex(H.texAtlas);
     }
 
-    // 1) mirrored world beneath the floor plane
-    gl.frontFace(gl.CW);
-    drawLit(H.bufs.static, MIR, { mirror: 0.33 });
-    drawLit(H.bufs.sign, MIR, { mirror: 0.33, boost: signBoost });
-    drawLit(H.bufs.doorL, mMul(MIR, dl), { mirror: 0.33 });
-    drawLit(H.bufs.doorR, mMul(MIR, dr), { mirror: 0.33 });
-    drawLit(H.bufs.disco, mMul(MIR, DD), { mirror: 0.33 });
-    drawBoard(MIR, { mirror: 0.38 });
-    drawScreens(MIR, { mirror: 0.38 });
-    // The street set (and its regulars) reflect in the wet sidewalk AND, since
-    // THE WET ROAD, in the road. 0.52 and not the hall's 0.33: this is asphalt
-    // under a rain film at night, which is the most reflective thing in the
-    // game — a neon sign in a wet road comes back nearly as bright as the sign.
-    // The hall's own carpet keeps 0.33; it is carpet.
-    useTex(H.texStreet);
-    drawLit(H.bufsStreet.solid, MIR, { mirror: 0.52 });
-    useTex(H.texAtlas);
-    drawNpcs(MIR, { mirror: 0.52 });
-    drawClaw(MIR, { mirror: 0.33 });   // they stand on the carpet, not the road
-    gl.frontFace(gl.CCW);
+    // 1) mirrored world beneath the floor plane.
+    // 🎚 The mirror pass is the whole world drawn a second time, and it is the
+    // single biggest thing a struggling GPU can be excused from — rung 4 down
+    // skips it and draws the floors opaque instead (a dry night, not a hole).
+    if (mirrorOn) {
+      gl.frontFace(gl.CW);
+      drawLit(H.bufs.static, MIR, { mirror: 0.33 });
+      drawLit(H.bufs.sign, MIR, { mirror: 0.33, boost: signBoost });
+      drawLit(H.bufs.doorL, mMul(MIR, dl), { mirror: 0.33 });
+      drawLit(H.bufs.doorR, mMul(MIR, dr), { mirror: 0.33 });
+      drawLit(H.bufs.disco, mMul(MIR, DD), { mirror: 0.33 });
+      drawBoard(MIR, { mirror: 0.38 });
+      drawScreens(MIR, { mirror: 0.38 });
+      // The street set (and its regulars) reflect in the wet sidewalk AND, since
+      // THE WET ROAD, in the road. 0.52 and not the hall's 0.33: this is asphalt
+      // under a rain film at night, which is the most reflective thing in the
+      // game — a neon sign in a wet road comes back nearly as bright as the sign.
+      // The hall's own carpet keeps 0.33; it is carpet.
+      useTex(H.texStreet);
+      drawLit(H.bufsStreet.solid, MIR, { mirror: 0.52 });
+      useTex(H.texAtlas);
+      drawNpcs(MIR, { mirror: 0.52 });
+      gl.frontFace(gl.CCW);
+    }
 
     // 2) the floor itself, slightly translucent so the reflection ghosts through
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    drawLit(H.bufs.floor, I, { alpha: 0.87 });
+    drawLit(H.bufs.floor, I, { alpha: mirrorOn ? 0.87 : 1 });
     // the ROAD is a floor too — same slot, its own atlas. Slightly more
     // transparent than the carpet: wet asphalt at night is closer to a mirror
     // than a hall floor is, and this is the surface the whole street stands on.
     useTex(H.texStreet);
-    drawLit(H.bufsStreet.floor, I, { alpha: 0.74 });
+    drawLit(H.bufsStreet.floor, I, { alpha: mirrorOn ? 0.74 : 1 });
     useTex(H.texAtlas);
     gl.disable(gl.BLEND);
 
@@ -6404,7 +6494,6 @@ void main() {
     drawBoat(null, {});  // ⚓ moored off the pier head, riding the swell
     useTex(H.texAtlas);
     drawNpcs(null, {}); // the regulars: real geometry now, lit like the room
-    drawClaw(null, {});  // and the cranes' trolleys, sweeping their gantries
     // 🪟 and the glass over the top of all of it, additive, last (§20).
     // After the opaque world so there is something behind it to see, and
     // before the SKY quad so a pane cannot brighten empty sky.
@@ -6616,18 +6705,33 @@ void main() {
   //     garbage collection, not a verdict.
   // postSetup keys its cache on the requested count, so flipping H.msaaWant is
   // the whole mechanism — the targets rebuild on the next frame by themselves.
+  //
+  // 🎚 THE HOUSE CALL taught it the rest of the ladder: after the antialiasing
+  // is gone it lowers the render resolution, then drops the mirror pass, then
+  // halves the light loop — every rung a seam the harness already had. And it
+  // WRITES ITS LANDING DOWN (nugHallTierAuto), so a machine that had to fight
+  // its way down this ladder never boots at the top of it again.
   function governor(dt) {
-    if (H.msaaAuto === false || H.msaaWant < 2 || !H.post || !H.post.ms) return;
+    if (H.msaaAuto === false || H.rung >= LADDER.length - 1) return;
     if (H.govSkip < 180) { H.govSkip++; return; }
     H.govAcc += dt; H.govN++;
     if (H.govN < 120) return;
     const avg = H.govAcc / H.govN;
     H.govAcc = 0; H.govN = 0;
     if (avg > 1 / 48) {
-      H.msaaWant = H.msaaWant > 2 ? 2 : 0;
+      applyRung(H.rung + 1);
       H.govSkip = 0;
-      console.info('arcade: ' + (1 / avg).toFixed(0) + 'fps — antialiasing down to '
-        + (H.msaaWant ? H.msaaWant + 'x' : 'off'));
+      const r = LADDER[H.rung];
+      console.info('arcade: ' + (1 / avg).toFixed(0) + 'fps — quality down to rung '
+        + H.rung + ' (msaa ' + (r.msaa || 'off') + ', scale ' + r.scale
+        + (r.mirror ? '' : ', no mirror') + ')');
+      try {
+        // only an OVERRIDE-free landing is a verdict worth keeping
+        if (!localStorage.getItem('nugHallQuality')) {
+          if (H.rung >= 4) localStorage.setItem('nugHallTierAuto', 'low');
+          else if (H.rung >= 2) localStorage.setItem('nugHallTierAuto', 'med');
+        }
+      } catch (e) { /* private mode — decide again next visit */ }
     }
   }
 
@@ -6686,10 +6790,11 @@ void main() {
       s.vy -= 3.2 * dt;
     }
 
-    // live scoreboard: redraw ~6×/sec, cycling through the games
+    // live scoreboard: redraw ~6×/sec, cycling through the games — 2×/sec from
+    // the street, where the board is a lit rectangle ten metres past the doors
     H.lbTimer -= dt;
     if (H.lbTimer <= 0) {
-      H.lbTimer = 0.16;
+      H.lbTimer = H.cam.z > 1.5 ? 0.5 : 0.16;
       const games = ArcadeArt.GAMES.concat(ArcadeArt.STREET_GAMES || []);
       const game = games[Math.floor(H.t / 4.5) % games.length];
       const g2 = H.boardCv.getContext('2d');
@@ -7107,6 +7212,21 @@ void main() {
     enter,
     exit,
     get active() { return H.active; },
+    // 🎚 THE HOUSE CALL: the player's quality override. 'low'|'med'|'high'
+    // persists and beats the auto tier on the next hall build; 'auto' clears
+    // both the override and the governor's remembered verdict. Takes effect on
+    // the next enter after a reload (the atlas density is a build-time choice).
+    quality(q) {
+      try {
+        if (q === 'auto') {
+          localStorage.removeItem('nugHallQuality');
+          localStorage.removeItem('nugHallTierAuto');
+        } else if (q === 'low' || q === 'med' || q === 'high') {
+          localStorage.setItem('nugHallQuality', q);
+        }
+        return localStorage.getItem('nugHallQuality') || 'auto';
+      } catch (e) { return 'auto'; }
+    },
     _H: H, // dev hook: lets test drivers position the camera deterministically
     _TUNE: TUNE, // dev hook: the float-pipeline dials, sweepable between frames
     // dev hook: motion.js watches the regulars' idle here. NPCS is a const
