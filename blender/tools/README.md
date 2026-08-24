@@ -41,6 +41,7 @@ about either game.
 | `brawlharness.js` | The rig. Pins the dice (`brawlDebug({seed})` → mulberry32), freezes the clock, and reads the CANVAS BUFFER at world resolution instead of screenshotting the page. |
 | `brawlshoot.js` | *Did the picture get better?* 21 scenes — twelve stages, four combat situations, five screens — with the hall's columns plus **BAND** (the belt band alone) and **flat** (adjacent pixel pairs that are IDENTICAL). |
 | `brawlpose.js` | *Does it read in MOTION?* `--seq punch\|upper\|ko\|walk\|lane\|hurt\|clucker` steps the REAL `stepBrawl` at a fixed 1/60 and dumps the frames, with a per-frame state log beside them. |
+| `fortuneshoot.js` | 🎡 REEL OF FORTUNE's shooter — the kit's THIRD harness, self-contained. 9 scenes driven through the REAL `fortuneDebug` handlers (land/guess/setPuzzle + the `set`/`freeze` seams), canvas-buffer capture, seeded dice, `--page` for the DOM banner/HUD composition, `FORTUNE_WORLD=std\|big` viewport profiles, WHEEL and BOARD region columns. Tags start with `f-`. |
 
 ```bash
 node blender/tools/brawlshoot.js --tag b-base

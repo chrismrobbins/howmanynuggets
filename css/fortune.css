@@ -23,24 +23,33 @@ body.fortune-mode #fortuneWorld { display: block; }
   cursor: pointer;
 }
 
-/* big-moment banner (FEVER / JACKPOT / THE HOUSE WINS) */
+/* big-moment banner (BANKRUPT / SOLVED / THE STORM JACKPOT).
+   It sits at 54% — over the podium column, NEVER over the puzzle board:
+   at 16% it landed exactly on the solved phrase, which is the one thing
+   the player wants to read at that moment. And it's a lit sign now, not
+   loose text — the sub-line was unreadable over the tiles. */
 .fortune-banner {
   position: absolute;
   left: 50%;
-  top: 16%;
-  transform: translate(-50%, -8px);
+  top: 54%;
+  transform: translate(-50%, -10px) scale(0.96);
   text-align: center;
   font-family: 'Courier New', monospace;
   color: #ffe9a0;
   text-shadow: 0 0 14px rgba(255, 210, 58, 0.55), 0 2px 0 #000;
+  background: rgba(10, 8, 22, 0.88);
+  border: 1px solid rgba(216, 178, 58, 0.65);
+  border-radius: 10px;
+  padding: 10px 26px 12px;
+  box-shadow: 0 0 0 3px rgba(10, 8, 22, 0.5), 0 0 34px rgba(255, 210, 58, 0.18), 0 10px 24px rgba(0, 0, 0, 0.55);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
-.fortune-banner.show { opacity: 1; transform: translate(-50%, 0); }
+.fortune-banner.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
 .fortune-banner b {
   display: block;
-  font-size: clamp(26px, 5vw, 44px);
+  font-size: clamp(24px, 4.2vw, 40px);
   letter-spacing: 2px;
 }
 .fortune-banner span {
@@ -49,4 +58,11 @@ body.fortune-mode #fortuneWorld { display: block; }
   font-size: clamp(12px, 1.8vw, 16px);
   color: #bfc6ff;
   text-shadow: 0 1px 0 #000;
+}
+/* the jackpot wears the swirl's colours */
+.fortune-banner.jack {
+  color: #9df2ff;
+  border-color: rgba(38, 224, 255, 0.7);
+  text-shadow: 0 0 18px rgba(38, 224, 255, 0.6), 0 2px 0 #000;
+  box-shadow: 0 0 0 3px rgba(10, 8, 22, 0.5), 0 0 44px rgba(38, 224, 255, 0.28), 0 10px 24px rgba(0, 0, 0, 0.55);
 }

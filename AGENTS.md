@@ -179,6 +179,36 @@ already bitten someone.
 > board — the wheel remembers). Verified headless: bank math, vowel half-pay,
 > token loss, bankrupt, out-of-turns forfeit, solve bonus, jackpot flag +
 > RIGGED unlock, banking, hall launch/return, zero atlas overflow.
+>
+> **2026-08-24 (same day) — 🎪 THE SET DRESSING (fortune graphics pass):** the
+> shipped build was flat fills on a void, and the baseline shots caught two
+> real layout faults at the 4K world shape (scale = floor(vh/230) → 427×240):
+> the charge power meter drew at cy+r+6 ≈ 243 in a 240-tall world — OFFSCREEN
+> exactly when the player is told "release to spin!" — and the prompt line
+> overprinted the second letter row. The DOM banner at top:16% also landed ON
+> the solved phrase. The rebuild: a cached studio SET (curtains, valance,
+> beams, glossy stage floor), a real TRILON board (14-col grid with green
+> filler tiles + white letter tiles like the actual show, staggered flip
+> animation on reveals, category lozenge, solve shimmer), the wheel as a
+> 3×-supersampled CACHED FACE rotated with one drawImage (jewel wedge
+> palette, radial shading, pegs, stacked rim-inward labels, hand-drawn skull
+> + glowing swirl — 10px emoji is mush), static rim with 16 chasing bulbs, a
+> flapper that KICKS off pegs (deflection derived from wheel angle — still
+> zero RNG), and the charge meter reborn as an arc gauge + bulb-fill ON the
+> rim (can't be offscreen, it IS the wheel). Feel: BANKRUPT shakes the studio
+> + red flash, solve sweeps a sheen over the tiles, jackpot rolls cyan rings
+> out of the wheel, confetti is rotated fluttering paper from corner cannons.
+> Banner is a lit sign at 54% now (never over the board) with a `.jack` cyan
+> variant; it clears the flash toast (they overlapped). Tokens/skulls are
+> DRAWN (emoji at 9px monospace renders as blobs headless). Measured with the
+> kit's THIRD harness `blender/tools/fortuneshoot.js` (9 scenes × 2 world
+> profiles, reads the canvas buffer, seeds Math.random, uses the new
+> `fortuneDebug.set/freeze` seams; celebration scenes re-pin t just after
+> their FX stamp or the party is over before the shutter): wheel-region flat
+> 56.8 → 8.7, frame flat 46.5 → 29.0, sd 33.3 → 57.0. Live-play check: real
+> space-hold spin at 61fps with motion ghosts on. KNOWN GAP: portrait phones
+> (world W ≈ 130) were degenerate before the pass and still are — the letter
+> tray needs a reflow, not smaller fonts.
 > **2026-08-08 (later the same night) — 🕯️ THE UNDERCROFT (game 15, mode
 > `croft`, js/croft.js):** the FIFTH street game, and the first built AROUND
 > the pick-1-of-3 deal — a roguelite crawl under Fort Nugget: single-screen
