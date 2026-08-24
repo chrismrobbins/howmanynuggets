@@ -2672,7 +2672,10 @@ void main() {
     // room (Beau's prod screenshot: "NUGGET" peeking over a grey slab). Raised
     // to crown the header instead — same aspect, sized to the band between the
     // header top (3.20) and the ceiling.
-    SGN.quad([1.8, 3.26, -0.06], [-1.8, 3.26, -0.06], [-1.8, 4.16, -0.06], [1.8, 4.16, -0.06], uv.sign, { e: 0.72 });
+    // …and it SITS on the header (bottom at 3.21, header top 3.20) — floated
+    // at 3.26 it read as a detached pane from oblique angles, a sign with a
+    // visible air gap and nothing holding it up.
+    SGN.quad([1.8, 3.21, -0.06], [-1.8, 3.21, -0.06], [-1.8, 4.11, -0.06], [1.8, 4.11, -0.06], uv.sign, { e: 0.72 });
     for (const gx of [-2.2, 0, 2.2])
       H.glows.push({ p: [gx, 3.6, 0.4], c: [1, 0.75, 0.3], s: 2.4, a: 0.2, k: 'sign' });
     H.glows.push({ p: [0, 3.3, -0.4], c: [1, 0.4, 0.6], s: 1.8, a: 0.12, k: 'sign' });
@@ -6065,7 +6068,13 @@ void main() {
   }
 
   function doorModels() {
-    const ang = easeInOut(H.doorsOpen) * 1.85;
+    // 87°, not the 106° that shipped. The extra tuck-back swung each leaf
+    // straight THROUGH the vestibule jamb (leaf reach x 1.61 vs jamb face
+    // 1.33) — invisible while jamb and door were both pale wainscot, a door
+    // skewered through a metal pillar the moment the portal went brushed
+    // steel (Beau's screenshot). At 1.52 the leaf tops out at x 1.28 through
+    // the WHOLE sweep: open doors flank the doorway and touch nothing.
+    const ang = easeInOut(H.doorsOpen) * 1.52;
     return [
       mMul(mTrans(-1.25, 0, 0), mRotY(ang)),
       mMul(mTrans(1.25, 0, 0), mRotY(-ang)),
