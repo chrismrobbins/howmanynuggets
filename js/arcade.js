@@ -142,9 +142,12 @@ const NuggetArcade = (() => {
     ['catch', 7.02, -5.5, -Math.PI / 2],
     ['run', 7.02, -9.5, -Math.PI / 2],
     ['sim', 7.02, -13.5, -Math.PI / 2],
-    ['brawl', -7.0, -16.8, Math.PI / 2],
+    // 👑 THE TWIN THRONES (2026-08-24, Beau's call): the back wall carries the
+    // two key games now. Brawlers left its west-wall spot (z -16.8) to stand
+    // beside Knight — both deluxe, torch poles outboard + one shared centre.
+    ['brawl', 1.75, -18.7, 0],
     ['ranch', 7.02, -2.2, -Math.PI / 2], // front of the right wall, ahead of Catch
-    ['knight', 0, -18.7, 0],
+    ['knight', -1.75, -18.7, 0],
     ['kart', -7.02, -2.2, Math.PI / 2], // the 10th cabinet — the reserved spot, delivered
   ];
 
@@ -1757,6 +1760,11 @@ void main() {
     xf = xf || {};
     const px = xf.x || 0, py = xf.y || 0, pz = xf.z || 0;
     const yaw = xf.yaw || 0, sc = xf.s == null ? 1 : xf.s;
+    // per-instance emissive multiplier on the mesh's baked material emissive —
+    // the dial that lets a call site calm a glowing face down (a backlit
+    // poster whose lettering blooms into illegibility) without re-exporting
+    // the model from Blender.
+    const em = xf.emis == null ? 1 : xf.emis;
     // per-axis scale: the deluxe Knight cabinet is 1.55 x 1.18 x 1.15
     const sx = xf.sx == null ? sc : xf.sx;
     const sy = xf.sy == null ? sc : xf.sy;
@@ -1783,7 +1791,7 @@ void main() {
         rc[1] + (rc[3] - rc[1]) * (M.uv[i * 2 + 1] / 65535),
         // baked AO rides in the tint channel — the one per-vertex float this
         // format already had and never used for anything per-vertex.
-        mm[1], mm[2] * (M.ao[i] / 255)
+        mm[1] * em, mm[2] * (M.ao[i] / 255)
       );
     }
     for (let i = 0; i < M.idx.length; i++) this.i.push(base + M.idx[i]);
@@ -2244,7 +2252,13 @@ void main() {
 
       // The vestibule: what you actually walk under on the way in. It frames
       // the doorway from the INSIDE, which is where the intro dolly looks.
-      B.model('vestibule', uv, { x: 0, z: -0.36 });
+      // remap wainscot -> metal: the header shipped wearing the wainscot
+      // region, and when THE WEAR dirtied the wainscot its painted scuffs and
+      // outlet marks got stretched across a 3.1m header — two big smeared
+      // rectangles over the door (Beau's prod screenshot). Brushed metal
+      // matches the lip and the door frames, and carries no baked features
+      // to smear.
+      B.model('vestibule', uv, { x: 0, z: -0.36, remap: { wainscot: 'metal' } });
 
       if (!ribs) console.warn('arcade: no ceiling ribs — running the flat ceiling');
     }
@@ -2256,6 +2270,11 @@ void main() {
       // applied to wall art, so ONE model wears all four poster regions. The
       // artwork itself is untouched; what the frame adds is an EDGE.
       if (B.model('posterFrame', uv, {
+        // emis 0.5: at the baked 0.26 the lettering rode just over the bloom
+        // threshold across its whole area — a wide soft halo that made PLAY /
+        // DIP / REPEAT unreadable from the aisle (Beau, from prod). Halving it
+        // keeps the backlight and gives the words their edges back.
+        emis: 0.5,
         x: wallSide < 0 ? -X : X, y: y, z: z,
         // -PI/2 for the WEST wall, not +PI/2. Worked out from the transform,
         // not guessed: hall = (bx, bz, -by), so a module built with its bulk at
@@ -2320,9 +2339,17 @@ void main() {
       const WALL_ART_Z = [[-13.9, -17.7]]; // scoreboard + phrase band, with margin
       const clearOfWallArt = (z) =>
         !WALL_ART_Z.some(([hi, lo]) => z <= hi && z >= lo);
+      // …and the WALL VENTS, which turned out to sit 5cm off the pier grid on
+      // BOTH walls (vent -4.3 vs pier -4.25 west, vent -12.7 vs pier -12.75
+      // east — the vents predate the grid). Beau's call from prod: the pier
+      // loses. Keep this list in step with the wallVent placements below.
+      const VENT_Z = { west: [-4.3, -9.5], east: [-12.7] };
+      const clearOfVents = (x, z) =>
+        !(VENT_Z[x < 0 ? 'west' : 'east'] || []).some((v) => Math.abs(z - v) < 0.65);
       const pierAt = (x, z, yaw) => {
         if (!clearOfCabinet(x, z)) return;
-        if (Math.abs(Math.abs(x) - X) < 0.5 && !clearOfWallArt(z)) return;
+        if (Math.abs(Math.abs(x) - X) < 0.5
+          && (!clearOfWallArt(z) || !clearOfVents(x, z))) return;
         if (!B.model('wallPier', uv, { x: x, z: z, yaw: yaw, sy: CH })) return;
         piers++;
         B.model('wallCap', uv, { x: x, y: CH - 0.16, z: z, yaw: yaw });
@@ -2346,7 +2373,7 @@ void main() {
       // and something ON the wall the jukebox stands against: 3.15m of unbroken
       // painted panel directly above the best-modelled prop in the room.
       if (B.model('posterFrame', uv, {
-        x: -4.8, y: 1.98, z: 0, yaw: 0, remap: { $POSTER: 'posterPlay' },
+        x: -4.8, y: 1.98, z: 0, yaw: 0, emis: 0.5, remap: { $POSTER: 'posterPlay' },
       })) {
         LIGHTS.push({ p: [-4.8, 2.68, -0.35], c: [0.30, 0.26, 0.34], k: 'marq' });
       }
@@ -2408,7 +2435,9 @@ void main() {
     SGN.quadV(
       [[X - 0.03, 3.42, -17.0], [X - 0.03, 3.42, -14.6], [X - 0.03, 4.02, -14.6], [X - 0.03, 4.02, -17.0]],
       [[uv.highscores[0], uv.highscores[3]], [uv.highscores[2], uv.highscores[3]], [uv.highscores[2], uv.highscores[1]], [uv.highscores[0], uv.highscores[1]]],
-      { e: 1 }
+      // e 0.62, not 1: at full emissive the crown bloomed into green blobs —
+      // "HIGH SCORES" was a shape, not words (same complaint as the posters).
+      { e: 0.62 }
     );
     H.glows.push({ p: [-X + 0.2, 2.9, -15.8], c: [1, 0.18, 0.63], s: 1.6, a: 0.14, k: 'neon' });
     H.glows.push({ p: [X - 0.2, 3.7, -15.8], c: [0.22, 1, 0.48], s: 1.6, a: 0.14, k: 'neon' });
@@ -2643,7 +2672,7 @@ void main() {
     // room (Beau's prod screenshot: "NUGGET" peeking over a grey slab). Raised
     // to crown the header instead — same aspect, sized to the band between the
     // header top (3.20) and the ceiling.
-    SGN.quad([1.8, 3.26, -0.06], [-1.8, 3.26, -0.06], [-1.8, 4.16, -0.06], [1.8, 4.16, -0.06], uv.sign, { e: 1 });
+    SGN.quad([1.8, 3.26, -0.06], [-1.8, 3.26, -0.06], [-1.8, 4.16, -0.06], [1.8, 4.16, -0.06], uv.sign, { e: 0.72 });
     for (const gx of [-2.2, 0, 2.2])
       H.glows.push({ p: [gx, 3.6, 0.4], c: [1, 0.75, 0.3], s: 2.4, a: 0.2, k: 'sign' });
     H.glows.push({ p: [0, 3.3, -0.4], c: [1, 0.4, 0.6], s: 1.8, a: 0.12, k: 'sign' });
@@ -2651,7 +2680,7 @@ void main() {
     // cabinets
     for (const [mode, px, pz, yaw] of PLACEMENT) {
       const game = ArcadeArt.GAMES.find((g) => g.mode === mode);
-      const deluxe = mode === 'knight';
+      const deluxe = mode === 'knight' || mode === 'brawl';
       const cab = buildCabinet(
         B, uv, game, px, pz, yaw,
         deluxe ? 1.55 : 1, deluxe ? 1.18 : 1, deluxe ? 1.15 : 1
@@ -2687,8 +2716,13 @@ void main() {
       const c1 = hexRGB(game.c1);
       H.glows.push({ p: cab.marquee, c: c1, s: deluxe ? 1.7 : 1.1, a: deluxe ? 0.22 : 0.16, k: 'marq' });
       if (deluxe) {
-        // torch poles flanking the throne: dark shaft, glowing ember tip
-        for (const dx of [-1.45, 1.45]) {
+        // torch poles flanking the TWIN thrones: one outboard of each cabinet
+        // plus ONE shared centre pole (built with knight so it exists exactly
+        // once, at x = 0). A pole per side per cabinet put two shafts 0.6m
+        // apart dead centre of the spine, where click-to-walk ends.
+        const dxs = px < 0 ? [-1.15] : [1.15];
+        if (mode === 'knight') dxs.push(-px); // the shared centre pole (x = 0)
+        for (const dx of dxs) {
           B.quad(
             [px + dx - 0.045, 0.2, pz + 0.3], [px + dx + 0.045, 0.2, pz + 0.3],
             [px + dx + 0.045, 2.05, pz + 0.3], [px + dx - 0.045, 2.05, pz + 0.3],
@@ -4738,7 +4772,7 @@ void main() {
       const g = byMode[mode];
       if (!g) continue;
       const fx = Math.sin(yaw), fz = Math.cos(yaw);   // the face it looks out of
-      const s = mode === 'knight' ? 1.18 : 1;         // the deluxe cabinet is bigger
+      const s = (mode === 'knight' || mode === 'brawl') ? 1.18 : 1; // the deluxe cabinets are bigger
       const a = hexRgb(g.c1), b = hexRgb(g.c2);
       const mix2 = (k) => (a[k] + b[k]) * 0.5;
       // NUGGET CATCH is a taped-off crime scene. Its marquee is dark and has
