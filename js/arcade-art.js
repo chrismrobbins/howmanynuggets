@@ -36,6 +36,10 @@ const ArcadeArt = (() => {
     // and a slot machine is its own furniture anyway. Face art lives on the
     // street page (fortuneFace); scoreboard + leaderboards ride this entry.
     { mode: 'fortune', title: 'REEL OF FORTUNE', icon: '🎡', c1: '#ffd23a', c2: '#ff2fa0', tag: 'THE HOUSE KNOWS THE WORDS' },
+    // game 17 — the RC battlebot pit under the Grease Garage (js/bots.js).
+    // Entry is the half-raised garage shutter on the street: a monitor showing
+    // the arena feed and a transmitter on a stool (botsFace, street page).
+    { mode: 'bots', title: 'BATTEREDBOTS', icon: '🤖', c1: '#f0b03a', c2: '#e63b2e', tag: 'LAST BOT ROLLING' },
   ];
 
   const NEON = ['#ff2fa0', '#26e0ff', '#ffe23a', '#7c4dff', '#39ff7a'];
@@ -1549,6 +1553,8 @@ const ArcadeArt = (() => {
     alloc('cakeSide', 96, 64, pCakeSide);
     // 🎰 game 16 — the slot machine's face (see the note on STREET_GAMES)
     alloc('fortuneFace', 128, 224, pFortuneFace);
+    // 🤖 game 17 — the garage's pit-side monitor + CLUCKED METAL sign (BatteredBots)
+    alloc('botsFace', 128, 192, pBotsFace);
     const SW2 = {
       iron: '#3a4256', wood: '#6d5426', woodDark: '#42320e', red: '#e8412c',
       amber: '#ffb020', curb: '#3c3c46', black: '#0a0a12', white: '#f4f0e6',
@@ -1856,6 +1862,68 @@ const ArcadeArt = (() => {
   // the big wedge wheel mid-face, a mini puzzle board below it. Text draws at
   // runtime like every identity mark in the hall, so it stays crisp at any
   // atlas scale. §5c: nothing here exceeds ~200 luma — the marquee runs hot.
+  // 🤖 BATTEREDBOTS — the walk-up at the Grease Garage: a bracket-mounted CRT
+  // showing the pit's overhead feed (tire ring, drain, three bots, a spark),
+  // a CLUCKED METAL sign strip on top, and a transmitter on the stool below.
+  // The top fifth is the sign (re-drawn hotter by a second quad); the monitor
+  // glass gets the 'crt' glow sprite in arcade.js. Nothing over ~190 luma.
+  function pBotsFace(g, w, h) {
+    // bracket + housing
+    g.fillStyle = '#1a1d22'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#2b3037'; g.fillRect(4, 4, w - 8, h - 8);
+    // sign strip (top 20%)
+    g.fillStyle = '#0e0f12'; g.fillRect(6, 6, w - 12, h * 0.2 - 8);
+    // hazard stripe under the sign
+    for (let x = 6; x < w - 6; x += 12) {
+      g.fillStyle = (x / 12) % 2 ? '#c98a1e' : '#151515';
+      g.fillRect(x, h * 0.2 - 6, 12, 4);
+    }
+    g.textAlign = 'center';
+    g.fillStyle = '#e0a52e';
+    g.font = '900 15px Impact, Haettenschweiler, sans-serif';
+    g.fillText('CLUCKED', w / 2, h * 0.085);
+    g.fillStyle = '#d9d2c6';
+    g.fillText('METAL', w / 2, h * 0.16);
+    // the monitor: bezel, then the feed
+    const mx = 10, my = h * 0.24, mw = w - 20, mh = h * 0.46;
+    g.fillStyle = '#0b0c0f'; g.fillRect(mx - 3, my - 3, mw + 6, mh + 6);
+    g.fillStyle = '#23262c'; g.fillRect(mx, my, mw, mh);            // concrete pit
+    g.strokeStyle = '#3a3f47'; g.lineWidth = 1;
+    for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(mx + (mw * i) / 4, my); g.lineTo(mx + (mw * i) / 4, my + mh); g.stroke(); }
+    // tire wall ring
+    g.strokeStyle = '#121316'; g.lineWidth = 5; g.strokeRect(mx + 8, my + 8, mw - 16, mh - 16);
+    g.strokeStyle = '#3e434a'; g.lineWidth = 1; g.strokeRect(mx + 8, my + 8, mw - 16, mh - 16);
+    // the drain, dead center
+    g.fillStyle = '#0a0b0d'; g.beginPath(); g.arc(mx + mw / 2, my + mh / 2, 7, 0, 7); g.fill();
+    g.strokeStyle = '#4a5058'; g.lineWidth = 1;
+    for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(mx + mw / 2 - 6, my + mh / 2 + i * 3); g.lineTo(mx + mw / 2 + 6, my + mh / 2 + i * 3); g.stroke(); }
+    // three bots (sauce colours), one spark
+    const bots = [[0.28, 0.35, '#e63b2e'], [0.7, 0.62, '#f2b134'], [0.62, 0.3, '#e8ecf0']];
+    for (const [bx, by, col] of bots) {
+      const x = mx + mw * bx, y = my + mh * by;
+      g.fillStyle = '#b07a2a'; g.fillRect(x - 5, y - 3, 10, 6);   // batter
+      g.fillStyle = col; g.fillRect(x - 3, y - 2, 6, 3);            // paint
+      g.fillStyle = '#111'; g.fillRect(x - 6, y - 4, 2, 2); g.fillRect(x + 4, y - 4, 2, 2); g.fillRect(x - 6, y + 2, 2, 2); g.fillRect(x + 4, y + 2, 2, 2);
+    }
+    g.fillStyle = '#ffd98a';
+    g.fillRect(mx + mw * 0.45, my + mh * 0.46, 2, 2); g.fillRect(mx + mw * 0.48, my + mh * 0.42, 1, 1); g.fillRect(mx + mw * 0.43, my + mh * 0.5, 1, 1);
+    // scanlines + the round clock in the corner
+    g.fillStyle = 'rgba(0,0,0,0.18)';
+    for (let y = my; y < my + mh; y += 3) g.fillRect(mx, y, mw, 1);
+    g.fillStyle = '#e8e4dc'; g.font = '700 9px Consolas, monospace'; g.textAlign = 'right';
+    g.fillText('2:41', mx + mw - 4, my + 11);
+    g.fillStyle = '#e63b2e'; g.beginPath(); g.arc(mx + 8, my + 8, 2, 0, 7); g.fill();
+    // the stool + transmitter below the monitor
+    const sy = h * 0.76;
+    g.fillStyle = '#3a2d1a'; g.fillRect(w / 2 - 22, sy, 44, 6);
+    g.fillStyle = '#2a2116'; g.fillRect(w / 2 - 18, sy + 6, 4, h - sy - 12); g.fillRect(w / 2 + 14, sy + 6, 4, h - sy - 12);
+    g.fillStyle = '#15171b'; g.fillRect(w / 2 - 12, sy - 12, 24, 12);   // transmitter body
+    g.fillStyle = '#6b7480'; g.fillRect(w / 2 - 9, sy - 9, 6, 6); g.fillRect(w / 2 + 3, sy - 9, 6, 6); // sticks
+    g.fillStyle = '#c9c9c9'; g.fillRect(w / 2 + 10, sy - 30, 1, 18);   // antenna
+    g.textAlign = 'center'; g.fillStyle = '#9aa2ab'; g.font = '700 8px Consolas, monospace';
+    g.fillText('BATTEREDBOTS · FREE PLAY', w / 2, h - 4);
+  }
+
   function pFortuneFace(g, w, h) {
     g.fillStyle = '#221a38';
     g.fillRect(0, 0, w, h);

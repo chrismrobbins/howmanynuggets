@@ -1,0 +1,378 @@
+{
+ "floors": {
+  "pit": {
+   "px": [
+    2048,
+    1152
+   ],
+   "ss": 2
+  }
+ },
+ "ppu": 4,
+ "sprites": {
+  "blade": {
+   "cell": [
+    28,
+    10
+   ],
+   "ss": 8
+  },
+  "booth": {
+   "cell": [
+    40,
+    80
+   ],
+   "ss": 8
+  },
+  "bot_brick_0": {
+   "cell": [
+    32,
+    32
+   ],
+   "ss": 8
+  },
+  "bot_brick_1": {
+   "cell": [
+    32,
+    32
+   ],
+   "ss": 8
+  },
+  "bot_brick_2": {
+   "cell": [
+    32,
+    32
+   ],
+   "ss": 8
+  },
+  "bot_dicer_0": {
+   "cell": [
+    32,
+    32
+   ],
+   "ss": 8
+  },
+  "bot_dicer_1": {
+   "cell": [
+    32,
+    32
+   ],
+   "ss": 8
+  },
+  "bot_dicer_2": {
+   "cell": [
+    32,
+    32
+   ],
+   "ss": 8
+  },
+  "bot_tender_0": {
+   "cell": [
+    32,
+    32
+   ],
+   "ss": 8
+  },
+  "bot_tender_1": {
+   "cell": [
+    32,
+    32
+   ],
+   "ss": 8
+  },
+  "bot_tender_2": {
+   "cell": [
+    32,
+    32
+   ],
+   "ss": 8
+  },
+  "crowd": {
+   "cell": [
+    128,
+    24
+   ],
+   "ss": 8
+  },
+  "disc_blur": {
+   "cell": [
+    20,
+    20
+   ],
+   "ss": 8
+  },
+  "disc_spin": {
+   "cell": [
+    20,
+    20
+   ],
+   "ss": 8
+  },
+  "disc_still": {
+   "cell": [
+    20,
+    20
+   ],
+   "ss": 8
+  },
+  "driver": {
+   "cell": [
+    8,
+    10
+   ],
+   "ss": 8
+  },
+  "drum": {
+   "cell": [
+    10,
+    10
+   ],
+   "ss": 8
+  },
+  "flipper_up": {
+   "cell": [
+    26,
+    14
+   ],
+   "ss": 8
+  },
+  "grate": {
+   "cell": [
+    64,
+    64
+   ],
+   "ss": 8
+  },
+  "lamp": {
+   "cell": [
+    12,
+    12
+   ],
+   "ss": 8
+  },
+  "mallet": {
+   "cell": [
+    16,
+    16
+   ],
+   "ss": 8
+  },
+  "mallet_arm": {
+   "cell": [
+    8,
+    40
+   ],
+   "ss": 8
+  },
+  "p_crumb_0": {
+   "cell": [
+    3,
+    3
+   ],
+   "ss": 8
+  },
+  "p_crumb_1": {
+   "cell": [
+    3,
+    3
+   ],
+   "ss": 8
+  },
+  "p_crumb_2": {
+   "cell": [
+    3,
+    3
+   ],
+   "ss": 8
+  },
+  "p_crumb_3": {
+   "cell": [
+    3,
+    3
+   ],
+   "ss": 8
+  },
+  "p_fire_0": {
+   "cell": [
+    12,
+    12
+   ],
+   "ss": 8
+  },
+  "p_fire_1": {
+   "cell": [
+    12,
+    12
+   ],
+   "ss": 8
+  },
+  "p_fire_2": {
+   "cell": [
+    12,
+    12
+   ],
+   "ss": 8
+  },
+  "p_oil": {
+   "cell": [
+    12,
+    12
+   ],
+   "ss": 8
+  },
+  "p_plate_0": {
+   "cell": [
+    6,
+    4
+   ],
+   "ss": 8
+  },
+  "p_plate_1": {
+   "cell": [
+    6,
+    4
+   ],
+   "ss": 8
+  },
+  "p_plate_2": {
+   "cell": [
+    6,
+    4
+   ],
+   "ss": 8
+  },
+  "p_smoke": {
+   "cell": [
+    16,
+    16
+   ],
+   "ss": 8
+  },
+  "p_spark": {
+   "cell": [
+    4,
+    4
+   ],
+   "ss": 8
+  },
+  "pad": {
+   "cell": [
+    18,
+    18
+   ],
+   "ss": 8
+  },
+  "pickup_emp": {
+   "cell": [
+    10,
+    10
+   ],
+   "ss": 8
+  },
+  "pickup_flamer": {
+   "cell": [
+    10,
+    10
+   ],
+   "ss": 8
+  },
+  "pickup_minigun": {
+   "cell": [
+    10,
+    10
+   ],
+   "ss": 8
+  },
+  "pickup_mortar": {
+   "cell": [
+    10,
+    10
+   ],
+   "ss": 8
+  },
+  "pickup_nitro": {
+   "cell": [
+    10,
+    10
+   ],
+   "ss": 8
+  },
+  "pickup_rocket": {
+   "cell": [
+    10,
+    10
+   ],
+   "ss": 8
+  },
+  "pit_hole": {
+   "cell": [
+    64,
+    64
+   ],
+   "ss": 8
+  },
+  "puddle_ranch": {
+   "cell": [
+    36,
+    36
+   ],
+   "ss": 8
+  },
+  "scorch": {
+   "cell": [
+    24,
+    24
+   ],
+   "ss": 8
+  },
+  "skid": {
+   "cell": [
+    6,
+    3
+   ],
+   "ss": 8
+  },
+  "tire": {
+   "cell": [
+    8,
+    8
+   ],
+   "ss": 8
+  },
+  "turret_emp": {
+   "cell": [
+    16,
+    16
+   ],
+   "ss": 8
+  },
+  "turret_flamer": {
+   "cell": [
+    16,
+    16
+   ],
+   "ss": 8
+  },
+  "turret_minigun": {
+   "cell": [
+    16,
+    16
+   ],
+   "ss": 8
+  },
+  "turret_mortar": {
+   "cell": [
+    16,
+    16
+   ],
+   "ss": 8
+  },
+  "turret_rocket": {
+   "cell": [
+    16,
+    16
+   ],
+   "ss": 8
+  }
+ }
+}

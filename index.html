@@ -23,6 +23,7 @@
   <link rel="stylesheet" href="css/drain.css" />
   <link rel="stylesheet" href="css/croft.css" />
   <link rel="stylesheet" href="css/fortune.css" />
+  <link rel="stylesheet" href="css/bots.css" />
   <link rel="stylesheet" href="css/arcade.css" />
   <link rel="stylesheet" href="css/locker.css" />
   <link rel="stylesheet" href="css/multiplayer.css" />
@@ -115,6 +116,7 @@
         <div class="score-tile"><div class="game">🕳️</div><div class="game-name">Drain</div><div class="best" id="myDrain">0</div></div>
         <div class="score-tile"><div class="game">🕯️</div><div class="game-name">Croft</div><div class="best" id="myCroft">0</div></div>
         <div class="score-tile"><div class="game">🎡</div><div class="game-name">Fortune</div><div class="best" id="myFortune">0</div></div>
+        <div class="score-tile"><div class="game">🤖</div><div class="game-name">Bots</div><div class="best" id="myBots">0</div></div>
       </div>
     </div>
 
@@ -164,6 +166,7 @@
       <button type="button" data-mode="drain" title="Storm Drain — dive the flooded pipes under Nuggetown. mind the air. mind what passes.">🕳️</button>
       <button type="button" data-mode="croft" title="The Undercroft — the cellars beneath Fort Nugget. clear the room, take one relic, mind your lantern.">🕯️</button>
       <button type="button" data-mode="fortune" title="Reel of Fortune — the house wheel. spin, pick letters, solve the phrase. every puzzle is true.">🎡</button>
+      <button type="button" data-mode="bots" title="BatteredBots — nugget RC battlebots under the Grease Garage. three minutes. last bot rolling.">🤖</button>
     </span>
     <button id="stormStop" type="button">Stop</button>
   </div>
@@ -225,6 +228,9 @@
 
   <!-- Reel of Fortune: the house slot machine (canvas injected by js/fortune.js) -->
   <div id="fortuneWorld"></div>
+
+  <!-- BatteredBots: the RC battlebot pit under the Grease Garage (WebGL canvas injected by js/bots.js) -->
+  <div id="botsWorld"></div>
 
   <!-- Account modal: log in / create account / signed-in menu -->
   <div class="modal-overlay" id="authModal">
@@ -320,6 +326,7 @@
         <button type="button" data-game="drain">🕳️ Drain</button>
         <button type="button" data-game="croft">🕯️ Croft</button>
         <button type="button" data-game="fortune">🎡 Fortune</button>
+        <button type="button" data-game="bots">🤖 Bots</button>
       </div>
       <div id="lbBody"><div class="lb-loading">Loading…</div></div>
     </div>
@@ -424,6 +431,8 @@
   <script src="js/drain.js"></script>
   <script src="js/croft.js"></script>
   <script src="js/fortune.js"></script>
+  <script src="js/botsSim.js"></script>
+  <script src="js/bots.js"></script>
   <script src="js/hallBoot.js"></script>
   <script src="js/hallArt.js"></script>
   <script src="js/hallMaps.js"></script>

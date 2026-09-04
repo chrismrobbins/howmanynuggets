@@ -4683,6 +4683,39 @@ void main() {
       });
     }
 
+    // ---- 🤖 BATTEREDBOTS (game 17) ---------------------------------------------
+    // The Grease Garage's shutter is half up and there is a CRT on a bracket
+    // showing the pit under the floor: tire ring, drain, three bots. A
+    // transmitter waits on a stool. Street page (botsFace), sits proud of the
+    // shopGarage diorama at the garage's centre bay (x −17.1..−12.1), under the
+    // awning, off the door sightline. Walk-up, like the fortune machine.
+    {
+      const gx = -14.6, gz = 0.09, gw = 0.62, gy0 = 0.35, gy1 = 1.95; // faces +z (the pavement)
+      const gx0 = gx - gw / 2, gx1 = gx + gw / 2;
+      ST.quad([gx0, gy0, gz], [gx1, gy0, gz], [gx1, gy1, gz], [gx0, gy1, gz], suv.botsFace, { e: 0.3 });
+      // the sign strip again, proud and hotter (same lesson as the fortune marquee: 0.4, not more)
+      ST.quad([gx0, gy1 - 0.32, gz + 0.012], [gx1, gy1 - 0.32, gz + 0.012], [gx1, gy1, gz + 0.012], [gx0, gy1, gz + 0.012],
+        sub(suv.botsFace, 0, 0, 1, 0.2), { e: 0.4 });
+      // the bracket arm up to the shutter rail
+      ST.quad([gx - 0.04, gy1, 0.05], [gx + 0.04, gy1, 0.05], [gx + 0.04, 2.25, 0.05], [gx - 0.04, 2.25, 0.05], suv.sw_iron, { tint: 0.7 });
+      LIGHTS.push({ p: [gx, 1.5, gz + 0.9], c: [0.32, 0.55, 0.62], k: 'crt' });
+      H.glows.push({ p: [gx, 1.28, gz + 0.06], c: [0.55, 0.85, 1], s: 0.6, a: 0.1, k: 'crt' });
+      H.glows.push({ p: [gx, gy1 - 0.16, gz + 0.06], c: [1, 0.72, 0.25], s: 0.5, a: 0.1, k: 'neon' });
+      H.propBoxes.push({ min: [gx0 - 0.05, 0, 0.0], max: [gx1 + 0.05, gy1 + 0.05, gz + 0.12] });
+      H.hotspots.push({
+        kind: 'bots',
+        x: gx, z: gz + 0.4, r: 2.4,
+        min: [gx0 - 0.1, 0, 0.0], max: [gx1 + 0.1, 2.3, gz + 0.2],
+        stand: [gx, EYE, 2.4],
+        label: '🤖 BATTEREDBOTS — THE PIT IS OPEN. PICK UP THE TRANSMITTER',
+        act: () => {
+          H.lastCab = null;
+          H.lastSpot = { stand: [gx, 2.4], look: [gx, 1.2, gz] };
+          launchGame('bots');
+        },
+      });
+    }
+
     // ---- THE CATCH INCIDENT: police tape seals the catch cabinet ----------------
     {
       const cab = H.cabinets.find((c2) => c2.game.mode === 'catch');

@@ -1,0 +1,64 @@
+/* 🤖 BATTEREDBOTS — the layer, the HUD chrome, and nothing it doesn't need.
+   Same school as fortune.css: a fixed fullscreen world div that only exists
+   while body.bots-mode is on. Inside it: ONE WebGL canvas (the arena, lit),
+   ONE 2D overlay canvas (HUD text, announcer cards — crisp at device DPR),
+   and the DOM the kit owns (tier / boon overlays). */
+
+#botsWorld {
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 9990; /* the games' layer — same plane as croft/drain/fortune */
+  background: #07080a;
+  overflow: hidden;
+}
+
+body.bots-mode #botsWorld { display: block; }
+
+#botsWorld canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+#botsWorld canvas.bots-gl { cursor: crosshair; }
+#botsWorld canvas.bots-ui { pointer-events: none; }
+
+/* the "needs WebGL" card — the one thing that is DOM, because if we're here
+   there is no renderer to draw it with */
+.bots-nogl {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 34em;
+  padding: 18px 26px;
+  background: rgba(14, 16, 19, 0.92);
+  border: 1px solid #a87a22;
+  color: #ece7dc;
+  font: 15px/1.5 'Segoe UI', system-ui, sans-serif;
+  text-align: center;
+}
+.bots-nogl b { display: block; font-size: 22px; color: #f0b03a; letter-spacing: 1px; margin-bottom: 6px; }
+
+/* the online pill (Night 3) rides above the canvas, below the storm chrome */
+.bots-mp-hud {
+  position: fixed;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  z-index: 9995;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 5px 12px;
+  background: rgba(14, 16, 19, 0.82);
+  border: 1px solid #3a434d;
+  color: #ece7dc;
+  font: 600 12px/1 Consolas, monospace;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+}
+.bots-mp-hud .bots-mp-code { color: #f0b03a; }
