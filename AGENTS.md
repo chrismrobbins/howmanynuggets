@@ -1861,3 +1861,11 @@ memory index). Contract between renderer and Blender: `blender/BOTS_ART_CONTRACT
   `botsDebug.snap()`; metrics mean/sd/flat/blown/dark). Look at the crops.
 - Lore: Hood rumor six (`botsShutter`/`botsPing`), Dill `botsPing*`, exhibit 16
   📡 THE LAST PING (`nugBotsPing` via a match win in THE SUMP), casefile fact 11.
+
+### Night 5 (same day) — 🍟🌊 THE FRYER & THE SUMP floor pages
+`BotsArt.floors` now carries `pit`, `fryer`, `sump` (all 2048×1152; js/botsArt.js
+≈ 6.2 MB, injected async). Regen just the floors:
+`blender.exe --background --python blender/botsrig.py -- blender/render_bots nosprites floors=fryer,sump`
+then `python blender/pack_bots.py` (merges via `_manifest.json`, deletes `raw/`)
+and `node blender/tools/botsart_check.js`. Renders go to `render_bots/raw/` first
+— if a render "produced nothing", look there before re-running.

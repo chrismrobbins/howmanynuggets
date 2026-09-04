@@ -5,8 +5,9 @@
 // Loads the generated file in a bare `vm` context (no browser), then asserts:
 //   - every region the contract names is on R, sized cell x PPU, inside the page
 //   - the three sprite pages decode (png.js, node stdlib only) to 1024x1024 RGBA
-//   - floors.pit has albedo/normal/rough at 2048x1152 (JPEG dims read off the SOF
-//     marker; the normal is a PNG and decodes fully)
+//   - floors.pit, floors.fryer and floors.sump each have albedo/normal/rough at
+//     2048x1152 (JPEG dims read off the SOF marker; the normal is a PNG and
+//     decodes fully) and a near-flat normal on open floor
 //   - the pages are not lies: every region has opaque texels in the albedo, the
 //     normal page is flat (128,128,255) where a flat steel plate faces the camera
 //     and (128,128,255) under every transparent texel, the mask is white somewhere
@@ -137,25 +138,28 @@ if (pages.albedo && pages.normal && pages.mask && A.R) {
   }
 }
 
-// ---- floors ----
-if (ok(A.floors && A.floors.pit, 'floors.pit missing')) {
-  const F = A.floors.pit;
-  ok(F.w === 2048 && F.h === 1152, `floors.pit w,h = ${F.w},${F.h}`);
+// ---- floors: one page set per arena in js/botsSim.js ARENAS ----
+const ARENAS = ['pit', 'fryer', 'sump'];
+for (const arena of ARENAS) {
+  if (!ok(A.floors && A.floors[arena], `floors.${arena} missing`)) continue;
+  const F = A.floors[arena];
+  ok(F.w === 2048 && F.h === 1152, `floors.${arena} w,h = ${F.w},${F.h}`);
   const ja = fromDataUri(F.albedo, 'image/jpeg');
-  if (ja) { const d = jpegDims(ja); ok(d.w === 2048 && d.h === 1152, `pit albedo jpeg ${d.w}x${d.h}`); }
+  if (ja) { const d = jpegDims(ja); ok(d.w === 2048 && d.h === 1152, `${arena} albedo jpeg ${d.w}x${d.h}`); }
   const jr = fromDataUri(F.rough, 'image/jpeg');
-  if (jr) { const d = jpegDims(jr); ok(d.w === 2048 && d.h === 1152, `pit rough jpeg ${d.w}x${d.h}`); ok(d.gray, 'pit rough is not grayscale'); }
+  if (jr) { const d = jpegDims(jr); ok(d.w === 2048 && d.h === 1152, `${arena} rough jpeg ${d.w}x${d.h}`); ok(d.gray, `${arena} rough is not grayscale`); }
   const pn = fromDataUri(F.normal, 'image/png');
   if (pn) {
     try {
       const img = decode(pn);
-      ok(img.w === 2048 && img.h === 1152, `pit normal png ${img.w}x${img.h}`);
-      // open concrete at world (100,180) -> page (320,576): flat-ish
+      ok(img.w === 2048 && img.h === 1152, `${arena} normal png ${img.w}x${img.h}`);
+      // open floor at world (100,180) -> page (320,576): flat-ish on every arena
       const n = px(img, Math.round(100 * 3.2), Math.round(180 * 3.2));
-      ok(Math.abs(n[0] - 128) <= 24 && Math.abs(n[1] - 128) <= 24 && n[2] >= 200, `pit normal at open floor ${n.slice(0, 3)} not near flat`);
-    } catch (e) { fails.push('pit normal PNG decode failed: ' + e.message); }
+      ok(Math.abs(n[0] - 128) <= 24 && Math.abs(n[1] - 128) <= 24 && n[2] >= 200, `${arena} normal at open floor ${n.slice(0, 3)} not near flat`);
+    } catch (e) { fails.push(`${arena} normal PNG decode failed: ` + e.message); }
   }
 }
+for (const k of Object.keys(A.floors || {})) ok(ARENAS.includes(k), `extra floor not in the sim: ${k}`);
 
 finish();
 
@@ -166,5 +170,5 @@ function finish() {
     for (const f of fails) console.error('  - ' + f);
     process.exit(1);
   }
-  console.log(`botsart_check OK: ${Object.keys(CELL).length} regions, 3 pages 1024x1024, floors.pit 2048x1152, ${kb} KB`);
+  console.log(`botsart_check OK: ${Object.keys(CELL).length} regions, 3 pages 1024x1024, floors ${Object.keys((A && A.floors) || {}).join('/')} 2048x1152, ${kb} KB`);
 }

@@ -1,7 +1,7 @@
 """BOTSRIG — the BATTEREDBOTS paint shop (game 17, mode `bots`).
 
     "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background \
-        --python blender/botsrig.py -- blender/render_bots [only=a,b] [nofloor] [nosprites] [ss=8]
+        --python blender/botsrig.py -- blender/render_bots [only=a,b] [nofloor] [floors=pit,fryer,sump] [nosprites] [ss=8]
 
 then:  python blender/pack_bots.py        ->  js/botsArt.js + render_bots/_contact.png
        node blender/tools/botsart_check.js
@@ -19,10 +19,12 @@ through the same straight-down ortho camera so the pages land in register:
     <name>_m.png   MASK    PAINT_* materials white, everything else black.
 
 Sprites: 1 BU = 1 game unit, nose toward +Y, cell centred on the origin, rendered
-at PPU 4 x SS 8 (a 32-unit cell = 1024 px raw). The `pit` floor is modelled at
-world scale with Blender y = -game y (the contract's y grows DOWN: a top-wall
-blade "emerges downward to y 70"), camera on (320,-180), ortho 640, rendered 2x
-over 2048x1152 as albedo / normal / rough.
+at PPU 4 x SS 8 (a 32-unit cell = 1024 px raw). The floors (`pit`, `fryer`,
+`sump` -- one shell of walls/starts/pads shared with js/botsSim.js ARENAS, three
+dressings) are modelled at world scale with Blender y = -game y (the contract's
+y grows DOWN: a top-wall blade "emerges downward to y 70"), camera on (320,-180),
+ortho 640, rendered 2x over 2048x1152 as albedo / normal / rough.
+`nosprites floors=fryer,sump` re-renders just those floors.
 
 Lighting: a soft warm key from the top-left at ~50 degrees off vertical plus a
 cool fill and a grey dome, balanced so a flat up-facing surface renders at
@@ -1538,25 +1540,41 @@ def arc_marks(cx, cy, r, a0, a1, w, m, z=0.06, seg_len=3.0, name="mark"):
         b.rotation_euler = (0, 0, a)
 
 
-def make_floor_pit():
-    M = floor_mats()
-    rnd = random.Random(1701)
+# ---- THE ARENA FLOORS -------------------------------------------------------------------------------
+# Three arenas, one shell. The sim's ARENAS (js/botsSim.js) share walls, box, starts,
+# pads and lamps; the shell helpers below build exactly that geometry and every
+# builder dresses it differently. Blender y = -game y throughout (see G()).
+
+X0, X1, Y0, Y1 = 40, 600, 36, 324          # tyre-wall outer face
+IX0, IX1, IY0, IY1 = 52, 588, 48, 312      # playable interior
+STARTS = ((90, 80), (90, 280), (550, 80), (550, 280), (320, 62), (320, 298))
+PADS = ((180, 110), (460, 110), (180, 250), (460, 250), (320, 100), (320, 260))
+
+
+def _floor_slabs(mats, joint, rnd, grid=64, bevel=0.55, thick=2.0):
+    """Slabs on a grid with V-groove joints (bevel) over a dark joint bed."""
     W, H = WORLD
-    # -- slabs on a 64 grid with V-groove joints (bevel) over a dark joint bed
-    plane("bed", W + 40, H + 40, M["joint"], *G(W / 2, H / 2), z=-1.2)
-    for gx in range(0, W, 64):
-        for gy in range(0, H + 63, 64):
-            cx, cy = G(gx + 32, gy + 32)
-            b = box("slab", 63.0, 63.0, 2.0, cx, cy, -2.0 + rnd.uniform(-0.04, 0.04),
-                    m=M["conc"][rnd.randrange(3)], bevel=0.55, seg=2)
+    plane("bed", W + 40, H + 40, joint, *G(W / 2, H / 2), z=-1.2)
+    for gx in range(0, W, grid):
+        for gy in range(0, H + grid - 1, grid):
+            cx, cy = G(gx + grid / 2, gy + grid / 2)
+            b = box("slab", grid - 1.0, grid - 1.0, thick, cx, cy, -thick + rnd.uniform(-0.04, 0.04),
+                    m=mats[rnd.randrange(len(mats))], bevel=bevel, seg=2)
             b.rotation_euler = (rnd.uniform(-0.0015, 0.0015), rnd.uniform(-0.0015, 0.0015), 0)
-    # -- the apron outside the rail is painted darker, so the arena reads as a
-    #    lit stage inside a workshop (structured contrast, not grain)
-    x0, x1, y0, y1 = 40, 600, 36, 324
-    for (ax, ay, sx, sy) in ((W / 2, y0 / 2, W, y0), (W / 2, (H + y1) / 2, W, H - y1),
-                             (x0 / 2, H / 2, x0, H), ((W + x1) / 2, H / 2, W - x1, H)):
-        box("apron", sx + 0.5, sy + 0.5, 0.35, *G(ax, ay), z=-0.05, m=M["apron"])
-    # -- the tyre wall: rubber bed + a ring of tyres on the wall centreline
+
+
+def _floor_apron(m):
+    """The margins outside the rail, painted darker: the arena reads as a lit
+    stage inside a workshop (structured contrast, not grain)."""
+    W, H = WORLD
+    for (ax, ay, sx, sy) in ((W / 2, Y0 / 2, W, Y0), (W / 2, (H + Y1) / 2, W, H - Y1),
+                             (X0 / 2, H / 2, X0, H), ((W + X1) / 2, H / 2, W - X1, H)):
+        box("apron", sx + 0.5, sy + 0.5, 0.35, *G(ax, ay), z=-0.05, m=m)
+
+
+def _floor_tyre_wall(M, rnd):
+    """Rubber bed + a ring of tyres on the wall centreline."""
+    x0, x1, y0, y1 = X0, X1, Y0, Y1
     for (bx, by, sx, sy) in ((x0 + 6, (y0 + y1) / 2, 12, y1 - y0), (x1 - 6, (y0 + y1) / 2, 12, y1 - y0),
                              ((x0 + x1) / 2, y0 + 6, x1 - x0, 12), ((x0 + x1) / 2, y1 - 6, x1 - x0, 12)):
         box("wallbase", sx, sy, 3.6, *G(bx, by), z=0, m=M["wallbase"])
@@ -1573,29 +1591,34 @@ def make_floor_pit():
         bx, by = G(tx + rnd.uniform(-0.4, 0.4), ty + rnd.uniform(-0.4, 0.4))
         torus("tyre", 3.6, 1.85, bx, by, 3.6 + 1.85 + rnd.uniform(-0.3, 0.3), M["rubber"],
               rot=(rnd.uniform(-0.08, 0.08), rnd.uniform(-0.08, 0.08), rnd.uniform(0, 1)), segs=(40, 14))
-    # -- hazard curb on the inner face (interrupted by the slicer slots)
-    slots = [(200, 48), (440, 48), (200, 312), (440, 312)]
 
-    def in_slot(px, py):
-        return any(abs(px - sx) < 27 and abs(py - sy) < 4 for sx, sy in slots)
 
-    ix0, ix1, iy0, iy1 = 52, 588, 48, 312
-    k = 0
-    for x in range(ix0, ix1, 8):
-        for yy in (iy0 + 1.5, iy1 - 1.5):
-            if in_slot(x + 4, yy):
+def _floor_curb(yellow, black, skip=lambda px, py: False):
+    """Hazard curb on the inner face, interrupted wherever `skip` says (slots,
+    pipe mouths)."""
+    for x in range(IX0, IX1, 8):
+        for yy in (IY0 + 1.5, IY1 - 1.5):
+            if skip(x + 4, yy):
                 continue
-            box("curb", 8, 3, 1.0, *G(x + 4, yy), z=0, m=(M["yellow"] if (x // 8) % 2 == 0 else M["black"]))
-        k += 1
-    for y in range(iy0, iy1, 8):
-        for xx in (ix0 + 1.5, ix1 - 1.5):
-            box("curb", 3, 8, 1.0, *G(xx, y + 4), z=0, m=(M["yellow"] if (y // 8) % 2 == 0 else M["black"]))
-    # -- slicer slots: recessed dark slits in the wall foot
+            box("curb", 8, 3, 1.0, *G(x + 4, yy), z=0, m=(yellow if (x // 8) % 2 == 0 else black))
+    for y in range(IY0, IY1, 8):
+        for xx in (IX0 + 1.5, IX1 - 1.5):
+            if skip(xx, y + 4):
+                continue
+            box("curb", 3, 8, 1.0, *G(xx, y + 4), z=0, m=(yellow if (y // 8) % 2 == 0 else black))
+
+
+def _floor_slots(M, slots):
+    """Slicer slots: recessed dark slits in the wall foot."""
     for sx, sy in slots:
         box("slot", 52, 3.2, 3.0, *G(sx, sy), z=-2.6, m=M["shaft"])
         box("slotlip", 54, 5.0, 0.4, *G(sx, sy), z=-0.35, m=M["steel_dk"])
         box("slotcut", 52, 3.2, 1.0, *G(sx, sy), z=-0.34, m=M["shaft"])
-    # -- polycarbonate rail on the outer face + posts
+
+
+def _floor_rail(M):
+    """Polycarbonate rail on the outer face + posts."""
+    x0, x1, y0, y1 = X0, X1, Y0, Y1
     for (bx, by, sx, sy) in ((x0 - 0.7, (y0 + y1) / 2, 1.2, y1 - y0 + 2), (x1 + 0.7, (y0 + y1) / 2, 1.2, y1 - y0 + 2),
                              ((x0 + x1) / 2, y0 - 0.7, x1 - x0 + 2, 1.2), ((x0 + x1) / 2, y1 + 0.7, x1 - x0 + 2, 1.2)):
         box("rail", sx, sy, 7.0, *G(bx, by), z=0, m=M["poly"])
@@ -1605,7 +1628,11 @@ def make_floor_pit():
     for y in range(y0, y1 + 1, 36):
         for xx in (x0 - 0.7, x1 + 0.7):
             cyl("post", 1.1, 8.0, *G(xx, y), z=4.0, m=M["steel_dk"], verts=12)
-    # -- stands top and bottom: three stepped rows with a lighter nosing
+
+
+def _floor_stands(M):
+    """Stands top and bottom: three stepped rows with a lighter nosing."""
+    x0, x1, y0, y1 = X0, X1, Y0, Y1
     for side in (0, 1):
         for i in range(3):
             depth = 9.3
@@ -1616,7 +1643,10 @@ def make_floor_pit():
             box("step", x1 - x0, depth, 3.0 + i * 3.0, *G((x0 + x1) / 2, cy), z=0, m=M["stand"])
             ny = (cy + depth / 2 - 0.6) if side == 0 else (cy - depth / 2 + 0.6)
             box("nosing", x1 - x0, 1.2, 3.2 + i * 3.0, *G((x0 + x1) / 2, ny), z=0, m=M["nosing"])
-    # -- booth plinth (left margin) and driver rail platform (right margin)
+
+
+def _floor_margins(M):
+    """Booth plinth (left margin) and driver rail platform (right margin)."""
     box("plinth", 36, 78, 4.0, *G(20, 180), z=0, m=M["platform"], bevel=0.8)
     box("plinthstep", 6, 20, 2.0, *G(39, 180), z=0, m=M["nosing"])
     box("drvplat", 34, 210, 3.0, *G(621, 180), z=0, m=M["platform"], bevel=0.6)
@@ -1626,36 +1656,77 @@ def make_floor_pit():
         box("station", 10, 8, 1.2, *G(622, y), z=3.0, m=M["stand"], bevel=0.3)
         cyl("railpost", 0.9, 7.0, *G(605.5, y - 16), z=3.5, m=M["steel_dk"], verts=10)
     box("cabletray", 4, 200, 1.0, *G(636, 180), z=3.0, m=M["steel_dk"])
-    # -- the drain, closed
-    make_grate(*G(320, 180), r=26.0, z=0.0, M=M)
-    ring = cyl("drainring", 29.5, 0.5, *G(320, 180), z=0.0, m=M["worn"], verts=96, bevel=0.2)
-    cut(ring, cyl("drainringcut", 26.0, 3.0, *G(320, 180), z=0.0, m=None, verts=96))
-    # -- faded wordmark around the drain
-    cx, cy = G(320, 180)
-    arc_text("CLUCKED", cx, cy, 48.0, math.radians(150), math.radians(30), 16.0, M["paintworn"], tops_out=True)
-    arc_text("METAL", cx, cy, 48.0, math.radians(230), math.radians(310), 16.0, M["paintworn"], tops_out=False)
-    # -- start pads: worn yellow hex outlines + scuffs
-    for (px, py) in ((90, 80), (90, 280), (550, 80), (550, 280), (320, 62), (320, 298)):
+
+
+def _floor_start_hexes(yellow, mark, rnd):
+    """Start pads: worn yellow hex outlines + scuffs. THE CONTRACT: r 12."""
+    for (px, py) in STARTS:
         bx, by = G(px, py)
         for i in range(6):
             a = i * math.pi / 3
             ap = 12 * math.cos(math.pi / 6)
             b = box("hex", 12.4, 1.5, 0.12, bx + ap * math.cos(a + math.pi / 6), by + ap * math.sin(a + math.pi / 6),
-                    0.0, m=M["yellow"])
+                    0.0, m=yellow)
             b.rotation_euler = (0, 0, a + math.pi / 6 + math.pi / 2)
         for k in range(3):
             a = rnd.uniform(0, math.pi * 2)
             rr = rnd.uniform(4, 10)
-            s = box("scuff", 1.6, rnd.uniform(3, 6), 0.06, bx + rr * math.cos(a), by + rr * math.sin(a), 0.0, m=M["mark"])
+            s = box("scuff", 1.6, rnd.uniform(3, 6), 0.06, bx + rr * math.cos(a), by + rr * math.sin(a), 0.0, m=mark)
             s.rotation_euler = (0, 0, rnd.uniform(0, math.pi))
-    # -- weapon pads: steel plate + bolts, no colour
-    for (px, py) in ((180, 110), (460, 110), (180, 250), (460, 250), (320, 100), (320, 260)):
+
+
+def _floor_weapon_pads(M):
+    """Weapon pads: steel plate + bolts, no colour (the renderer rings them)."""
+    for (px, py) in PADS:
         bx, by = G(px, py)
         cyl("wpad", 10.0, 0.6, bx, by, 0.3, M["steel"], verts=8, bevel=0.15)
         cyl("wpadin", 4.2, 0.2, bx, by, 0.55, M["steel_dk"], verts=32)
         for i in range(8):
             a = i * math.pi / 4 + math.pi / 8
             bolt(bx + 8.2 * math.cos(a), by + 8.2 * math.sin(a), 0.6, r=0.5, h=0.35, m=M["bolt"])
+
+
+def line_text(text, cx, cy, size, m, rot=0.0, spacing=0.78, z=0.05):
+    """Stencil letters on a straight baseline, centred on (cx, cy)."""
+    n = len(text)
+    step = size * spacing
+    for i, ch in enumerate(text):
+        if ch == " ":
+            continue
+        d = (i - (n - 1) / 2) * step
+        letter("st_%s_%d" % (text.replace(" ", "_"), i), ch, size, cx + d * math.cos(rot), cy + d * math.sin(rot), rot, m, z)
+
+
+def ring(name, cx, cy, r_out, r_in, m, z=0.0, h=0.25, verts=96):
+    o = cyl(name, r_out, h, cx, cy, z + h / 2, m, verts=verts)
+    cut(o, cyl(name + "cut", r_in, h * 4, cx, cy, z + h / 2, None, verts=verts))
+    return o
+
+
+# ---- THE GARAGE PIT --------------------------------------------------------------------------------
+
+def make_floor_pit():
+    M = floor_mats()
+    rnd = random.Random(1701)
+    _floor_slabs(M["conc"], M["joint"], rnd)
+    _floor_apron(M["apron"])
+    _floor_tyre_wall(M, rnd)
+    slots = [(200, 48), (440, 48), (200, 312), (440, 312)]
+    in_slot = lambda px, py: any(abs(px - sx) < 27 and abs(py - sy) < 4 for sx, sy in slots)
+    _floor_curb(M["yellow"], M["black"], in_slot)
+    _floor_slots(M, slots)
+    _floor_rail(M)
+    _floor_stands(M)
+    _floor_margins(M)
+    # -- the drain, closed
+    make_grate(*G(320, 180), r=26.0, z=0.0, M=M)
+    ring("drainring", *G(320, 180), 29.5, 26.0, M["worn"], z=0.0, h=0.5)
+    # -- faded wordmark around the drain
+    cx, cy = G(320, 180)
+    arc_text("CLUCKED", cx, cy, 48.0, math.radians(150), math.radians(30), 16.0, M["paintworn"], tops_out=True)
+    arc_text("METAL", cx, cy, 48.0, math.radians(230), math.radians(310), 16.0, M["paintworn"], tops_out=False)
+    _floor_start_hexes(M["yellow"], M["mark"], rnd)
+    _floor_weapon_pads(M)
     # -- mallet: pivot base on the left wall, worn strike circle
     bx, by = G(52, 180)
     cyl("pivotbase", 5.0, 3.0, bx, by, 3.6 + 1.5, M["iron"], verts=48, bevel=0.4)
@@ -1688,11 +1759,293 @@ def make_floor_pit():
         arc_marks(cx0, cy0, r, a0, a1, 1.7, M["mark"])
         arc_marks(cx0, cy0, r - 5.5, a0 + 0.05, a1 - 0.05, 1.7, M["mark"])
     for k in range(6):  # straight streaks off the start pads
-        px, py = rnd.choice(((90, 80), (90, 280), (550, 80), (550, 280), (320, 62), (320, 298)))
+        px, py = rnd.choice(STARTS)
         bx, by = G(px, py)
         a = rnd.uniform(0, math.pi * 2)
         s = box("streak", 1.6, rnd.uniform(14, 30), 0.06, bx + 16 * math.cos(a), by + 16 * math.sin(a), 0.02, m=M["mark"])
         s.rotation_euler = (0, 0, a + math.pi / 2)
+
+
+# ---- THE FRYER -------------------------------------------------------------------------------------
+
+def brushed_mat(name, color, metallic=0.85, rough=0.3, streak=0.05, along_x=True):
+    """Brushed stainless: a noise squeezed flat along one axis drives a shallow
+    bump, so the normal page carries the grain and the albedo stays a neutral
+    steel (the renderer's cold lamps will do the rest)."""
+    m = bpy.data.materials.get(name)
+    if m:
+        return m
+    m = mat(name, color, metallic=metallic, rough=rough)
+    nt = m.node_tree
+    bsdf = nt.nodes.get("Principled BSDF")
+    mp = nt.nodes.new("ShaderNodeMapping")
+    mp.inputs["Scale"].default_value = (streak, 1.0, 1.0) if along_x else (1.0, streak, 1.0)
+    nt.links.new(_obj_coords(nt), mp.inputs["Vector"])
+    tex = nt.nodes.new("ShaderNodeTexNoise")
+    tex.inputs["Scale"].default_value = 40.0
+    tex.inputs["Detail"].default_value = 3.0
+    tex.inputs["Roughness"].default_value = 0.7
+    nt.links.new(mp.outputs["Vector"], tex.inputs["Vector"])
+    bp = nt.nodes.new("ShaderNodeBump")
+    bp.inputs["Strength"].default_value = 0.08
+    bp.inputs["Distance"].default_value = 0.4
+    nt.links.new(tex.outputs["Fac"], bp.inputs["Height"])
+    nt.links.new(bp.outputs["Normal"], bsdf.inputs["Normal"])
+    return m
+
+
+def fryer_mats():
+    M = floor_mats()
+    M.update(
+        tile=[brushed_mat("FRY_TILE", (0.56, 0.585, 0.615)),
+              brushed_mat("FRY_TILE2", (0.53, 0.555, 0.585), along_x=False),
+              brushed_mat("FRY_TILE3", (0.585, 0.605, 0.63))],
+        seam=mat("FRY_SEAM", (0.08, 0.085, 0.095), rough=0.7),
+        grease=mat("FRY_GREASE", (0.19, 0.16, 0.1), rough=0.15, coat=0.4),
+        slick=mat("FRY_SLICK", (0.26, 0.22, 0.13), rough=0.12, coat=0.6),
+        ring=mat("FRY_RING", (0.74, 0.38, 0.09), rough=0.6, bump=0.3, bump_scale=2),
+        ringworn=mat("FRY_RINGWORN", (0.55, 0.32, 0.12), rough=0.55, bump=0.3, bump_scale=2),
+        scorch=mat("FRY_SCORCH", (0.11, 0.095, 0.075), rough=0.7),
+        vat=mat("FRY_VAT", (0.4, 0.42, 0.45), metallic=0.85, rough=0.35, bump=0.05, bump_scale=30),
+        vatwall=mat("FRY_VATWALL", (0.24, 0.25, 0.27), metallic=0.8, rough=0.4),
+        hotoil=mat("FRY_OIL", (0.1, 0.05, 0.012), rough=0.08, coat=0.6),
+        rim=mat("FRY_RIM", (0.5, 0.28, 0.09), rough=0.5),
+        crumb=mat("FRY_CRUMB", (0.66, 0.42, 0.14), rough=0.72, bump=0.6, bump_scale=6),
+        kapron=mat("FRY_APRON", (0.22, 0.225, 0.24), rough=0.5, bump=0.1, bump_scale=8),
+        kcurb=mat("FRY_CURB", (0.7, 0.52, 0.1), rough=0.6, bump=0.2, bump_scale=3),
+        kblack=mat("FRY_CURBDK", (0.07, 0.07, 0.075), rough=0.6),
+        kmark=mat("FRY_MARK", (0.3, 0.3, 0.3), rough=0.5),
+    )
+    return M
+
+
+def make_floor_fryer():
+    """THE FRYER, between the vats: a stainless kitchen floor. No drain, no
+    slots, no mallet; basket landing rings, vats along the apron where the
+    stands were, grease drifting across the tiles. Cold, neutral albedo."""
+    M = fryer_mats()
+    rnd = random.Random(2301)
+    _floor_slabs(M["tile"], M["seam"], rnd, grid=32, bevel=0.3, thick=1.2)
+    _floor_apron(M["kapron"])
+    _floor_tyre_wall(M, rnd)
+    _floor_curb(M["kcurb"], M["kblack"])
+    _floor_rail(M)
+    _floor_margins(M)
+    # -- the vats replace the stands: stainless boxes of dark hot oil with a
+    #    muted orange rim, under where the renderer draws the crowd (y 22 / 338)
+    for vy0, vy1 in ((8, 36), (324, 352)):
+        cy = (vy0 + vy1) / 2
+        box("vatbed", X1 - X0, vy1 - vy0, 1.0, *G((X0 + X1) / 2, cy), z=0, m=M["vatwall"])
+        x = X0 + 20
+        while x < X1 - 20:
+            vx = x + 23
+            box("vat", 46, 24, 4.0, *G(vx, cy), z=0, m=M["vat"], bevel=0.5, seg=2)
+            box("vatoil", 40, 18, 0.4, *G(vx, cy), z=3.2, m=M["hotoil"])
+            for (dx, dy, sx, sy) in ((0, -8.6, 40, 0.9), (0, 8.6, 40, 0.9), (-19.6, 0, 0.9, 18), (19.6, 0, 0.9, 18)):
+                box("vatrim", sx, sy, 0.5, *G(vx + dx, cy + dy), z=4.0, m=M["rim"])
+            # a basket handle resting across the vat
+            hb = box("vathandle", 1.6, 26, 1.0, *G(vx + rnd.uniform(-14, 14), cy), z=4.2, m=M["steel_dk"], bevel=0.3)
+            hb.rotation_euler = (0, 0, rnd.uniform(-0.15, 0.15))
+            x += 60
+    # -- basket landing rings: worn orange rings, scorched inside, crumbs around
+    for (bx, by, r) in ((200, 180, 34), (440, 180, 34), (320, 300, 30)):
+        cx, cy = G(bx, by)
+        ring("landring", cx, cy, r + 1.4, r - 1.4, M["ring"], z=0.0, h=0.14)
+        # worn gaps in the paint
+        for k in range(5):
+            a = rnd.uniform(0, math.pi * 2)
+            w = box("ringworn", rnd.uniform(3, 7), 3.4, 0.2, cx + r * math.cos(a), cy + r * math.sin(a), 0.05, m=M["ringworn"])
+            w.rotation_euler = (0, 0, a + math.pi / 2)
+        for k in range(4):
+            a = rnd.uniform(0, math.pi * 2)
+            rr = rnd.uniform(0, r * 0.55)
+            sph("scorch", rnd.uniform(4, 9), cx + rr * math.cos(a), cy + rr * math.sin(a), 0.0, M["scorch"],
+                squash=0.02, sx=rnd.uniform(0.8, 1.3))
+        for k in range(22):
+            a = rnd.uniform(0, math.pi * 2)
+            rr = rnd.uniform(0, r * 1.25)
+            sph("crumb", rnd.uniform(0.6, 1.3), cx + rr * math.cos(a), cy + rr * math.sin(a), 0.0, M["crumb"],
+                squash=0.5, sx=rnd.uniform(0.8, 1.4))
+    _floor_start_hexes(M["kcurb"], M["kmark"], rnd)
+    _floor_weapon_pads(M)
+    # -- grease: the sim's three drifting slicks (long smears along their drift)
+    #    plus darker greasy patches wherever the fry cooks have walked
+    for (sx, sy, r, vx, vy) in ((320, 180, 28, 22, 9), (140, 100, 22, -14, 17), (500, 260, 22, 12, -15)):
+        cx, cy = G(sx, sy)
+        a = math.atan2(-vy, vx)
+        for k in range(3):
+            t = (k - 1) * 0.55
+            o = sph("slick", r * (1.0 - abs(t) * 0.35), cx + math.cos(a) * r * t * 1.2, cy + math.sin(a) * r * t * 1.2,
+                    0.0, M["slick"], squash=0.012, sx=1.35, sy=0.7)
+            o.rotation_euler = (0, 0, a)
+        for k in range(6):
+            d = r * rnd.uniform(0.9, 1.9)
+            o = sph("slicktail", rnd.uniform(1.5, 4), cx - math.cos(a) * d + rnd.uniform(-4, 4),
+                    cy - math.sin(a) * d + rnd.uniform(-4, 4), 0.0, M["slick"], squash=0.02, sx=1.6, sy=0.6)
+            o.rotation_euler = (0, 0, a)
+    for k in range(11):
+        px, py = rnd.uniform(75, 565), rnd.uniform(70, 290)
+        cx, cy = G(px, py)
+        a = rnd.uniform(0, math.pi)
+        o = sph("grease", rnd.uniform(6, 14), cx, cy, 0.0, M["grease"], squash=0.012, sx=rnd.uniform(1.0, 1.8), sy=0.8)
+        o.rotation_euler = (0, 0, a)
+    # -- footprints of the fry cooks: short scuffed streaks between the vats and the rings
+    for k in range(14):
+        cx, cy = G(rnd.uniform(70, 570), rnd.uniform(60, 300))
+        a = rnd.uniform(0, math.pi * 2)
+        s = box("streak", 1.4, rnd.uniform(8, 22), 0.05, cx, cy, 0.02, m=M["kmark"])
+        s.rotation_euler = (0, 0, a)
+
+
+# ---- THE SUMP --------------------------------------------------------------------------------------
+
+def sump_mats():
+    M = floor_mats()
+    M.update(
+        sconc=[mat("SUMP_CONC", (0.2, 0.2, 0.205), rough=0.4, bump=0.3, bump_scale=3),
+               mat("SUMP_CONC2", (0.185, 0.185, 0.19), rough=0.42, bump=0.3, bump_scale=3.3),
+               mat("SUMP_CONC3", (0.215, 0.21, 0.205), rough=0.38, bump=0.3, bump_scale=2.7)],
+        sjoint=mat("SUMP_JOINT", (0.025, 0.025, 0.03), rough=0.5),
+        water=mat("SUMP_WATER", (0.075, 0.085, 0.095), rough=0.08, coat=0.5),
+        stain=mat("SUMP_STAIN", (0.135, 0.13, 0.12), rough=0.45),
+        scum=mat("SUMP_SCUM", (0.1, 0.12, 0.105), rough=0.4),
+        crust=mat("SUMP_CRUST", (0.3, 0.3, 0.28), rough=0.6, bump=0.3, bump_scale=3),
+        rust=mat("SUMP_RUST", (0.3, 0.155, 0.065), metallic=0.3, rough=0.8, bump=0.5, bump_scale=5),
+        rustdk=mat("SUMP_RUSTDK", (0.19, 0.1, 0.045), metallic=0.3, rough=0.85, bump=0.5, bump_scale=5),
+        rustbolt=mat("SUMP_RUSTBOLT", (0.36, 0.22, 0.11), metallic=0.4, rough=0.7),
+        ruststain=mat("SUMP_RUSTSTAIN", (0.2, 0.12, 0.06), rough=0.55),
+        stencil=mat("SUMP_STENCIL", (0.58, 0.58, 0.56), rough=0.6, bump=0.35, bump_scale=2),
+        sapron=mat("SUMP_APRON", (0.13, 0.135, 0.145), rough=0.35, bump=0.15, bump_scale=5),
+        syellow=mat("SUMP_YELLOW", (0.52, 0.4, 0.09), rough=0.55, bump=0.2, bump_scale=3),
+        sblack=mat("SUMP_BLACK", (0.04, 0.04, 0.042), rough=0.55),
+        smark=mat("SUMP_MARK", (0.1, 0.1, 0.1), rough=0.45),
+    )
+    return M
+
+
+def make_floor_sump():
+    """THE SUMP, where the mains meet: wet dark concrete below the garage, the
+    pit's drain gone to rust, six pipe mouths in the wall feet, tide lines,
+    DPW stencils. Slicer slots at top x 200 and bottom x 440 only. No mallet.
+    Dark — but NOT lit: the renderer's ambient is already low here."""
+    M = sump_mats()
+    rnd = random.Random(2901)
+    _floor_slabs(M["sconc"], M["sjoint"], rnd)
+    _floor_apron(M["sapron"])
+    _floor_tyre_wall(M, rnd)
+    slots = [(200, 48), (440, 312)]
+    pipes = [(IX0 + 6, 120), (IX0 + 6, 240), (IX1 - 6, 120), (IX1 - 6, 240), (200, IY0 + 6), (440, IY1 - 6)]
+
+    def skip(px, py):
+        if any(abs(px - sx) < 27 and abs(py - sy) < 4 for sx, sy in slots):
+            return True
+        return any((px - qx) ** 2 + (py - qy) ** 2 < 12.5 ** 2 for qx, qy in pipes)
+
+    _floor_curb(M["syellow"], M["sblack"], skip)
+    _floor_slots(M, slots)
+    _floor_rail(M)
+    _floor_stands(M)
+    _floor_margins(M)
+    # -- standing water: a broad irregular pool around the drain, pools in the
+    #    low corners, a film along the wall feet (rough 0.08 in the rough page)
+    cx, cy = G(320, 180)
+    for k in range(9):
+        a = k * math.pi * 2 / 9 + rnd.uniform(-0.2, 0.2)
+        d = rnd.uniform(18, 40)
+        sph("pool", rnd.uniform(26, 42), cx + d * math.cos(a), cy + d * math.sin(a), 0.0, M["water"],
+            squash=0.008, sx=rnd.uniform(0.9, 1.4), sy=rnd.uniform(0.8, 1.1))
+    for (px, py, r) in ((75, 70, 22), (565, 290, 26), (560, 75, 16), (80, 290, 18), (150, 200, 20), (470, 150, 17)):
+        bx, by = G(px, py)
+        for k in range(3):
+            sph("pool", r * rnd.uniform(0.6, 1.0), bx + rnd.uniform(-6, 6), by + rnd.uniform(-6, 6), 0.0, M["water"],
+                squash=0.01, sx=rnd.uniform(0.9, 1.5))
+    for (bx, by, sx, sy) in ((320, IY0 + 6, IX1 - IX0 - 10, 7), (320, IY1 - 6, IX1 - IX0 - 10, 7),
+                             (IX0 + 6, 180, 7, IY1 - IY0 - 10), (IX1 - 6, 180, 7, IY1 - IY0 - 10)):
+        box("wallfilm", sx, sy, 0.1, *G(bx, by), z=0.02, m=M["water"])
+    # -- water stains radiating from the drain (the pool's high-water marks)
+    for k in range(18):
+        a = k * math.pi * 2 / 18 + rnd.uniform(-0.12, 0.12)
+        ln = rnd.uniform(34, 78)
+        d = 30 + ln / 2
+        s = box("stain", ln, rnd.uniform(2.5, 7), 0.06, cx + d * math.cos(a), cy + d * math.sin(a), 0.03, m=M["stain"])
+        s.rotation_euler = (0, 0, a)
+    for k in range(3):
+        ring("tide", cx, cy, 52 + k * 16 + rnd.uniform(-3, 3), 50 + k * 16 + rnd.uniform(-3, 3), M["stain"], z=0.02, h=0.08)
+    # -- the drain, gone to rust
+    MR = dict(M, steel=M["rust"], steel_dk=M["rustdk"], bolt=M["rustbolt"])
+    make_grate(cx, cy, r=26.0, z=0.0, M=MR)
+    ring("drainring", cx, cy, 29.5, 26.0, M["rustdk"], z=0.0, h=0.5)
+    for k in range(10):
+        a = rnd.uniform(0, math.pi * 2)
+        ln = rnd.uniform(6, 16)
+        s = box("rustrun", ln, rnd.uniform(1.2, 3), 0.1, cx + (29 + ln / 2) * math.cos(a), cy + (29 + ln / 2) * math.sin(a),
+                0.06, m=M["ruststain"])
+        s.rotation_euler = (0, 0, a)
+    # -- six pipe mouths in the wall feet: dark r 9 with a rusty rim, a rust
+    #    fan bleeding into the arena from each
+    for (px, py) in pipes:
+        bx, by = G(px, py)
+        cyl("pipemouth", 9.0, 0.5, bx, by, 0.25, M["shaft"], verts=48)
+        torus("piperim", 9.7, 1.3, bx, by, 0.9, M["rust"], segs=(48, 12))
+        for i in range(8):
+            a = i * math.pi / 4 + math.pi / 8
+            bolt(bx + 9.7 * math.cos(a), by + 9.7 * math.sin(a), 1.6, r=0.5, h=0.4, m=M["rustbolt"])
+        inward = math.atan2(cy - by, cx - bx)
+        for k in range(5):
+            a = inward + rnd.uniform(-0.45, 0.45)
+            ln = rnd.uniform(10, 26)
+            s = box("rustfan", ln, rnd.uniform(1.5, 4), 0.08, bx + (10 + ln / 2) * math.cos(a), by + (10 + ln / 2) * math.sin(a),
+                    0.05, m=M["ruststain"])
+            s.rotation_euler = (0, 0, a)
+    # -- waterline stains along the wall bases: a dark scum band and a pale
+    #    mineral crust line, broken into runs
+    for side in range(4):
+        along = side < 2
+        L = (IX1 - IX0) if along else (IY1 - IY0)
+        pos = 0.0
+        while pos < L - 6:
+            run = rnd.uniform(14, 46)
+            run = min(run, L - pos)
+            mid = pos + run / 2
+            if along:
+                fy = IY0 + 3 + 2.6 if side == 0 else IY1 - 3 - 2.6
+                bx, by = G(IX0 + mid, fy)
+                box("scum", run, 5.2, 0.05, bx, by, 0.03, m=M["scum"])
+                cyy = IY0 + 3 + 5.2 + 0.6 if side == 0 else IY1 - 3 - 5.2 - 0.6
+                box("crust", run * rnd.uniform(0.6, 1.0), 1.1, 0.08, *G(IX0 + mid + rnd.uniform(-3, 3), cyy), z=0.04, m=M["crust"])
+            else:
+                fx = IX0 + 3 + 2.6 if side == 2 else IX1 - 3 - 2.6
+                bx, by = G(fx, IY0 + mid)
+                box("scum", 5.2, run, 0.05, bx, by, 0.03, m=M["scum"])
+                cxx = IX0 + 3 + 5.2 + 0.6 if side == 2 else IX1 - 3 - 5.2 - 0.6
+                box("crust", 1.1, run * rnd.uniform(0.6, 1.0), 0.08, *G(cxx, IY0 + mid + rnd.uniform(-3, 3)), z=0.04, m=M["crust"])
+            pos += run + rnd.uniform(3, 12)
+    _floor_start_hexes(M["syellow"], M["smark"], rnd)
+    _floor_weapon_pads(M)
+    # -- DPW stencils in worn white
+    line_text("DPW 077", *G(150, 138), 11.0, M["stencil"], rot=0.0)
+    line_text("DPW 077", *G(492, 226), 11.0, M["stencil"], rot=math.pi / 2)
+    line_text("DO NOT DIVE", *G(320, 238), 9.5, M["stencil"], rot=0.0)
+    line_text("MAINS 3", *G(560, 180), 7.5, M["stencil"], rot=-math.pi / 2)
+    # worn: chips out of the letters
+    for k in range(22):
+        px, py = rnd.choice(((150, 138), (492, 226), (320, 238)))
+        bx, by = G(px + rnd.uniform(-34, 34), py + rnd.uniform(-5, 5))
+        sph("chip", rnd.uniform(0.6, 1.6), bx, by, 0.0, M["sconc"][rnd.randrange(3)], squash=0.3)
+    # -- a little oil, and tyre marks that shine where they cross the wet
+    for (px, py) in ((250, 285), (410, 90), (520, 215)):
+        bx, by = G(px, py)
+        sph("oil", rnd.uniform(4, 7), bx, by, 0.0, M["oil"], squash=0.02, sx=rnd.uniform(0.8, 1.3))
+    for k in range(6):
+        cx0, cy0 = G(rnd.uniform(120, 520), rnd.uniform(90, 270))
+        r = rnd.uniform(18, 60)
+        a0 = rnd.uniform(0, math.pi * 2)
+        a1 = a0 + rnd.uniform(0.6, 2.0) * rnd.choice((-1, 1))
+        arc_marks(cx0, cy0, r, a0, a1, 1.7, M["smark"])
+        arc_marks(cx0, cy0, r - 5.5, a0 + 0.05, a1 - 0.05, 1.7, M["smark"])
+
+
+FLOOR_BUILDERS = {"pit": make_floor_pit, "fryer": make_floor_fryer, "sump": make_floor_sump}
 
 
 # ---- the batch -----------------------------------------------------------------------------------
@@ -1735,7 +2088,7 @@ def render_floor(arena, render_dir, ss=FLOOR_SS):
     clear_scene()
     rig_setup(key=1.6, fill=0.5, dome=0.55)
     bpy.context.scene.render.film_transparent = False
-    make_floor_pit()
+    FLOOR_BUILDERS[arena]()
     W, H = WORLD
     px_w, px_h = FLOOR_PX[0] * ss, FLOOR_PX[1] * ss
     center = G(W / 2, H / 2)
@@ -1755,12 +2108,14 @@ def main(argv):
     raw = os.path.join(out, "raw")
     os.makedirs(raw, exist_ok=True)
     names = list(CELLS)
-    want_floor = "nofloor" not in opts
+    floors = [] if "nofloor" in opts else list(FLOOR_BUILDERS)
+    if "floors" in opts:
+        floors = [f for f in opts["floors"].split(",") if f in FLOOR_BUILDERS]
     if "only" in opts:
         picked = [n for n in opts["only"].split(",") if n]
         names = [n for n in picked if n in CELLS]
-        want_floor = want_floor and "floor_pit" in picked
-        unknown = [n for n in picked if n not in CELLS and n != "floor_pit"]
+        floors = [f for f in floors if "floor_" + f in picked]
+        unknown = [n for n in picked if n not in CELLS and n[6:] not in FLOOR_BUILDERS]
         if unknown:
             print("[botsrig] unknown regions:", unknown)
     manifest_path = os.path.join(out, "_manifest.json")
@@ -1777,10 +2132,11 @@ def main(argv):
             render_sprite(n, raw, ss)
             manifest["sprites"][n] = {"cell": list(CELLS[n]), "ss": ss}
             json.dump(manifest, open(manifest_path, "w"), indent=1, sort_keys=True)
-    if want_floor:
-        print("[botsrig] floor pit", flush=True)
-        render_floor("pit", raw)
-        manifest["floors"]["pit"] = {"px": list(FLOOR_PX), "ss": FLOOR_SS}
+    for arena in floors:
+        print(f"[botsrig] floor {arena}", flush=True)
+        render_floor(arena, raw)
+        manifest.setdefault("floors", {})[arena] = {"px": list(FLOOR_PX), "ss": FLOOR_SS}
+        json.dump(manifest, open(manifest_path, "w"), indent=1, sort_keys=True)
     json.dump(manifest, open(manifest_path, "w"), indent=1, sort_keys=True)
     print("[botsrig] done ->", raw)
 

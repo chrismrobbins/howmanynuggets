@@ -19,12 +19,17 @@ What it does, per blender/BOTS_ART_CONTRACT.md:
   graded normal is a tilted normal.
 - soft particles/decals get a small premultiplied blur (the "soft edge" the
   contract asks for is cheaper here than in a shader)
-- the `pit` floor: 2x renders -> 2048x1152; albedo + rough as JPEG q92, normal
-  as PNG (JPEG blocking in a normal map is lighting that swims)
+- the floors (`pit`, `fryer`, `sump`): 2x renders -> 2048x1152; albedo + rough
+  as JPEG q92, normal as PNG (JPEG blocking in a normal map is lighting that
+  swims)
 - writes js/botsArt.js in the contract's exact shape, a contact sheet
-  (render_bots/_contact.png) and the floor albedo at half size
-  (render_bots/_floor_pit.png), keeps the 1x PNGs in render_bots/ and deletes
-  the raws (100MB of 8x renders do not belong in the repo).
+  (render_bots/_contact.png) and every floor albedo at half size
+  (render_bots/_floor_<arena>.png), keeps the 1x PNGs in render_bots/ and
+  deletes the raws (100MB of 8x renders do not belong in the repo).
+- INCREMENTAL: anything in the manifest whose raw is gone (an earlier run
+  packed it and deleted the raws) is re-read from its 1x PNGs in render_bots/,
+  already processed. So `botsrig.py nosprites floors=sump` + this script
+  repacks one floor without re-rendering sixty sprites.
 """
 import base64
 import io
@@ -160,11 +165,23 @@ def main(argv):
     manifest = json.load(open(os.path.join(RENDERS, "_manifest.json")))
     ppu = int(manifest.get("ppu", 4))
     sprites = {}
+    reused = 0
 
     for name, info in sorted(manifest["sprites"].items()):
         cw, ch = info["cell"]
         ss = int(info["ss"])
         want = (cw * ppu, ch * ppu)
+        if not os.path.exists(os.path.join(RAW, name + ".png")):
+            # packed on an earlier run: the 1x PNGs ARE the processed sprite
+            alb = load(os.path.join(RENDERS, name + ".png"))
+            nrm = load(os.path.join(RENDERS, name + "_n.png"))
+            msk = load(os.path.join(RENDERS, name + "_m.png"))
+            for tag, arr in (("albedo", alb), ("normal", nrm), ("mask", msk)):
+                got = (arr.shape[1], arr.shape[0])
+                assert got == want, f"{name} {tag} (1x): {got} != {want}"
+            sprites[name] = (alb, nrm, msk)
+            reused += 1
+            continue
         alb = down_premul(load(os.path.join(RAW, name + ".png")), ss)
         nrm = down_premul(load(os.path.join(RAW, name + "_n.png")), ss)
         msk = down_premul(load(os.path.join(RAW, name + "_m.png")), ss)
@@ -183,6 +200,8 @@ def main(argv):
         to_img(alb).save(os.path.join(RENDERS, name + ".png"))
         to_img(nrm).save(os.path.join(RENDERS, name + "_n.png"))
         to_img(msk).save(os.path.join(RENDERS, name + "_m.png"))
+    if reused:
+        print(f"  reused {reused} sprite(s) from 1x PNGs (no raw)")
 
     regions, used_h = shelf_pack({n: (a.shape[1], a.shape[0]) for n, (a, _, _) in sprites.items()})
     assert used_h <= ATLAS, f"atlas overflow: needs {used_h} rows"
@@ -207,12 +226,21 @@ def main(argv):
         pw, ph = finfo["px"]
         ss = int(finfo["ss"])
         base = os.path.join(RAW, "floor_" + arena)
-        alb = Image.open(base + ".png").convert("RGB").resize((pw, ph), Image.LANCZOS)
-        nrm_raw = np.asarray(Image.open(base + "_n.png").convert("RGB").resize((pw, ph), Image.LANCZOS)).astype(np.float64)
-        nrm = renormalize(np.concatenate([nrm_raw, np.full(nrm_raw.shape[:2] + (1,), 255.0)], axis=-1),
-                          np.full(nrm_raw.shape[:2], 255.0))
-        nrm_im = to_img(nrm[..., :3], "RGB")
-        rgh = Image.open(base + "_r.png").convert("L").resize((pw, ph), Image.LANCZOS)
+        if not os.path.exists(base + ".png"):
+            # packed on an earlier run: re-read the processed 1x pages
+            fin = os.path.join(RENDERS, "floor_" + arena)
+            alb = Image.open(fin + ".png").convert("RGB")
+            nrm_im = Image.open(fin + "_n.png").convert("RGB")
+            rgh = Image.open(fin + "_r.png").convert("L")
+            assert alb.size == (pw, ph) and nrm_im.size == (pw, ph) and rgh.size == (pw, ph), f"floor {arena} 1x size"
+            print(f"floor {arena}: reused 1x PNGs (no raw)")
+        else:
+            alb = Image.open(base + ".png").convert("RGB").resize((pw, ph), Image.LANCZOS)
+            nrm_raw = np.asarray(Image.open(base + "_n.png").convert("RGB").resize((pw, ph), Image.LANCZOS)).astype(np.float64)
+            nrm = renormalize(np.concatenate([nrm_raw, np.full(nrm_raw.shape[:2] + (1,), 255.0)], axis=-1),
+                              np.full(nrm_raw.shape[:2], 255.0))
+            nrm_im = to_img(nrm[..., :3], "RGB")
+            rgh = Image.open(base + "_r.png").convert("L").resize((pw, ph), Image.LANCZOS)
         ua, sa = data_uri(alb, "JPEG")
         un, sn = data_uri(nrm_im, "PNG")
         ur, sr = data_uri(rgh, "JPEG")
@@ -292,8 +320,11 @@ JS_TEMPLATE = r"""// ---- BATTEREDBOTS ART DEPARTMENT --------------------------
 // a 26-unit bot is 104 px here. Every sprite is nose-UP; the renderer rotates.
 // Nothing in these pages is emissive — the lamps, sparks and neon are the renderer's.
 //
-// `floors.pit` is THE GARAGE PIT at 2048x1152 over the 640x360 world (3.2 px/unit),
-// row 0 = world y 0 (the contract's y grows downward). albedo/rough JPEG, normal PNG.
+// `floors[arena]` — `pit` THE GARAGE PIT, `fryer` THE FRYER, `sump` THE SUMP — are
+// 2048x1152 pages over the 640x360 world (3.2 px/unit), row 0 = world y 0 (the
+// contract's y grows downward), one wall/start/pad shell in three dressings.
+// albedo/rough JPEG, normal PNG. Nothing baked: the sump is dark because its
+// concrete is dark, the fryer is cold because its steel is neutral.
 //
 // The contract is blender/BOTS_ART_CONTRACT.md. js/bots.js paints procedural stand-ins
 // for every region and only ever gets BETTER when this file arrives (HallBoot.inject).
