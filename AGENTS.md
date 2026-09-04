@@ -1842,8 +1842,15 @@ memory index). Contract between renderer and Blender: `blender/BOTS_ART_CONTRACT
   incrementally in `botsBank`). Worker cap `bots: 30e6`.
 - Pacing knobs (all in botsSim.js): HP 120/160/220, spinner `6+14·spin` at 1.0s
   per target, ram `min(12,(impact−45)·0.04)`, pads stagger `[3,5,9,13,17,21]`,
-  clock HAZARDS_AT 150 / PIT_AT 105 / SUDDEN_AT 30. Measured 2026-09-04: 4-AI
-  rounds average 45s backyard / 32s league / 25s fryer.
+  clock HAZARDS_AT 150 / PIT_AT 105 / SUDDEN_AT 30.
+- **HANDLING (Beau's first prod verdict: "impossible driving"):** GTN's car
+  numbers were wrong for a 640-unit room. Now top speed 175/150/130 (cross the
+  arena in ~2.9s, was ~1.7), accel UP (320/260/210) so it's snappy not slidey,
+  grip 11.5–12.5, steer 5.2/4.6/4.0 with pivot authority 0.85 at rest (180° from
+  a stop = 0.7s, was 5s+), and point-steering never auto-reverses — the bot
+  turns toward the stick, brakes if fast the wrong way, and only powers up when
+  facing within ~70°. Reverse is tank mode (T) only. Measured after: 4-AI rounds
+  average 82s backyard / 82s league / 109s fryer, with judges' decisions.
 
 ### Night 3 (same day) — 🛰️ CLUCKED METAL ONLINE shipped (`43677ad`)
 - `worker/src/games/bots.js` is server-authoritative on the SAME `js/botsSim.js`

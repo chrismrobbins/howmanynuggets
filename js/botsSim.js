@@ -50,11 +50,11 @@
   // aim slew rate in rad/s. Numbers descend from GTA_CLASSES (js/gta.js) —
   // already tuned, already right — with mass as the one new term.
   const CLASSES = {
-    dicer:  { key: 'dicer',  name: 'THE DICER',      wt: 'LIGHTWEIGHT · SPINNER',  maxFwd: 260, maxRev: 110, accel: 240, brake: 380, grip: 8.5, drift: 1.6, steer: 3.4, r: 11, L: 24, Wd: 14, hp: 120, armor: 0.00, mass: 1.0, turret: 3.8,
+    dicer:  { key: 'dicer',  name: 'THE DICER',      wt: 'LIGHTWEIGHT · SPINNER',  maxFwd: 175, maxRev: 70, accel: 320, brake: 420, grip: 11.5, drift: 2.2, steer: 5.2, r: 11, L: 24, Wd: 14, hp: 120, armor: 0.00, mass: 1.0, turret: 3.8,
               special: 'SPIN-UP', blurb: 'hold to spin the disc. fast, fragile, terrifying.' },
-    tender: { key: 'tender', name: 'THE TENDERIZER', wt: 'MIDDLEWEIGHT · FLIPPER', maxFwd: 220, maxRev: 95,  accel: 190, brake: 340, grip: 9.0, drift: 2.0, steer: 2.9, r: 12, L: 26, Wd: 16, hp: 160, armor: 0.10, mass: 1.4, turret: 3.2,
+    tender: { key: 'tender', name: 'THE TENDERIZER', wt: 'MIDDLEWEIGHT · FLIPPER', maxFwd: 150, maxRev: 60,  accel: 260, brake: 380, grip: 12.0, drift: 2.6, steer: 4.6, r: 12, L: 26, Wd: 16, hp: 160, armor: 0.10, mass: 1.4, turret: 3.2,
               special: 'FLIP',    blurb: 'tap to flip whatever is in front of you. aim it at the pit.' },
-    brick:  { key: 'brick',  name: 'THE BRICK',      wt: 'HEAVYWEIGHT · WEDGE',    maxFwd: 190, maxRev: 80,  accel: 150, brake: 300, grip: 9.6, drift: 2.6, steer: 2.4, r: 13, L: 28, Wd: 18, hp: 220, armor: 0.25, mass: 2.0, turret: 2.6,
+    brick:  { key: 'brick',  name: 'THE BRICK',      wt: 'HEAVYWEIGHT · WEDGE',    maxFwd: 130, maxRev: 50,  accel: 210, brake: 340, grip: 12.5, drift: 3.0, steer: 4.0, r: 13, L: 28, Wd: 18, hp: 220, armor: 0.25, mass: 2.0, turret: 2.6,
               special: 'SHOVE',   blurb: 'tap to charge. the wall does the damage.' },
   };
   const CLASS_KEYS = ['dicer', 'tender', 'brick'];
@@ -414,21 +414,16 @@
     } else {
       const mag = Math.hypot(inp.dx || 0, inp.dy || 0);
       if (mag > 0.25) {
+        // hold where you want to GO. The bot always TURNS toward it (an arena is
+        // too small for GTN's back-out-and-come-around), brakes if it is going
+        // fast the wrong way, and only puts power down once roughly facing it.
         const want = Math.atan2(inp.dy, inp.dx);
         const da = wrap(want - b.a);
         const off = Math.abs(da);
-        if (!b.backing && off > 2.6 && vf < 25) b.backing = true;
-        if (b.backing && off < 1.9) b.backing = false;
-        if (b.backing) {
-          rev = 1;
-          const db = da > 0 ? da - Math.PI : da + Math.PI;
-          steer = -clamp(db * 2.5, -1, 1);
-        } else if (off > 2.6) {
-          rev = 1;
-        } else {
-          steer = clamp(da * 2.5, -1, 1);
-          gas = clamp(mag, 0, 1);
-        }
+        steer = clamp(da * 3.0, -1, 1);
+        if (off > 2.0 && vf > 40) rev = 1;
+        else if (off < 1.25) gas = clamp(mag, 0, 1) * (off < 0.6 ? 1 : 0.55);
+        b.backing = false;
       } else b.backing = false;
     }
 
@@ -450,7 +445,7 @@
     vl *= Math.exp(-C.grip * gripK * dt);
 
     // steering: speed-scaled like a car, but a tracked bot can pivot
-    const sf = Math.sign(vf || 1) * Math.max(0.4, Math.min(1, Math.abs(vf) / 90));
+    const sf = Math.sign(vf || 1) * Math.max(0.85, Math.min(1, Math.abs(vf) / 60));
     b.a += steer * C.steer * sf * dt;
 
     const c2 = Math.cos(b.a), s2 = Math.sin(b.a);
