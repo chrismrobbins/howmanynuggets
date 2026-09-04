@@ -580,7 +580,7 @@ def box(name, sx, sy, sz, x=0, y=0, z=0, m=None, bevel=0.0, seg=3, pivot=False):
     o = bpy.context.active_object
     o.name = name
     o.scale = (sx, sy, sz)
-    bpy.ops.object.transform_apply(scale=True, location=pivot)
+    bpy.ops.object.transform_apply(location=pivot, rotation=False, scale=True)
     if bevel > 0:
         bv = o.modifiers.new("bv", "BEVEL")
         bv.width = min(bevel, min(sx, sy, sz) * 0.49)
@@ -613,7 +613,10 @@ def sph(name, r, x=0, y=0, z=0, m=None, squash=1.0, sx=1.0, sy=1.0):
     o.name = name
     if squash != 1.0 or sx != 1.0 or sy != 1.0:
         o.scale = (sx, sy, squash)
-        bpy.ops.object.transform_apply(scale=True)
+        # explicit: Blender 5.2 defaults location=True, which would bake the
+        # placement into the mesh and leave the origin at world 0 -- fine until
+        # a caller rotates the object, which then swings about (0,0)
+        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
     bpy.ops.object.shade_smooth()
     if m:
         o.data.materials.append(m)
@@ -636,7 +639,7 @@ def plane(name, sx, sy, m, x=0, y=0, z=0):
     o = bpy.context.active_object
     o.name = name
     o.scale = (sx, sy, 1)
-    bpy.ops.object.transform_apply(scale=True)
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
     if m:
         o.data.materials.append(m)
     return o
@@ -653,7 +656,7 @@ def nugget(name, sx, sy, sz, x=0, y=0, z=0, m=None, seed=0, lump=0.9, lump_scale
     o = bpy.context.active_object
     o.name = name
     o.scale = (sx, sy, sz)
-    bpy.ops.object.transform_apply(scale=True)
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
     bpy.ops.object.shade_smooth()
     tx = bpy.data.textures.get("nugclouds_%d" % seed)
     if not tx:
@@ -1839,10 +1842,12 @@ def make_floor_fryer():
         x = X0 + 20
         while x < X1 - 20:
             vx = x + 23
-            box("vat", 46, 24, 4.0, *G(vx, cy), z=0, m=M["vat"], bevel=0.5, seg=2)
-            box("vatoil", 40, 18, 0.4, *G(vx, cy), z=3.2, m=M["hotoil"])
-            for (dx, dy, sx, sy) in ((0, -8.6, 40, 0.9), (0, 8.6, 40, 0.9), (-19.6, 0, 0.9, 18), (19.6, 0, 0.9, 18)):
-                box("vatrim", sx, sy, 0.5, *G(vx + dx, cy + dy), z=4.0, m=M["rim"])
+            for (dx, dy, sx, sy) in ((0, -10.5, 46, 3), (0, 10.5, 46, 3), (-21.5, 0, 3, 24), (21.5, 0, 3, 24)):
+                box("vatwall", sx, sy, 4.0, *G(vx + dx, cy + dy), z=0, m=M["vat"], bevel=0.4, seg=2)
+            box("vatwell", 40, 18, 2.6, *G(vx, cy), z=0, m=M["vatwall"])
+            box("vatoil", 40, 18, 0.4, *G(vx, cy), z=2.6, m=M["hotoil"])
+            for (dx, dy, sx, sy) in ((0, -9.4, 40, 0.9), (0, 9.4, 40, 0.9), (-19.6, 0, 0.9, 18), (19.6, 0, 0.9, 18)):
+                box("vatrim", sx, sy, 0.4, *G(vx + dx, cy + dy), z=4.0, m=M["rim"])
             # a basket handle resting across the vat
             hb = box("vathandle", 1.6, 26, 1.0, *G(vx + rnd.uniform(-14, 14), cy), z=4.2, m=M["steel_dk"], bevel=0.3)
             hb.rotation_euler = (0, 0, rnd.uniform(-0.15, 0.15))
@@ -2025,11 +2030,11 @@ def make_floor_sump():
     # -- DPW stencils in worn white
     line_text("DPW 077", *G(150, 138), 11.0, M["stencil"], rot=0.0)
     line_text("DPW 077", *G(492, 226), 11.0, M["stencil"], rot=math.pi / 2)
-    line_text("DO NOT DIVE", *G(320, 238), 9.5, M["stencil"], rot=0.0)
+    line_text("DO NOT DIVE", *G(160, 182), 9.5, M["stencil"], rot=0.0)
     line_text("MAINS 3", *G(560, 180), 7.5, M["stencil"], rot=-math.pi / 2)
     # worn: chips out of the letters
     for k in range(22):
-        px, py = rnd.choice(((150, 138), (492, 226), (320, 238)))
+        px, py = rnd.choice(((150, 138), (492, 226), (160, 182)))
         bx, by = G(px + rnd.uniform(-34, 34), py + rnd.uniform(-5, 5))
         sph("chip", rnd.uniform(0.6, 1.6), bx, by, 0.0, M["sconc"][rnd.randrange(3)], squash=0.3)
     # -- a little oil, and tyre marks that shine where they cross the wet
