@@ -1844,3 +1844,20 @@ memory index). Contract between renderer and Blender: `blender/BOTS_ART_CONTRACT
   per target, ram `min(12,(impact−45)·0.04)`, pads stagger `[3,5,9,13,17,21]`,
   clock HAZARDS_AT 150 / PIT_AT 105 / SUDDEN_AT 30. Measured 2026-09-04: 4-AI
   rounds average 45s backyard / 32s league / 25s fryer.
+
+### Night 3 (same day) — 🛰️ CLUCKED METAL ONLINE shipped (`43677ad`)
+- `worker/src/games/bots.js` is server-authoritative on the SAME `js/botsSim.js`
+  (side-effect import → `globalThis.BotsSim`). Setup happens inside the match
+  (`{t:'pick'}` / host `{t:'setup'}`, 12s), AI fills to four, late joiners
+  spectate until the next round, leavers become AI. Scores scaled pts/100 ×
+  1000 × tier onto the SP leaderboard scale, written by the room.
+- `js/botsMP.js` — snapshots + own-bot prediction (`BotsSim.predictBot`) +
+  remote easing. `lobby.js` now serves `blaster` AND `bots` (`#openBotsOnline`).
+- **Test it without a worker:** `scratchpad/verify_botsmp.js` pattern — load the
+  module in-page as an ES module (`/worker/src/games/bots.js`), stub
+  `NuggetNet.send/leave/players`, push snapshots through `NuggetNet._handle`.
+  That is a full loopback of module + adapter through the real client.
+- Fourth harness: `blender/tools/botsshoot.js` (12 named scenes, seeded; shoots
+  `botsDebug.snap()`; metrics mean/sd/flat/blown/dark). Look at the crops.
+- Lore: Hood rumor six (`botsShutter`/`botsPing`), Dill `botsPing*`, exhibit 16
+  📡 THE LAST PING (`nugBotsPing` via a match win in THE SUMP), casefile fact 11.

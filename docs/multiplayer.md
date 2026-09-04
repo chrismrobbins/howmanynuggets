@@ -120,3 +120,21 @@ column) with a local muzzle-flash for feel. Cooldowns enforced server-side.
 - Tick via alarm (durable, ~50ms) vs. in-memory loop — recommend live in-memory
   tick during a match, hibernate idle lobbies.
 - WS auth: ticket-in-query (chosen).
+
+
+## Game 17: BATTEREDBOTS (2026-09-04) — the shared-sim pattern
+
+Third module, and a THIRD model. Blaster: server simulates a small world.
+GTN: pure relay, no authority. BatteredBots: server-authoritative like
+Blaster, but the physics is NOT written twice — `js/botsSim.js` is a classic
+script assigning `globalThis.BotsSim`; the browser loads it with a script tag
+and `worker/src/games/bots.js` side-effect-imports the same file. The module
+steps it at 60 Hz inside the room's 50 ms tick and sends `BotsSim.snapshot(m)`
+plus the events since the last tick; the client (`js/botsMP.js`) applies it,
+replays unacked inputs on its own bot with `BotsSim.predictBot`, and eases
+everyone else between ticks. Setup happens INSIDE the match (the room forwards
+inputs only while `playing`): `{t:'pick',cls}` from everyone, `{t:'setup',
+tier,arena}` from the host, 12 s max, AI fills to four. Late joiners spectate
+until the next round; leavers hand their bot to the AI. `lobby.js` now serves
+`blaster` and `bots` (opener buttons carry the game; `MIN_PLAYERS`).
+Use this pattern for any future game whose rules can be written without the DOM.

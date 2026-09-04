@@ -1834,3 +1834,30 @@ measures what it points at", §16 "add a spot that looks AT it"): **an object's
 placement check must include everything a PLAYER can read, not just everything
 the code calls a collision.** Signs, boards and lettering are the first things
 an eye goes to and the last things any collision table knows about.
+
+## 24. 🤖 THE PIT (2026-09-04) — the first MINIGAME on the material pipeline
+
+BatteredBots (game 17) is rendered on WebGL with the hall's ideas flattened to
+top-down: a normal-mapped floor, point lights, bloom. The seam between the
+renderer and Blender is `blender/BOTS_ART_CONTRACT.md` — regions, PPU 4, the
+three aligned 1024² pages (albedo / normal / PAINT mask), floor pages at
+2048×1152, and the exact arena geometry. `blender/botsrig.py` renders it
+headless; `blender/pack_bots.py` writes `js/botsArt.js`;
+`blender/tools/botsart_check.js` proves the file matches the contract. The
+renderer has a procedural stand-in for every region and boots without the file.
+
+Gotchas that cost the paint shop time (all also in the script docstrings):
+- Blender 5.2's engine id is `BLENDER_EEVEE`; data passes (normal/rough) need
+  the `Raw` view transform — Standard maps 0.5 → 188.
+- Normal pages are WORLD-space normals, which equal camera space because the
+  ortho camera sits at rotation (0,0,0). Do NOT use Blender's Vector Transform
+  to "Camera" — it points +Z away. Verified: flat = (127,127,255).
+- Floor pages: row 0 = world y 0 (y-down). Sample `v = y/360`, no flip.
+- `ShaderNodeMix` sockets must be picked by identifier; a spherical gradient in
+  object space dies at 1 BU; the Rendered viewport ignores `hide_render`;
+  Blender resolves relative render paths against ITS cwd.
+- The renderer's sprite shader rotates the sampled normal by the draw rotation
+  (image-up = local −y): `n = (nx·cos + ny·sin, nx·sin − ny·cos, nz)`.
+- Pacing is a rulebook problem, not a renderer one: the first cut's minigun
+  clip (480 dmg) exceeded the field's total HP (460). Measure rounds in node
+  (`BotsSim` runs headless) before touching visuals.

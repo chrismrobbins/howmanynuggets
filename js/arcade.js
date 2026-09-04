@@ -2934,13 +2934,16 @@ void main() {
         const dove = typeof drainSawStorm === 'function' && drainSawStorm();
         const delved = typeof croftFoundDoor === 'function' && croftFoundDoor();
         const jackpot = typeof fortuneJackpotHit === 'function' && fortuneJackpotHit();
+        const pinged = typeof botsPingHeard === 'function' && botsPingHeard();
         const party = typeof nugFoundersDay === 'function' && nugFoundersDay();
         // Season 2: the street-racing ladder is rumor-adjacent commerce
         const races = typeof gtaRacesWon === 'function' ? gtaRacesWon() : 0;
         const gpDone = typeof gtaGpWon === 'function' && gtaGpWon();
         return {
         root: {
-          line: delved
+          line: pinged
+            ? '*the hooded nugget is holding a transmitter. it is not on.* six. for. six. the garage had a BASEMENT, friend, and the basement had a DRAIN, and something took a toy car down it at forty knots. *sets the transmitter down very gently* I don\'t age rumors anymore. I just wait for you to come back up the stairs.'
+            : delved
             ? '*the hooded nugget adjusts the hood with both hands, ceremonially* five. for. five. the garage, the pier, the basement, the drains — and now a DOOR under the fort that the fort never built. *quietly* I\'m retiring the barrel, friend. I\'m buying a BIGGER barrel.'
             : dove
             ? '*the hooded nugget takes one slow step back from you* you went DOWN there. under the town. and it went past you like you were furniture. *long pause* R&D is over, friend. everything I age in the barrel from now on is about YOU.'
@@ -2960,6 +2963,9 @@ void main() {
             { t: 'somebody\'s been painting checkers on the roads.', next: 'races' },
             { t: 'there\'s a CLUB across the street now.', next: 'beatClub' },
             { t: 'somebody left a car out front. hazards on.', next: 'gtaCar' },
+            pinged
+              ? { t: 'Hood. a bot went DOWN the drain in the sump. still transmitting.', next: 'botsPing' }
+              : { t: 'there\'s a CRT bolted to the garage shutter now. it\'s showing a FIGHT.', next: 'botsShutter' },
             { t: 'the shutter… it\'s open!', next: 'garage' },
             { t: 'heard any rumors?', next: 'rumors' },
             { t: 'tell me about the night the storm vanished.', next: 'incident' },
@@ -3065,6 +3071,23 @@ void main() {
           line: 'ALL of nuggetown. five districts. the harbor. an NPD with a van they don\'t explain, and a syndicate that pays by the job. the phone booths ring for a reason. *leans in* answer one.',
           opts: [],
         },
+        // 🤖 game 17 — rumor six: the garage runs fights under the floor
+        botsShutter: {
+          line: '*the hooded nugget does not even turn around* CLUCKED METAL. the garage runs fights under the floor — RC bots, breaded, three-minute rounds, a drain in the middle for the losers. the accountant bets. *taps hood* rumor six, friend, and I didn\'t even have to age it. it came up through the FLOOR.',
+          opts: [
+            { t: 'a drain in the middle. of course there is.', next: 'botsDrain' },
+            { t: 'how do I get in?', next: 'botsHow' },
+          ],
+        },
+        botsDrain: { line: '*very quietly* every drain in this town goes to the same place, friend. the pit\'s got one. the SUMP — three floors down, where the mains meet — has a bigger one. win a match down there and watch what the telemetry does after a bot goes in. then come find me. I\'ll be pretending I already knew.', opts: [] },
+        botsHow: { line: 'pick up the transmitter on the stool. the shutter\'s half up for a reason. spinner, flipper, or the wedge — *taps hood* take the wedge, friend. the wedge gets UNDER things. everything in this town is under something.', opts: [] },
+        botsPing: {
+          line: '*the hood tilts toward the harbor* forty seconds of telemetry. harbor-way. forty knots. a toy car does not do forty knots, friend. something CARRIED it. *long pause* the pipes don\'t just carry water. I\'ve been saying that for six rumors. nobody writes it down. the pickle writes it down.',
+          opts: [
+            { t: 'so what is it?', next: 'botsWhat' },
+          ],
+        },
+        botsWhat: { line: '*the hooded nugget picks the transmitter back up and looks at it like it might ring* it\'s in a hurry, friend. that\'s new. it used to circle. now it\'s COMMUTING. *puts it down* the case stays open. it always stays open. but it just got a schedule.', opts: [] },
         garage: {
           line: "FAST FOOD, they call it. the grease-lightning I told you about — chili nitro, batter tankers, the whole delivery. I said SOON, friend. *taps hood* told. you. so.",
           opts: [
@@ -3204,6 +3227,7 @@ void main() {
         const salvage = typeof drainSalvageDone === 'function' && drainSalvageDone();
         const manifest = typeof reelManifestFound === 'function' && reelManifestFound();
         const jackpot = typeof fortuneJackpotHit === 'function' && fortuneJackpotHit();
+        const pinged = typeof botsPingHeard === 'function' && botsPingHeard();
         return {
         root: {
           line: party
@@ -3220,6 +3244,7 @@ void main() {
             dove ? { t: 'detective. pull the DPW maps. I saw it IN THE PIPES.', next: 'drainSaw' } : null,
             delved ? { t: 'there\'s a door under the fort. it isn\'t on the plans.', next: 'croftDoor' } : null,
             jackpot ? { t: 'detective. the wheel machine — I banked the spiral and solved its board.', next: 'fortuneJack' } : null,
+            pinged ? { t: 'detective. a bot went down the sump drain still transmitting. forty knots.', next: 'botsPing' } : null,
             salvage ? { t: 'I pulled all eight DPW tags out of the mains.', next: 'salvage' }
               : tags > 0 ? { t: "there's brass wired into those pipes, detective.", next: 'salvage' } : null,
             manifest ? { t: 'I fished a bottle out of the deep. paperwork inside.', next: 'manifest' } : null,
@@ -3301,6 +3326,16 @@ void main() {
             { t: 'want me to stop playing it?', next: 'fortuneJack2' },
           ],
         },
+        // 🤖 game 17 — exhibit sixteen: THE LAST PING
+        botsPing: {
+          line: '*the detective takes out the notepad before you finish the sentence* forty seconds. harbor-way. forty knots. *writes* a toy car does not do forty knots, kid. something carried it. *underlines twice* the pipes don\'t carry water. they carry THINGS. tag seventy-seven said leave it a door. nobody said leave it a BUS LANE.',
+          opts: [
+            { t: 'the garage runs fights down there. the accountant bets.', next: 'botsPing2' },
+            { t: 'what was it carrying it TO?', next: 'botsPing3' },
+          ],
+        },
+        botsPing2: { line: '*flat stare* betting on robot chicken fights is not a crime in Nuggetown. I checked. twice. *closes the notepad* the accountant waving at that shutter every night for a year, though — that\'s not a crime either. it\'s a HABIT. and habits are where cases live. *writes "EXHIBIT: THE LAST PING. FILED."* the case has a garage now. it already had a basement.', opts: [] },
+        botsPing3: { line: '*the longest pause the department has ever issued* the harbor. it\'s always the harbor. but a thing that CIRCLES doesn\'t do forty knots, kid. a thing that\'s LATE does. *taps the pen on the notepad* it stays open. it stays open with a timetable now.', opts: [] },
         fortuneJack2: { line: '*flat stare* absolutely not. keep spinning and keep your receipts. every board it deals you is a page somebody\'s SEEN, which makes you the only informant I\'ve got inside the house. *writes "EXHIBIT: THE SPIRAL, BANKED. THE BOARD, SOLVED."* the case grew a game show, kid. it stays open.', opts: [] },
         croftDoor: {
           line: '*he does not reach for the notepad. that\'s how you know it\'s bad.* say it again. slowly. …a vault door. UNDER the fort. gold in the seam, water on the far side, moving harbor-way. *now he opens the notepad — straight to the salvage section, tag seventy-seven* "it likes the pipes better than the bay. LEAVE IT A DOOR." unsigned. *looks up, and for once the rain waits* somebody didn\'t just leave it a door, kid. somebody BUILT it one.',
@@ -3469,6 +3504,10 @@ void main() {
       got: () => typeof fortuneJackpotHit === 'function' && fortuneJackpotHit(),
       filed: 'A free wheel game with no maker\'s plate, the harbor\'s favorite shape on one wedge, and every puzzle a quote from this file. A wheel only carries what somebody carved; a puzzle only knows what somebody wrote.',
       open: 'Land the 🌀, bank it with a letter, and solve the board it\'s riding.' },
+    { i: '📡', t: 'THE LAST PING', src: 'BATTEREDBOTS',
+      got: () => typeof botsPingHeard === 'function' && botsPingHeard(),
+      filed: 'A wrecked RC bot went down THE SUMP\'s drain still transmitting: forty seconds of telemetry, harbor-way, at forty knots. A toy car does not do forty knots. Something carried it. The pipes carry THINGS.',
+      open: 'Pick up the transmitter at the Grease Garage shutter and win a match in 🌊 THE SUMP, three floors down.' },
   ];
 
   function lockerFiledCount() {

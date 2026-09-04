@@ -69,24 +69,35 @@ game. Do not "fix" it. (`startZoom` guard in js/arcade.js.)
     case, every piece of paper agrees. It stays shut. It does not open. It is
     not going to open. **No resolution added.**
 
+11. **NEW — the garage has a basement.** (BATTEREDBOTS, game 17, js/bots.js.)
+    Under the Grease Garage there is a service pit nobody mentioned, and on
+    fight nights it has tires around it and a drain in the middle. Three floors
+    down — THE SUMP, where the mains meet — a wrecked RC bot went down that
+    drain *still transmitting*. Forty seconds of telemetry, heading harbor-side,
+    at a speed no toy car does (`nugBotsPing`, 📡 THE LAST PING). Cross-reference
+    fact 7: the pipes are a bus lane. Conclusion: the pipes don't just carry
+    water, they carry THINGS, and something down there is in a hurry. The
+    detective notes that the garage's accountant bets on the fights. He also
+    notes that this is not a crime. **No resolution added.**
+
 ## THE BOARD (filed publicly, 2026-08-06)
 
 The case file is on the sidewalk now. Det. Dill mounted a glass case outside the
 arcade doors (the **N.P.D. CASE BOARD**, `openLocker()` in js/arcade.js) holding
-all fifteen exhibits this arcade can produce, each marked FILED or OPEN, each
+all sixteen exhibits this arcade can produce, each marked FILED or OPEN, each
 OPEN one naming where to go get it. His stated reasoning: *"the only people a
 secret case file keeps in the dark are the ones who might help me."*
 
 **Canon rule, load-bearing for every future game: a FULL board does not close
-the case.** Fifteen of fifteen still reads OPEN. FOREVER. DO NOT ARCHIVE. A
-new game may add a sixteenth exhibit; it may never add an ending.
+the case.** Sixteen of sixteen still reads OPEN. FOREVER. DO NOT ARCHIVE. A
+new game may add a seventeenth exhibit; it may never add an ending.
 
 ## WITNESS LEDGER (street regulars, js/arcade.js `NPCS`)
 
 | Witness | Statement quality | Knows about |
 |---|---|---|
 | **Big Crumb** (door) | reliable, heard *nothing* — which he finds suspicious | the redlining pressure gauge; filed a report nobody read |
-| **The Hooded Nug** | infuriatingly accurate | ALL FIVE rumors: garage, pier, basement club, the humming gutters, the cellar doors |
+| **The Hooded Nug** | infuriatingly accurate | ALL SIX rumors: garage, pier, basement club, the humming gutters, the cellar doors, the fights under the garage floor |
 | **Gravy Jones** (bench) | damp, slow, credible | mustard-crowd history; DJ DRIP is his estranged nephew |
 | **Henrietta** | bwok | more than she lets on |
 | **Det. Dill** | it's his case | everything above, written down, underlined twice |
@@ -109,6 +120,7 @@ conversation and reads them via these globals:
 | `nugDrainTags` | `drainTagCount()` (0–8) / `drainSalvageDone()` | pulling the 🏷️ DPW SALVAGE TAGS out of the mains |
 | `nugReelManifest` | `reelManifestFound()` | snagging 🍾 THE SYNDICATE MANIFEST off the deep bottom |
 | `nugCroftDoor` | `croftFoundDoor()` | finding 🚪 THE DOOR beneath Fort Nugget (The Undercroft, the B4+ stairs; also unlocks THE DARK BELOW oath) |
+| `nugBotsPing` | `botsPingHeard()` | winning a BATTEREDBOTS match in 🌊 THE SUMP — 📡 THE LAST PING: a wreck went down the drain still transmitting; forty seconds, harbor-way, forty knots. Canon-safe: nobody saw anything, a radio did. Also `nugBotsLeague` / `botsLeagueWon()` (a CLUCKED METAL win unlocks THE FRYER CIRCUIT) |
 | `nugFortuneJack` | `fortuneJackpotHit()` | banking the 🌀 wedge AND solving that board — THE STORM JACKPOT in Reel of Fortune (also unlocks THE RIGGED WHEEL tier). Canon-safe: a wheel only carries what somebody carved, a puzzle only knows what somebody WROTE — and the puzzles quote this file. Nothing moved; the case grew a game show; it stays open |
 
 **Adding an exhibit?** Put its reader in this table AND add a row to

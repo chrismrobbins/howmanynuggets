@@ -1092,7 +1092,7 @@ function botsHandleEvents(evs) {
       case 'spinhit': botsSpawn('spark', e.x, e.y, 18, { spd: 260, vz: 200, life: 0.6, s: 1 }); botsSpawn('smoke', e.x, e.y, 2, { spd: 30, life: 0.8, s: 0.6 }); if (typeof ArcadeKit !== 'undefined') { ArcadeKit.kick(7, 220); ArcadeKit.hitStop(50); } break;
       case 'wall': if (e.impact > 45) { botsSpawn('spark', e.x, e.y, Math.round(e.impact / 25), { spd: 90, vz: 90, life: 0.3, s: 0.6 }); botsSfx('wall'); botsDecal('skid', e.x, e.y, 0, 1.2, 0.5); } break;
       case 'skid': botsDecal('skid', e.x, e.y, e.a, 1, 0.55); break;
-      case 'boom': botsSpawn('spark', e.x, e.y, 22, { spd: 220, vz: 180, life: 0.6, s: 1 }); botsSpawn('smoke', e.x, e.y, 8, { spd: 50, life: 1.4, s: 1 }); botsSpawn('fire', e.x, e.y, 10, { spd: 60, life: 0.45, s: 1.2 }); botsSpawn('ring', e.x, e.y, 1, { spd: 0, life: 0.35, s: 1 }); botsFlash(e.x, e.y, [1, 0.7, 0.35], 200, 3.2, 0.4, 12); botsDecal('scorch', e.x, e.y, Math.random() * 7, e.w === 'mortar' ? 1.2 : 1.6, 0.85); botsSfx('boom'); if (typeof ArcadeKit !== 'undefined') ArcadeKit.kick(9, 300); break;
+      case 'boom': botsSpawn('spark', e.x, e.y, 22, { spd: 220, vz: 180, life: 0.6, s: 1 }); botsSpawn('smoke', e.x, e.y, 8, { spd: 50, life: 1.4, s: 1 }); botsSpawn('fire', e.x, e.y, 10, { spd: 60, life: 0.45, s: 1.2 }); botsSpawn('ring', e.x, e.y, 1, { spd: 0, life: 0.35, s: 1 }); botsFlash(e.x, e.y, [1, 0.7, 0.35], 160, 2.2, 0.35, 12); botsDecal('scorch', e.x, e.y, Math.random() * 7, e.w === 'mortar' ? 1.2 : 1.6, 0.85); botsSfx('boom'); if (typeof ArcadeKit !== 'undefined') ArcadeKit.kick(9, 300); break;
       case 'splash': botsSpawn('splash', e.x, e.y, 14, { spd: 90, life: 0.5, s: 0.9 }); botsSfx('splash'); break;
       case 'emp': botsSpawn('ring', e.x, e.y, 1, { spd: 0, life: 0.6, s: 1.5, col: [0.75, 1, 0.35] }); botsFlash(e.x, e.y, [0.7, 1, 0.3], 240, 3.5, 0.5, 14); botsSfx('emp'); break;
       case 'stunned': botsSfx('stun'); break;
@@ -1104,7 +1104,7 @@ function botsHandleEvents(evs) {
       case 'clank': botsSfx('spark'); botsSpawn('spark', e.x, e.y, 5, { spd: 100, vz: 80, life: 0.3, s: 0.6 }); break;
       case 'slice': botsSfx('slice'); break;
       case 'slam': botsSfx('slam'); botsSpawn('smoke', e.x, e.y, 6, { spd: 60, life: 0.7, s: 0.8 }); botsSpawn('crumb', e.x, e.y, 6, { spd: 100, vz: 120, life: 2, s: 1 }); botsFlash(e.x, e.y, [1, 0.9, 0.8], 120, 1.5, 0.15, 10); if (typeof ArcadeKit !== 'undefined') ArcadeKit.kick(8, 260); break;
-      case 'dunk': botsSfx('boom'); botsSpawn('fire', e.x, e.y, 16, { spd: 80, life: 0.5, s: 1.3 }); botsSpawn('smoke', e.x, e.y, 8, { spd: 50, life: 1.2, s: 1 }); botsSpawn('splash', e.x, e.y, 12, { spd: 100, life: 0.5, s: 0.8, col: [1, 0.7, 0.3] }); botsFlash(e.x, e.y, [1, 0.6, 0.2], 180, 3, 0.5, 12); botsDecal('scorch', e.x, e.y, 0, 2.4, 0.5); break;
+      case 'dunk': botsSfx('boom'); botsSpawn('fire', e.x, e.y, 16, { spd: 80, life: 0.5, s: 1.3 }); botsSpawn('smoke', e.x, e.y, 8, { spd: 50, life: 1.2, s: 1 }); botsSpawn('splash', e.x, e.y, 12, { spd: 100, life: 0.5, s: 0.8, col: [1, 0.7, 0.3] }); botsFlash(e.x, e.y, [1, 0.6, 0.2], 150, 2.2, 0.45, 12); botsDecal('scorch', e.x, e.y, 0, 2.4, 0.5); break;
       case 'fire': botsSpawn('fire', e.x, e.y, 1, { spd: 14, life: 0.35, s: 0.8 }); if (Math.random() < 0.3) botsSpawn('smoke', e.x, e.y, 1, { spd: 10, life: 0.9, s: 0.4, col: [0.3, 0.3, 0.32] }); break;
       case 'boost': botsSfx('boost'); botsFlash(e.x, e.y, [1, 0.4, 0.2], 90, 1.5, 0.3, 8); break;
       case 'pickup': { botsSfx('pickup'); const Wp = BotsSim.WEAPONS[e.w]; botsSpawn('ring', e.x, e.y, 1, { spd: 0, life: 0.4, s: 0.8, col: Wp.col }); botsSpawn('spark', e.x, e.y, 8, { spd: 60, vz: 120, life: 0.5, s: 0.6, col: Wp.col }); if (botsIsMe(e.id)) botsFeed(Wp.icon + ' ' + Wp.name); break; }
@@ -1118,7 +1118,7 @@ function botsHandleEvents(evs) {
           botsSpawn('crumb', e.x, e.y, 24, { spd: 160, vz: 200, life: 2.6, s: 1 });
           botsSpawn('smoke', e.x, e.y, 14, { spd: 60, life: 2.2, s: 1.3, col: [0.25, 0.25, 0.28] });
           botsSpawn('fire', e.x, e.y, 14, { spd: 70, life: 0.6, s: 1.4 });
-          botsFlash(e.x, e.y, [1, 0.75, 0.4], 260, 4, 0.6, 14);
+          botsFlash(e.x, e.y, [1, 0.75, 0.4], 190, 2.2, 0.5, 14);
           botsDecal('scorch', e.x, e.y, Math.random() * 7, 2.2, 0.9); botsDecal('p_oil', e.x, e.y, Math.random() * 7, 2.6, 0.9);
         }
         bots.fx.crowd = 1.2;
