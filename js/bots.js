@@ -65,6 +65,7 @@ const bots = {
   batches: { lit: [], glow: [], shadow: [] },
   sfx: { ctx: null, master: null, muted: false },
   results: null, resultsT: 0, lastPhase: '',
+  online: false,                          // set by BotsNet: the worker is the authority, we predict + render
 };
 
 function botsActive() { return storm.mode === 'bots' && storm.running; }
@@ -1543,7 +1544,7 @@ function botsDrawResults(g, W, Hh, d, m) {
     y += 26 * d;
   });
   g.textAlign = 'center'; g.fillStyle = '#9aa2ab'; g.font = `600 ${Math.round(12 * d)}px ${BOTS_MONO}`;
-  g.fillText((me ? 'banked ' + fmt.format(Math.round(me.score / BOTS_BANK_DIV * storm.perFlyer * bots.cfg.mult)) + ' nugs · ' : '') + 'SPACE rematch · R new league · Q garage', W / 2, y + 8 * d);
+  g.fillText(bots.online ? 'scores filed by the room · back to the lobby for a rematch in a moment' : (me ? 'banked ' + fmt.format(Math.round(me.score / BOTS_BANK_DIV * storm.perFlyer * bots.cfg.mult)) + ' nugs · ' : '') + 'SPACE rematch · R new league · Q garage', W / 2, y + 8 * d);
 }
 
 // touch: two sticks and two buttons, drawn where the thumbs are
@@ -1752,7 +1753,7 @@ function botsStartMatch(arena) {
   bots.matches++;
   botsHandleEvents(BotsSim.drainEvents(bots.m));
 }
-function botsRematch() { if (bots.phase !== 'done') return; botsStartMatch(bots.arena); }
+function botsRematch() { if (bots.phase !== 'done' || bots.online) return; botsStartMatch(bots.arena); }
 
 // 🔧 PIT STOP — the sim dealt three; we show the arcade's crowd-favourite screen
 function botsMaybePitstop() {
@@ -1763,11 +1764,12 @@ function botsMaybePitstop() {
   const cards = deal.map((k) => BotsSim.BOONS.find((b) => b.key === k)).filter(Boolean);
   bots.boonPick = ArcadeKit.boonSelect({
     title: '🔧 PIT STOP — pick one', note: 'it stacks for the match · the others are picking too', boons: cards, mount: botsWorld,
-    onPick: (idx) => { bots.boonPick = null; BotsSim.pickBoon(m, bots.me, deal[idx]); botsSfx('pickup'); },
+    onPick: (idx) => { bots.boonPick = null; if (bots.online && window.BotsNet) BotsNet.pickBoon(deal[idx]); else BotsSim.pickBoon(m, bots.me, deal[idx]); botsSfx('pickup'); },
   });
 }
 
 function botsBank() {
+  if (bots.online) return; // the room writes online scores to D1 itself
   const me = bots.m && BotsSim.botById(bots.m, bots.me);
   if (!me) return;
   if (me.score > bots.banked) {
@@ -1799,7 +1801,11 @@ function stepBots(dt) {
   if (dt > 0.033) { if (++bots.slowFrames > 90 && bots.tier !== 'low') { botsApplyTier(bots.tier === 'high' ? 'med' : 'low'); bots.slowFrames = 0; } } else bots.slowFrames = Math.max(0, bots.slowFrames - 2);
   if (typeof ArcadeKit !== 'undefined') ArcadeKit.refreshTimeScale();
   const m = bots.m;
-  if (m && bots.phase === 'play' && !bots.paused && !bots.freeze) {
+  if (bots.online && window.BotsNet) {
+    // the worker is the authority: send inputs, apply snapshots, predict ourselves
+    BotsNet.onStep(dt, botsGatherInput());
+    if (bots.m && bots.phase === 'play') botsMaybePitstop();
+  } else if (m && bots.phase === 'play' && !bots.paused && !bots.freeze) {
     // time thickens on a KO, then eases back
     if (bots.hitstop > 0) bots.hitstop -= dt;
     else bots.slow += (1 - bots.slow) * Math.min(1, dt * 2.2);
@@ -1864,12 +1870,16 @@ function syncBots() {
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     botsLayout();
     bots.t = 0; bots.frames = 0;
-    if (bots.gl) botsOpenTier();
+    if (bots.gl) {
+      if (window.BotsNet && BotsNet.active()) { bots.online = true; BotsNet.onEnter(); }
+      else { bots.online = false; botsOpenTier(); }
+    }
   } else {
     botsClosePicks();
     bots.paused = false; bots.phase = 'idle'; bots.m = null; bots.results = null;
     bots.keys = {}; bots.mouse.down = bots.mouse.rdown = false;
     if (window.BotsNet && BotsNet.onGameExit) BotsNet.onGameExit();
+    bots.online = false;
   }
 }
 

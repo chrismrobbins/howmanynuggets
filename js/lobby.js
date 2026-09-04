@@ -6,9 +6,14 @@
   const net = window.NuggetNet;
   if (!net) return;
 
-  let game = 'blaster'; // the only game with a module today
+  // Which game this lobby is hosting right now. Blaster was the only module
+  // for a long time; the opener buttons carry data-game so the same modal
+  // serves BatteredBots (game 17) too. GTN keeps its own instant free-roam modal.
+  let game = 'blaster';
+  const MIN_PLAYERS = { blaster: 2 }; // bots fills the field with AI drivers, so a host can start alone
 
   const openBtn = document.getElementById('openMultiplayer');
+  const openBotsBtn = document.getElementById('openBotsOnline');
   const modal = document.getElementById('mpModal');
   const closeBtn = document.getElementById('mpClose');
   const signedOut = document.getElementById('mpSignedOut');
@@ -60,11 +65,12 @@
     startBtn.style.display = net.host ? '' : 'none';
     // Co-op needs a second player, and everyone ready — `< 1` was always false
     // (the host is in their own roster), so Start was a live solo-launch button.
-    startBtn.disabled = net.players.length < 2 || !net.players.every((p) => p.ready);
+    startBtn.disabled = net.players.length < (MIN_PLAYERS[game] || 1) || !net.players.every((p) => p.ready);
   }
 
   // ---- actions ----
-  openBtn && openBtn.addEventListener('click', open);
+  openBtn && openBtn.addEventListener('click', () => { if (!net.active) game = 'blaster'; open(); });
+  openBotsBtn && openBotsBtn.addEventListener('click', () => { if (!net.active) game = 'bots'; open(); });
   closeBtn.addEventListener('click', close);
   modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !net.active) close(); });
@@ -103,7 +109,7 @@
   // Only act on rooms for THIS lobby's game — other games (e.g. GTA's free-roam
   // in gtaMP.js) run their own session UI and must not pop this modal.
   const mine = () => !net.game || net.game === game;
-  net.on('welcome', () => { if (!mine()) return; open(); showState(); });
+  net.on('welcome', (m) => { if (m && m.game && (m.game === 'blaster' || m.game === 'bots')) game = m.game; if (!mine()) return; open(); showState(); });
   net.on('roster', () => { if (mine() && modal.classList.contains('active')) renderRoom(); });
   net.on('started', () => { if (mine()) close(); });   // the game takes over the screen
   net.on('gameover', () => { if (mine()) { open(); showState(); } }); // back to lobby for a rematch

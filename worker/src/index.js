@@ -476,7 +476,7 @@ async function joinRoom(request, env, url) {
 }
 
 // Which games currently have a multiplayer module (mirrors games/registry.js).
-const MULTIPLAYER_GAMES = new Set(['blaster', 'gta']);
+const MULTIPLAYER_GAMES = new Set(['blaster', 'gta', 'bots']);
 
 // ---- Admin portal endpoints -------------------------------------------------
 // Throwaway accounts created while building/testing multiplayer. Counted

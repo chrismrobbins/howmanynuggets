@@ -4,10 +4,12 @@
 
 import { BlasterGame } from './blaster.js';
 import { GtaGame } from './gta.js';
+import { BotsGame } from './bots.js';
 
 export const GAME_MODULES = {
   blaster: BlasterGame,
   gta: GtaGame,        // free-roam online relay (Season 2, Sprint 9)
+  bots: BotsGame,      // CLUCKED METAL — server-authoritative on the shared sim (game 17)
   // run:    RunGame,     // future
   // knight: KnightGame,  // future
 };
