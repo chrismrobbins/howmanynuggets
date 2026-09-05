@@ -1876,3 +1876,31 @@ memory index). Contract between renderer and Blender: `blender/BOTS_ART_CONTRACT
 then `python blender/pack_bots.py` (merges via `_manifest.json`, deletes `raw/`)
 and `node blender/tools/botsart_check.js`. Renders go to `render_bots/raw/` first
 — if a render "produced nothing", look there before re-running.
+
+## 👑 THE THREE THRONES + 🔆 THE READABLE NEON (2026-09-05)
+
+Beau: "someone asked where they can play this game if they're walking around
+the arcade" and "all the neon lights are too glowing … make them readable
+from close and afar." Both in one pass:
+
+- **BatteredBots is the 11th cabinet**, the CENTRE throne on the back wall:
+  PLACEMENT knight −3.0 / bots 0 / brawl +3.0 (z −18.7), all `DELUXE` (a Set
+  next to PLACEMENT — the old `mode==='knight'||'brawl'` pairs are gone).
+  Torch poles only outboard of the OUTER thrones; the shared centre pole is
+  retired. Back-wall piers moved to ±1.55 (between the thrones) and ±5.31;
+  the Knight/Golden posters moved out to ±4.2..5.2. The Grease Garage shutter
+  on the street is still a second door to the same game.
+- **The main atlas fits 11 by exact shelf math**, not by luck: sides AND
+  posters 200×288 (they share row 2, so both had to give), marquees 500×112
+  (four a row instead of three — a whole shelf back), panels 200×100 (ten a
+  row). Bottom = 2048 with zero overflow. The sim that proved it is ~20 lines
+  of node (replay the alloc list with PAD 8, shelf rule `cx+w+PAD>S`); rerun it
+  before adding ANY region to makeAtlas. `bots` left STREET_GAMES (it's in
+  GAMES now); `SCENES.bots` attract screen added (drawAttract throws on a mode
+  without one); pack_hall.py GAMES has the bots tint.
+- **Neon:** `EMIS_GAIN` 2.2→1.8, `TUNE.bloomThresh` 0.80→0.95, `bloomKnee`
+  0.55→0.40, `bloomAmt` 0.38→0.30, `sat` 1.10→1.16 (UP, so remaining halo stays
+  coloured). Root cause: pack_hall's emissive ceiling [120,172] was computed for
+  the 1.45 world; at 2.2 whole letter bodies sat over the bloom threshold. Spots
+  01/02/05/06 before→after: mean 65.7→60.0, sd 46.7→41.6, chroma 55.6→58.1.
+  Longer-term fix: recompute `EMISSIVE_CEIL` in pack_hall.py from the live gain.

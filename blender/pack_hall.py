@@ -44,6 +44,7 @@ GAMES = {
     "knight":  ("#ffb020", "#ff3d3d"),
     "ranch":   ("#ffd166", "#e95420"),
     "kart":    ("#39ff7a", "#0a7a3a"),
+    "bots":    ("#f0b03a", "#e63b2e"),   # game 17, the third throne (2026-09-05)
 }
 
 # Regions graded to the measured procedural means. Value = contrast factor

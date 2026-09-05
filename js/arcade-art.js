@@ -20,6 +20,10 @@ const ArcadeArt = (() => {
     { mode: 'knight',  title: 'NUGGET KNIGHT', icon: '⚔️', c1: '#ffb020', c2: '#ff3d3d', tag: 'HOLD THE GATE'     },
     { mode: 'ranch',   title: 'NUGGET RANCH',  icon: '🐔', c1: '#ffd166', c2: '#e95420', tag: 'EGG TO McNUGGET'  },
     { mode: 'kart',    title: 'FAST FOOD',     icon: '🏎️', c1: '#39ff7a', c2: '#0a7a3a', tag: 'PEDAL TO THE BATTER' },
+    // the 11th — the THIRD THRONE on the back wall (2026-09-05). The page was
+    // full at 10; the cabinet-art families below were trimmed a few px each to
+    // make the room (see the alloc notes).
+    { mode: 'bots',    title: 'BATTEREDBOTS',  icon: '🤖', c1: '#f0b03a', c2: '#e63b2e', tag: 'LAST BOT ROLLING' },
   ];
 
   // Games that live OUTSIDE the hall (no cabinet, no main-atlas art — the packed
@@ -36,10 +40,8 @@ const ArcadeArt = (() => {
     // and a slot machine is its own furniture anyway. Face art lives on the
     // street page (fortuneFace); scoreboard + leaderboards ride this entry.
     { mode: 'fortune', title: 'REEL OF FORTUNE', icon: '🎡', c1: '#ffd23a', c2: '#ff2fa0', tag: 'THE HOUSE KNOWS THE WORDS' },
-    // game 17 — the RC battlebot pit under the Grease Garage (js/bots.js).
-    // Entry is the half-raised garage shutter on the street: a monitor showing
-    // the arena feed and a transmitter on a stool (botsFace, street page).
-    { mode: 'bots', title: 'BATTEREDBOTS', icon: '🤖', c1: '#f0b03a', c2: '#e63b2e', tag: 'LAST BOT ROLLING' },
+    // (game 17, BatteredBots, moved to GAMES — it has a cabinet on the back wall
+    // now; the garage shutter on the street stays as a second door, botsFace.)
   ];
 
   const NEON = ['#ff2fa0', '#26e0ff', '#ffe23a', '#7c4dff', '#39ff7a'];
@@ -1072,12 +1074,21 @@ const ArcadeArt = (() => {
     // Shelf-packed tallest-first so everything fits in one 2048² page.
     alloc('carpet', 448, 448, pCarpet);
     alloc('door', 192, 448, pDoor);
-    for (const game of GAMES) // 200×300 (was 216×324): the 10th game only fits shrunk
-      alloc('side_' + game.mode, 200, 300, (gg, w, h) => pSideArt(gg, w, h, game));
-    alloc('posterGolden', 200, 300, pPosterGolden);
-    alloc('posterBrawl', 200, 300, pPosterBrawl);
-    alloc('posterKnight', 200, 300, pPosterKnight);
-    alloc('posterPlay', 200, 300, pPosterPlay);
+    // 200×272 (was 216×324, then 200×300): the 10th game only fit shrunk, and the
+    // 11th (bots, 2026-09-05) needed 180px of shelf back — sides, marquees and
+    // panels each gave a little. Painters still draw in their own coordinates;
+    // alloc scales the context, so nothing outside makeAtlas moved.
+    // The shelf math (simulated, 2026-09-05): row 2 is 11 sides + 4 posters at
+    // 200 wide, so BOTH families set that row's height; marquees at 500 wide
+    // pack four a row instead of three (saves a whole 112px shelf); panels at
+    // 200 wide pack ten a row. Net: bottom 2048 exactly. Trim any of these and
+    // re-run the sim in AGENTS.md before trusting the page.
+    for (const game of GAMES)
+      alloc('side_' + game.mode, 200, 288, (gg, w, h) => pSideArt(gg, w, h, game));
+    alloc('posterGolden', 200, 288, pPosterGolden);
+    alloc('posterBrawl', 200, 288, pPosterBrawl);
+    alloc('posterKnight', 200, 288, pPosterKnight);
+    alloc('posterPlay', 200, 288, pPosterPlay);
     alloc('vending', 256, 384, pVending); // (the mystery drape retired with the poke gate)
     alloc('sign', 1024, 256, pSign);
     alloc('wall', 256, 256, pWall);
@@ -1088,7 +1099,7 @@ const ArcadeArt = (() => {
     alloc('change', 128, 256, pChange);
     alloc('bezel', 256, 192, pBezel);
     for (const game of GAMES)
-      alloc('marq_' + game.mode, 512, 128, (gg, w, h) => pMarquee(gg, w, h, game));
+      alloc('marq_' + game.mode, 500, 112, (gg, w, h) => pMarquee(gg, w, h, game));
     alloc('open', 256, 128, pOpen);
     alloc('wainscot', 256, 128, pWainscot);
     alloc('nugGold', 64, 64, pNugGold);
@@ -1096,7 +1107,7 @@ const ArcadeArt = (() => {
     alloc('phrase', 512, 128, pPhrase);
     alloc('highscores', 512, 128, pHighScores);
     for (const game of GAMES)
-      alloc('panel_' + game.mode, 224, 112, (gg, w, h) => pPanel(gg, w, h, game));
+      alloc('panel_' + game.mode, 200, 100, (gg, w, h) => pPanel(gg, w, h, game));
     alloc('dark', 128, 128, pDark);
     // Solid color swatches for untextured geometry (neon strips, decals…).
     const SWATCHES = {
@@ -2562,6 +2573,51 @@ const ArcadeArt = (() => {
       g.font = '700 11px Consolas, monospace';
       g.fillStyle = '#5a3a16'; g.textAlign = 'center';
       g.fillText('RAISE · FEED · SHIP', w / 2, h * 0.28);
+    },
+    bots(g, w, h, t) {
+      // the pit from the broadcast camera: tire ring, drain, three breaded bots
+      // circling, a spinner throwing sparks, the round clock counting down
+      g.fillStyle = '#2a2d33'; g.fillRect(0, 24, w, h - 24);
+      g.strokeStyle = '#1d1f24'; g.lineWidth = 1;
+      for (let x = 20; x < w; x += 44) { g.beginPath(); g.moveTo(x, 24); g.lineTo(x, h); g.stroke(); }
+      for (let y = 40; y < h; y += 44) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+      // lamp pools
+      for (const [lx, ly] of [[w * 0.2, h * 0.32], [w * 0.8, h * 0.32], [w * 0.2, h * 0.8], [w * 0.8, h * 0.8]]) {
+        const gr = g.createRadialGradient(lx, ly, 2, lx, ly, 46); gr.addColorStop(0, 'rgba(255,220,160,0.28)'); gr.addColorStop(1, 'rgba(255,220,160,0)');
+        g.fillStyle = gr; g.fillRect(lx - 46, ly - 46, 92, 92);
+      }
+      // tire wall
+      g.fillStyle = '#111317';
+      for (let x = 14; x < w - 8; x += 9) { g.beginPath(); g.arc(x, 32, 4, 0, 7); g.fill(); g.beginPath(); g.arc(x, h - 12, 4, 0, 7); g.fill(); }
+      for (let y = 32; y < h - 8; y += 9) { g.beginPath(); g.arc(12, y, 4, 0, 7); g.fill(); g.beginPath(); g.arc(w - 12, y, 4, 0, 7); g.fill(); }
+      g.fillStyle = '#c98a1e'; for (let x = 20; x < w - 20; x += 16) { g.fillRect(x, 38, 8, 2); g.fillRect(x, h - 19, 8, 2); }
+      // the drain
+      const cx = w / 2, cy = (h + 24) / 2;
+      g.fillStyle = '#0b0d10'; g.beginPath(); g.arc(cx, cy, 14, 0, 7); g.fill();
+      g.strokeStyle = '#4a525c'; g.lineWidth = 1; for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(cx - 11, cy + i * 4); g.lineTo(cx + 11, cy + i * 4); g.stroke(); }
+      // three bots circling, nose forward
+      const bots = [['#e63b2e', 0], ['#f2b134', 2.1], ['#e8ecf0', 4.2]];
+      for (const [col, ph] of bots) {
+        const a = t * 0.9 + ph, r = 44 + Math.sin(t * 1.7 + ph) * 12;
+        const x = cx + Math.cos(a) * r * 1.6, y = cy + Math.sin(a) * r;
+        g.save(); g.translate(x, y); g.rotate(a + Math.PI / 2 + 0.3);
+        g.fillStyle = '#15171b'; g.fillRect(-7, -6, 3, 4); g.fillRect(4, -6, 3, 4); g.fillRect(-7, 3, 3, 4); g.fillRect(4, 3, 3, 4);
+        g.fillStyle = '#c98f3a'; g.fillRect(-5, -8, 10, 16);
+        g.fillStyle = col; g.fillRect(-3, -3, 6, 6);
+        g.fillStyle = '#fff'; g.fillRect(-3, -6, 2, 2); g.fillRect(1, -6, 2, 2);
+        g.fillStyle = '#9aa2ab'; g.beginPath(); g.arc(0, -11, 4, 0, 7); g.fill();
+        g.restore();
+      }
+      // sparks where the red one is
+      const sa = t * 0.9, sx = cx + Math.cos(sa) * (44 + Math.sin(t * 1.7) * 12) * 1.6, sy = cy + Math.sin(sa) * (44 + Math.sin(t * 1.7) * 12);
+      g.fillStyle = '#ffe9a0';
+      for (let i = 0; i < 7; i++) { const k = (t * 5 + i * 0.9) % 1; g.fillRect(sx + Math.cos(i * 2.2) * k * 22, sy + Math.sin(i * 2.2) * k * 22 - k * 10, 2, 2); }
+      // the clock
+      const secs = 180 - Math.floor(t * 4) % 180;
+      g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(cx - 24, 44, 48, 16);
+      g.fillStyle = secs < 30 ? '#ff5a2e' : '#f0b03a'; g.font = '900 12px Impact, Haettenschweiler, sans-serif'; g.textAlign = 'center';
+      g.fillText(Math.floor(secs / 60) + ':' + ('0' + secs % 60).slice(-2), cx, 57);
+      g.fillStyle = '#ece7dc'; g.font = '700 8px Consolas, monospace'; g.fillText('CLUCKED METAL', cx, h - 26);
     },
     kart(g, w, h, t) {
       // night drive: pseudo-3D road strobing past, a tanker ahead, nitro on a beat

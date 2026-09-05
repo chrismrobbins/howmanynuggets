@@ -41,7 +41,7 @@ const NuggetArcade = (() => {
   // direction. At 4.0 "NUGGET ARCADE" is an illegible glowing bar; at 2.2 it
   // is legible AND the tube behind it has a hot core with the colour still in
   // its halo. Emissive range is not the same thing as emissive brightness.
-  const EMIS_GAIN = 2.2;
+  const EMIS_GAIN = 1.8;   // was 2.2 — Beau 2026-09-05: "all the neon is too glowing, hard to read". pack_hall's [120,172] ceiling was computed for a 1.45 world; 2.2 put whole letter BODIES over the bloom threshold.
   const GLOW_GAIN = 1.7;   // the additive sprite pass (blinkers, votives, sparks)
   // THE TUNING SEAM. Every number the float pipeline is sensitive to, in one
   // object a harness can poke between frames. This exists because the first
@@ -54,11 +54,11 @@ const NuggetArcade = (() => {
   const TUNE = {
     emisGain: EMIS_GAIN,
     glowGain: GLOW_GAIN,
-    bloomAmt: 0.38,
-    bloomThresh: 0.80,
-    bloomKnee: 0.55,
+    bloomAmt: 0.30,      // was 0.38 (the readable-neon pass, 2026-09-05)
+    bloomThresh: 0.95,   // was 0.80: only hot cores bloom now, not lettering
+    bloomKnee: 0.40,     // was 0.55: a tighter knee at the higher cut
     exposure: 1.0,
-    sat: 1.10,
+    sat: 1.16,           // was 1.10: UP, so what halo remains stays coloured, not white
     puddle: PUDDLE_AMT,
     // 🪟 how much sky a pane returns (§20). Swept, not guessed: at 1.6 the
     // crane cabinets read as mirrors and you lose the prizes behind them, which
@@ -135,6 +135,8 @@ const NuggetArcade = (() => {
 
   // Cabinet placement: [mode, x, z, yaw]. Yaw 0 faces +z (toward the doors).
   // Knight is the crowd favorite, so it gets the deluxe spot on the back wall.
+  // the back-wall thrones: 1.55× cabinets with torches, taller lights
+  const DELUXE = new Set(['knight', 'brawl', 'bots']);
   const PLACEMENT = [
     ['blaster', -7.02, -5.5, Math.PI / 2],
     ['flappy', -7.02, -9.5, Math.PI / 2],
@@ -142,12 +144,15 @@ const NuggetArcade = (() => {
     ['catch', 7.02, -5.5, -Math.PI / 2],
     ['run', 7.02, -9.5, -Math.PI / 2],
     ['sim', 7.02, -13.5, -Math.PI / 2],
-    // 👑 THE TWIN THRONES (2026-08-24, Beau's call): the back wall carries the
-    // two key games now. Brawlers left its west-wall spot (z -16.8) to stand
-    // beside Knight — both deluxe, torch poles outboard + one shared centre.
-    ['brawl', 1.75, -18.7, 0],
+    // 👑 THE THREE THRONES (2026-09-05, Beau's call — "make it the third of the
+    // bigger arcade games"): the back wall carries Knight, BatteredBots and
+    // Brawlers, all deluxe, at x −3 / 0 / +3. Torch poles stand outboard of the
+    // two outer thrones only; the centre throne IS the centre now (the old
+    // shared centre pole retired with the twins). The spine ends at a machine.
+    ['brawl', 3.0, -18.7, 0],
     ['ranch', 7.02, -2.2, -Math.PI / 2], // front of the right wall, ahead of Catch
-    ['knight', -1.75, -18.7, 0],
+    ['knight', -3.0, -18.7, 0],
+    ['bots', 0, -18.7, 0],                // game 17, the third throne
     ['kart', -7.02, -2.2, Math.PI / 2], // the 10th cabinet — the reserved spot, delivered
   ];
 
@@ -1925,7 +1930,7 @@ void main() {
     // worse. The goal is VARIATION, not darkening: lanes go down, the untrodden
     // edges go UP, and the average lands back where it started.
     let w = 1.07;
-    // THE SPINE: the door at (0, 0) to the deluxe cabinet at (0, -18.7). Every
+    // THE SPINE: the door at (0, 0) to the centre throne at (0, -18.7). Every
     // visit walks it, and click-to-walk drives straight down it with no
     // pathfinding, so it is not a guess about where players go — it is where
     // the game itself sends them.
@@ -2362,7 +2367,9 @@ void main() {
         pierAt(X, z, Math.PI / 2);      // east wall: relief into -x
       }
       // the back (deluxe) wall: room is +z from ZB, so yaw PI
-      for (const x of [-5.31, -3.19, 3.19, 5.31]) pierAt(x, ZB, Math.PI);
+      // piers sit BETWEEN the three thrones (±1.55) and outboard (±5.31); the
+      // old ±3.19 pair stood inside the outer thrones' footprints
+      for (const x of [-5.31, -1.55, 1.55, 5.31]) pierAt(x, ZB, Math.PI);
       // THE ENTRANCE WALL (z=0), which the first pass of this round MISSED —
       // and `07-jukebox` is the spot that motivated the whole round. It looks at
       // THIS wall, not a side wall, and it measured `hard 0.357 -> 0.349`: dead
@@ -2422,8 +2429,10 @@ void main() {
       B.model('extinguisher', uv, { x: X - 0.11, y: 1.06, z: -18.2, yaw: Math.PI / 2 });
     }
     // back-wall flankers for the Knight throne
-    B.quad([-4.4, 1.4, ZB + 0.02], [-3.4, 1.4, ZB + 0.02], [-3.4, 2.9, ZB + 0.02], [-4.4, 2.9, ZB + 0.02], uv.posterKnight, {});
-    B.quad([3.4, 1.4, ZB + 0.02], [4.4, 1.4, ZB + 0.02], [4.4, 2.9, ZB + 0.02], [3.4, 2.9, ZB + 0.02], uv.posterGolden, {});
+    // (moved out to x ±4.2..5.2 when the third throne arrived: the outer thrones
+    // now span to ±3.71 and their torch poles stand at ±4.15)
+    B.quad([-5.2, 1.4, ZB + 0.02], [-4.2, 1.4, ZB + 0.02], [-4.2, 2.9, ZB + 0.02], [-5.2, 2.9, ZB + 0.02], uv.posterKnight, {});
+    B.quad([4.2, 1.4, ZB + 0.02], [5.2, 1.4, ZB + 0.02], [5.2, 2.9, ZB + 0.02], [4.2, 2.9, ZB + 0.02], uv.posterGolden, {});
 
     // wall neon phrases
     SGN.quadV(
@@ -2683,7 +2692,7 @@ void main() {
     // cabinets
     for (const [mode, px, pz, yaw] of PLACEMENT) {
       const game = ArcadeArt.GAMES.find((g) => g.mode === mode);
-      const deluxe = mode === 'knight' || mode === 'brawl';
+      const deluxe = DELUXE.has(mode);
       const cab = buildCabinet(
         B, uv, game, px, pz, yaw,
         deluxe ? 1.55 : 1, deluxe ? 1.18 : 1, deluxe ? 1.15 : 1
@@ -2719,12 +2728,10 @@ void main() {
       const c1 = hexRGB(game.c1);
       H.glows.push({ p: cab.marquee, c: c1, s: deluxe ? 1.7 : 1.1, a: deluxe ? 0.22 : 0.16, k: 'marq' });
       if (deluxe) {
-        // torch poles flanking the TWIN thrones: one outboard of each cabinet
-        // plus ONE shared centre pole (built with knight so it exists exactly
-        // once, at x = 0). A pole per side per cabinet put two shafts 0.6m
-        // apart dead centre of the spine, where click-to-walk ends.
-        const dxs = px < 0 ? [-1.15] : [1.15];
-        if (mode === 'knight') dxs.push(-px); // the shared centre pole (x = 0)
+        // torch poles: one outboard of each OUTER throne. The centre throne
+        // (bots, x 0) gets none — a pole per side would put shafts on the spine,
+        // where click-to-walk ends (the twins' shared-pole lesson).
+        const dxs = px < -0.5 ? [-1.15] : px > 0.5 ? [1.15] : [];
         for (const dx of dxs) {
           B.quad(
             [px + dx - 0.045, 0.2, pz + 0.3], [px + dx + 0.045, 0.2, pz + 0.3],
@@ -4931,7 +4938,7 @@ void main() {
       const g = byMode[mode];
       if (!g) continue;
       const fx = Math.sin(yaw), fz = Math.cos(yaw);   // the face it looks out of
-      const s = (mode === 'knight' || mode === 'brawl') ? 1.18 : 1; // the deluxe cabinets are bigger
+      const s = DELUXE.has(mode) ? 1.18 : 1; // the deluxe cabinets are bigger
       const a = hexRgb(g.c1), b = hexRgb(g.c2);
       const mix2 = (k) => (a[k] + b[k]) * 0.5;
       // NUGGET CATCH is a taped-off crime scene. Its marquee is dark and has
