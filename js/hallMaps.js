@@ -60,6 +60,17 @@ const HallMaps = (() => {
   function load() {
     if (state !== 'idle') return;
     state = 'loading';
+    // 📱 A HANDHELD NEVER OPENS THIS CRATE. The two pages are 4096² each — 3MB
+    // of payload and 134MB of decoded pixels — and they are the single largest
+    // thing the hall asks a phone for. Declining is not a new code path: it is
+    // the path this file has always had for "the payload never landed", and the
+    // hall answers it by painting flat normals and an inert ORM page (the
+    // shader's own defaults, H.texFlatN / H.texFlatS in js/arcade.js). The
+    // relief goes away; the hall does not.
+    if (typeof HallBoot !== 'undefined' && HallBoot.handheld()) {
+      if (job) job.label = 'SKIPPING THE HEAVY CRATE';
+      return settle(false);
+    }
     if (window.__HALL_MAPS__) return start(window.__HALL_MAPS__);
     if (typeof HallBoot === 'undefined') return settle(false);
     HallBoot.inject('hallMapsData.js', (got) => {
@@ -68,10 +79,24 @@ const HallMaps = (() => {
     });
   }
 
+  // 🧹 THE PAGES ARE SCAFFOLDING. Once makeAtlas() has blitted every region out
+  // of them and the result is on the GPU, these two 67MB decodes are dead weight
+  // that the tab carries for the rest of the session. Drop the pixels and keep
+  // `ok` — on() is what the atlas SIGNATURE is built from, and flipping it would
+  // make arcade.js think the paint changed and re-bake the whole hall with the
+  // sheet it just threw away. blit() is what actually has to refuse.
+  let freed = false;
+  function release() {
+    if (!ok || freed) return;
+    freed = true;
+    try { for (const k in imgs) { imgs[k].onload = imgs[k].onerror = null; imgs[k].src = ''; } } catch (e) { }
+    try { delete window.__HALL_MAPS__; } catch (e) { window.__HALL_MAPS__ = null; }
+  }
+
   // Painters run inside a translate+clip, so the destination is always 0,0..w,h.
   function blit(kind, g, name, w, h) {
     const r = regions[name];
-    if (!api.on() || !r || !imgs[kind]) return false;
+    if (!api.on() || freed || !r || !imgs[kind]) return false;
     g.drawImage(imgs[kind], r[0], r[1], r[2], r[3], 0, 0, w, h);
     return true;
   }
@@ -85,8 +110,13 @@ const HallMaps = (() => {
     settled: () => state === 'done' || state === 'failed',
     whenReady: (cb) => { if (api.settled()) return cb(); waiting.push(cb); load(); },
     load,
+    release,
+    freed: () => freed,
   };
 
-  if (typeof document !== 'undefined') load();
+  // 🚪 NOT AT PARSE TIME. The converter must not pay for the arcade in MEMORY
+  // any more than it pays for it in time — see THE PAYLOAD STARTS AT THE DOOR
+  // in js/hallBoot.js. HallBoot.warm() starts this on door intent, and enter()
+  // starts it through whenReady() for anyone who gets there first.
   return api;
 })();

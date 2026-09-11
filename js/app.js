@@ -36,6 +36,18 @@ function syncArcade(nuggets, dollars) {
 // The button opens the 3D arcade hall (js/arcade.js); games are launched by
 // walking up to a cabinet in there. The hall calls back into the storm engine
 // through the same storm.arcade/update() path the button used to drive.
+// 🚪 REACHING FOR THE DOOR. The hall's payloads no longer start at page load —
+// they were 198MB of decoded pixels charged to every visitor of a page whose job
+// is to divide a number by five dollars (see THE PAYLOAD STARTS AT THE DOOR in
+// js/hallBoot.js). They start here instead, on the first sign anyone actually
+// wants in, which on every input device lands well before the click does. Fires
+// once; HallBoot.warm() is idempotent and each loader ignores a second call.
+for (const ev of ['pointerenter', 'touchstart', 'focus']) {
+  arcadeBtn.addEventListener(ev, () => {
+    if (window.HallBoot) HallBoot.warm();
+  }, { once: true, passive: true });
+}
+
 arcadeBtn.addEventListener('click', () => {
   arcadeBtn.blur(); // keep Enter/Space inside the hall from re-clicking this button
   const hallUp = window.NuggetArcade && NuggetArcade.active;

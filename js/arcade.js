@@ -5030,7 +5030,22 @@ void main() {
       want = localStorage.getItem('nugHallQuality');
       auto = localStorage.getItem('nugHallTierAuto');
     } catch (e) { /* no storage, decide fresh */ }
-    if (TIERS[want]) return want;
+    if (TIERS[want]) return want;      // the player's own word beats everything
+    // 📱 A HANDHELD IS A LOW MACHINE, and nothing below this line can work that
+    // out. Everything the rest of this function reads is blind on iOS Safari:
+    // deviceMemory is not implemented (so the `|| 8` default below calls an
+    // iPhone an 8GB workstation), hardwareConcurrency reports 4+, and the
+    // renderer string is "Apple GPU" — which matches none of the software
+    // patterns. So every iPhone graded 'high' or 'med' (and note those two
+    // differ ONLY by one MSAA rung: same atlas 2, same shadows, same 16
+    // lights), built the full desktop hall, and got its tab killed for it.
+    // Ask the display instead of the GPU — see HallBoot.handheld().
+    //
+    // ABOVE the remembered verdict, not below it: the governor can only ever
+    // write 'low' or 'med', and a phone that once fought its way to 'med' would
+    // otherwise walk straight back into the atlas density that killed it. It
+    // stays below `want` so blender/tools can still pin a phone to 'high'.
+    if (typeof HallBoot !== 'undefined' && HallBoot.handheld()) return 'low';
     if (TIERS[auto]) return auto;
     if (!gl2) return 'low'; // no material shader, no post chain worth paying for
     // The renderer string is the most honest thing a GPU says about itself.
@@ -5343,7 +5358,33 @@ void main() {
 
     if (ledger) ledger.done(true);
     H.built = true;
+    releaseArtSources();
     return true;
+  }
+
+  // 🧹 THE SCAFFOLDING COMES DOWN.
+  //
+  // The Blender payloads are DELIVERY VEHICLES. HallArt's sheet exists to be
+  // blitted region by region into the atlas pages; HallMaps' two pages exist to
+  // be blitted into the material pages; HallSky's panorama exists to be uploaded
+  // once by ensureCityTexture(). By the time build() gets here all three have
+  // been read for the last time and every pixel that matters lives on the GPU —
+  // and yet their decodes sat in the tab for the rest of the session: 4096×4096
+  // twice, 4096×3380, 4096×512. 198MB of source for a hall that already has
+  // its copy.
+  //
+  // Safe because a re-bake cannot follow this. rebakeAtlases() fires only when
+  // the art SIGNATURE changes (H.builtHallArt, set four lines above), release()
+  // deliberately leaves on() alone, and with the loaders lazy (see THE PAYLOAD
+  // STARTS AT THE DOOR) enter() now always waits for all four to settle BEFORE
+  // building — so there is no such thing as a late arrival any more.
+  //
+  // HallMesh is exempt: it decodes from its payload lazily, so dropping it would
+  // cost every later model() its geometry. The note in that file says why.
+  function releaseArtSources() {
+    try { if (typeof HallArt !== 'undefined' && HallArt.release) HallArt.release(); } catch (e) { }
+    try { if (typeof HallMaps !== 'undefined' && HallMaps.release) HallMaps.release(); } catch (e) { }
+    try { if (typeof HallSky !== 'undefined' && HallSky.release) HallSky.release(); } catch (e) { }
   }
 
   // 🎚 The backing store IS the render resolution — the canvas is CSS-stretched

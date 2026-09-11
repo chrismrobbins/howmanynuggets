@@ -97,6 +97,10 @@
     return cache[name];
   }
 
+  // NO release() here on purpose, unlike the three image loaders. `get` decodes
+  // from DATA lazily and caches, and `on()` is literally `state === 'done' &&
+  // !!DATA` — dropping the payload would make every later Builder.model() fall
+  // back to its procedural box rig. 2.3MB of base64 is not worth that.
   global.HallMesh = {
     get: get,
     load: load,
@@ -112,8 +116,8 @@
     names: function () { return DATA ? Object.keys(DATA) : []; },
   };
 
-  // Start immediately but off the critical path: the browser fetches this in
-  // parallel with everything else and it is long done before anyone clicks
-  // the arcade button. enter() waits on whenReady() only if it somehow isn't.
-  if (typeof document !== 'undefined') load();
+  // 🚪 NOT AT PARSE TIME. The converter must not pay for the arcade in MEMORY
+  // any more than it pays for it in time — see THE PAYLOAD STARTS AT THE DOOR
+  // in js/hallBoot.js. HallBoot.warm() starts this on door intent, and enter()
+  // starts it through whenReady() for anyone who gets there first.
 }(typeof window !== 'undefined' ? window : this));

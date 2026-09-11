@@ -68,9 +68,23 @@ const HallSky = (() => {
     });
   }
 
+  // 🧹 Scaffolding, like HallArt and HallMaps — but this one is uploaded whole by
+  // ensureCityTexture() rather than blitted region by region, so once the GPU has
+  // the panorama the 8MB decode is pure overhead. Nothing reads `img` after the
+  // upload; the caller (build()) is the only thing that knows when that is true.
+  let freed = false;
+  function release() {
+    if (!ok || freed) return;
+    freed = true;
+    try { img.onload = img.onerror = null; img.src = ''; } catch (e) { }
+    try { delete window.__HALL_SKY__; } catch (e) { window.__HALL_SKY__ = null; }
+  }
+
   const api = {
     on: () => ok,
     img,
+    released: () => freed,
+    release,
     lat,
     onReady: null,
     ready: () => state === 'done',
@@ -79,6 +93,9 @@ const HallSky = (() => {
     load,
   };
 
-  if (typeof document !== 'undefined') load();
+  // 🚪 NOT AT PARSE TIME. The converter must not pay for the arcade in MEMORY
+  // any more than it pays for it in time — see THE PAYLOAD STARTS AT THE DOOR
+  // in js/hallBoot.js. HallBoot.warm() starts this on door intent, and enter()
+  // starts it through whenReady() for anyone who gets there first.
   return api;
 })();

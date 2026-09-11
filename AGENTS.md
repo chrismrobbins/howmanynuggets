@@ -1904,3 +1904,90 @@ from close and afar." Both in one pass:
   the 1.45 world; at 2.2 whole letter bodies sat over the bloom threshold. Spots
   01/02/05/06 before→after: mean 65.7→60.0, sd 46.7→41.6, chroma 55.6→58.1.
   Longer-term fix: recompute `EMISSIVE_CEIL` in pack_hall.py from the live gain.
+
+## 📱 THE DOORMAN (2026-09-11) — the arcade was killing phones at the curb
+
+A friend of Beau's opened howmanynuggets.com on an iPhone and got Safari's
+**"A problem repeatedly occurred"**. That message is not a script error. It is
+the WebContent process being killed three times in a row, and on iOS that is
+always memory.
+
+**Two independent faults, either one fatal.**
+
+**1. The payload started at the CURB, not at the door.** All four hall loaders
+(`hallArt` `hallMaps` `hallMesh` `hallSky`) called `load()` at parse time. The
+header in `js/hallBoot.js` said this was "off the critical path" and "never
+blocks the CONVERTER" — true of TIME, never true of MEMORY. Measured on the
+landing page with the arcade button never clicked: **10.1MB downloaded and
+198MB of decoded pixels** (two 4096² map pages, a 4096×3380 sheet, a 4096×512
+panorama), charged to every visitor of a page whose job is to divide a number
+by five dollars. *Off the critical path is not off the heap.*
+
+**2. `perfTier()` is BLIND on iOS Safari, and graded every iPhone `high`.**
+- `navigator.deviceMemory` — **not implemented in Safari at all**, so the
+  `|| 8` default calls an iPhone an eight-gigabyte workstation
+- `navigator.hardwareConcurrency` — reports 4+
+- the renderer string — `"Apple GPU"`, matching none of the software patterns
+
+Measured: an emulated iPhone 13 came back `tier:"high" rung:0 atlasScale:2`.
+And note `med` was never a refuge — it differs from `high` by ONE MSAA rung
+(same `atlas: 2`, same `shadows`, same 16 lights). So a phone built the full
+desktop hall: **~300MB of atlas canvas** (three 4096² pages + three 2048×4096
+street pages) on top of the 198MB of sources, before GPU textures. 4096×4096 is
+also *exactly* iOS Safari's per-canvas area ceiling.
+
+**What shipped**
+- 🚪 **THE PAYLOAD STARTS AT THE DOOR.** The four loaders no longer load at
+  parse time. `HallBoot.warm()` starts them on the first sign of door intent
+  (`pointerenter`/`touchstart`/`focus` on `#arcadeBtn`, in `js/app.js`), and
+  `enter()` already kicked them through `whenReady()` for anyone faster.
+- 📱 **THE DOORMAN'S GLANCE.** `HallBoot.handheld()` — touch events + `(pointer:
+  coarse)`. No UA sniffing, no vendor strings, works on every engine. A
+  touchscreen laptop driven by a mouse reports `fine` and stays a desktop.
+  `perfTier()` returns `'low'` for a handheld, placed **above** the remembered
+  `nugHallTierAuto` verdict (the governor can write `'med'`, and a phone that
+  once landed there would walk back into the density that killed it) and
+  **below** `nugHallQuality` (so `blender/tools` can still pin a phone to high).
+- 📱 A handheld **declines `hallMapsData.js` outright** — 3MB of payload, 134MB
+  decoded, the single largest thing the hall asks a phone for. Not a new code
+  path: it is this file's existing "the payload never landed" path, and the
+  hall answers it with flat normals and an inert ORM page.
+- 🪶 **THE EMPTY PAGES.** With no Blender maps and an empty `MAP_DEFAULTS`,
+  `makeAtlas`/`makeStreetAtlas` were painting `FLAT_NORMAL` and `rgb(179,0,0)`
+  across two full-size canvases — **byte-for-byte what `H.texFlatN` and
+  `H.texFlatS` already are as 1×1 textures**, and what `useTex()` binds for free
+  when nothing is registered. 134MB of canvas to agree with a default. They are
+  now skipped (`nrm: null, orm: null`; `registerMaps` already bailed on that).
+  Guarded on `MAP_DEFAULTS` being empty, since a harness may populate it.
+- 🧹 **THE SCAFFOLDING COMES DOWN.** `releaseArtSources()` at the end of
+  `build()` drops the HallArt sheet, the HallMaps pages and the HallSky
+  panorama once every pixel is on the GPU. `release()` deliberately leaves
+  `on()` alone — `on()` feeds the atlas SIGNATURE (`H.builtHallArt`), and
+  flipping it would make `enter()` re-bake the hall against the sheet it just
+  threw away. `blit()` refuses instead. **HallMesh is exempt**: it decodes from
+  its payload lazily, so dropping it costs every later `model()` its geometry.
+
+**Measured, before → after** (emulated iPhone 13 / desktop 1280×800):
+
+| | landing decode | tier | atlas canvas | sources held | fps |
+|---|---|---|---|---|---|
+| phone before | 198MB | high / rung 0 / AS 2 | ~300MB | 198MB | *tab killed* |
+| phone after | **0MB** | **low / rung 4 / AS 1** | **25.2MB** | **0MB** | 60.3 |
+| desktop after | 0MB | high / rung 0 / AS 2 | 100.7MB | **0MB** | 60.3 |
+
+Exit → re-enter verified on both: signature `am` (desktop) / `a-` (phone)
+unchanged across the cycle, so no re-bake fires against released pixels.
+
+**⚠️ THE TRAP THIS SESSION SET AND FELL INTO.** The first `warm()` read
+`global.HallArt` and silently warmed **only HallMesh**. Three of the four
+loaders are a top-level `const` in a classic script, and **a script-level
+`const`/`let` lives in the global LEXICAL environment — it is never a property
+of `window`.** `global.HallArt` is `undefined`; the bare identifier `HallArt`
+resolves fine up the scope chain. The hall still came up (because `enter()`
+kicks the rest through `whenReady()`), which is exactly the kind of
+half-working that never shows up in a screenshot. Use bare identifiers with a
+`typeof` guard for these four, always.
+
+**Rule going forward:** "would Beau's friends' laptops survive it" (THE HOUSE
+CALL) now reads **laptops AND PHONES**. Every art session checks the handheld
+path, and a payload's cost is its DECODED size, not its transfer size.

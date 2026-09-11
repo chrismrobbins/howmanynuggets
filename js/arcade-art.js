@@ -98,6 +98,23 @@ const ArcadeArt = (() => {
     return typeof HallMaps !== 'undefined' && HallMaps.blit(kind, g, name, w, h);
   }
 
+  // 🪶 THE EMPTY PAGES. With no Blender maps AND no defaults table, every region
+  // paints FLAT_NORMAL into the normal page and rgb(179,0,0) into the ORM page —
+  // which is byte-for-byte what H.texFlatN and H.texFlatS already are as 1×1
+  // textures in js/arcade.js, and what useTex() binds for anything with no
+  // material pages registered. So both pages come out as two solid colours the
+  // shader already has for free, and at AS=2 that costs two 4096² canvases and
+  // two mipmapped uploads — 134MB of canvas to agree with a default. A phone
+  // does not have 134MB spare to say nothing with.
+  //
+  // MAP_DEFAULTS is checked because a harness may populate it before makeAtlas()
+  // to A/B a material; the moment it holds anything, the pages carry real data
+  // again and must be built.
+  function flatMaps() {
+    const usable = typeof HallMaps !== 'undefined' && HallMaps.on() && !HallMaps.freed();
+    return !usable && !Object.keys(MAP_DEFAULTS).length;
+  }
+
   // Paint one region into the normal and orm pages. Blender data wins; the
   // defaults table is the fallback; flat-and-inert is the fallback's fallback.
   function paintMaps(gN, gO, name, w, h) {
@@ -1043,10 +1060,13 @@ const ArcadeArt = (() => {
     g.fillRect(0, 0, S, S);
     // The two material pages ride along on the same alloc() sequence, so their
     // layout can never drift from the albedo page's uv table.
-    const cN = cv(S, S), cO = cv(S, S);
-    const gN = cN.getContext('2d'), gO = cO.getContext('2d');
-    gN.fillStyle = FLAT_NORMAL; gN.fillRect(0, 0, S, S);
-    gO.fillStyle = 'rgb(179,0,0)'; gO.fillRect(0, 0, S, S);   // rough 0.7, no metal, PBR off
+    const flat = flatMaps();   // see THE EMPTY PAGES
+    const cN = flat ? null : cv(S, S), cO = flat ? null : cv(S, S);
+    const gN = cN && cN.getContext('2d'), gO = cO && cO.getContext('2d');
+    if (!flat) {
+      gN.fillStyle = FLAT_NORMAL; gN.fillRect(0, 0, S, S);
+      gO.fillStyle = 'rgb(179,0,0)'; gO.fillRect(0, 0, S, S); // rough 0.7, no metal, PBR off
+    }
     const uv = {};
     let cx = 0, cy = 0, rowH = 0;
     const PAD = 8 * AS;
@@ -1061,10 +1081,12 @@ const ArcadeArt = (() => {
       g.beginPath(); g.rect(0, 0, w, h); g.clip();
       painter(g, w, h);
       g.restore();
-      gN.save(); gN.translate(cx, cy); gN.scale(AS, AS); gN.beginPath(); gN.rect(0, 0, w, h); gN.clip();
-      gO.save(); gO.translate(cx, cy); gO.scale(AS, AS); gO.beginPath(); gO.rect(0, 0, w, h); gO.clip();
-      paintMaps(gN, gO, name, w, h);
-      gN.restore(); gO.restore();
+      if (!flat) {
+        gN.save(); gN.translate(cx, cy); gN.scale(AS, AS); gN.beginPath(); gN.rect(0, 0, w, h); gN.clip();
+        gO.save(); gO.translate(cx, cy); gO.scale(AS, AS); gO.beginPath(); gO.rect(0, 0, w, h); gO.clip();
+        paintMaps(gN, gO, name, w, h);
+        gN.restore(); gO.restore();
+      }
       // Inset the uv rect by 1.5 ATLAS px so mipmap bleeding never shows a neighbor.
       uv[name] = [(cx + 1.5) / S, (cy + 1.5) / S, (cx + aw - 1.5) / S, (cy + ah - 1.5) / S];
       cx += aw + PAD;
@@ -1484,10 +1506,13 @@ const ArcadeArt = (() => {
     const c = cv(SW, SH);
     const g = c.getContext('2d');
     // transparent page: NPC cutouts need alpha; solid regions paint their own bg
-    const cN = cv(SW, SH), cO = cv(SW, SH);
-    const gN = cN.getContext('2d'), gO = cO.getContext('2d');
-    gN.fillStyle = FLAT_NORMAL; gN.fillRect(0, 0, SW, SH);
-    gO.fillStyle = 'rgb(179,0,0)'; gO.fillRect(0, 0, SW, SH);
+    const flat = flatMaps();   // see THE EMPTY PAGES
+    const cN = flat ? null : cv(SW, SH), cO = flat ? null : cv(SW, SH);
+    const gN = cN && cN.getContext('2d'), gO = cO && cO.getContext('2d');
+    if (!flat) {
+      gN.fillStyle = FLAT_NORMAL; gN.fillRect(0, 0, SW, SH);
+      gO.fillStyle = 'rgb(179,0,0)'; gO.fillRect(0, 0, SW, SH);
+    }
     const uv = {};
     let cx = 0, cy = 0, rowH = 0;
     const PAD = 8 * AS;
@@ -1500,10 +1525,12 @@ const ArcadeArt = (() => {
       g.beginPath(); g.rect(0, 0, w, h); g.clip();
       painter(g, w, h);
       g.restore();
-      gN.save(); gN.translate(cx, cy); gN.scale(AS, AS); gN.beginPath(); gN.rect(0, 0, w, h); gN.clip();
-      gO.save(); gO.translate(cx, cy); gO.scale(AS, AS); gO.beginPath(); gO.rect(0, 0, w, h); gO.clip();
-      paintMaps(gN, gO, name, w, h);
-      gN.restore(); gO.restore();
+      if (!flat) {
+        gN.save(); gN.translate(cx, cy); gN.scale(AS, AS); gN.beginPath(); gN.rect(0, 0, w, h); gN.clip();
+        gO.save(); gO.translate(cx, cy); gO.scale(AS, AS); gO.beginPath(); gO.rect(0, 0, w, h); gO.clip();
+        paintMaps(gN, gO, name, w, h);
+        gN.restore(); gO.restore();
+      }
       uv[name] = [(cx + 1.5) / SW, (cy + 1.5) / SH, (cx + aw - 1.5) / SW, (cy + ah - 1.5) / SH];
       cx += aw + PAD;
       rowH = Math.max(rowH, ah);

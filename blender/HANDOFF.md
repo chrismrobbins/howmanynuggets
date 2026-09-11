@@ -1861,3 +1861,65 @@ Gotchas that cost the paint shop time (all also in the script docstrings):
 - Pacing is a rulebook problem, not a renderer one: the first cut's minigun
   clip (480 dmg) exceeded the field's total HP (460). Measure rounds in node
   (`BotsSim` runs headless) before touching visuals.
+
+## 25. 📱 THE DOORMAN (2026-09-11) — the hall had never been asked to fit a phone
+
+§22 (THE HOUSE CALL) taught the hall to fit the machine it is on. It turned out
+to only know how to measure DESKTOPS. A friend of Beau's opened the site on an
+iPhone and Safari showed **"A problem repeatedly occurred"** — the WebContent
+process being killed three times over, which on iOS means memory.
+
+**The full ledger is in `AGENTS.md` → THE DOORMAN.** What matters for ART work:
+
+### The new budget line: DECODED size, not transfer size
+
+`payload-is-not-the-constraint` still holds — bytes on the wire are free, spend
+them. But a 1.7MB base64 PNG that is 4096×4096 is **67MB of RAM** the moment it
+decodes, and it stays there for the session. The hall was holding 198MB of
+source images *forever* on every visitor, including on the converter page.
+
+When you add a Blender page, the question is no longer "how big is the file".
+It is **w × h × 4**, and **whether anything reads it after `build()`**.
+
+### What an art session must now check
+
+1. **Does your page survive `HallBoot.handheld()`?** A phone gets `tier: 'low'`
+   → `atlasScale = 1` → every region is half the texels it is on your desktop.
+   Shoot the low tier, not just pinned-high (`blender/tools` pins `high` — see
+   §22's note on `openHall`).
+2. **A handheld does not download `hallMapsData.js` at all.** Your normal and
+   ORM work does not exist on a phone. That is deliberate: it is 134MB decoded.
+   The hall falls back to flat normals + inert ORM, which is a path this repo
+   has always had. If a surface only reads as itself WITH relief, it is not
+   finished — it has to survive being lit flat too.
+3. **Sources are released after `build()`.** `HallArt.release()`,
+   `HallMaps.release()`, `HallSky.release()` drop the decoded pixels once they
+   are on the GPU. If you add a consumer that reads a sheet AFTER the build, it
+   will get an empty image. Re-bakes are the case that matters and they are
+   already safe (the signature can't change — see below), but a NEW late reader
+   is a new bug. `HallMesh` is exempt and stays loaded.
+4. **`release()` does NOT flip `on()`.** `on()` feeds the atlas signature
+   `H.builtHallArt`; flipping it would make `enter()` re-bake against the sheet
+   it just released. `blit()` is what refuses. Don't "tidy" this.
+
+### 🪶 THE EMPTY PAGES — a thing worth knowing about the material pipeline
+
+With no Blender maps and an empty `MAP_DEFAULTS`, `paintMaps` fills the normal
+page with `FLAT_NORMAL` (128,128,255) and the ORM page with rgb(179,0,0) —
+which is **byte-for-byte identical** to `H.texFlatN` and `H.texFlatS`, the 1×1
+textures `useTex()` already binds when an albedo page has no material pages
+registered. So both atlases were allocating, painting, mipmapping and uploading
+two full-size canvases to reproduce two solid colours that already existed for
+free. At AS=2 that is 134MB. `makeAtlas`/`makeStreetAtlas` now return
+`nrm: null, orm: null` in that case and `registerMaps` bails (it already did).
+
+If you ever populate `MAP_DEFAULTS` to A/B a material, the pages come back
+automatically — the skip is guarded on it being empty.
+
+### Measured
+
+| | landing decode | tier | atlas canvas | sources held | fps |
+|---|---|---|---|---|---|
+| phone before | 198MB | high / AS 2 | ~300MB | 198MB | *tab killed* |
+| phone after | 0MB | low / AS 1 | 25.2MB | 0MB | 60.3 |
+| desktop after | 0MB | high / AS 2 | 100.7MB | 0MB | 60.3 |

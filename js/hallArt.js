@@ -59,12 +59,26 @@ const HallArt = (() => {
     });
   }
 
+  // 🧹 THE SHEET IS SCAFFOLDING — same deal as HallMaps.release(). One 4096×3380
+  // JPEG is 55MB decoded and it exists only to be blitted into the atlas pages
+  // once. `ok` stays true on purpose: it feeds the atlas signature in
+  // js/arcade.js, and flipping it would trigger a re-bake against the very sheet
+  // this call just dropped. blit() refuses instead, which is the procedural
+  // fallback every painter in js/arcade-art.js already carries.
+  let freed = false;
+  function release() {
+    if (!ok || freed) return;
+    freed = true;
+    try { img.onload = img.onerror = null; img.src = ''; } catch (e) { }
+    try { delete window.__HALL_ART__; } catch (e) { window.__HALL_ART__ = null; }
+  }
+
   // Fill the current painter's region (painters run inside a translate+clip,
   // so the destination is always 0,0..w,h). Returns false -> caller paints
   // its procedural fallback.
   function blit(g, name, w, h) {
     const r = regions[name];
-    if (!api.on() || !r) return false;
+    if (!api.on() || freed || !r) return false;
     g.drawImage(img, r[0], r[1], r[2], r[3], 0, 0, w, h);
     return true;
   }
@@ -79,9 +93,12 @@ const HallArt = (() => {
     settled: () => state === 'done' || state === 'failed',
     whenReady: (cb) => { if (api.settled()) return cb(); waiting.push(cb); load(); },
     load,
+    release,
   };
 
-  // Start immediately, but off the critical path.
-  if (typeof document !== 'undefined') load();
+  // 🚪 NOT AT PARSE TIME. The converter must not pay for the arcade in MEMORY
+  // any more than it pays for it in time — see THE PAYLOAD STARTS AT THE DOOR
+  // in js/hallBoot.js. HallBoot.warm() starts this on door intent, and enter()
+  // starts it through whenReady() for anyone who gets there first.
   return api;
 })();
