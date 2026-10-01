@@ -1,0 +1,25 @@
+/* 🏈 NUGMO BOWL — the layer and nothing it doesn't need.
+   Same school as fortune.css: a fixed fullscreen world div that only exists
+   while body.bowl-mode is on, one chunky-pixel canvas inside it. Every word
+   on screen is the canvas's own 5×7 bitmap font, so there is no DOM HUD. */
+
+#bowlWorld {
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 9990; /* the games' layer — same plane as croft/drain/fortune */
+  background: #05060c;
+}
+
+body.bowl-mode #bowlWorld { display: block; }
+
+#bowlWorld canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  touch-action: none;
+  cursor: crosshair;
+}

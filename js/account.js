@@ -47,6 +47,7 @@
   const myCroft = document.getElementById('myCroft');
   const myFortune = document.getElementById('myFortune');
   const myBots = document.getElementById('myBots');
+  const myBowl = document.getElementById('myBowl');
 
   // Leaderboard modal
   const openLeaderboards = document.getElementById('openLeaderboards');
@@ -72,7 +73,7 @@
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   function setScores(scores) {
-    scores = scores || { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0, knight: 0, brawl: 0, ranch: 0, kart: 0, reel: 0, gta: 0, beat: 0, drain: 0, croft: 0, fortune: 0 };
+    scores = scores || { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0, knight: 0, brawl: 0, ranch: 0, kart: 0, reel: 0, gta: 0, beat: 0, drain: 0, croft: 0, fortune: 0, bots: 0, bowl: 0 };
     myCatch.textContent = fmtNum(scores.catch || 0);
     myBlaster.textContent = fmtNum(scores.blaster || 0);
     myFlappy.textContent = fmtNum(scores.flappy || 0);
@@ -90,6 +91,7 @@
     myCroft.textContent = fmtNum(scores.croft || 0);
     myFortune.textContent = fmtNum(scores.fortune || 0);
     if (myBots) myBots.textContent = fmtNum(scores.bots || 0);
+    if (myBowl) myBowl.textContent = fmtNum(scores.bowl || 0);
   }
 
   function applyUser(user, scores, admin) {
@@ -241,7 +243,7 @@
   })();
 
   // ---- Leaderboards ----
-  const GAME_LABEL = { catch: '🧺 Catch', blaster: '🎯 Blaster', flappy: '🐤 Flappy', dunk: '🥣 Dunk', sim: '🧘 Sim', run: '🏃 Run', knight: '⚔️ Knight', brawl: '🥊 Brawl', ranch: '🐔 Ranch', kart: '🏎️ Fast Food', reel: '🎣 Reel', gta: '🚔 GTN', beat: '🎧 Dip Hop', drain: '🕳️ Drain', croft: '🕯️ Undercroft', fortune: '🎡 Fortune', bots: '🤖 Bots' };
+  const GAME_LABEL = { catch: '🧺 Catch', blaster: '🎯 Blaster', flappy: '🐤 Flappy', dunk: '🥣 Dunk', sim: '🧘 Sim', run: '🏃 Run', knight: '⚔️ Knight', brawl: '🥊 Brawl', ranch: '🐔 Ranch', kart: '🏎️ Fast Food', reel: '🎣 Reel', gta: '🚔 GTN', beat: '🎧 Dip Hop', drain: '🕳️ Drain', croft: '🕯️ Undercroft', fortune: '🎡 Fortune', bots: '🤖 Bots', bowl: '🏈 Bowl' };
 
   menuLeaderboards.addEventListener('click', () => { closeModal(authModal); openLb(); });
   openLeaderboards.addEventListener('click', openLb);
@@ -429,7 +431,7 @@
     if (!currentUser || !score || score <= 0) return;
     try {
       const res = await API.submitScore(game, score);
-      const el = { catch: myCatch, blaster: myBlaster, flappy: myFlappy, dunk: myDunk, sim: mySim, run: myRun, knight: myKnight, brawl: myBrawl, ranch: myRanch, kart: myKart, reel: myReel, gta: myGta, beat: myBeat, drain: myDrain, croft: myCroft, fortune: myFortune, bots: myBots }[game];
+      const el = { catch: myCatch, blaster: myBlaster, flappy: myFlappy, dunk: myDunk, sim: mySim, run: myRun, knight: myKnight, brawl: myBrawl, ranch: myRanch, kart: myKart, reel: myReel, gta: myGta, beat: myBeat, drain: myDrain, croft: myCroft, fortune: myFortune, bots: myBots, bowl: myBowl }[game];
       if (el && res && typeof res.best === 'number') el.textContent = fmtNum(res.best);
     } catch (err) {
       // The server allows one submission per 10s; banking a score on a quick

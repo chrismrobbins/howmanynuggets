@@ -80,11 +80,24 @@ game. Do not "fix" it. (`startZoom` guard in js/arcade.js.)
     detective notes that the garage's accountant bets on the fights. He also
     notes that this is not a crime. **No resolution added.**
 
+12. **NEW — the gate.** (NUGMO BOWL, game 18, js/bowl.js.) Nuggetown has a
+    football league now, nine on nine, and the NUGGET BOWL is played against
+    the HARBOR CYCLONES — teal and gold, never seen practising, never seen
+    arriving. Attendance at the Bowl: **one million and change**, golden at
+    the edges. Box office: **zero tickets sold**, not one stub on the
+    concourse. There are always stubs. By the final whistle the stands were
+    empty and every seat was wet, a week after the last rain (`nugBowlRing`,
+    🏟️ THE GATE). Cross-reference THE CRIME: a million-plus, swirling, no
+    crumbs. The Hood counts it as rumor seven and says it CHEERED. The
+    detective notes that a weather system does not do the wave, then notes
+    that this one did. Nothing was caught, freed or killed; a crowd watched
+    a game and went home, wherever home is. **No resolution added.**
+
 ## THE BOARD (filed publicly, 2026-08-06)
 
 The case file is on the sidewalk now. Det. Dill mounted a glass case outside the
 arcade doors (the **N.P.D. CASE BOARD**, `openLocker()` in js/arcade.js) holding
-all sixteen exhibits this arcade can produce, each marked FILED or OPEN, each
+all eighteen exhibits this arcade can produce, each marked FILED or OPEN, each
 OPEN one naming where to go get it. His stated reasoning: *"the only people a
 secret case file keeps in the dark are the ones who might help me."*
 
@@ -97,7 +110,7 @@ new game may add a seventeenth exhibit; it may never add an ending.
 | Witness | Statement quality | Knows about |
 |---|---|---|
 | **Big Crumb** (door) | reliable, heard *nothing* — which he finds suspicious | the redlining pressure gauge; filed a report nobody read |
-| **The Hooded Nug** | infuriatingly accurate | ALL SIX rumors: garage, pier, basement club, the humming gutters, the cellar doors, the fights under the garage floor |
+| **The Hooded Nug** | infuriatingly accurate | ALL SEVEN rumors: garage, pier, basement club, the humming gutters, the cellar doors, the fights under the garage floor, and a football crowd nobody sold tickets to |
 | **Gravy Jones** (bench) | damp, slow, credible | mustard-crowd history; DJ DRIP is his estranged nephew |
 | **Henrietta** | bwok | more than she lets on |
 | **Det. Dill** | it's his case | everything above, written down, underlined twice |
@@ -122,6 +135,8 @@ conversation and reads them via these globals:
 | `nugCroftDoor` | `croftFoundDoor()` | finding 🚪 THE DOOR beneath Fort Nugget (The Undercroft, the B4+ stairs; also unlocks THE DARK BELOW oath) |
 | `nugBotsPing` | `botsPingHeard()` | winning a BATTEREDBOTS match in 🌊 THE SUMP — 📡 THE LAST PING: a wreck went down the drain still transmitting; forty seconds, harbor-way, forty knots. Canon-safe: nobody saw anything, a radio did. Also `nugBotsLeague` / `botsLeagueWon()` (a CLUCKED METAL win unlocks THE FRYER CIRCUIT) |
 | `nugFortuneJack` | `fortuneJackpotHit()` | banking the 🌀 wedge AND solving that board — THE STORM JACKPOT in Reel of Fortune (also unlocks THE RIGGED WHEEL tier). Canon-safe: a wheel only carries what somebody carved, a puzzle only knows what somebody WROTE — and the puzzles quote this file. Nothing moved; the case grew a game show; it stays open |
+
+| `nugBowlRing` | `bowlRingWon()` | winning THE NUGGET BOWL in NUGMO BOWL against the Harbor Cyclones — 🏟️ THE GATE: a million in the stands, zero tickets sold, every seat wet. Canon-safe: a crowd watched a game. Also `nugBowlPlayoffs` / `bowlPlayoffsWon()` (winning THE PLAYOFFS unlocks the Bowl tier) |
 
 **Adding an exhibit?** Put its reader in this table AND add a row to
 `LOCKER_EXHIBITS` in js/arcade.js, or it exists but nobody can see it. Every

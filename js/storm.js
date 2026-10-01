@@ -51,15 +51,16 @@ const MODE_HINTS = {
   drain:   'dive the pipes under Nuggetown — ← → steer · HOLD space/↑ to kick · 🫧 is life · thread THE CLOGS · listen for what passes',
   croft:   'beneath Fort Nugget — WASD/←→↑↓ move · X/click slash · clear the room, take ONE relic · mind your lantern · find THE DOOR',
   fortune: 'the house wheel — HOLD space (or the wheel) and release to SPIN · pick a letter (type / tap) · vowels pay half · solve the phrase · mind the 💀',
+  bowl:    'NUGMO BOWL — pick 1 of 4 plays (they guess one — so do you) · arrows move · A = SPACE/J throw · dive · MASH to break tackles · B = SHIFT/K next receiver · switch defender',
   bots:    'CLUCKED METAL — WASD drive (hold where you want to GO) · mouse aims · click fires · SPACE special · SHIFT nitro · grab sauces off the pads · last bot rolling',
 };
-const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘', run: '🏃', knight: '⚔️', brawl: '🥊', ranch: '🐔', kart: '🏎️', reel: '🎣', gta: '🚗', beat: '🎧', drain: '🕳️', croft: '🕯️', fortune: '🎡', bots: '🤖' };
+const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘', run: '🏃', knight: '⚔️', brawl: '🥊', ranch: '🐔', kart: '🏎️', reel: '🎣', gta: '🚗', beat: '🎧', drain: '🕳️', croft: '🕯️', fortune: '🎡', bots: '🤖', bowl: '🏈' };
 
 // Free-roam games draw their own rich in-game HUD, so the storm card backs
 // off to a slim translucent pill — hover it (or tap the game badge on touch)
 // to bring back the hint + mode switch. See .storm-hud.compact in storm.css.
-const MODE_COMPACT_HUD = new Set(['gta', 'beat', 'croft', 'fortune', 'bots']);
-const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated', run: 'ran', knight: 'vanquished', brawl: 'sauced', ranch: 'harvested', kart: 'delivered', reel: 'reeled in', gta: 'boosted', beat: 'dropped', drain: 'plumbed', croft: 'delved', fortune: 'won', bots: 'battered' };
+const MODE_COMPACT_HUD = new Set(['gta', 'beat', 'croft', 'fortune', 'bots', 'bowl']);
+const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated', run: 'ran', knight: 'vanquished', brawl: 'sauced', ranch: 'harvested', kart: 'delivered', reel: 'reeled in', gta: 'boosted', beat: 'dropped', drain: 'plumbed', croft: 'delved', fortune: 'won', bots: 'battered', bowl: 'rushed' };
 
 // Self-contained minigames run their own entities and pause the storm's own
 // falling-nugget spawner + auto-complete (like Flappy). Catch and Blaster both
@@ -184,7 +185,7 @@ function pausesStorm() {
          storm.mode === 'ranch' || storm.mode === 'kart' || storm.mode === 'reel' ||
          storm.mode === 'gta' || storm.mode === 'beat' || storm.mode === 'blaster' ||
          storm.mode === 'drain' || storm.mode === 'croft' ||
-         storm.mode === 'fortune' || storm.mode === 'bots';
+         storm.mode === 'fortune' || storm.mode === 'bots' || storm.mode === 'bowl';
 }
 
 const storm = {
@@ -244,6 +245,7 @@ function setStormMode(mode) {
   syncCroft();
   syncFortune();
   syncBots();
+  syncBowl();
   nugDailyMarkSwitch();
   updateStormHud();
 }
@@ -370,6 +372,9 @@ function updateStormHud() {
   } else if (storm.mode === 'bots') {
     stormLabel.textContent = '🤖 BatteredBots';
     stormTally.textContent = botsTally();
+  } else if (storm.mode === 'bowl') {
+    stormLabel.textContent = '🏈 Nugmo Bowl';
+    stormTally.textContent = bowlTally();
   } else if (storm.mode === 'flappy') {
     stormLabel.textContent = '🐤 Flappy Nug';
     stormTally.textContent = flappyTally();
@@ -465,6 +470,7 @@ function stepStorm(ts) {
   else if (storm.mode === 'croft') stepCroft(dt, w, h);
   else if (storm.mode === 'fortune') stepFortune(dt, w, h);
   else if (storm.mode === 'bots') stepBots(dt, w, h);
+  else if (storm.mode === 'bowl') stepBowl(dt, w, h);
 
   updateStormHud();
 
@@ -565,6 +571,7 @@ function stopStorm(completed = false) {
   syncCroft();
   syncFortune();
   syncBots();
+  syncBowl();
   if (completed) {
     // Leave a short victory-lap summary in the HUD, then tuck it away.
     stormLabel.textContent = '✅ Storm complete';

@@ -40,6 +40,10 @@ const ArcadeArt = (() => {
     // and a slot machine is its own furniture anyway. Face art lives on the
     // street page (fortuneFace); scoreboard + leaderboards ride this entry.
     { mode: 'fortune', title: 'REEL OF FORTUNE', icon: '🎡', c1: '#ffd23a', c2: '#ff2fa0', tag: 'THE HOUSE KNOWS THE WORDS' },
+    // game 18 — Tecmo Bowl, but it's nuggets: a walk-up upright on the hall's
+    // east wall past the scoreboard. Same deal as fortune: street-page face
+    // (bowlFace), scoreboard + leaderboards ride this entry.
+    { mode: 'bowl', title: 'NUGMO BOWL', icon: '🏈', c1: '#ffd23a', c2: '#d23a2a', tag: 'BO KNOWS NUGGETS' },
     // (game 17, BatteredBots, moved to GAMES — it has a cabinet on the back wall
     // now; the garage shutter on the street stays as a second door, botsFace.)
   ];
@@ -1593,6 +1597,8 @@ const ArcadeArt = (() => {
     alloc('fortuneFace', 128, 224, pFortuneFace);
     // 🤖 game 17 — the garage's pit-side monitor + CLUCKED METAL sign (BatteredBots)
     alloc('botsFace', 128, 192, pBotsFace);
+    // 🏈 game 18 — the football upright's face (marquee, field screen, deck)
+    alloc('bowlFace', 128, 224, pBowlFace);
     const SW2 = {
       iron: '#3a4256', wood: '#6d5426', woodDark: '#42320e', red: '#e8412c',
       amber: '#ffb020', curb: '#3c3c46', black: '#0a0a12', white: '#f4f0e6',
@@ -2042,6 +2048,81 @@ const ArcadeArt = (() => {
     g.fillText('THE HOUSE KNOWS THE WORDS', w / 2, h * 0.91);
     g.fillStyle = '#332a52';
     for (let i = 0; i < 3; i++) g.fillRect(14, h * 0.94 + i * 3.4, w - 28, 2);
+  }
+
+  // 🏈 NUGMO BOWL's face: a late-80s sports upright. Marquee band on top (the
+  // e-hot sub-rect, same 20% contract as fortuneFace), a CRT showing the
+  // sideways field mid-snap, and a two-button deck. Colours held under the
+  // emissive ceiling on purpose — the marquee re-draw runs at e 0.4.
+  function pBowlFace(g, w, h) {
+    g.fillStyle = '#1a1c2a';
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#3c4266'; g.lineWidth = 4;
+    g.strokeRect(2, 2, w - 4, h - 4);
+    // marquee
+    g.fillStyle = '#5a140e';
+    g.fillRect(6, 6, w - 12, h * 0.2 - 8);
+    g.fillStyle = '#a8761a';
+    g.fillRect(6, h * 0.2 - 4, w - 12, 2);
+    g.textAlign = 'center';
+    g.fillStyle = '#d8a832';
+    g.font = '900 17px Impact, Haettenschweiler, sans-serif';
+    g.fillText('NUGMO', w / 2, h * 0.095);
+    g.fillStyle = '#b8a47c'; // under the emissive ceiling: #e6dcc0 bloomed to a slab at e 0.4
+    g.font = '900 13px Impact, Haettenschweiler, sans-serif';
+    g.fillText('BOWL', w / 2, h * 0.165);
+    // footballs either side of the title
+    for (const fx of [16, w - 16]) {
+      g.fillStyle = '#6a3412'; g.beginPath(); g.ellipse(fx, h * 0.1, 7, 4.5, -0.4, 0, 7); g.fill();
+      g.strokeStyle = '#d8d0b8'; g.lineWidth = 1; g.beginPath(); g.moveTo(fx - 3, h * 0.1 + 1); g.lineTo(fx + 3, h * 0.1 - 1); g.stroke();
+    }
+    // the CRT: the field, sideways, nine on nine
+    const sx = 10, sy = h * 0.24, sw = w - 20, sh = h * 0.36;
+    g.fillStyle = '#05060a'; g.fillRect(sx - 3, sy - 3, sw + 6, sh + 6);
+    g.fillStyle = '#2c6a2c'; g.fillRect(sx, sy, sw, sh);
+    g.fillStyle = '#347a32';
+    for (let i = 0; i < 6; i++) if (i % 2) g.fillRect(sx + (i * sw) / 6, sy + 6, sw / 6, sh - 10);
+    g.fillStyle = '#141826'; g.fillRect(sx, sy, sw, 6);              // the stands
+    for (let i = 0; i < sw; i += 3) { g.fillStyle = ['#b04030', '#c8a040', '#d0c8b0'][i % 9 / 3 | 0]; g.fillRect(sx + i, sy + 2, 2, 2); }
+    g.fillStyle = '#b8bcb0';
+    for (let i = 1; i < 6; i++) g.fillRect(sx + (i * sw) / 6, sy + 6, 1, sh - 10);
+    g.fillRect(sx, sy + 6, sw, 1); g.fillRect(sx, sy + sh - 4, sw, 1);
+    g.fillStyle = '#5070c8'; g.fillRect(sx + sw * 0.48, sy + 6, 1, sh - 10); // line of scrimmage
+    g.fillStyle = '#c8b030'; g.fillRect(sx + sw * 0.66, sy + 6, 1, sh - 10); // to gain
+    const cy0 = sy + sh * 0.56;
+    for (let i = 0; i < 9; i++) {
+      const ly = cy0 + (i - 4) * (sh * 0.085);
+      g.fillStyle = '#c03424'; g.fillRect(Math.round(sx + sw * 0.44 - (i === 4 ? 6 : 0)), Math.round(ly), 3, 4);
+      g.fillStyle = '#d8a030'; g.fillRect(Math.round(sx + sw * 0.44 - (i === 4 ? 6 : 0)), Math.round(ly - 2), 3, 2);
+      g.fillStyle = '#1a1a22'; g.fillRect(Math.round(sx + sw * 0.53 + (i % 3) * 2), Math.round(ly), 3, 4);
+      g.fillStyle = '#c87020'; g.fillRect(Math.round(sx + sw * 0.53 + (i % 3) * 2), Math.round(ly - 2), 3, 2);
+    }
+    g.fillStyle = '#7a3a14'; g.fillRect(Math.round(sx + sw * 0.36), Math.round(cy0 - 1), 3, 2); // the ball
+    // scanlines
+    g.fillStyle = 'rgba(0,0,0,0.18)';
+    for (let y = sy; y < sy + sh; y += 2) g.fillRect(sx, y, sw, 1);
+    // the score line under the screen
+    g.fillStyle = '#c8c0a8';
+    g.font = '700 8px Consolas, monospace';
+    g.fillText('NUG 14  Q4 0:07  HBR 10', w / 2, h * 0.655);
+    // the deck: stick + A/B, two players' worth
+    g.fillStyle = '#2a2e44'; g.fillRect(6, h * 0.69, w - 12, h * 0.15);
+    g.fillStyle = '#121420'; g.fillRect(6, h * 0.69, w - 12, 2);
+    for (const [px, c] of [[0.22, '#c03424'], [0.62, '#2a58b0']]) {
+      const bx = w * px, by = h * 0.765;
+      g.fillStyle = '#0a0a10'; g.beginPath(); g.arc(bx, by + 3, 5, 0, 7); g.fill();
+      g.fillStyle = c; g.beginPath(); g.arc(bx, by - 3, 4, 0, 7); g.fill();
+      g.fillStyle = '#c03424'; g.beginPath(); g.arc(bx + 16, by, 3.2, 0, 7); g.fill();
+      g.fillStyle = '#c8a030'; g.beginPath(); g.arc(bx + 25, by - 2, 3.2, 0, 7); g.fill();
+    }
+    g.fillStyle = '#cfd4e6';
+    g.font = '900 9px Consolas, monospace';
+    g.fillText('FREE PLAY', w / 2, h * 0.885);
+    g.fillStyle = '#8a86a8';
+    g.font = '700 7px Consolas, monospace';
+    g.fillText('BO KNOWS NUGGETS', w / 2, h * 0.925);
+    g.fillStyle = '#2e3250';
+    for (let i = 0; i < 2; i++) g.fillRect(14, h * 0.95 + i * 3.4, w - 28, 2);
   }
 
   function pDrainSign(g, w, h) {

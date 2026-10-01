@@ -209,6 +209,36 @@ already bitten someone.
 > space-hold spin at 61fps with motion ghosts on. KNOWN GAP: portrait phones
 > (world W ≈ 130) were degenerate before the pass and still are — the letter
 > tray needs a reflow, not smaller fonts.
+> **2026-10-01 — 🏈 NUGMO BOWL (game 18, mode `bowl`, js/bowl.js):** a friend
+> in the group chat: *"techmo bowl, but it's nuggets"* / *"imagine how good Bo
+> 'Sauce' Jackson will be as a nugget?"* / *"real life player Dante Fowler has
+> to be in there because of his name"*. So it is TECMO BOWL, the franchise's
+> mechanic: nine on nine, sideways scrolling field, FOUR PLAYS (2 runs, 2
+> passes) and the defense guesses one of your four — guess right and the play
+> is blown up (tighter coverage, rushers shed blocks at 0.25–0.4×, the QB
+> freezes); on defense you guess theirs. B cycles receivers, A throws a led
+> lob; every tackle on a human carrier is a GRAPPLE (mash A; Bo's strength
+> 1.65 wins most of them); A on defense is a diving tackle, B switches to
+> the defender nearest the ball (and on the play-call screen picks who you
+> play — default #56 DANTE FOWLER, DE). Kick returns are live plays; punts,
+> field goals (timing meter), PATs, safeties, overtime are all in. Tecmo
+> cut-ins (coin toss, TD, BO KNOWS NUGGETS for a 70+ yd Bo TD, SACK, INT, FG,
+> quarters, final) are boxed panels with 4×-scaled sprites. Everything is
+> pixel paint on a ~427×240 canvas, its own 5×7 bitmap font (no DOM HUD),
+> cached FIELD / STANDS / SPRITE layers. Tiers (ArcadeKit `bowl`): PRESEASON
+> vs Greasers / THE PLAYOFFS vs the Sauce Works Syndicate / THE NUGGET BOWL
+> vs the HARBOR CYCLONES (earned: `nugBowlPlayoffs`). Winning the Bowl sets
+> `nugBowlRing` / `bowlRingWon()` → Hood rumor seven, Dill branch, 18th case
+> board exhibit 🏟️ THE GATE (attendance one million and change, zero tickets).
+> It's a walk-up upright on the hall's EAST wall at (6.94, −18.25), in the
+> bay between the scoreboard frame and the last pier (the extinguisher moved
+> to z −19.6); STREET_GAMES entry, face `bowlFace` on the street atlas,
+> fortune's machine mirrored (east wall winds z ascending). In
+> MODE_COMPACT_HUD; the HUD keeps the top centre clear for the storm pill.
+> Test seam `window.bowlDebug` (pickTier / auto(true) = AI plays both sides /
+> step(secs) = fixed-60Hz headless sim / choose / pressA / pressB /
+> forceRead / set / freeze). Tuning ledger + knobs below in the NUGMO BOWL
+> section.
 > **2026-08-08 (later the same night) — 🕯️ THE UNDERCROFT (game 15, mode
 > `croft`, js/croft.js):** the FIFTH street game, and the first built AROUND
 > the pick-1-of-3 deal — a roguelite crawl under Fort Nugget: single-screen
@@ -1991,3 +2021,39 @@ half-working that never shows up in a screenshot. Use bare identifiers with a
 **Rule going forward:** "would Beau's friends' laptops survive it" (THE HOUSE
 CALL) now reads **laptops AND PHONES**. Every art session checks the handheld
 path, and a payload's cost is its DECODED size, not its transfer size.
+
+## 🏈 NUGMO BOWL (game 18, mode `bowl`) — 2026-10-01
+
+Tecmo Bowl, but it's nuggets. One file (js/bowl.js, ~2.5k lines, canvas 2D),
+`css/bowl.css`, a walk-up on the hall's east wall. Read the status entry at the
+top for the shape; this is the stuff that bit or will bite.
+
+- **Feel is a number — measured headless before any screenshot** (the
+  BatteredBots lesson). `bowlDebug.auto(true)` + `step()` plays whole games
+  in ~0.3s each. The first cut was 41–35 and 49–42 every game; the TD log
+  (`bowl.stats.log` = [team, kind, yds, pos]) showed the cause one fix at a
+  time: (1) kick-return TDs — 2.5s hang + the wall blocking at full shed time;
+  now 2.25s and kick blocks shed at 0.5×; (2) every pass perfectly led and
+  the safety on the TE — now a lead error of 0.35 + 3.5% of the throw, catch
+  odds fall with air distance, the safety plays deep middle (`role 'deep'`),
+  LB3 takes the TE; (3) the running back leaking into the flat was nobody's
+  job — LB1 has him; (4) pick-sixes twice a game — INT odds roughly halved.
+  After: 28–7 / 21–14 / 28–21 shapes, 2–5 sacks a game, the occasional pick.
+- **Sacks need a QB who can freeze.** The first AI QB threw the moment a
+  rusher came within 2.4 yds, so in nine simulated games there were zero
+  sacks. `bowl.qbPanic` (0 for 35% of snaps and ALWAYS when the defense read
+  the play) and `bowl.qbLook` are rolled per snap.
+- **A scripted "human" is a different game from AI-vs-AI.** The scratchpad
+  script that held RIGHT and mashed at 7/s found the CPU's RB flat route
+  going 60–90 yds; AI-vs-AI never showed it. Test both.
+- **The storm pill owns the top-centre of the screen** (~52 css px). The
+  first HUD centred the clock and the pill sat right on it. `bowl.hudH =
+  max(18, ceil(58/scale))`; plates live at the edges, the clock beside the
+  away plate, down & distance in a chyron under the bar.
+- Pacing knobs: `BOWL_QLEN` (105s), `BOWL_RUNOFF` (9s), tier `read` (how often
+  the CPU guesses your play: .20/.29/.36), `spd`/`str` multipliers, grapple
+  bleed `0.44 × Σstr`/s vs `0.125 × str` per A press, AI tackle `0.64 +
+  0.28 × Δstr`. A won NUGGET BOWL pays ≈ 1.8k × perFlyer (worker cap 60e6).
+- Globals are all `bowl*` / `BOWL_*`. `bowl` itself is a top-level const (not
+  on `window`, see THE DOORMAN) — bare identifiers in `page.evaluate`.
+

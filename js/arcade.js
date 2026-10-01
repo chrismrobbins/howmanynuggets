@@ -2426,7 +2426,8 @@ void main() {
       // and two extinguishers, which are the only red and the only round thing
       // on these walls below the neon
       B.model('extinguisher', uv, { x: -X + 0.11, y: 1.06, z: -2.1, yaw: -Math.PI / 2 });
-      B.model('extinguisher', uv, { x: X - 0.11, y: 1.06, z: -18.2, yaw: Math.PI / 2 });
+      // (the east one moved -18.2 → -19.6 in 2026-10 to make room for NUGMO BOWL's upright)
+      B.model('extinguisher', uv, { x: X - 0.11, y: 1.06, z: -19.6, yaw: Math.PI / 2 });
     }
     // back-wall flankers for the Knight throne
     // (moved out to x ±4.2..5.2 when the third throne arrived: the outer thrones
@@ -2942,6 +2943,7 @@ void main() {
         const delved = typeof croftFoundDoor === 'function' && croftFoundDoor();
         const jackpot = typeof fortuneJackpotHit === 'function' && fortuneJackpotHit();
         const pinged = typeof botsPingHeard === 'function' && botsPingHeard();
+        const ringed = typeof bowlRingWon === 'function' && bowlRingWon();
         const party = typeof nugFoundersDay === 'function' && nugFoundersDay();
         // Season 2: the street-racing ladder is rumor-adjacent commerce
         const races = typeof gtaRacesWon === 'function' ? gtaRacesWon() : 0;
@@ -2973,12 +2975,34 @@ void main() {
             pinged
               ? { t: 'Hood. a bot went DOWN the drain in the sump. still transmitting.', next: 'botsPing' }
               : { t: 'there\'s a CRT bolted to the garage shutter now. it\'s showing a FIGHT.', next: 'botsShutter' },
+            ringed
+              ? { t: 'Hood. the Nugget Bowl drew a MILLION. nobody bought a ticket.', next: 'bowlGate' }
+              : { t: 'there\'s a FOOTBALL machine by the scoreboard. Bo Jackson is a nugget.', next: 'bowlNew' },
             { t: 'the shutter… it\'s open!', next: 'garage' },
             { t: 'heard any rumors?', next: 'rumors' },
             { t: 'tell me about the night the storm vanished.', next: 'incident' },
             { t: "you're just a weird nugget in a hood.", next: 'weird' },
           ].filter(Boolean),
         },
+        // 🏈 game 18 — NUGMO BOWL (rumor seven)
+        bowlNew: {
+          line: '*the hooded nugget lowers his voice* Bo "Sauce" Jackson, friend. the cartridge says he can\'t be tackled, and the cartridge has never once lied to me. four plays. they guess one. you guess theirs. *taps hood* win the playoffs and there\'s a BOWL game. the harbor plays in it.',
+          opts: [
+            { t: 'the harbor has a football team?', next: 'bowlHarbor' },
+            { t: 'who\'s Dante Fowler?', next: 'bowlFowler' },
+          ],
+        },
+        bowlHarbor: { line: '*very quietly* the HARBOR CYCLONES. teal and gold. nobody\'s seen them practice, nobody\'s seen them arrive, and they\'ve never lost a home game, because there has never BEEN one. *straightens up* win your way in, friend. count the crowd. then come find me.', opts: [] },
+        bowlFowler: { line: 'a defensive end, friend. a REAL one. and his name is FOWLER. in a town made of CHICKEN. *the hood nods, gravely* some names are a career. you play him on defense, you put him on the quarterback. that is what he is FOR.', opts: [] },
+        bowlGate: {
+          line: '*the hooded nugget sits down on the curb, which he has never once done* one million and change, friend. in the stands. golden at the edges. and the box office says ZERO. *stares toward the harbor* you know what else in this town is a million and change and never paid to get in?',
+          opts: [
+            { t: '…the storm.', next: 'bowlGate2' },
+            { t: 'a lot of things, Hood.', next: 'bowlGate3' },
+          ],
+        },
+        bowlGate2: { line: '*he doesn\'t answer. he points at the scoreboard, then at the harbor, then at you* seventh rumor, friend. seven for seven. and this one CHEERED.', opts: [] },
+        bowlGate3: { line: '*the hood swivels toward you with enormous patience* name one. …take your time. I\'ll be here. I\'m always here. it\'s my whole thing.', opts: [] },
         founders: {
           line: '*the hood turns, slowly, toward the cake by the doors* one candle. every year. ONE. a town this old? do the math, friend. either nobody\'s counting… or somebody is counting on nobody counting.',
           opts: [
@@ -3235,6 +3259,7 @@ void main() {
         const manifest = typeof reelManifestFound === 'function' && reelManifestFound();
         const jackpot = typeof fortuneJackpotHit === 'function' && fortuneJackpotHit();
         const pinged = typeof botsPingHeard === 'function' && botsPingHeard();
+        const ringed = typeof bowlRingWon === 'function' && bowlRingWon();
         return {
         root: {
           line: party
@@ -3252,6 +3277,7 @@ void main() {
             delved ? { t: 'there\'s a door under the fort. it isn\'t on the plans.', next: 'croftDoor' } : null,
             jackpot ? { t: 'detective. the wheel machine — I banked the spiral and solved its board.', next: 'fortuneJack' } : null,
             pinged ? { t: 'detective. a bot went down the sump drain still transmitting. forty knots.', next: 'botsPing' } : null,
+            ringed ? { t: 'detective. the Nugget Bowl drew a million fans. the box office sold zero tickets.', next: 'bowlGate' } : null,
             salvage ? { t: 'I pulled all eight DPW tags out of the mains.', next: 'salvage' }
               : tags > 0 ? { t: "there's brass wired into those pipes, detective.", next: 'salvage' } : null,
             manifest ? { t: 'I fished a bottle out of the deep. paperwork inside.', next: 'manifest' } : null,
@@ -3333,6 +3359,16 @@ void main() {
             { t: 'want me to stop playing it?', next: 'fortuneJack2' },
           ],
         },
+        // 🏈 game 18 — exhibit eighteen: THE GATE
+        bowlGate: {
+          line: '*the pickle goes very still* a million in the stands and not one ticket stub on the concourse. there are always stubs, kid. ALWAYS. *writes "EXHIBIT: THE GATE. ATTENDANCE: STORM-SIZED." and underlines SIZED twice*',
+          opts: [
+            { t: 'could it have been… the storm?', next: 'bowlGate2' },
+            { t: 'maybe they snuck in.', next: 'bowlGate3' },
+          ],
+        },
+        bowlGate2: { line: '*flat stare* a weather system does not do the wave. *long pause* …it did the wave, didn\'t it. *closes the notepad* the case stays open, kid. I\'m adding a sports section.', opts: [] },
+        bowlGate3: { line: 'a MILLION of them? through one turnstile? *flat* the stands were wet, kid. every seat. it hasn\'t rained in a week. nothing snuck in. something came UP.', opts: [] },
         // 🤖 game 17 — exhibit sixteen: THE LAST PING
         botsPing: {
           line: '*the detective takes out the notepad before you finish the sentence* forty seconds. harbor-way. forty knots. *writes* a toy car does not do forty knots, kid. something carried it. *underlines twice* the pipes don\'t carry water. they carry THINGS. tag seventy-seven said leave it a door. nobody said leave it a BUS LANE.',
@@ -3515,6 +3551,10 @@ void main() {
       got: () => typeof botsPingHeard === 'function' && botsPingHeard(),
       filed: 'A wrecked RC bot went down THE SUMP\'s drain still transmitting: forty seconds of telemetry, harbor-way, at forty knots. A toy car does not do forty knots. Something carried it. The pipes carry THINGS.',
       open: 'Pick up the transmitter at the Grease Garage shutter and win a match in 🌊 THE SUMP, three floors down.' },
+    { i: '🏟️', t: 'THE GATE', src: 'NUGMO BOWL',
+      got: () => typeof bowlRingWon === 'function' && bowlRingWon(),
+      filed: 'The Nugget Bowl: attendance one million and change, golden at the edges. Box office: zero tickets sold, not one stub on the concourse. There are always stubs. By the final whistle the stands were empty, and every seat was wet.',
+      open: 'Win THE PLAYOFFS against the Sauce Works Syndicate, then win THE NUGGET BOWL against the Harbor Cyclones.' },
   ];
 
   function lockerFiledCount() {
@@ -4725,6 +4765,48 @@ void main() {
           H.lastCab = null;
           H.lastSpot = { stand: [fx2 + 1.1, fz], look: [fx2, 1.4, fz] };
           launchGame('fortune');
+        },
+      });
+    }
+
+    // ---- 🏈 NUGMO BOWL (game 18) -------------------------------------------------
+    // Tecmo Bowl, but it's nuggets: a late-80s sports upright on the EAST wall,
+    // in the 1.4m bay between the scoreboard frame (ends z -17.52) and the last
+    // wall pier (z -19.125, ±0.15). It is fortune's machine mirrored across the
+    // aisle — same walk-up build, same street-page face (bowlFace), same
+    // marquee contract (top 20% re-drawn at e 0.4, never hotter). East wall
+    // faces -x, so every face here winds z ASCENDING (z2 is the viewer's left).
+    {
+      const fx2 = 6.94, fz = -18.25, fz1 = fz + 0.4, fz2 = fz - 0.4;
+      const fy0 = 0.14, fy1 = 2.1, XW = 7.49;
+      ST.quad([fx2 - 0.02, 0, fz1 + 0.02], [XW, 0, fz1 + 0.02], [XW, fy0, fz1 + 0.02], [fx2 - 0.02, fy0, fz1 + 0.02], suv.sw_black, {});
+      ST.quad([fx2 - 0.02, 0, fz2], [fx2 - 0.02, 0, fz1], [fx2 - 0.02, fy0, fz1], [fx2 - 0.02, fy0, fz2], suv.sw_black, {});
+      ST.quad([fx2, fy0, fz2], [fx2, fy0, fz1], [fx2, fy1, fz1], [fx2, fy1, fz2], suv.bowlFace, { e: 0.3 });
+      // the marquee band, proud of the face toward the room
+      ST.quad([fx2 - 0.012, fy1 - 0.42, fz2], [fx2 - 0.012, fy1 - 0.42, fz1],
+        [fx2 - 0.012, fy1, fz1], [fx2 - 0.012, fy1, fz2],
+        sub(suv.bowlFace, 0, 0, 1, 0.2), { e: 0.4 });
+      // carcass: the two flanks + the lid (iron)
+      ST.quad([fx2, 0, fz1], [XW, 0, fz1], [XW, fy1, fz1], [fx2, fy1, fz1], suv.sw_iron, { tint: 0.6 });
+      ST.quad([XW, 0, fz2], [fx2, 0, fz2], [fx2, fy1, fz2], [XW, fy1, fz2], suv.sw_iron, { tint: 0.6 });
+      ST.quad([fx2, fy1, fz1], [XW, fy1, fz1], [XW, fy1, fz2], [fx2, fy1, fz2], suv.sw_iron, { tint: 0.75 });
+      // a red edge tube crowning the face (the TENDERS are red)
+      ST.quad([fx2 - 0.02, fy1 - 0.05, fz2], [fx2 - 0.02, fy1 - 0.05, fz1],
+        [fx2 - 0.02, fy1, fz1], [fx2 - 0.02, fy1, fz2], suv.sw_red, { e: 0.45 });
+      LIGHTS.push({ p: [fx2 - 1.0, 1.9, fz], c: [0.55, 0.34, 0.14], k: 'marq' });
+      H.glows.push({ p: [fx2 - 0.12, fy1 - 0.2, fz], c: [1, 0.72, 0.3], s: 0.9, a: 0.14, k: 'neon' });
+      H.glows.push({ p: [fx2 - 0.1, 1.3, fz], c: [0.45, 1, 0.5], s: 0.7, a: 0.08, k: 'crt' });
+      H.propBoxes.push({ min: [fx2 - 0.05, 0, fz2 - 0.16], max: [7.5, fy1 + 0.05, fz1 + 0.06] });
+      H.hotspots.push({
+        kind: 'bowl',
+        x: fx2, z: fz, r: 2.4,
+        min: [fx2 - 0.1, 0, fz2 - 0.16], max: [7.5, fy1 + 0.05, fz1 + 0.06],
+        stand: [fx2 - 1.1, EYE, fz],
+        label: '🏈 NUGMO BOWL — FOUR PLAYS. THEY GUESS ONE. BO KNOWS.',
+        act: () => {
+          H.lastCab = null;
+          H.lastSpot = { stand: [fx2 - 1.1, fz], look: [fx2, 1.4, fz] };
+          launchGame('bowl');
         },
       });
     }
