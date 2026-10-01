@@ -2426,8 +2426,7 @@ void main() {
       // and two extinguishers, which are the only red and the only round thing
       // on these walls below the neon
       B.model('extinguisher', uv, { x: -X + 0.11, y: 1.06, z: -2.1, yaw: -Math.PI / 2 });
-      // (the east one moved -18.2 → -19.6 in 2026-10 to make room for NUGMO BOWL's upright)
-      B.model('extinguisher', uv, { x: X - 0.11, y: 1.06, z: -19.6, yaw: Math.PI / 2 });
+      B.model('extinguisher', uv, { x: X - 0.11, y: 1.06, z: -18.2, yaw: Math.PI / 2 });
     }
     // back-wall flankers for the Knight throne
     // (moved out to x ±4.2..5.2 when the third throne arrived: the outer thrones
@@ -4718,97 +4717,78 @@ void main() {
       }
     }
 
-    // ---- 🎰 REEL OF FORTUNE (game 16) --------------------------------------------
-    // The house machine, standing in Brawlers' old west-wall spot under the
-    // neon phrase — THE TWIN THRONES freed the wall the same day the game was
-    // asked for. It is a WALK-UP like the jukebox, not a cabinet: the main
-    // atlas is full at 10, and a slot machine is its own furniture anyway.
-    // Face art is one street-atlas region (fortuneFace); the marquee strip is
-    // re-drawn proud + hotter by a second quad sampling that sub-rect. Built
-    // here in buildStreet like the crime-scene tape — street page, hall floor.
+    // ---- 🏝️ THE ISLANDS (2026-10-01, Beau's call) ----------------------------------
+    // "make the arcade location more prominent … arcade games sitting back to
+    // back in the middle" — with a photo of a real hall: rows of uprights
+    // back to back down the floor. Two islands, one either side of the spine
+    // (|x| < 2 stays clear: click-to-walk drives straight at the centre throne
+    // and an island on the spine wedges it — THE FLOOR PLAN's rule). Each is
+    // four uprights: two facing the doors, two facing the thrones.
+    //   EAST  — 🏈 NUGMO BOWL ×4 (it moved here off the east-wall bay)
+    //   WEST  — 🎡 REEL OF FORTUNE ×4 (off the west wall, its walk-up retired)
+    // Both are walk-ups, not cabinets: the main atlas is full, faces live on the
+    // street page (bowlFace / fortuneFace), same marquee contract as before (top
+    // 20% re-drawn 12mm proud at e 0.4, never hotter).
+    //
+    // One builder for any facing. A face is wound BL, BR, TR, TL AS SEEN FROM
+    // THE FRONT — with F = -n and U = +y the viewer's right is R = F×U =
+    // (nz, 0, -nx), and AB×AD then comes out along n. (Checked against
+    // fortune's old +x face, which wound z descending: R = (0,0,-1). ✓)
     {
-      const fx2 = -6.94, fz = -16.8, fz1 = fz + 0.4, fz2 = fz - 0.4; // faces +x → z descending
-      const fy0 = 0.14, fy1 = 2.1;
-      // plinth, carcass sides + top (iron), then the painted face
-      ST.quad([-7.49, 0, fz1 + 0.02], [fx2 + 0.02, 0, fz1 + 0.02], [fx2 + 0.02, fy0, fz1 + 0.02], [-7.49, fy0, fz1 + 0.02], suv.sw_black, {});
-      ST.quad([fx2, fy0, fz1], [fx2, fy0, fz2], [fx2, fy1, fz2], [fx2, fy1, fz1], suv.fortuneFace, { e: 0.3 });
-      // the marquee band again, 12mm proud and warmer — it is the sign.
-      // e 0.4, not more: at 0.62 "REEL OF FORTUNE" bloomed into a gold slab,
-      // which is the morning's readable-neon lesson repeating on day one.
-      ST.quad([fx2 - 0.012, fy1 - 0.42, fz1], [fx2 - 0.012, fy1 - 0.42, fz2],
-        [fx2 - 0.012, fy1, fz2], [fx2 - 0.012, fy1, fz1],
-        sub(suv.fortuneFace, 0, 0, 1, 0.2), { e: 0.4 });
-      ST.quad([-7.49, 0, fz1], [fx2, 0, fz1], [fx2, fy1, fz1], [-7.49, fy1, fz1], suv.sw_iron, { tint: 0.6 });
-      ST.quad([fx2, 0, fz2], [-7.49, 0, fz2], [-7.49, fy1, fz2], [fx2, fy1, fz2], suv.sw_iron, { tint: 0.6 });
-      ST.quad([-7.49, fy1, fz1], [fx2, fy1, fz1], [fx2, fy1, fz2], [-7.49, fy1, fz2], suv.sw_iron, { tint: 0.75 });
-      // amber edge tube crowning the face
-      ST.quad([fx2 - 0.02, fy1 - 0.05, fz1], [fx2 - 0.02, fy1 - 0.05, fz2],
-        [fx2 - 0.02, fy1, fz2], [fx2 - 0.02, fy1, fz1], suv.sw_amber, { e: 0.5 });
-      // the LEVER, on the machine's right shoulder (the -z side): iron arm,
-      // red ball, both facing the room — enough silhouette to read from the aisle
-      ST.quad([fx2 - 0.02, 1.06, fz2 - 0.05], [fx2 - 0.02, 1.06, fz2 - 0.11],
-        [fx2 - 0.02, 1.56, fz2 - 0.09], [fx2 - 0.02, 1.56, fz2 - 0.03], suv.sw_iron, { tint: 0.9 });
-      ST.quad([fx2 - 0.02, 1.56, fz2 + 0.01], [fx2 - 0.02, 1.56, fz2 - 0.13],
-        [fx2 - 0.02, 1.7, fz2 - 0.13], [fx2 - 0.02, 1.7, fz2 + 0.01], suv.sw_red, { e: 0.18 });
-      // lights: the marquee throws gold into the aisle, the windows glow soft
-      LIGHTS.push({ p: [fx2 + 1.0, 1.9, fz], c: [0.55, 0.42, 0.16], k: 'marq' });
-      H.glows.push({ p: [fx2 + 0.12, fy1 - 0.2, fz], c: [1, 0.82, 0.3], s: 0.9, a: 0.14, k: 'neon' });
-      H.glows.push({ p: [fx2 + 0.1, 1.15, fz], c: [0.5, 0.85, 1], s: 0.7, a: 0.09, k: 'crt' });
-      H.propBoxes.push({ min: [-7.5, 0, fz2 - 0.16], max: [fx2 + 0.05, fy1 + 0.05, fz1 + 0.06] });
-      H.hotspots.push({
-        kind: 'fortune',
-        x: fx2, z: fz, r: 2.4,
-        min: [-7.5, 0, fz2 - 0.16], max: [fx2 + 0.1, fy1 + 0.05, fz1 + 0.06],
-        stand: [fx2 + 1.1, EYE, fz],
-        label: '🎡 REEL OF FORTUNE — SPIN · GUESS · SOLVE (FREE, ASK NOBODY WHY)',
-        act: () => {
-          H.lastCab = null;
-          H.lastSpot = { stand: [fx2 + 1.1, fz], look: [fx2, 1.4, fz] };
-          launchGame('fortune');
-        },
-      });
-    }
-
-    // ---- 🏈 NUGMO BOWL (game 18) -------------------------------------------------
-    // Tecmo Bowl, but it's nuggets: a late-80s sports upright on the EAST wall,
-    // in the 1.4m bay between the scoreboard frame (ends z -17.52) and the last
-    // wall pier (z -19.125, ±0.15). It is fortune's machine mirrored across the
-    // aisle — same walk-up build, same street-page face (bowlFace), same
-    // marquee contract (top 20% re-drawn at e 0.4, never hotter). East wall
-    // faces -x, so every face here winds z ASCENDING (z2 is the viewer's left).
-    {
-      const fx2 = 6.94, fz = -18.25, fz1 = fz + 0.4, fz2 = fz - 0.4;
-      const fy0 = 0.14, fy1 = 2.1, XW = 7.49;
-      ST.quad([fx2 - 0.02, 0, fz1 + 0.02], [XW, 0, fz1 + 0.02], [XW, fy0, fz1 + 0.02], [fx2 - 0.02, fy0, fz1 + 0.02], suv.sw_black, {});
-      ST.quad([fx2 - 0.02, 0, fz2], [fx2 - 0.02, 0, fz1], [fx2 - 0.02, fy0, fz1], [fx2 - 0.02, fy0, fz2], suv.sw_black, {});
-      ST.quad([fx2, fy0, fz2], [fx2, fy0, fz1], [fx2, fy1, fz1], [fx2, fy1, fz2], suv.bowlFace, { e: 0.3 });
-      // the marquee band, proud of the face toward the room
-      ST.quad([fx2 - 0.012, fy1 - 0.42, fz2], [fx2 - 0.012, fy1 - 0.42, fz1],
-        [fx2 - 0.012, fy1, fz1], [fx2 - 0.012, fy1, fz2],
-        sub(suv.bowlFace, 0, 0, 1, 0.2), { e: 0.4 });
-      // carcass: the two flanks + the lid (iron)
-      ST.quad([fx2, 0, fz1], [XW, 0, fz1], [XW, fy1, fz1], [fx2, fy1, fz1], suv.sw_iron, { tint: 0.6 });
-      ST.quad([XW, 0, fz2], [fx2, 0, fz2], [fx2, fy1, fz2], [XW, fy1, fz2], suv.sw_iron, { tint: 0.6 });
-      ST.quad([fx2, fy1, fz1], [XW, fy1, fz1], [XW, fy1, fz2], [fx2, fy1, fz2], suv.sw_iron, { tint: 0.75 });
-      // a red edge tube crowning the face (the TENDERS are red)
-      ST.quad([fx2 - 0.02, fy1 - 0.05, fz2], [fx2 - 0.02, fy1 - 0.05, fz1],
-        [fx2 - 0.02, fy1, fz1], [fx2 - 0.02, fy1, fz2], suv.sw_red, { e: 0.45 });
-      LIGHTS.push({ p: [fx2 - 1.0, 1.9, fz], c: [0.55, 0.34, 0.14], k: 'marq' });
-      H.glows.push({ p: [fx2 - 0.12, fy1 - 0.2, fz], c: [1, 0.72, 0.3], s: 0.9, a: 0.14, k: 'neon' });
-      H.glows.push({ p: [fx2 - 0.1, 1.3, fz], c: [0.45, 1, 0.5], s: 0.7, a: 0.08, k: 'crt' });
-      H.propBoxes.push({ min: [fx2 - 0.05, 0, fz2 - 0.16], max: [7.5, fy1 + 0.05, fz1 + 0.06] });
-      H.hotspots.push({
-        kind: 'bowl',
-        x: fx2, z: fz, r: 2.4,
-        min: [fx2 - 0.1, 0, fz2 - 0.16], max: [7.5, fy1 + 0.05, fz1 + 0.06],
-        stand: [fx2 - 1.1, EYE, fz],
-        label: '🏈 NUGMO BOWL — FOUR PLAYS. THEY GUESS ONE. BO KNOWS.',
-        act: () => {
-          H.lastCab = null;
-          H.lastSpot = { stand: [fx2 - 1.1, fz], look: [fx2, 1.4, fz] };
-          launchGame('bowl');
-        },
-      });
+      const W2 = 0.4, D = 0.55, Y0 = 0.14, Y1 = 2.1;
+      const quadN = (x, z, nx, nz, hw, y0, y1, uvr, o) => {
+        const rx = nz, rz = -nx;
+        ST.quad([x - rx * hw, y0, z - rz * hw], [x + rx * hw, y0, z + rz * hw],
+          [x + rx * hw, y1, z + rz * hw], [x - rx * hw, y1, z - rz * hw], uvr, o);
+      };
+      const upright = (mode, faceUv, tube, cx, cz, nx, nz, label) => {
+        const rx = nz, rz = -nx;
+        const fx = cx + nx * D / 2, fz = cz + nz * D / 2;     // the face plane
+        quadN(fx + nx * 0.02, fz + nz * 0.02, nx, nz, W2 + 0.01, 0, Y0, suv.sw_black, {}); // plinth
+        quadN(fx, fz, nx, nz, W2, Y0, Y1, faceUv, { e: 0.3 });
+        quadN(fx + nx * 0.012, fz + nz * 0.012, nx, nz, W2, Y1 - 0.42, Y1, sub(faceUv, 0, 0, 1, 0.2), { e: 0.4 });
+        quadN(fx + nx * 0.02, fz + nz * 0.02, nx, nz, W2, Y1 - 0.05, Y1, tube, { e: 0.45 });
+        // flanks (normals ±R), each spanning the cabinet's depth
+        quadN(cx + rx * W2, cz + rz * W2, rx, rz, D / 2, 0, Y1, suv.sw_iron, { tint: 0.6 });
+        quadN(cx - rx * W2, cz - rz * W2, -rx, -rz, D / 2, 0, Y1, suv.sw_iron, { tint: 0.6 });
+        // lid: front-left, front-right, back-right, back-left
+        const fl = [fx - rx * W2, Y1, fz - rz * W2], fr = [fx + rx * W2, Y1, fz + rz * W2];
+        const br = [fr[0] - nx * D, Y1, fr[2] - nz * D], bl = [fl[0] - nx * D, Y1, fl[2] - nz * D];
+        ST.quad(fl, fr, br, bl, suv.sw_iron, { tint: 0.75 });
+        H.glows.push({ p: [fx + nx * 0.12, Y1 - 0.2, fz + nz * 0.12], c: mode === 'bowl' ? [1, 0.72, 0.3] : [1, 0.82, 0.3], s: 0.9, a: 0.14, k: 'neon' });
+        H.glows.push({ p: [fx + nx * 0.1, 1.3, fz + nz * 0.1], c: mode === 'bowl' ? [0.45, 1, 0.5] : [0.5, 0.85, 1], s: 0.7, a: 0.08, k: 'crt' });
+        const sx = fx + nx * 1.1, sz = fz + nz * 1.1;
+        const ax = [cx - W2 - 0.05, cx + W2 + 0.05], az = [cz - D / 2 - 0.05, cz + D / 2 + 0.05];
+        const min = nx ? [cx - D / 2 - 0.1, 0, cz - W2 - 0.1] : [ax[0], 0, az[0]];
+        const max = nx ? [cx + D / 2 + 0.1, Y1 + 0.05, cz + W2 + 0.1] : [ax[1], Y1 + 0.05, az[1]];
+        H.hotspots.push({
+          kind: mode, x: fx, z: fz, r: 2.2, min, max,
+          stand: [sx, EYE, sz], label,
+          act: () => {
+            H.lastCab = null;
+            H.lastSpot = { stand: [sx, sz], look: [fx, 1.4, fz] };
+            launchGame(mode);
+          },
+        });
+      };
+      const ZC = -9.0;                         // the seam between the two rows
+      const ISLANDS = [
+        { mode: 'bowl', side: 1, face: suv.bowlFace, tube: suv.sw_red, lc: [0.55, 0.34, 0.14],
+          label: '🏈 NUGMO BOWL — FOUR PLAYS. THEY GUESS ONE. BO KNOWS.' },
+        { mode: 'fortune', side: -1, face: suv.fortuneFace, tube: suv.sw_amber, lc: [0.55, 0.42, 0.16],
+          label: '🎡 REEL OF FORTUNE — SPIN · GUESS · SOLVE (FREE, ASK NOBODY WHY)' },
+      ];
+      for (const I of ISLANDS) {
+        const xs = [I.side * 2.75, I.side * 3.65];
+        for (const x of xs) {
+          upright(I.mode, I.face, I.tube, x, ZC + D / 2 + 0.02, 0, 1, I.label);   // faces the doors
+          upright(I.mode, I.face, I.tube, x, ZC - D / 2 - 0.02, 0, -1, I.label);  // faces the thrones
+        }
+        // one marquee light per face row, out in the aisle it lights
+        LIGHTS.push({ p: [I.side * 3.2, 1.9, ZC + 1.6], c: I.lc, k: 'marq' });
+        LIGHTS.push({ p: [I.side * 3.2, 1.9, ZC - 1.6], c: I.lc, k: 'marq' });
+        H.propBoxes.push({ min: [I.side > 0 ? 2.3 : -4.1, 0, ZC - D - 0.1], max: [I.side > 0 ? 4.1 : -2.3, Y1 + 0.05, ZC + D + 0.1] });
+      }
     }
 
     // ---- 🤖 BATTEREDBOTS (game 17) ---------------------------------------------

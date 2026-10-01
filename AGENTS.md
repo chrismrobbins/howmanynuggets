@@ -230,10 +230,13 @@ already bitten someone.
 > vs the HARBOR CYCLONES (earned: `nugBowlPlayoffs`). Winning the Bowl sets
 > `nugBowlRing` / `bowlRingWon()` → Hood rumor seven, Dill branch, 18th case
 > board exhibit 🏟️ THE GATE (attendance one million and change, zero tickets).
-> It's a walk-up upright on the hall's EAST wall at (6.94, −18.25), in the
-> bay between the scoreboard frame and the last pier (the extinguisher moved
-> to z −19.6); STREET_GAMES entry, face `bowlFace` on the street atlas,
-> fortune's machine mirrored (east wall winds z ascending). In
+> STREET_GAMES entry, face `bowlFace` on the street atlas. Same day, Beau's
+> call: 🏝️ THE ISLANDS — two back-to-back islands either side of the spine
+> (x ±2.35..±4.05, seam z −9.0), four uprights each, two facing the doors and
+> two facing the thrones: EAST = NUGMO BOWL ×4, WEST = REEL OF FORTUNE ×4
+> (both wall walk-ups retired; the extinguisher is back at z −18.2). One
+> facing-agnostic `upright()` builder in buildStreet — wind BL,BR,TR,TL as
+> seen from the front with R = (nz, 0, −nx). The |x| < 2 spine stays clear. In
 > MODE_COMPACT_HUD; the HUD keeps the top centre clear for the storm pill.
 > Test seam `window.bowlDebug` (pickTier / auto(true) = AI plays both sides /
 > step(secs) = fixed-60Hz headless sim / choose / pressA / pressB /
@@ -2056,4 +2059,9 @@ top for the shape; this is the stuff that bit or will bite.
   0.28 × Δstr`. A won NUGGET BOWL pays ≈ 1.8k × perFlyer (worker cap 60e6).
 - Globals are all `bowl*` / `BOWL_*`. `bowl` itself is a top-level const (not
   on `window`, see THE DOORMAN) — bare identifiers in `page.evaluate`.
-
+- **🏝️ THE ISLANDS (same day).** Beau wanted the machine "more prominent …
+  games sitting back to back in the middle" (photo of a real hall's rows).
+  Two islands flank the spine at z −9: Bowl ×4 east, Fortune ×4 west (his
+  pick over moving wall cabinets in). They're quads only (~70) with two marq
+  LIGHTS per island, not 16 — THE CLEARING took floor furniture out for perf
+  once; check `19-openfloor`-style spots before adding more out there.
