@@ -35,7 +35,7 @@ const blitzWorld = document.getElementById('blitzWorld');
 const BLZ_WID = 53.3, BLZ_MID = BLZ_WID / 2, BLZ_LEN = 120; // yards; end zones 0..10 and 110..120
 const BLZ_FIRST = 30;                // the Blitz first down
 const BLZ_QLEN = 75;                 // seconds of LIVE play per quarter (the clock stops between plays)
-const BLZ_CAM = { h: 14, back: 13, pitch: 0.64 }; // high and steep, like the cart
+const BLZ_CAM = { h: 11, back: 12.5, pitch: 0.56 }; // behind and above the offense, like the cart
 const BLZ_RES = 384;                 // internal canvas height: low-res, smoothed up (the N64 smear)
 const BLZ_OFF_POS = ['QB', 'C', 'LG', 'RG', 'WR1', 'WR2', 'RB'];
 const BLZ_DEF_POS = ['DE1', 'DT', 'DE2', 'LB', 'CB1', 'CB2', 'S'];
@@ -141,7 +141,7 @@ const BLZ_ROSTER = {
 // OFFENSE's frame: [dx, dz] where +dx is the offense's RIGHT and +dz is
 // downfield. After the last waypoint a receiver keeps running the way he was
 // going. FLIP mirrors dx. The cards draw their diagrams from this same data.
-const BLZ_FORM = { QB: [0, -4.5], C: [0, -0.9], LG: [-1.8, -1.1], RG: [1.8, -1.1], WR1: [-15, -0.6], WR2: [15, -0.6], RB: [2.2, -5] };
+const BLZ_FORM = { QB: [0, -1.35], C: [0, -0.7], LG: [-1.8, -0.9], RG: [1.8, -0.9], WR1: [-15, -0.6], WR2: [15, -0.6], RB: [0, -5.4] };
 const BLZ_OFF_PLAYS = [
   { key: 'slants', name: 'SLANTS', kind: 'pass', primary: 'WR2',
     routes: { WR1: [[0, 3], [9, 10]], WR2: [[0, 3], [-9, 10]], RB: [[-4, 1.5], [-10, 4]] } },
@@ -162,7 +162,17 @@ const BLZ_OFF_PLAYS = [
   { key: 'hook', name: 'HOOK N LADDER', kind: 'pass', primary: 'WR1',
     routes: { WR1: [[0, 11], [0.5, 9]], WR2: [[0, 30]], RB: [[-7, 0], [-10, 9]] } },
 ];
+// the special-teams fakes (the cart's 4th-down page). The defense lines up for
+// the kick it thinks is coming — a returner 40 deep, everybody else rushing.
+const BLZ_FAKE_PUNT = { key: 'fakepunt', name: 'FAKE PUNT', kind: 'pass', primary: 'WR1', fake: 'punt',
+  form: { QB: [0, -13], RB: [0, -6], WR1: [-19, -0.6], WR2: [19, -0.6] },
+  routes: { WR1: [[0, 14], [2, 40]], WR2: [[0, 8], [-10, 16]], RB: [[5, 1], [10, 9]] } };
+const BLZ_FAKE_FG = { key: 'fakefg', name: 'FAKE FIELD GOAL', kind: 'pass', primary: 'RB', fake: 'fg',
+  form: { QB: [0, -7], RB: [-2, -9.5], WR1: [-4.5, -0.8], WR2: [4.5, -0.8] },
+  routes: { WR1: [[0, 4], [-8, 10]], WR2: [[0, 4], [8, 10]], RB: [[6, 2], [12, 8]] } };
 // defense roles in BLZ_DEF_POS order: 'rush' | 'man:WR1' | ['zone', dx, dz] | ['deep', dx, dz] | 'spy'
+const BLZ_DEF_PUNT_RET = { key: 'pret', name: 'PUNT RETURN', roles: ['rush', 'rush', 'rush', 'rush', ['deep', 0, 40], 'man:WR2', ['zone', 0, 16]] };
+const BLZ_DEF_FG_BLOCK = { key: 'fgblock', name: 'FG BLOCK', roles: ['rush', 'rush', 'rush', 'rush', 'man:WR1', 'man:WR2', 'rush'] };
 const BLZ_DEF_PLAYS = [
   { key: 'safe', name: 'SAFE COVER', roles: ['rush', 'rush', 'rush', ['zone', 0, 9], 'man:WR1', 'man:WR2', ['deep', 0, 22]] },
   { key: 'b1', name: '1 MAN BLITZ', roles: ['rush', 'rush', 'rush', 'rush', 'man:WR1', 'man:WR2', 'man:RB'] },
@@ -210,7 +220,8 @@ const blitz = {
   snapAt: 0, startZ: 0, ezCatch: false, handed: false, kickT: 0, fg: null, punt: null,
   callFor: 'off', callSel: 4, callT: 0, cpuOff: null, cpuDef: null, cpuFlip: false,
   deadT: 0, dead: null, waitT: 0, waitFn: null, banner: null, feed: [], say: '',
-  cam: { x: BLZ_MID, z: 14, dir: 1, s: Math.sin(BLZ_CAM.pitch), c: Math.cos(BLZ_CAM.pitch) },
+  cam: { x: BLZ_MID, z: 14, dir: 1, yaw: 0, h: BLZ_CAM.h, pitch: BLZ_CAM.pitch, back: BLZ_CAM.back,
+    s: Math.sin(BLZ_CAM.pitch), c: Math.cos(BLZ_CAM.pitch), cyw: 1, syw: 0 },
   camFlipT: 0, camFlipDone: false, shakeT: 0, shakeMag: 0, hitStop: 0, flashT: 0,
   turbo: [1, 1], fire: [{ on: false, n: 0, last: null, stops: 0 }, { on: false, n: 0, last: null, stops: 0 }],
   codes: {}, codeIn: [0, 0, 0], codeMsg: null, vsT: 0,
@@ -261,9 +272,10 @@ function blitzLayout() {
   const vw = window.innerWidth, vh = window.innerHeight;
   blitz.H = BLZ_RES;
   blitz.W = Math.max(240, Math.min(1000, Math.round(vw * BLZ_RES / vh)));
-  if (blitz.cv) { blitz.cv.width = blitz.W; blitz.cv.height = blitz.H; }
+  blitz.ov = 2;   // the overlay draws at 2× its logical size: crisp HUD text over the smeared world
+  if (blitz.cv) { blitz.cv.width = blitz.W * blitz.ov; blitz.cv.height = blitz.H * blitz.ov; }
   // a portrait phone keeps the wideouts in frame by shortening the lens
-  blitz.F = Math.min(blitz.H * 0.92, blitz.W * 0.82);
+  blitz.F = Math.min(blitz.H * 0.9, blitz.W * 0.82);
   blitz.cy = blitz.H * 0.38;
   blitz.ui = blzClamp(blitz.W / 400, 0.5, 1);
   blitz.crowdCv = null;
@@ -280,6 +292,7 @@ function syncBlitz() {
       blitz.g = blitz.cv.getContext('2d');
       blitzWorld.appendChild(blitz.cv);
       blitz.cv.addEventListener('pointerdown', blzPointerDown);
+      blzGLInit();
     }
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     blitz.t = 0; blitz.earned = 0; blitz.paused = false; blitz.keys = {};
@@ -426,6 +439,7 @@ function blzMake(team, pos) {
     downT: 0, diveT: 0, jumpT: 0, spinT: 0, spinCd: 0, stiffT: 0, stunT: 0, tryCd: 0, celebT: 0, throwT: 0,
     eng: null, shedT: 0, noEngT: 0, role: '', man: null, zx: 0, zz: 0, route: null, ri: 0, ox: 0, oz: 0,
     turbo: 1, turboOn: false, lateCd: 0, block: false, react: 0,
+    air: false, vy: 0, flipA: 0, flipV: 0, lieBack: false, catchT: 0, dropOn: null,
   };
 }
 
@@ -536,14 +550,34 @@ function blzSetupKickoff(k, free) {
   });
   blitz.ball = { st: 'tee', x: BLZ_MID, z: kickZ, y: 0.2, kind: 'kick' };
   blitz.los = kickZ;
-  blzCamSnap(dk, BLZ_MID, kickZ - dk * 4);
+  blzCamSnap(dk, BLZ_MID, kickZ + dk * 8, true);
   blitz.ctl = blzHuman(r) ? blitz.returner : blzHuman(k) ? blzByPos(k, 'LB') : null;
   blitz.phase = 'live';
   blitz.kickT = 0;
+  // the human kicker waits for the button: PASS kicks deep, TURBO+PASS goes onside.
+  // The CPU goes onside when it's late and it's behind.
+  blitz.kickWait = blzHuman(k) && !free;
+  blitz.onside = !blzHuman(k) && !free && blitz.q >= 4 && !blitz.ot && blitz.clock < 40 &&
+    blitz.score[k] < blitz.score[r] && blitz.score[r] - blitz.score[k] <= 16;
 }
 
 function blzKickTheBall() {
   const B = blitz.ball, k = 1 - blitz.poss, r = blitz.poss;
+  if (blitz.onside) {
+    // a squib off the turf: ten-odd yards, bouncing, anybody's ball (the kickers after 10)
+    const dk = blzDir(k);
+    B.st = 'loose'; B.kind = 'onside'; B.looseT = 0; B.oz = B.z;
+    B.x = BLZ_MID + blzRnd(-3, 3); B.y = 0.3;
+    B.vx = blzRnd(-3, 3); B.vz = dk * blzRnd(10.5, 12.5); B.vy = 4.2;
+    B.lastTeam = r;
+    blzSfx('kick'); blzRoar(0.9, 2);
+    blzBanner('ONSIDE KICK!', '#ff8a3a', '', 1.2);
+    blzSay('onside kick!', true);
+    for (const p of blitz.players) p.react = blzRnd(0, 0.12);
+    if (blzHuman(k)) blitz.ctl = blzNearestTo(k, B, (p) => p.role !== 'kicker');
+    if (blzHuman(r)) blitz.ctl = blzNearestTo(r, { x: B.x, z: B.z + dk * 12 });
+    return;
+  }
   const land = blzOwnGoal(r) + blzDir(r) * blzRnd(-4, 9);
   B.st = 'air'; B.kind = 'kick';
   B.x0 = B.x; B.z0 = B.z; B.y0 = 0.3;
@@ -571,9 +605,12 @@ function blzToCall() {
   } else {
     blitz.cpuOff = blzCpuOffCall(off);
     // the CPU going for a kick skips your defensive call (there's no card for "block it")
-    if (blitz.cpuOff === 'punt' || blitz.cpuOff === 'fg') {
-      blzBanner(blitz.cpuOff === 'punt' ? 'PUNT' : 'FIELD GOAL', '#bfe8ff', blitz.cpuOff === 'fg' ? blzFGDist() + ' YARDS' : '', 1.2);
-      blzAfter(0.9, () => blzSpecial(blitz.cpuOff));
+    // (a fake shows you the same banner — that's the point of a fake)
+    const kk = String(blitz.cpuOff).replace('fake', '');
+    if (kk === 'punt' || kk === 'fg') {
+      const fake = String(blitz.cpuOff).startsWith('fake');
+      blzBanner(kk === 'punt' ? 'PUNT' : 'FIELD GOAL', '#bfe8ff', kk === 'fg' ? blzFGDist() + ' YARDS' : '', 1.2);
+      blzAfter(0.9, () => (fake ? blzRunCalls(kk === 'punt' ? BLZ_FAKE_PUNT : BLZ_FAKE_FG, kk === 'punt' ? BLZ_DEF_PUNT_RET : BLZ_DEF_FG_BLOCK) : blzSpecial(kk)));
       return;
     }
     if (blzHuman(1 - off)) blitz.callFor = 'def';
@@ -587,8 +624,8 @@ function blzCpuOffCall(team) {
   const late = blitz.q >= 4 && blitz.clock < 30;
   if (blitz.down === 4 && !blitz.pat2) {
     const fgd = blzFGDist();
-    if (fgd <= 52 && !(late && trail > 3)) return 'fg';
-    if (!blitz.codes.nopunt && togo > 6 && !(late && trail > 0) && !(blitz.q >= 4 && trail > 8)) return 'punt';
+    if (fgd <= 52 && !(late && trail > 3)) return Math.random() < 0.05 && togo < 10 ? 'fakefg' : 'fg';
+    if (!blitz.codes.nopunt && togo > 6 && !(late && trail > 0) && !(blitz.q >= 4 && trail > 8)) return Math.random() < 0.08 && togo < 12 ? 'fakepunt' : 'punt';
   }
   const passes = [0, 1, 2, 3, 4, 8], runs = [6, 7];
   let pRun = togo < 8 ? 0.45 : togo > 18 ? 0.12 : 0.25;
@@ -619,6 +656,11 @@ function blzChoose(n) {
       blzSpecial(n);
       return;
     }
+    if (n === 'fakepunt' || n === 'fakefg') {
+      if (blitz.pat2) return;
+      blzRunCalls(n === 'fakepunt' ? BLZ_FAKE_PUNT : BLZ_FAKE_FG, n === 'fakepunt' ? BLZ_DEF_PUNT_RET : BLZ_DEF_FG_BLOCK);
+      return;
+    }
     blzRunCalls(n, blitz.cpuDef);
   } else {
     if (typeof n !== 'number') return;
@@ -630,7 +672,9 @@ function blzRunCalls(offN, defN) {
   const human0 = blzHuman(blitz.poss);
   const flip = human0 ? blitz.flip : blitz.cpuFlip;
   blitz.stats.plays++;
-  blzLineUp(BLZ_OFF_PLAYS[offN], BLZ_DEF_PLAYS[defN], flip);
+  const op = typeof offN === 'object' ? offN : BLZ_OFF_PLAYS[offN];
+  const dp = typeof defN === 'object' ? defN : BLZ_DEF_PLAYS[defN];
+  blzLineUp(op, dp, op.fake ? false : flip);
   blitz.phase = 'pre';
   blitz.snapAt = blzHuman(blitz.poss) ? 9 : blzRnd(0.9, 1.7);
   blitz.playT = 0;
@@ -676,6 +720,8 @@ function blzLineUp(play, dplay, flip) {
       if (p.man && !p.man.route && play.kind !== 'run') { p.role = 'zone'; p.zx = bx; p.zz = Z(6); } // nobody to cover
     } else if (Array.isArray(role)) {
       p.role = role[0]; p.zx = blzClamp(bx + role[1] * fl * d, 3, BLZ_WID - 3); p.zz = Z(role[2]);
+      // a punt returner already stands where he'll field it
+      if (role[2] > 25) { p.x = p.zx; p.z = blzClamp(p.zz, 2, BLZ_LEN - 2); }
     }
     blitz.players.push(p);
   });
@@ -704,6 +750,11 @@ function blzSnap() {
   blitz.qbPatience = blzRnd(0.75, 1.45);
   blitz.saidPress = false;
   blitz.nextRead = 0.85;
+  if (blitz.play && blitz.play.fake) {
+    blzBanner(blitz.play.name + '!', '#ff8a3a', '', 1.2);
+    blzSay(blitz.play.fake === 'punt' ? 'fake punt!' : 'it\'s a fake!', true);
+    blzRoar(0.8, 1.5);
+  }
   for (const p of blitz.players) {
     p.react = blzRnd(0.05, 0.3);
     // blitzers off the second level read the snap first (and give a human QB a beat)
@@ -793,8 +844,15 @@ function blzPressPass() {
     else if (blzHuman(1 - off)) blzSwitchDefender();
     return;
   }
+  // after the whistle PASS is a shove (JUMP is the elbow drop)
+  if (ph === 'dead' || ph === 'wait') { if (blitz.ctl) blzLateHit(blitz.ctl); return; }
   if (ph !== 'live') return;
   const C = blitz.carrier, me = blitz.ctl, B = blitz.ball;
+  // the human kicker's foot
+  if (blitz.kind === 'kick' && B && B.st === 'tee' && blitz.kickWait) {
+    blitz.onside = blzTurboHeld(); blitz.kickWait = false; blitz.playT = 0;
+    return;
+  }
   if (!me) return;
   if (!C) {
     // ball in the air: your pass, your receiver — nothing to switch to
@@ -820,9 +878,12 @@ function blzPressJump() {
   if (ph === 'call' || ph === 'pat') return;
   const me = blitz.ctl;
   if (!me || me.downT > 0 || me.diveT > 0) return;
-  if (ph === 'dead' || ph === 'wait') { blzLateHit(me); return; }
+  if (ph === 'dead' || ph === 'wait') { blzElbowDrop(me); return; }
   if (ph !== 'live') return;
   const tur = blzTurboHeld();
+  const Bj = blitz.ball;
+  // your receiver, ball in the air: TURBO+JUMP lays out for it
+  if (Bj && Bj.st === 'air' && Bj.kind === 'pass' && me === blitz.target && tur && me.diveT <= 0) { blzDiveTo(me, Bj.tx, Bj.tz); return; }
   if (me === blitz.carrier) {
     if (tur && me.spinCd <= 0) { me.spinT = 0.5; me.spinCd = 1.1; blzSfx('turbo'); return; }
     if (me.jumpT <= 0) { me.jumpT = 0.62; return; }
@@ -949,6 +1010,12 @@ function blzStiffArm(C) {
   C.stiffT = 0.45; C.spinCd = 0.9;
 }
 
+function blzDiveTo(p, x, z) {
+  const dx = x - p.x, dz = z - p.z, m = Math.hypot(dx, dz) || 1;
+  p.diveT = 0.42; p.fx = dx / m; p.fz = dz / m;
+  const sp = Math.min(p.spd * 1.55, m / 0.38);
+  p.vx = p.fx * sp; p.vz = p.fz * sp;
+}
 function blzDive(p) {
   p.diveT = 0.42;
   const C = blitz.carrier;
@@ -1007,6 +1074,8 @@ function blzBallUpdate(dt) {
     if (B.y > 1.6 || B.looseT < 0.25) return;
     for (const p of blitz.players) {
       if (p.downT > 0 || p.diveT > 0) continue;
+      // an onside kick belongs to the receivers until it has gone ten yards
+      if (B.kind === 'onside' && p.team !== B.lastTeam && Math.abs(B.z - B.oz) < 10) continue;
       if (Math.hypot(p.x - B.x, p.z - B.z) < 0.9 && Math.random() < dt * 9) {
         blzGiveBall(p, B.kind === 'loose' && p.team !== B.lastTeam ? 'recover' : 'pickup');
         return;
@@ -1151,7 +1220,13 @@ function blzThink(p, dt) {
       const v = D.who;
       if (v && v.team !== p.team && blzDist(p, v) < 3) {
         if (D.lateRoll == null) D.lateRoll = Math.random() < 0.3;
-        if (D.lateRoll) { blzSeek(p, v.x, v.z, 1); if (blzDist(p, v) < 1.2) { D.cpuLate = true; blzLateHit(p); } }
+        if (D.lateRoll) {
+          blzSeek(p, v.x, v.z, 1);
+          const dd = blzDist(p, v);
+          // a third of the CPU's late hits come off the top rope
+          if (dd < 2.6 && dd > 1.2 && v.downT > 0 && Math.random() < 0.012) { D.cpuLate = true; blzElbowDrop(p); }
+          else if (dd < 1.2) { D.cpuLate = true; blzLateHit(p); }
+        }
       }
     }
     return;
@@ -1336,7 +1411,13 @@ function blzRunRoute(p) {
 function blzPassAirAI(p, dt) {
   const B = blitz.ball, team = B.from ? B.from.team : blitz.poss;
   if (p.team === team) {
-    if (p === blitz.target) { blzSeek(p, B.tx, B.tz, 1); p.wt = true; }
+    if (p === blitz.target) {
+      blzSeek(p, B.tx, B.tz, 1); p.wt = true;
+      const left = B.T - B.t, dl = Math.hypot(p.x - B.tx, p.z - B.tz);
+      if (left < 0.4) p.catchT = 0.3;
+      // just out of reach and arriving: lay out
+      if (left < 0.3 && dl > 1.35 && dl < 3.0 && p.diveT <= 0 && p.jumpT <= 0 && Math.random() < 0.55) blzDiveTo(p, B.tx, B.tz);
+    }
     else if (p.route) blzRunRoute(p);
     else if (p.eng) return;
     else { p.wx *= 0.5; p.wz *= 0.5; }
@@ -1357,7 +1438,7 @@ function blzPassAirAI(p, dt) {
 
 function blzKickoffAI(p, dt) {
   // the kicker approaches the tee; everyone else waits on their marks
-  if (p.role === 'kicker') {
+  if (p.role === 'kicker' && !blitz.kickWait) {
     const B = blitz.ball;
     blzSeek(p, B.x, B.z - blzDir(p.team) * 0.5, 0.75);
   } else { p.wx = 0; p.wz = 0; }
@@ -1460,7 +1541,17 @@ function blzHumanControl(p, dt) {
   }
   // a receiver you aren't steering homes on the ball (assist)
   const B = blitz.ball;
-  if (B.st === 'air' && B.kind === 'pass' && p === blitz.target && w.m < 0.2) blzSeek(p, B.tx, B.tz, 1);
+  if (B.st === 'air' && B.kind === 'pass' && p === blitz.target) {
+    if (w.m < 0.2) blzSeek(p, B.tx, B.tz, 1);
+    if (B.T - B.t < 0.4) p.catchT = 0.3;
+  }
+  // the QB under center takes the snap and his first steps back no matter what
+  // (pushing UP at the snap used to run him through his own center and lose the
+  // pass); after that the drop continues unless you steer him
+  if (p === blitz.carrier && blitz.pocket && p.pos === 'QB' && blitz.kind === 'pass' && (blitz.playT < 0.6 || (blitz.playT < 0.95 && w.m < 0.2))) {
+    const d = blzDir(p.team), dz = blitz.los - d * 6.2;
+    if ((p.z - dz) * d > 0.3) { const sx = blitz.playT < 0.6 ? p.wx * 0.6 : 0; blzSeek(p, p.x + sx, dz, 1); }
+  }
   // the returner fields it himself (as in the original) — you get him after the catch
   if ((B.st === 'air' || B.st === 'tee' || (blitz.kind === 'punt' && !blitz.carrier && B.st === 'held')) && p === blitz.returner) {
     if (B.st === 'air') blzSeek(p, B.tx, B.tz, 1); else { p.wx = 0; p.wz = 0; }
@@ -1478,11 +1569,24 @@ function blzMove(p, dt) {
   if (p.spinCd > 0) p.spinCd -= dt;
   if (p.celebT > 0) p.celebT -= dt;
   if (p.throwT > 0) p.throwT -= dt;
+  if (p.catchT > 0) p.catchT -= dt;
+  if (p.air) {
+    // launched: ballistic and tumbling until the turf catches him
+    p.vy -= 24 * dt; p.y += p.vy * dt; p.flipA += p.flipV * dt;
+    p.x += p.vx * dt; p.z += p.vz * dt;
+    if (p.y <= 0) {
+      p.y = 0; p.air = false; p.downT = Math.max(p.downT, 1.05); p.vx *= 0.3; p.vz *= 0.3;
+      blzBurst(p.x, p.z, 0.2, 8, '#d8c8a0');
+      blzSfx('hit');
+    }
+    return;
+  }
   if (p.downT > 0) {
     p.downT -= dt;
     p.vx *= Math.max(0, 1 - dt * 5); p.vz *= Math.max(0, 1 - dt * 5);
     p.x += p.vx * dt; p.z += p.vz * dt;
     p.y = Math.max(0, p.y - dt * 4);
+    if (p.downT <= 0) p.lieBack = false;
     return;
   }
   if (p.diveT > 0) {
@@ -1522,12 +1626,30 @@ function blzMove(p, dt) {
   p.vx += (tvx - p.vx) * a; p.vz += (tvz - p.vz) * a;
   p.x += p.vx * dt; p.z += p.vz * dt;
   const v = Math.hypot(p.vx, p.vz);
-  if (v > 0.6) { p.fx += (p.vx / v - p.fx) * Math.min(1, dt * 12); p.fz += (p.vz / v - p.fz) * Math.min(1, dt * 12); const m = Math.hypot(p.fx, p.fz) || 1; p.fx /= m; p.fz /= m; }
-  p.anim += v * dt * 1.5;
+  // where he looks: a QB in the pocket at his receiver, a zone defender squared
+  // up to the QB (backpedaling), everybody else where he's running
+  let tfx = 0, tfz = 0;
+  const Cc = blitz.carrier;
+  if (p === Cc && blitz.pocket && p.pos === 'QB' && blitz.kind === 'pass') {
+    const t = blitz.target;
+    if (t) { tfx = t.x - p.x; tfz = t.z - p.z; } else { tfx = 0; tfz = blzDir(p.team); }
+  } else if (blitz.pocket && Cc && p.team !== Cc.team && (p.role === 'zone' || p.role === 'deep' || p.role === 'spy') && v < 7.5) {
+    tfx = Cc.x - p.x; tfz = Cc.z - p.z;
+  } else if (v > 0.6) { tfx = p.vx; tfz = p.vz; }
+  const tm = Math.hypot(tfx, tfz);
+  if (tm > 0.01 && blitz.phase !== 'pre') {
+    const kf = Math.min(1, dt * 12);
+    p.fx += (tfx / tm - p.fx) * kf; p.fz += (tfz / tm - p.fz) * kf;
+    const m = Math.hypot(p.fx, p.fz) || 1; p.fx /= m; p.fz /= m;
+  }
+  // backpedaling runs the legs the other way
+  const back = v > 0.6 && (p.vx * p.fx + p.vz * p.fz) < -0.3 * v;
+  p.anim += (back ? -1 : 1) * v * dt * 1.5;
   if (p.jumpT > 0) {
     p.jumpT -= dt;
     const u = 1 - p.jumpT / 0.62;
     p.y = p.jumpT > 0 ? Math.sin(Math.PI * u) * 1.25 : 0;
+    if (p.jumpT <= 0 && p.dropOn) blzElbowLand(p);
   } else p.y = 0;
   // the stands are not in play (for anyone but the ball carrier, who just goes out)
   if (p !== blitz.carrier) { p.x = blzClamp(p.x, -3, BLZ_WID + 3); p.z = blzClamp(p.z, -2, BLZ_LEN + 2); }
@@ -1571,7 +1693,7 @@ function blzBlocks(dt) {
       if (blitz.pocket && blitz.kind === 'pass' && (q.role === 'man' || q.role === 'zone' || q.role === 'deep')) continue;
       o.eng = q; q.eng = o; o.engBlk = true; q.engBlk = false;
       const lineman = q.pos === 'DE1' || q.pos === 'DT' || q.pos === 'DE2';
-      let base = blitz.pocket ? (lineman ? 1.45 : 0.7) : (blitz.kind === 'kick' || blitz.kind === 'punt' ? 0.65 : 0.8);
+      let base = blitz.pocket ? (lineman ? 1.62 : 0.7) : (blitz.kind === 'kick' || blitz.kind === 'punt' ? 0.65 : 0.8);
       base *= blzClamp(o.str / q.str, 0.6, 1.6) * blzRnd(0.75, 1.25);
       q.shedT = base;
       break;
@@ -1631,8 +1753,18 @@ function blzTackle(C, q, big) {
   const fly = big ? 7 : 2.5;
   const qs = Math.hypot(q.vx, q.vz) || 1;
   C.vx = q.vx / qs * fly; C.vz = q.vz / qs * fly;
+  // hit from the front, he goes down on his back; from behind, on his face
+  C.lieBack = (q.vx * C.fx + q.vz * C.fz) / qs < 0;
+  // the pile: anybody close dives on top
+  for (const o of blitz.players) {
+    if (o.team === C.team || o === q || o.downT > 0 || o.diveT > 0 || o.eng || o === blitz.ctl) continue;
+    const dd = blzDist(o, C);
+    if (dd > 1.0 && dd < 3.2 && Math.random() < 0.45) blzDiveTo(o, C.x, C.z);
+  }
   if (big) {
-    C.y = 0.8;
+    // MONSTER HIT: airborne, flipping, landing wherever physics says
+    C.air = true; C.vy = blzRnd(6.5, 8.5); C.y = 0.1;
+    C.flipA = 0; C.flipV = (C.lieBack ? -1 : 1) * blzRnd(6, 9.5);
     blitz.shakeT = 0.32; blitz.shakeMag = 6; blitz.hitStop = 0.09;
     blzSfx('crunch'); blzRoar(0.9, 1.4);
     blzBurst(C.x, C.z, 1.4, 14, '#fff6a8');
@@ -1651,6 +1783,35 @@ function blzTackle(C, q, big) {
   const behind = (C.z - blitz.los) * d < 0;
   const sack = C.pos === 'QB' && blitz.kind === 'pass' && !blitz.thrown && blitz.pocket;
   blzWhistle('tackle', { who: C, by: q, sack: sack && behind, big });
+}
+
+// THE ELBOW DROP: jump on whoever's on the turf. Lands, or it doesn't.
+function blzElbowDrop(me) {
+  if (me.lateCd > 0 || me.downT > 0 || me.jumpT > 0) return;
+  let v = null, bd = 3.4;
+  for (const p of blitz.players) {
+    if (p.team === me.team) continue;
+    const d = blzDist(p, me) - (p.downT > 0 ? 0.9 : 0);
+    if (d < bd) { bd = d; v = p; }
+  }
+  me.lateCd = 1.3; me.jumpT = 0.62;
+  if (!v) return;
+  me.dropOn = v;
+  const dx = v.x - me.x, dz = v.z - me.z, m = Math.hypot(dx, dz) || 1, sp = Math.min(6.5, m / 0.55);
+  me.vx = dx / m * sp; me.vz = dz / m * sp; me.fx = dx / m; me.fz = dz / m;
+}
+function blzElbowLand(me) {
+  const v = me.dropOn; me.dropOn = null;
+  if (!v || blzDist(v, me) > 2) return;
+  v.downT = Math.max(v.downT, 1.5); v.lieBack = true; v.vx = 0; v.vz = 0;
+  me.downT = 0.8; me.lieBack = false; me.vx = 0; me.vz = 0;
+  me.x = v.x + (me.x - v.x) * 0.3; me.z = v.z + (me.z - v.z) * 0.3;
+  blitz.shakeT = 0.3; blitz.shakeMag = 6;
+  blzSfx('crunch'); blzRoar(1, 1.6);
+  blzBurst(v.x, v.z, 0.6, 14, '#fff0a0');
+  blzBanner('ELBOW DROP!', '#ff5a3a', 'NO FLAG', 1.0);
+  blzSay(blzPick(['from the top rope!', 'elbow drop!', 'oh, the elbow!']));
+  if (blitz.stats && blzHuman(me.team)) { blitz.stats.late++; blzEarn(2, 'ELBOW DROP'); }
 }
 
 // LATE HITS: anyone, anytime after the whistle, no flag ever thrown
@@ -1988,12 +2149,14 @@ function blzSim(dt) {
 function blzLive(dt) {
   blitz.playT += dt;
   const scrimmage = blitz.kind === 'pass' || blitz.kind === 'run';
-  if (blitz.clock > 0) { blitz.clock -= dt; if (blitz.clock < 0) blitz.clock = 0; }
-  // kickoff run-up
   const B = blitz.ball;
+  // (the clock doesn't start until the ball is kicked)
+  if (blitz.clock > 0 && !(blitz.kind === 'kick' && B && B.st === 'tee')) { blitz.clock -= dt; if (blitz.clock < 0) blitz.clock = 0; }
+  // kickoff run-up
   if (blitz.kind === 'kick' && B.st === 'tee') {
     const kicker = blitz.players.find((p) => p.role === 'kicker');
-    if (kicker && (Math.hypot(kicker.x - B.x, kicker.z - B.z) < 1.1 || blitz.playT > 2.2)) {
+    if (blitz.kickWait) { blitz.playT = 0; if ((blitz.kickT += dt) > 4) blitz.kickWait = false; }
+    else if (kicker && (Math.hypot(kicker.x - B.x, kicker.z - B.z) < 1.1 || blitz.playT > 2.2)) {
       blzKickTheBall();
       // coverage releases
       for (const p of blitz.players) p.react = p.team === blitz.poss ? 0 : blzRnd(0, 0.15);
@@ -2035,6 +2198,9 @@ function blzLive(dt) {
   blzBlocks(dt);
   blzTackles(dt);
   if (blitz.phase !== 'live') return;
+  // a carrier on the turf without a tackle (a diving catch, a stumble) is down there
+  const Cd = blitz.carrier;
+  if (Cd && (Cd.downT > 0 || (Cd.diveT > 0 && Cd.diveT < 0.05)) && !Cd.air) { blzWhistle('tackle', { who: Cd }); return; }
   const C2 = blitz.carrier;
   if (C2 && C2.downT <= 0) {
     const d = blzDir(C2.team);
@@ -2064,9 +2230,19 @@ function blzSeparate(dt) {
   }
 }
 
-function blzCamSnap(dir, fx, fz) {
+function blzCamTrig(c) {
+  c.s = Math.sin(c.pitch); c.c = Math.cos(c.pitch); c.cyw = Math.cos(c.yaw); c.syw = Math.sin(c.yaw);
+}
+// the kickoff shot: high on the side, looking across the coverage (the cart's opener)
+const BLZ_KICKCAM = { yaw: 0.62, back: 24, h: 13, pitch: 0.46 };
+function blzCamSnap(dir, fx, fz, kick) {
   const c = blitz.cam;
-  c.dir = dir; c.z = fz - dir * BLZ_CAM.back; c.x = BLZ_MID + (fx - BLZ_MID) * 0.72;
+  c.dir = dir;
+  const K = kick && blitz.gl ? BLZ_KICKCAM : null;
+  c.yaw = (dir > 0 ? 0 : Math.PI) + (K ? K.yaw * dir : 0);
+  c.h = K ? K.h : BLZ_CAM.h; c.pitch = K ? K.pitch : BLZ_CAM.pitch; c.back = K ? K.back : BLZ_CAM.back;
+  blzCamTrig(c);
+  c.x = BLZ_MID + (fx - BLZ_MID) * 0.72 - c.syw * c.back; c.z = fz - c.cyw * c.back;
   blitz.camFlipT = 0;
 }
 function blzCam(dt) {
@@ -2078,23 +2254,42 @@ function blzCam(dt) {
     fx = B.x; fz = B.z;
     if (B.st === 'air' && (B.kind === 'kick' || B.kind === 'punt')) fz = B.z + (B.tz - B.z) * 0.35;
   }
-  // a carrier running at the camera: swing around behind him (the Blitz wipe)
+  // a carrier running at the camera: swing around behind him. With polygons
+  // the camera really swings (the yaw lerps below); the canvas renderer can
+  // only look down ±z, so it does the white wipe instead.
   if (C && ph === 'live' && blzDir(C.team) !== c.dir && blitz.camFlipT <= 0 && C.downT <= 0) {
-    if ((C.flipWait = (C.flipWait || 0) + dt) > 0.25) { blitz.camFlipT = 0.34; blitz.camFlipDone = false; }
+    if ((C.flipWait = (C.flipWait || 0) + dt) > 0.25) {
+      if (blitz.gl) { c.dir = -c.dir; for (const p of blitz.players) p.flipWait = 0; }
+      else { blitz.camFlipT = 0.34; blitz.camFlipDone = false; }
+    }
   }
   if (blitz.camFlipT > 0) {
     blitz.camFlipT -= dt;
     if (!blitz.camFlipDone && blitz.camFlipT < 0.17) {
       blitz.camFlipDone = true;
       c.dir = -c.dir;
-      c.z = fz - c.dir * BLZ_CAM.back;
-      c.x = BLZ_MID + (fx - BLZ_MID) * 0.7;
+      c.yaw = c.dir > 0 ? 0 : Math.PI; blzCamTrig(c);
+      c.z = fz - c.cyw * c.back;
+      c.x = BLZ_MID + (fx - BLZ_MID) * 0.7 - c.syw * c.back;
       for (const p of blitz.players) p.flipWait = 0;
     }
   }
-  const tz = fz - c.dir * BLZ_CAM.back, tx = BLZ_MID + (fx - BLZ_MID) * 0.72;
+  // where the lens wants to be: behind the team the camera follows, or the kickoff shot
+  let yawT = c.dir > 0 ? 0 : Math.PI, backT = BLZ_CAM.back, hT = BLZ_CAM.h, pitchT = BLZ_CAM.pitch;
+  const kickCam = blitz.gl && blitz.kind === 'kick' && B && (B.st === 'tee' || (B.st === 'air' && B.kind === 'kick'));
+  if (kickCam) { yawT += BLZ_KICKCAM.yaw * c.dir; backT = BLZ_KICKCAM.back; hT = BLZ_KICKCAM.h; pitchT = BLZ_KICKCAM.pitch; }
+  if (blitz.gl) {
+    let dy = yawT - c.yaw;
+    while (dy > Math.PI) dy -= Math.PI * 2;
+    while (dy < -Math.PI) dy += Math.PI * 2;
+    const kr = Math.min(1, dt * 3.4);
+    c.yaw += dy * kr; c.back += (backT - c.back) * kr; c.h += (hT - c.h) * kr; c.pitch += (pitchT - c.pitch) * kr;
+  } else { c.yaw = yawT; c.back = backT; c.h = hT; c.pitch = pitchT; }
+  blzCamTrig(c);
+  const fxc = BLZ_MID + (fx - BLZ_MID) * 0.72;
+  const tz = fz - c.cyw * c.back, tx = fxc - c.syw * c.back;
   const k = Math.min(1, dt * (ph === 'live' ? 5 : 3));
-  c.z += (tz - c.z) * k; c.x += (tx - c.x) * Math.min(1, dt * 3);
+  c.z += (tz - c.z) * k; c.x += (tx - c.x) * Math.min(1, dt * (kickCam ? 4 : 3));
 }
 
 // ---- particles ---------------------------------------------------------------------------------
@@ -2188,9 +2383,13 @@ function blzCodeDir(dirKey) {
 // Everything is projected per frame onto a ~384-px-tall canvas that CSS
 // smooths up to the window: chunky but soft, like the N64 did it.
 
+// The camera can yaw now (the kickoff shot, the swing behind a returner):
+// right = (cos yaw, −sin yaw), forward = (sin yaw, cos yaw) in x/z. yaw 0
+// looks down +z; yaw π is the old dir −1. blzGLMatrix is this, as a matrix.
 function blzProj(X, Y, Z) {
-  const c = blitz.cam, d = c.dir;
-  const dx = (X - c.x) * d, dy = Y - BLZ_CAM.h, dz = (Z - c.z) * d;
+  const c = blitz.cam;
+  const wx = X - c.x, wz = Z - c.z;
+  const dx = wx * c.cyw - wz * c.syw, dy = Y - c.h, dz = wx * c.syw + wz * c.cyw;
   const zc = -dy * c.s + dz * c.c;
   if (zc < 0.5) return null;
   const yc = dy * c.c + dz * c.s;
@@ -2232,18 +2431,26 @@ function blzMix(hex, k, to) {
 function blzHash(n) { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }
 
 function blzDraw() {
-  const g = blitz.g, W = blitz.W, H = blitz.H;
+  const g = blitz.g, W = blitz.W, H = blitz.H, ov = blitz.ov || 1;
   if (!g) return;
-  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.setTransform(ov, 0, 0, ov, 0, 0);
   const ph = blitz.phase;
+  const menu = ph === 'tier' || ph === 'idle' || ph === 'vs' || ph === 'teams';
+  if (blitz.glCv) blitz.glCv.style.visibility = menu || !blitz.gl ? 'hidden' : 'visible';
   if (ph === 'tier' || ph === 'idle') { blzDrawIdle(g, W, H); return; }
   if (ph === 'vs') { blzDrawVS(g, W, H); return; }
   if (ph === 'teams') { blzDrawTeams(g, W, H); return; }
   let sx = 0, sy = 0;
   if (blitz.shakeT > 0) { sx = (Math.random() - 0.5) * blitz.shakeMag; sy = (Math.random() - 0.5) * blitz.shakeMag; }
-  g.setTransform(1, 0, 0, 1, sx, sy);
-  blzDrawWorld(g, W, H);
-  g.setTransform(1, 0, 0, 1, 0, 0);
+  if (blitz.gl && blzGLRender(sx, sy)) {
+    g.clearRect(0, 0, W, H);
+    g.setTransform(ov, 0, 0, ov, sx * ov, sy * ov);
+    blzDrawOverlay3D(g, W, H);
+  } else {
+    g.setTransform(ov, 0, 0, ov, sx * ov, sy * ov);
+    blzDrawWorld(g, W, H);
+  }
+  g.setTransform(ov, 0, 0, ov, 0, 0);
   if (blitz.camFlipT > 0) {
     const u = 1 - Math.abs(blitz.camFlipT - 0.17) / 0.17;
     g.fillStyle = 'rgba(255,255,255,' + (u * 0.9).toFixed(3) + ')';
@@ -2251,12 +2458,16 @@ function blzDraw() {
   }
   blzDrawHud(g, W, H);
   // a banner left over from the last whistle sits UNDER the menus, not on them
-  const menu = ph === 'call' || ph === 'pat';
-  if (menu) blzDrawBanner(g, W, H);
+  const callMenu = ph === 'call' || ph === 'pat';
+  if (callMenu) blzDrawBanner(g, W, H);
   if (ph === 'call') blzDrawCall(g, W, H);
   if (ph === 'pat') blzDrawPat(g, W, H);
-  if (!menu) blzDrawBanner(g, W, H);
+  if (!callMenu) blzDrawBanner(g, W, H);
   if (ph === 'final') blzDrawFinal(g, W, H);
+  // your kicker waits for the button
+  if (ph === 'live' && blitz.kind === 'kick' && blitz.kickWait && ((blitz.t * 2) | 0) % 2 === 0) {
+    blzTextC(g, 'PASS = KICK OFF   ·   TURBO + PASS = ONSIDE KICK', W / 2, H * 0.78, 12 * blitz.ui, '#ffffff');
+  }
   blzDrawTouch(g, W, H);
   if (blitz.paused) {
     g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(0, 0, W, H);
@@ -2308,7 +2519,12 @@ function blzGrain(g, w, h, amt, seed) {
 function blzBuildField() {
   const key = blitz.teams.join('|') + (blitz.codes.night ? 'n' : '');
   if (blitz.fieldTex && blitz.fieldKey === key) return blitz.fieldTex;
-  const P = BLZ_TEX.ppy, W = Math.round(BLZ_TEX.w * P), L = Math.round(BLZ_TEX.l * P);
+  blitz.fieldTex = blzPaintField(BLZ_TEX.ppy); blitz.fieldKey = key;
+  return blitz.fieldTex;
+}
+// the whole field at P px a yard (8 for the canvas renderer, 14 for the polygons)
+function blzPaintField(P) {
+  const W = Math.round(BLZ_TEX.w * P), L = Math.round(BLZ_TEX.l * P);
   const c = blzCanvas(W, L), g = c.getContext('2d');
   const X = (x) => (x - BLZ_TEX.x0) * P, Z = (z) => (z - BLZ_TEX.z0) * P;
   const night = !!blitz.codes.night;
@@ -2382,7 +2598,6 @@ function blzBuildField() {
   g.fillStyle = '#c8321f'; g.fillText('NFN', 0, s * 0.33);
   g.restore();
   blzGrain(g, W, L, night ? 16 : 22, 7);
-  blitz.fieldTex = c; blitz.fieldKey = key;
   return c;
 }
 
@@ -2649,61 +2864,90 @@ function blzShadow(g, p, P) {
 // pass, sorted by depth — so the camera sees a real figure from any angle:
 // a numbered back running away from you, a facemask coming at you.
 // the cart drew its players big (≈2.7 yds tall); so do we. Physics is unchanged.
-const BLZ_BS = 1.3;
+const BLZ_BS = 1.4;
 const BLZ_CRUST = '#d99a3c', BLZ_CRUST_D = '#a8691f', BLZ_CRUST_L = '#f0c068';
 
 function blzPose(p) {
-  const C = blitz.carrier, ph = p.anim * 2.1;
-  const sp = Math.hypot(p.vx, p.vz), moving = sp > 0.8 && p.downT <= 0;
+  const C = blitz.carrier, ph = p.anim * 2.1, t = blitz.t;
+  const sp = Math.hypot(p.vx, p.vz), moving = sp > 0.8 && p.downT <= 0 && !p.air;
   const J = {};
-  let pel = 1.0, lean = 0;
-  const stance = blitz.phase === 'pre' && /^(C|LG|RG|DE1|DT|DE2)$/.test(p.pos);
-  if (stance) { pel = 0.72; lean = 0.42; }
-  else if (moving) lean = p.turboOn ? 0.34 : 0.2;
-  if (p.eng) { pel = 0.88; lean = 0.38; }
-  const lc = Math.sin(lean) * 0.6;              // how far forward the shoulders ride
+  const pre = blitz.phase === 'pre' || blitz.phase === 'call';
+  const lineman = /^(C|LG|RG|DE1|DT|DE2)$/.test(p.pos);
+  const scrim = blitz.kind === 'pass' || blitz.kind === 'run';
+  // the spine: pelvis height and how far forward the trunk leans
+  let pel = 1.0, tilt = 0.08, sway = 0, stance = '';
+  if (pre && !moving && scrim) {
+    if (lineman) { stance = '3pt'; pel = 0.6; tilt = 1.05; }
+    else if (p.pos === 'QB' && p.team === blitz.poss && !(blitz.play && blitz.play.fake)) { stance = 'uc'; pel = 0.82; tilt = 0.55; }
+    else { stance = 'ready'; pel = 0.88; tilt = 0.32; }
+  } else if (moving) tilt = p.turboOn ? 0.46 : 0.26;
+  if (p.eng) { pel = 0.84; tilt = 0.75; }
+  if (moving) pel += Math.abs(Math.sin(ph)) * 0.06 - 0.03;
+  else if (!stance && p.downT <= 0) pel += Math.sin(t * 2.2 + p.num) * 0.008;      // breathing
+  const celeb = p.celebT > 0 ? (p.num % 3) : -1;
+  if (celeb === 2) { sway = Math.sin(t * 9) * 0.12; pel = 0.95 + Math.abs(Math.sin(t * 9)) * 0.05; }
+  const ct = Math.cos(tilt), st = Math.sin(tilt);
+  const spine = (d) => [sway, pel + d * ct, d * st];
+  J.pel = [sway, pel, 0];
+  J.neck = spine(0.7);
+  const ht = tilt * 0.45;                                // the head stays more upright than the trunk
+  J.head = [sway, J.neck[1] + 0.21 * Math.cos(ht), J.neck[2] + 0.21 * Math.sin(ht)];
+  const shc = spine(0.6);
   const jumpT = p.jumpT > 0;
   for (const sg of [-1, 1]) {
     const phs = ph + (sg > 0 ? Math.PI : 0);
     let th = 0.06, bend = 0.12;
-    if (moving) { th = Math.sin(phs) * (p.turboOn ? 0.95 : 0.8); bend = 0.3 + Math.max(0, -Math.cos(phs)) * 1.2; }
-    if (stance) { th = sg < 0 ? 0.9 : 0.3; bend = 1.6; }
-    if (p.eng) { th = sg < 0 ? 0.55 : -0.1; bend = 0.7; }
-    if (jumpT) { th = 0.7; bend = 1.5; }
-    const hip = [sg * 0.15, pel, 0];
-    const knee = [sg * 0.17, pel - 0.47 * Math.cos(th), 0.47 * Math.sin(th)];
-    const foot = [sg * 0.17, knee[1] - 0.47 * Math.cos(th - bend), knee[2] + 0.47 * Math.sin(th - bend)];
-    const toe = [sg * 0.17, foot[1] - 0.02, foot[2] + 0.2];
+    if (moving) { th = Math.sin(phs) * (p.turboOn ? 0.95 : 0.78); bend = 0.3 + Math.max(0, -Math.cos(phs)) * 1.25; }
+    if (stance === '3pt') { th = sg < 0 ? 1.0 : 0.45; bend = 1.75; }
+    else if (stance === 'uc' || stance === 'ready') { th = 0.34; bend = 0.68; }
+    if (p.eng) { th = sg < 0 ? 0.65 : -0.15; bend = 0.75; }
+    if (jumpT) { th = sg < 0 ? 0.8 : 0.35; bend = 1.4; }
+    if (celeb === 1) { th = 0.15; bend = 0.3; }
+    const hx = sg * 0.15 + sway;
+    const hip = [hx, pel, 0];
+    const knee = [hx + sg * 0.02, pel - 0.47 * Math.cos(th), 0.47 * Math.sin(th)];
+    const foot = [hx + sg * 0.02, knee[1] - 0.47 * Math.cos(th - bend), knee[2] + 0.47 * Math.sin(th - bend)];
+    const toe = [foot[0], foot[1] - 0.02, foot[2] + 0.2];
     J['hip' + sg] = hip; J['knee' + sg] = knee; J['foot' + sg] = foot; J['toe' + sg] = toe;
-    // arms swing against the legs
-    const sh = [sg * 0.36, pel + 0.6, lc];
-    let al = moving ? -Math.sin(phs) * 0.9 : 0.12;
-    let el = [sg * 0.43, sh[1] - 0.3 * Math.cos(al), sh[2] + 0.3 * Math.sin(al)];
-    let hd = [sg * 0.4, el[1] - 0.27 * Math.cos(al + 1.1), el[2] + 0.27 * Math.sin(al + 1.1)];
-    if (stance && sg > 0) { el = [0.32, pel + 0.2, lc + 0.25]; hd = [0.28, 0.12, lc + 0.45]; }
-    if (p.eng) { el = [sg * 0.34, pel + 0.42, lc + 0.3]; hd = [sg * 0.2, pel + 0.5, lc + 0.62]; }
-    if (p.celebT > 0) { el = [sg * 0.48, pel + 0.95, lc]; hd = [sg * 0.42, pel + 1.35, lc + 0.05 * Math.sin(blitz.t * 12)]; }
-    if (jumpT) { el = [sg * 0.3, pel + 0.95, lc + 0.15]; hd = [sg * 0.2, pel + 1.3, lc + 0.25]; }
-    if (sg > 0 && p.throwT > 0) {
-      const u = p.throwT > 0.18 ? 0 : 1;          // cocked, then the follow-through
-      el = [0.44, pel + 0.82 - u * 0.25, lc - 0.15 + u * 0.35]; hd = [0.34, pel + 1.08 - u * 0.4, lc - 0.3 + u * 0.7];
-    }
-    if (sg > 0 && p === C && !(blitz.pocket && p.pos === 'QB')) { el = [0.34, pel + 0.3, lc + 0.02]; hd = [0.2, pel + 0.44, lc + 0.24]; }
-    if (p.stiffT > 0 && sg < 0) { el = [-0.4, pel + 0.62, lc + 0.35]; hd = [-0.38, pel + 0.66, lc + 0.75]; }
+    const sh = [sg * 0.36 + sway, shc[1], shc[2]];
+    // the arm pump: upper arm swings against the legs, forearm bent forward
+    const al = moving ? -Math.sin(phs) * (p.turboOn ? 1.1 : 0.85) : 0.15;
+    const ab = moving ? 1.35 : 0.35;
+    let el = [sh[0] + sg * 0.07, sh[1] - 0.3 * Math.cos(al), sh[2] + 0.3 * Math.sin(al)];
+    let hd = [el[0] - sg * 0.02, el[1] - 0.27 * Math.cos(al + ab), el[2] + 0.27 * Math.sin(al + ab)];
+    // set a pose by offsets from the shoulder (x is OUTWARD)
+    const at = (ex, ey, ez, qx, qy, qz) => { el = [sh[0] + sg * ex, sh[1] + ey, sh[2] + ez]; hd = [sh[0] + sg * qx, sh[1] + qy, sh[2] + qz]; };
+    if (stance === '3pt') { if (sg > 0) { el = [sh[0] + 0.05, sh[1] - 0.28, sh[2] + 0.1]; hd = [sh[0] - 0.02, 0.06, sh[2] + 0.22]; } else at(0.08, -0.2, 0.08, -0.02, -0.3, 0.24); }
+    else if (stance === 'uc') at(-0.06, -0.2, 0.2, -0.3, -0.3, 0.38);         // hands under the center
+    else if (stance === 'ready') at(0.1, -0.24, 0.12, 0.02, -0.34, 0.3);
+    if (p.eng) at(0.04, -0.1, 0.3, -0.12, -0.05, 0.58);
+    if (p.diveT > 0) at(0.0, 0.05, 0.3, -0.12, 0.1, 0.6);
+    if (jumpT || p.catchT > 0) at(-0.02, 0.28, 0.12, -0.16, 0.55, 0.28);
+    if (celeb === 0 && sg > 0) { if (Math.sin(t * 6) > 0) at(0.05, 0.3, 0, 0.0, 0.62, 0.05); else at(0.08, -0.05, 0.25, 0.05, -0.32, 0.45); }
+    if (celeb === 1) at(0.16, 0.02, 0, 0.1, 0.32, 0.02);                      // the flex
+    if (celeb === 2) { const u = Math.sin(t * 9 + (sg > 0 ? 0 : Math.PI)); at(0.12, u > 0 ? 0.28 : -0.2, 0.05, 0.08, u > 0 ? 0.6 : -0.42, 0.12); }
+    if (sg > 0 && p.throwT > 0) { if (p.throwT > 0.18) at(0.1, 0.22, -0.18, 0.0, 0.5, -0.32); else at(0.06, 0.05, 0.25, -0.06, -0.15, 0.55); }
+    if (sg > 0 && p === C && !(blitz.pocket && p.pos === 'QB') && p.downT <= 0 && !p.air) at(-0.04, -0.3, 0.02, -0.2, -0.16, 0.24);
+    if (sg < 0 && p.stiffT > 0) at(0.0, 0.0, 0.32, -0.02, 0.02, 0.6);
     J['sh' + sg] = sh; J['el' + sg] = el; J['hd' + sg] = hd;
   }
-  J.pel = [0, pel, 0]; J.neck = [0, pel + 0.7, lc + 0.03];
-  J.head = [0, pel + 0.88, lc + 0.07];
-  // dives and pile-ups pitch the whole figure forward about the hips
+  // dives, pile-ups, launches and getting up pitch the whole figure about the hips
   let pitch = 0, drop = 0;
-  if (p.diveT > 0) { pitch = 1.25; drop = 0.45; }
-  else if (p.downT > 0) { pitch = 1.5; drop = 0.72; }
+  if (p.air) { pitch = p.flipA || 0; drop = 0.3; }
+  else if (p.diveT > 0) { pitch = 1.25; drop = 0.45; }
+  else if (p.downT > 0) {
+    pitch = p.lieBack ? -1.5 : 1.5; drop = 0.72;
+    if (p.downT < 0.4) { const f = p.downT / 0.4; pitch *= f; drop *= f; }
+  }
+  J.fwd = [0, 0, 1]; J.up = [0, 1, 0];
   if (pitch) {
     const cs = Math.cos(pitch), sn = Math.sin(pitch), py = pel;
     for (const k in J) {
+      if (k === 'fwd' || k === 'up') continue;
       const v = J[k], b = v[1] - py, cz = v[2];
       J[k] = [v[0], py + b * cs - cz * sn - drop, b * sn + cz * cs];
     }
+    J.fwd = [0, -sn, cs]; J.up = [0, cs, sn];
   }
   return J;
 }
@@ -2716,7 +2960,7 @@ function blzDrawPlayer(g, p, P) {
   const yb = p.y;
   const W = (v) => blzProj(p.x + (rx * v[0] + fx * v[2]) * BLZ_BS, v[1] * BLZ_BS + yb, p.z + (rz * v[0] + fz * v[2]) * BLZ_BS);
   const S = {};
-  for (const k in J) { S[k] = W(J[k]); if (!S[k]) return; }
+  for (const k in J) { if (k === 'fwd' || k === 'up') continue; S[k] = W(J[k]); if (!S[k]) return; }
   const k = P.k * BLZ_BS, hs = blitz.codes.huge ? 2.6 : blitz.codes.big ? 1.8 : 1;
   const els = [];
   const seg = (a, b, w, col) => els.push({ t: 'l', a: S[a], b: S[b], w: w * k, col, z: (S[a].zc + S[b].zc) / 2 });
@@ -2907,9 +3151,777 @@ function blzDrawPart(g, q, P) {
   g.globalAlpha = 1;
 }
 
+// ==== 🎮 THE POLYGON PASS ===========================================================================
+// Chris, after the canvas version: "make the graphics look much more true to my
+// N64 screen shots". The cart's look is POLYGONS — segmented players lit per
+// vertex (Gouraud), a mipmapped turf texture, raked stands — rendered small and
+// smeared up the screen. So the world is WebGL now: one tiny shader, no
+// libraries. The 2D canvas rides on top for the HUD, menus, labels and sparks,
+// and because blzGLMatrix IS blzProj written as a matrix, a label drawn at
+// blzProj(p) lands on the polygon p. No WebGL → blitz.gl stays null and the
+// canvas renderer above draws everything, exactly as before.
+//
+// Players are built the way N64 players were: rigid parts (torso, pads,
+// pelvis, helmet + cage, sleeves, breaded forearms, striped thighs, socks,
+// cleats), each placed by a bone from blzPose — no skinning, no seams worth
+// worrying about at 600 lines tall. Jersey numbers are real decals: one atlas
+// cell per player, front and back. ~16 draws a player, ~230 a frame.
+
+const BLZ_GL_VS = [
+  'attribute vec3 aPos; attribute vec3 aNor; attribute vec3 aCol; attribute vec2 aUV;',
+  'uniform mat4 uVP; uniform mat4 uM; uniform vec3 uLight; uniform float uAmb; uniform float uLit;',
+  'uniform vec3 uTint; uniform vec4 uUVX;',
+  'varying vec3 vCol; varying vec2 vUV; varying float vFog;',
+  'void main() {',
+  '  vec4 wp = uM * vec4(aPos, 1.0);',
+  '  vec3 n = normalize((uM * vec4(aNor, 0.0)).xyz);',
+  '  float d = max(dot(n, uLight), 0.0);',
+  '  float sky = 0.12 * max(n.y, 0.0);',
+  '  float l = mix(1.0, uAmb + (1.0 - uAmb) * d + sky, uLit);',
+  '  vCol = aCol * uTint * l;',
+  '  vUV = aUV * uUVX.xy + uUVX.zw;',
+  '  gl_Position = uVP * wp;',
+  '  vFog = clamp((gl_Position.w - 60.0) / 180.0, 0.0, 0.55);',
+  '}'].join('\n');
+const BLZ_GL_FS = [
+  'precision mediump float;',
+  'uniform sampler2D uTex; uniform float uUseTex; uniform vec3 uFog; uniform float uAlpha;',
+  'varying vec3 vCol; varying vec2 vUV; varying float vFog;',
+  'void main() {',
+  '  vec4 t = vec4(1.0);',
+  '  if (uUseTex > 0.5) t = texture2D(uTex, vUV);',
+  '  if (t.a * uAlpha < 0.01) discard;',
+  '  vec3 c = mix(vCol * t.rgb, uFog, vFog);',
+  '  gl_FragColor = vec4(c, t.a * uAlpha);',
+  '}'].join('\n');
+
+const BLZ_UV1 = [1, 1, 0, 0];
+
+function blzGLInit() {
+  if (blitz.glTried) return !!blitz.gl;
+  blitz.glTried = true;
+  if (blitz.noGL) return false;               // (a test seam: force the canvas renderer)
+  const cv = document.createElement('canvas');
+  let gl = null;
+  const attrs = { alpha: false, antialias: true, depth: true, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'high-performance' };
+  try { gl = cv.getContext('webgl', attrs) || cv.getContext('experimental-webgl', attrs); } catch (e) { gl = null; }
+  if (!gl) return false;
+  const P = blzGLProgram(gl, BLZ_GL_VS, BLZ_GL_FS);
+  if (!P) return false;
+  blitz.gl = gl; blitz.glCv = cv;
+  blitz.glr = {
+    P, key: '', ids: 0, last: null, pool: [], pi: 0, draws: [], tex: {}, team: [null, null], sh: null, s: null,
+    aniso: gl.getExtension('EXT_texture_filter_anisotropic') || gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic'),
+    vp: new Float32Array(16), I: new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]),
+  };
+  for (const k of ['aPos', 'aNor', 'aCol', 'aUV']) if (P.a[k] >= 0) gl.enableVertexAttribArray(P.a[k]);
+  cv.className = 'blz-gl';
+  blitzWorld.insertBefore(cv, blitz.cv || null);
+  cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); blitz.gl = null; blitz.glr = null; });
+  cv.addEventListener('webglcontextrestored', () => { cv.remove(); blitz.glCv = null; blitz.glTried = false; blzGLInit(); });
+  blzGLShared();
+  return true;
+}
+
+function blzGLProgram(gl, vs, fs) {
+  const mk = (type, src) => {
+    const sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) { console.warn('blitz shader:', gl.getShaderInfoLog(sh)); return null; }
+    return sh;
+  };
+  const v = mk(gl.VERTEX_SHADER, vs), f = mk(gl.FRAGMENT_SHADER, fs);
+  if (!v || !f) return null;
+  const p = gl.createProgram(); gl.attachShader(p, v); gl.attachShader(p, f); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { console.warn('blitz link:', gl.getProgramInfoLog(p)); return null; }
+  const P = { p, a: {}, u: {} };
+  for (const k of ['aPos', 'aNor', 'aCol', 'aUV']) P.a[k] = gl.getAttribLocation(p, k);
+  for (const k of ['uVP', 'uM', 'uLight', 'uAmb', 'uLit', 'uTint', 'uUVX', 'uTex', 'uUseTex', 'uFog', 'uAlpha']) P.u[k] = gl.getUniformLocation(p, k);
+  return P;
+}
+
+// ---- mesh building ----------------------------------------------------------------------------------
+function blzRGB(hex) { return [parseInt(hex.slice(1, 3), 16) / 255, parseInt(hex.slice(3, 5), 16) / 255, parseInt(hex.slice(5, 7), 16) / 255]; }
+function blzK(c, k) { return [Math.min(1, c[0] * k), Math.min(1, c[1] * k), Math.min(1, c[2] * k)]; }
+function blzN(v) { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
+function blzCross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+// a bone frame: Y along the bone, Z = `ref` squared off against it (falls back to `alt`)
+function blzFrame(Y, ref, alt) {
+  let d = ref[0] * Y[0] + ref[1] * Y[1] + ref[2] * Y[2];
+  let Z = [ref[0] - d * Y[0], ref[1] - d * Y[1], ref[2] - d * Y[2]];
+  if (Math.hypot(Z[0], Z[1], Z[2]) < 0.25) {
+    d = alt[0] * Y[0] + alt[1] * Y[1] + alt[2] * Y[2];
+    Z = [alt[0] - d * Y[0], alt[1] - d * Y[1], alt[2] - d * Y[2]];
+  }
+  Z = blzN(Z);
+  return [blzCross(Y, Z), Y, Z];
+}
+function blzMesh() { return { v: [], i: [], n: 0 }; }
+function blzV(m, x, y, z, nx, ny, nz, c, u, v) { m.v.push(x, y, z, nx, ny, nz, c[0], c[1], c[2], u || 0, v || 0); return m.n++; }
+function blzQ(m, a, b, c, d) { m.i.push(a, b, c, a, c, d); }
+// a quad from four points with an explicit normal and per-corner uv
+function blzMQuad(m, p, n, c, uv) {
+  const k = [0, 1, 2, 3].map((i) => blzV(m, p[i][0], p[i][1], p[i][2], n[0], n[1], n[2], Array.isArray(c[0]) ? c[i] : c, uv ? uv[i][0] : 0, uv ? uv[i][1] : 0));
+  blzQ(m, k[0], k[1], k[2], k[3]);
+}
+// an axis-aligned box; faceUV (optional) maps a face index to [u0, v0, u1, v1]
+// faces: 0 +x, 1 −x, 2 +y, 3 −y, 4 +z, 5 −z. Text faces read from outside.
+function blzMBox(m, cx, cy, cz, hx, hy, hz, col, faceUV) {
+  const F = [
+    [[1, 0, 0], [[1, 1, -1], [1, 1, 1], [1, -1, 1], [1, -1, -1]]],
+    [[-1, 0, 0], [[-1, 1, 1], [-1, 1, -1], [-1, -1, -1], [-1, -1, 1]]],
+    [[0, 1, 0], [[-1, 1, -1], [1, 1, -1], [1, 1, 1], [-1, 1, 1]]],
+    [[0, -1, 0], [[-1, -1, 1], [1, -1, 1], [1, -1, -1], [-1, -1, -1]]],
+    [[0, 0, 1], [[1, 1, 1], [-1, 1, 1], [-1, -1, 1], [1, -1, 1]]],
+    [[0, 0, -1], [[-1, 1, -1], [1, 1, -1], [1, -1, -1], [-1, -1, -1]]],
+  ];
+  F.forEach(([n, cs], fi) => {
+    const r = faceUV && faceUV[fi];
+    const uv = r ? [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]] : null;
+    blzMQuad(m, cs.map((s) => [cx + s[0] * hx, cy + s[1] * hy, cz + s[2] * hz]), n, Array.isArray(col[0]) ? col[fi] : col, uv);
+  });
+}
+// a limb: elliptical rings up +Y from 0 to L. `rings` are fractions (repeat a
+// value for a hard color edge); colFn(ringIndex, angle) gives the color.
+function blzMTube(m, L, r0, r1, seg, rings, colFn, cap1) {
+  const base = m.n, slope = ((r0[0] + r0[1]) - (r1[0] + r1[1])) * 0.5 / L;
+  rings.forEach((t, ri) => {
+    const rx = r0[0] + (r1[0] - r0[0]) * t, rz = r0[1] + (r1[1] - r0[1]) * t;
+    for (let s = 0; s <= seg; s++) {
+      const a = s / seg * Math.PI * 2, sa = Math.sin(a), ca = Math.cos(a);
+      const n = blzN([sa / rx, slope, ca / rz]);
+      blzV(m, sa * rx, t * L, ca * rz, n[0], n[1], n[2], colFn(ri, a, t), s / seg, t);
+    }
+  });
+  for (let r = 0; r < rings.length - 1; r++) for (let s = 0; s < seg; s++) {
+    const a = base + r * (seg + 1) + s;
+    blzQ(m, a, a + 1, a + seg + 2, a + seg + 1);
+  }
+  if (cap1) {
+    const top = base + (rings.length - 1) * (seg + 1);
+    const c = blzV(m, 0, L, 0, 0, 1, 0, colFn(rings.length - 1, 0, 1));
+    for (let s = 0; s < seg; s++) m.i.push(top + s, top + s + 1, c);
+  }
+}
+// an ellipsoid; u = longitude (0 = front +z, 0.25 = +x), v = latitude (0 = top)
+function blzMEllip(m, cx, cy, cz, rx, ry, rz, lat, lon, colFn) {
+  const base = m.n;
+  for (let i = 0; i <= lat; i++) {
+    const th = i / lat * Math.PI, sy = Math.cos(th), sr = Math.sin(th);
+    for (let j = 0; j <= lon; j++) {
+      const ph = j / lon * Math.PI * 2, ux = Math.sin(ph) * sr, uz = Math.cos(ph) * sr;
+      const n = blzN([ux / rx, sy / ry, uz / rz]);
+      blzV(m, cx + ux * rx, cy + sy * ry, cz + uz * rz, n[0], n[1], n[2], colFn ? colFn(ux, sy, uz) : [1, 1, 1], j / lon, i / lat);
+    }
+  }
+  for (let i = 0; i < lat; i++) for (let j = 0; j < lon; j++) {
+    const a = base + i * (lon + 1) + j;
+    blzQ(m, a, a + 1, a + lon + 2, a + lon + 1);
+  }
+}
+// the torso: a rounded-box trunk, flared at the chest, two halves so the
+// front and back each carry the jersey number the right way round
+function blzMTorso(m, wide) {
+  const R = [[0, 0.2, 0.14], [0.2, 0.23, 0.155], [0.42, 0.28, 0.172], [0.56, 0.3, 0.175], [0.67, 0.22, 0.13]];
+  const seg = 8, se = (c) => Math.sign(c) * Math.pow(Math.abs(c), 0.7);
+  for (const half of [1, -1]) {
+    const base = m.n;
+    for (const [y, rx0, rz] of R) {
+      const rx = rx0 * wide;
+      for (let s = 0; s <= seg; s++) {
+        const a = -Math.PI / 2 + s / seg * Math.PI, xa = Math.sin(a), za = Math.cos(a) * half;
+        const x = se(xa) * rx, z = se(za) * rz;
+        const n = blzN([xa / rx, 0.04, za / rz]);
+        // facing the chest the viewer's right is −x; from behind it is +x
+        const u = 0.5 + (half > 0 ? -x : x) / (2 * 0.66 * wide), v = (0.7 - y) / 0.7;
+        blzV(m, x, y, z, n[0], n[1], n[2], [1, 1, 1], u, v);
+      }
+    }
+    for (let r = 0; r < R.length - 1; r++) for (let s = 0; s < seg; s++) {
+      const a = base + r * (seg + 1) + s;
+      blzQ(m, a, a + 1, a + seg + 2, a + seg + 1);
+    }
+    const top = base + (R.length - 1) * (seg + 1), c = blzV(m, 0, 0.71, 0, 0, 1, 0, [1, 1, 1], 0.5, 0.02);
+    for (let s = 0; s < seg; s++) m.i.push(top + s, top + s + 1, c);
+  }
+}
+
+function blzGLUpload(m) {
+  const gl = blitz.gl;
+  if (m.n > 65535) console.warn('blitz mesh too big', m.n);
+  const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(m.v), gl.STATIC_DRAW);
+  const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(m.i), gl.STATIC_DRAW);
+  blitz.glr.last = null;
+  return { vb, ib, n: m.i.length, id: ++blitz.glr.ids };
+}
+function blzGLFree(o) {
+  const gl = blitz.gl;
+  if (!o) return;
+  for (const k in o) { const v = o[k]; if (v && v.vb) { gl.deleteBuffer(v.vb); gl.deleteBuffer(v.ib); } }
+}
+function blzGLTex(src, repeat) {
+  const gl = blitz.gl, t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+  const pot = (n) => (n & (n - 1)) === 0, mip = pot(src.width) && pot(src.height);
+  const wrap = repeat && mip ? gl.REPEAT : gl.CLAMP_TO_EDGE;
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, repeat === 'u' ? gl.CLAMP_TO_EDGE : wrap);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  if (mip) { gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); }
+  else gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  const an = blitz.glr.aniso;
+  if (an && mip) gl.texParameterf(gl.TEXTURE_2D, an.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, gl.getParameter(an.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
+  return t;
+}
+function blzPot(src, w, h) { const c = blzCanvas(w, h); c.getContext('2d').drawImage(src, 0, 0, w, h); return c; }
+
+// ---- textures ---------------------------------------------------------------------------------------
+function blzPaintJerseys() {
+  // one 128px cell per player: team × all fourteen positions (offense then defense)
+  const c = blzCanvas(1024, 512), g = c.getContext('2d');
+  const all = BLZ_OFF_POS.concat(BLZ_DEF_POS);
+  for (let t = 0; t < 2; t++) {
+    const T = blzTeam(t), R = BLZ_ROSTER[blitz.teams[t]] || {};
+    all.forEach((pos, i) => {
+      const idx = t * 16 + i, x = (idx % 8) * 128, y = ((idx / 8) | 0) * 128;
+      g.fillStyle = T.c1; g.fillRect(x, y, 128, 128);
+      // mesh weave
+      g.fillStyle = 'rgba(0,0,0,0.06)';
+      for (let k = 0; k < 128; k += 4) g.fillRect(x, y + k, 128, 1);
+      // collar trim + the sleeve-line stripes
+      g.fillStyle = T.c2; g.fillRect(x, y, 128, 9);
+      g.fillStyle = blzMix(T.c1, 0.25, '#000000'); g.fillRect(x, y + 9, 128, 3);
+      const num = String((R[pos] && R[pos][1]) || '');
+      if (!num) return;
+      // sized so the number sits on the back with jersey showing all round it
+      g.font = '900 46px Impact, "Arial Black", sans-serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.lineJoin = 'round';
+      g.lineWidth = 6; g.strokeStyle = T.c2 === T.num ? '#000000' : T.c2; g.strokeText(num, x + 64, y + 58);
+      g.fillStyle = T.num; g.fillText(num, x + 64, y + 58);
+    });
+  }
+  return c;
+}
+function blzPaintHelmet(T) {
+  const w = 256, h = 128, c = blzCanvas(w, h), g = c.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, h);
+  gr.addColorStop(0, blzMix(T.helm, 0.45)); gr.addColorStop(0.45, T.helm); gr.addColorStop(1, blzMix(T.helm, 0.5, '#000000'));
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  // the stripe, front to back over the crown (meridians u = 0 and u = ½)
+  g.fillStyle = T.stripe;
+  g.fillRect(0, 0, 7, h * 0.47); g.fillRect(w - 7, 0, 7, h * 0.47); g.fillRect(w / 2 - 7, 0, 14, h * 0.5);
+  // the logo on each side
+  for (const u of [0.25, 0.75]) {
+    const x = u * w, y = h * 0.4;
+    g.fillStyle = '#000'; g.beginPath(); g.ellipse(x, y, 19, 17, 0, 0, 7); g.fill();
+    g.fillStyle = T.c2; g.beginPath(); g.ellipse(x, y, 16, 14, 0, 0, 7); g.fill();
+    g.font = '900 italic 22px Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = T.helm === T.c2 ? '#ffffff' : T.helm; g.fillText(T.logo, x, y + 1);
+    g.fillStyle = '#141414'; g.beginPath(); g.arc(x + (u < 0.5 ? -24 : 24) * 0, h * 0.6, 3, 0, 7); g.fill(); // ear hole
+  }
+  // the face opening: a breaded face looking out (it wraps the u = 0 seam)
+  for (const ox of [0, w]) {
+    g.fillStyle = '#2a1a0a'; g.beginPath(); g.ellipse(ox, h * 0.62, 34, 22, 0, 0, 7); g.fill();
+    g.fillStyle = BLZ_CRUST; g.beginPath(); g.ellipse(ox, h * 0.62, 30, 19, 0, 0, 7); g.fill();
+    g.fillStyle = BLZ_CRUST_D;
+    for (let i = 0; i < 9; i++) g.fillRect(ox - 24 + blzHash(i * 7.7) * 48, h * 0.52 + blzHash(i * 3.1) * 18, 3, 2);
+    for (const ex of [-11, 11]) {
+      g.fillStyle = '#fff8e8'; g.fillRect(ox + ex - 5, h * 0.56, 10, 8);
+      g.fillStyle = '#141418'; g.fillRect(ox + ex - 2, h * 0.58, 5, 5);
+    }
+  }
+  g.fillStyle = '#121212'; g.fillRect(0, h * 0.86, w, h * 0.14);
+  // a gloss streak
+  const gl = g.createRadialGradient(w * 0.88, h * 0.18, 0, w * 0.88, h * 0.18, 26);
+  gl.addColorStop(0, 'rgba(255,255,255,0.65)'); gl.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gl; g.fillRect(0, 0, w, h);
+  return c;
+}
+function blzPaintCrowdGL() {
+  const w = 256, h = 256, c = blzCanvas(w, h), g = c.getContext('2d');
+  const A = blzTeam(0), B = blzTeam(1);
+  const pal = [A.c1, A.c1, A.c2, B.c1, B.c1, B.c2, '#7a2a22', '#9a4a3a', '#c8a890', '#e8e0d0', '#3a2a2a', '#5a4a6a', '#d8b878', '#b05a3a', '#2a3a6a'];
+  g.fillStyle = '#43262a'; g.fillRect(0, 0, w, h);
+  for (let y = 0; y < h; y += 8) {
+    g.fillStyle = '#6a3a36'; g.fillRect(0, y + 6, w, 2);           // the seat-row step
+    for (let x = 0; x < w; x += 4) {
+      if ((x % 64) >= 26 && (x % 64) < 36) continue;               // the aisle
+      const r = blzHash(x * 3.7 + y * 11.3 + 0.5);
+      if (r < 0.05) continue;                                       // an empty seat
+      const shirt = pal[(blzHash(x * 1.9 + y * 7.1) * pal.length) | 0];
+      g.fillStyle = shirt; g.fillRect(x, y + 3, 4, 4);
+      g.fillStyle = r < 0.62 ? BLZ_CRUST : r < 0.8 ? BLZ_CRUST_D : r < 0.9 ? '#e8d8b0' : shirt; // nugget heads
+      g.fillRect(x + 1, y + (r > 0.5 ? 0 : 1), 2, 3);
+    }
+  }
+  for (let ax = 26; ax < w; ax += 64) {
+    g.fillStyle = '#a49a90'; g.fillRect(ax, 0, 10, h);
+    g.fillStyle = 'rgba(0,0,0,0.35)'; for (let y = 0; y < h; y += 4) g.fillRect(ax, y, 10, 1);
+    g.fillStyle = '#d8d0c8'; g.fillRect(ax, 0, 1, h); g.fillRect(ax + 9, 0, 1, h);
+  }
+  blzGrain(g, w, h, 16, 5);
+  return c;
+}
+function blzPaintAdsGL() {
+  const c = blzCanvas(1024, 64), g = c.getContext('2d'), n = BLZ_ADS.length, sw = 1024 / n;
+  BLZ_ADS.forEach((ad, i) => {
+    const x = i * sw;
+    g.fillStyle = '#16307a'; g.fillRect(x, 0, sw, 64);
+    g.fillStyle = ad[1]; g.fillRect(x + 6, 8, sw - 12, 46);
+    g.font = '900 italic 22px Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = ad[2]; g.fillText(ad[0], x + sw / 2, 32, sw - 18);
+  });
+  g.fillStyle = '#d8e0f0'; g.fillRect(0, 0, 1024, 4);
+  g.fillStyle = '#0a1430'; g.fillRect(0, 60, 1024, 4);
+  return c;
+}
+function blzPaintSuites() {
+  const c = blzCanvas(128, 32), g = c.getContext('2d');
+  g.fillStyle = '#2a4aa8'; g.fillRect(0, 0, 128, 32);
+  g.fillStyle = '#c8d4f0'; g.fillRect(0, 0, 128, 2); g.fillRect(0, 29, 128, 3);
+  for (let x = 2; x < 128; x += 16) {
+    g.fillStyle = '#0a1636'; g.fillRect(x, 8, 13, 16);
+    g.fillStyle = blzHash(x) > 0.5 ? '#f0d890' : '#5a78c8'; g.fillRect(x + 2, 10, 9, 6);
+  }
+  return c;
+}
+function blzPaintMarkers() {
+  const c = blzCanvas(512, 64), g = c.getContext('2d');
+  const labels = ['10', '20', '30', '40', '50', 'G', '', ''];
+  labels.forEach((t, i) => {
+    const x = i * 64;
+    g.fillStyle = '#ff7a1a'; g.fillRect(x, 0, 64, 64);
+    g.fillStyle = '#ffb06a'; g.fillRect(x, 0, 64, 6);
+    g.fillStyle = '#c84a0a'; g.fillRect(x, 58, 64, 6);
+    if (!t) return;
+    g.font = '900 34px Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#ffffff'; g.fillText(t, x + 32, 34);
+  });
+  return c;
+}
+function blzPaintBlob() {
+  const c = blzCanvas(64, 64), g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(0,0,0,0.55)'); gr.addColorStop(0.6, 'rgba(0,0,0,0.35)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  return c;
+}
+function blzPaintRing() {
+  const c = blzCanvas(128, 128), g = c.getContext('2d');
+  g.fillStyle = 'rgba(16,40,170,0.55)'; g.beginPath(); g.arc(64, 64, 62, 0, 7); g.fill();
+  g.lineWidth = 12; g.strokeStyle = 'rgba(40,100,255,0.95)'; g.beginPath(); g.arc(64, 64, 54, 0, 7); g.stroke();
+  g.lineWidth = 3; g.strokeStyle = 'rgba(190,220,255,0.95)'; g.beginPath(); g.arc(64, 64, 60, 0, 7); g.stroke();
+  g.fillStyle = 'rgba(150,200,255,0.95)';
+  for (const a of [0, 2.09, 4.19]) { g.beginPath(); g.arc(64 + Math.cos(a) * 30, 64 + Math.sin(a) * 30, 9, 0, 7); g.fill(); }
+  return c;
+}
+
+// ---- shared meshes (color-independent) + per-team meshes ---------------------------------------
+const BLZ_SKIN = () => blzRGB(BLZ_CRUST);
+function blzSkinAt(seed) {
+  const r = blzHash(seed), base = BLZ_SKIN();
+  return r < 0.14 ? blzK(base, 0.72) : blzK(base, 0.9 + r * 0.24);
+}
+function blzGLShared() {
+  const G = blitz.glr, sh = {};
+  let m = blzMesh();
+  blzMTube(m, 0.21, [0.075, 0.07], [0.07, 0.065], 8, [0, 1], (ri, a) => blzSkinAt(a * 7 + ri));
+  sh.neck = blzGLUpload(m);
+  m = blzMesh();
+  blzMTube(m, 0.27, [0.068, 0.064], [0.056, 0.052], 8, [0, 0.82, 0.82, 1], (ri, a) => (ri >= 2 ? [0.95, 0.95, 0.92] : blzSkinAt(a * 13 + ri * 3)));
+  blzMEllip(m, 0, 0.31, 0.01, 0.058, 0.072, 0.045, 5, 8, (x, y, z) => blzSkinAt(x * 31 + y * 17 + z * 11));
+  sh.fore = blzGLUpload(m);
+  m = blzMesh();
+  blzMBox(m, 0, 0.09, -0.012, 0.062, 0.13, 0.048, [0.07, 0.07, 0.08]);
+  blzMBox(m, 0, 0.12, 0.03, 0.05, 0.06, 0.004, [0.9, 0.9, 0.92]);   // the swoosh-ish stripe on top
+  sh.cleat = blzGLUpload(m);
+  m = blzMesh();
+  blzMEllip(m, 0, 0, 0.01, 0.205, 0.2, 0.225, 9, 14, null);
+  sh.helmet = blzGLUpload(m);
+  m = blzMesh();
+  blzMEllip(m, 0, 0, 0, 0.15, 0.25, 0.15, 7, 10, (x, y, z) => (z > 0.86 && Math.abs(y) < 0.36 ? [0.95, 0.93, 0.88] : Math.abs(Math.abs(y) - 0.62) < 0.05 ? [0.9, 0.88, 0.84] : [0.46, 0.22, 0.08]));
+  sh.ball = blzGLUpload(m);
+  m = blzMesh();
+  blzMQuad(m, [[-1, 0, -1], [1, 0, -1], [1, 0, 1], [-1, 0, 1]], [0, 1, 0], [1, 1, 1], [[0, 0], [1, 0], [1, 1], [0, 1]]);
+  sh.decal = blzGLUpload(m);
+  m = blzMesh();
+  blzMQuad(m, [[0, 0, -0.5], [1, 0, -0.5], [1, 0, 0.5], [0, 0, 0.5]], [0, 1, 0], [1, 1, 1]);
+  sh.line = blzGLUpload(m);
+  G.sh = sh;
+  G.tex.blob = blzGLTex(blzPaintBlob());
+  G.tex.ring = blzGLTex(blzPaintRing());
+}
+function blzGLTeamMeshes(t) {
+  const T = blzTeam(t), c1 = blzRGB(T.c1), c2 = blzRGB(T.c2), pants = blzRGB(T.pants), sock = blzRGB(T.sock), mask = blzRGB(T.mask);
+  const O = {};
+  for (const [k, wide] of [['', 1], ['W', 1.12]]) {
+    let m = blzMesh(); blzMTorso(m, wide); O['torso' + k] = blzGLUpload(m);
+    m = blzMesh();
+    blzMEllip(m, 0, 0.6, -0.01, 0.43 * wide, 0.13, 0.235, 6, 12, (x, y) => (Math.abs(x) > 0.8 ? c2 : blzK(c1, 1.08 + y * 0.1)));
+    O['pads' + k] = blzGLUpload(m);
+    m = blzMesh();
+    blzMEllip(m, 0, -0.02, 0, 0.205 * wide, 0.15, 0.15, 6, 10, (x, y) => (y > 0.55 ? blzK(pants, 0.5) : pants)); // the seat, belted
+    O['pelvis' + k] = blzGLUpload(m);
+  }
+  let m = blzMesh();
+  blzMTube(m, 0.47, [0.12, 0.115], [0.09, 0.088], 12, [0, 0.9, 0.9, 1], (ri, a) => (ri >= 2 ? blzK(pants, 0.85) : Math.abs(Math.sin(a)) > 0.95 ? c2 : pants));
+  O.thigh = blzGLUpload(m);
+  m = blzMesh();
+  blzMTube(m, 0.47, [0.085, 0.082], [0.058, 0.056], 10, [0, 0.1, 0.1, 0.2, 0.2, 0.86, 0.86, 1],
+    (ri, a) => (ri === 2 || ri === 3 ? [0.94, 0.94, 0.94] : ri >= 6 ? [0.9, 0.9, 0.9] : sock));
+  O.shin = blzGLUpload(m);
+  m = blzMesh();
+  blzMTube(m, 0.3, [0.09, 0.085], [0.072, 0.068], 10, [0, 0.4, 0.4, 0.5, 0.5, 1],
+    (ri, a, tt) => (ri <= 1 ? c1 : ri <= 3 ? c2 : blzSkinAt(a * 9 + tt * 40)));
+  O.upper = blzGLUpload(m);
+  // the cage: bars in front of the face, struts to the shell
+  m = blzMesh();
+  for (const [y, hw] of [[-0.03, 0.115], [-0.09, 0.1], [-0.145, 0.07]]) blzMBox(m, 0, y, 0.228, hw, 0.011, 0.012, mask);
+  blzMBox(m, 0, -0.09, 0.236, 0.011, 0.06, 0.011, mask);
+  for (const sx of [-1, 1]) blzMBox(m, sx * 0.135, -0.075, 0.175, 0.012, 0.06, 0.05, mask);
+  O.mask = blzGLUpload(m);
+  return O;
+}
+
+// ---- the stadium (static, rebuilt per matchup) --------------------------------------------------
+function blzGLScene() {
+  const S = {}, night = !!blitz.codes.night;
+  const quadXZ = (m, x0, x1, z0, z1, y, c, uv) => blzMQuad(m, [[x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]], [0, 1, 0], c, uv);
+  let m = blzMesh();
+  quadXZ(m, -90, BLZ_WID + 90, -90, BLZ_LEN + 90, -0.05, blzRGB(night ? '#173a1a' : '#2a6428'));
+  S.turf = blzGLUpload(m);
+  m = blzMesh();
+  const fx0 = BLZ_TEX.x0, fx1 = fx0 + BLZ_TEX.w, fz0 = BLZ_TEX.z0, fz1 = fz0 + BLZ_TEX.l;
+  quadXZ(m, fx0, fx1, fz0, fz1, 0, [1, 1, 1], [[0, 0], [1, 0], [1, 1], [0, 1]]);
+  S.field = blzGLUpload(m);
+  // the bowl: a padded ad wall, the lower deck, a band of suites, the upper deck, the roof fascia
+  const WX = 4.6, Z0 = -5, Z1 = BLZ_LEN + 5;
+  const walls = blzMesh(), crowd = blzMesh(), suites = blzMesh(), props = blzMesh();
+  const L1 = [0.4, 1.6, 16.5, 12.4], L2 = [17.3, 15.6, 31, 27.6];        // deck [inset, y] → [outset, y]
+  const white = [1, 1, 1], dark = blzRGB(night ? '#08080e' : '#1a1a26'), rail = blzRGB('#d8dce8');
+  // the four sides as one recipe: a frame (origin, along-axis, out-axis, length)
+  const sides = [
+    { o: [-WX, Z0], a: [0, 1], out: [-1, 0], len: Z1 - Z0, t0: Z0 },
+    { o: [BLZ_WID + WX, Z1], a: [0, -1], out: [1, 0], len: Z1 - Z0, t0: -Z1 },
+    { o: [BLZ_WID + WX, Z0], a: [-1, 0], out: [0, -1], len: BLZ_WID + 2 * WX, t0: -(BLZ_WID + WX) },
+    { o: [-WX, Z1], a: [1, 0], out: [0, 1], len: BLZ_WID + 2 * WX, t0: -WX },
+  ];
+  const P = (sd, along, out, y) => [sd.o[0] + sd.a[0] * along + sd.out[0] * out, y, sd.o[1] + sd.a[1] * along + sd.out[1] * out];
+  for (const sd of sides) {
+    const n = [-sd.out[0], 0, -sd.out[1]];   // facing the field
+    const u0 = sd.t0 / 64, u1 = (sd.t0 + sd.len) / 64;
+    blzMQuad(walls, [P(sd, 0, 0, 1.6), P(sd, sd.len, 0, 1.6), P(sd, sd.len, 0, 0), P(sd, 0, 0, 0)], n, white, [[u0, 0], [u1, 0], [u1, 1], [u0, 1]]);
+    blzMQuad(props, [P(sd, 0, 0, 1.6), P(sd, sd.len, 0, 1.6), P(sd, sd.len, 0.35, 1.6), P(sd, 0, 0.35, 1.6)], [0, 1, 0], rail);
+    const cu0 = sd.t0 / 24, cu1 = (sd.t0 + sd.len) / 24;
+    for (const D of [L1, L2]) {
+      blzMQuad(crowd, [P(sd, 0, D[0], D[1]), P(sd, sd.len, D[0], D[1]), P(sd, sd.len, D[2], D[3]), P(sd, 0, D[2], D[3])], [0, 1, 0], white,
+        [[cu0, 1], [cu1, 1], [cu1, 0], [cu0, 0]]);
+    }
+    // the suites between the decks, the facade lip under them, the fascia on top
+    const su0 = sd.t0 / 8, su1 = (sd.t0 + sd.len) / 8;
+    blzMQuad(suites, [P(sd, 0, 16.6, 15.6), P(sd, sd.len, 16.6, 15.6), P(sd, sd.len, 16.6, 12.4), P(sd, 0, 16.6, 12.4)], n, white,
+      [[su0, 0], [su1, 0], [su1, 1], [su0, 1]]);
+    blzMQuad(props, [P(sd, 0, 16.5, 12.4), P(sd, sd.len, 16.5, 12.4), P(sd, sd.len, 17.3, 12.4), P(sd, 0, 17.3, 12.4)], [0, 1, 0], blzRGB('#c8ccd8'));
+    blzMQuad(props, [P(sd, 0, 31, 31), P(sd, sd.len, 31, 31), P(sd, sd.len, 31, 27.6), P(sd, 0, 31, 27.6)], n, dark);
+    blzMQuad(props, [P(sd, 0, 31, 31), P(sd, sd.len, 31, 31), P(sd, sd.len, 24, 33), P(sd, 0, 24, 33)], [0, -1, 0], blzK(dark, 0.7));
+    // light rigs along the roof
+    for (let a = 8; a < sd.len - 4; a += 22) blzMBox(props, ...P(sd, a, 30.5, 32.2), 1.4, 0.6, 1.4, blzRGB(night ? '#fff6c8' : '#e8e8f0'));
+  }
+  // corners: the decks meet in a wedge so there's no hole to the sky
+  const corners = [[-WX, Z0, -1, -1], [BLZ_WID + WX, Z0, 1, -1], [BLZ_WID + WX, Z1, 1, 1], [-WX, Z1, -1, 1]];
+  for (const [cx, cz, sx, sz] of corners) {
+    for (const D of [L1, L2]) {
+      blzMQuad(crowd, [[cx + sx * D[0], D[1], cz + sz * D[0]], [cx + sx * D[2], D[3], cz], [cx + sx * D[2], D[3], cz + sz * D[2]], [cx, D[3], cz + sz * D[2]]], [0, 1, 0], white,
+        [[0, 1], [0.6, 0], [1.2, 0], [1.8, 0]]);
+    }
+  }
+  S.walls = blzGLUpload(walls); S.crowd = blzGLUpload(crowd); S.suites = blzGLUpload(suites);
+  // goalposts (yellow), pylons (orange) — lit props
+  const gold = blzRGB('#f2d22a'), orng = blzRGB('#ff7a1a');
+  for (const [z, out] of [[0, -1], [BLZ_LEN, 1]]) {
+    const zb = z + out * 1.2;
+    blzMBox(props, BLZ_MID, 1.65, zb, 0.13, 1.65, 0.13, gold);
+    blzMBox(props, BLZ_MID, 3.3, (z + zb) / 2, 0.11, 0.11, 0.62, gold);
+    blzMBox(props, BLZ_MID, 3.3, z, 3.1, 0.1, 0.1, gold);
+    for (const sx of [-1, 1]) blzMBox(props, BLZ_MID + sx * 3.1, 7.15, z, 0.085, 3.85, 0.085, gold);
+    blzMBox(props, BLZ_MID, 0.9, zb, 0.2, 0.9, 0.2, blzRGB('#2a4aa8'));           // the post pad
+    for (const ez of [z, z + out * -10]) for (const x of [0, BLZ_WID]) blzMBox(props, x, 0.45, ez, 0.17, 0.45, 0.17, orng);
+  }
+  S.props = blzGLUpload(props);
+  // the down markers along both sidelines, numbers facing the field
+  const mk = blzMesh(), cell = (i) => [i / 8 + 0.004, 0.04, (i + 1) / 8 - 0.004, 0.96], blank = cell(6);
+  for (let z = 10; z <= 110; z += 10) {
+    const n = z === 10 || z === 110 ? 5 : ((z <= 60 ? z - 10 : 110 - z) / 10) - 1;
+    for (const x of [-2.5, BLZ_WID + 2.5]) {
+      const fuv = [blank, blank, blank, blank, blank, blank];
+      if (x < 0) fuv[0] = cell(n); else fuv[1] = cell(n);
+      blzMBox(mk, x, 0.48, z, 0.36, 0.48, 0.62, [1, 1, 1], fuv);
+    }
+  }
+  S.markers = blzGLUpload(mk);
+  return S;
+}
+
+function blzGLBuild(key) {
+  const G = blitz.glr, gl = blitz.gl;
+  blzGLFree(G.s); blzGLFree(G.team[0]); blzGLFree(G.team[1]);
+  for (const k of ['field', 'crowd', 'ads', 'suites', 'markers', 'num', 'helm0', 'helm1']) if (G.tex[k]) { gl.deleteTexture(G.tex[k]); G.tex[k] = null; }
+  G.s = blzGLScene();
+  G.team = [blzGLTeamMeshes(0), blzGLTeamMeshes(1)];
+  G.tex.field = blzGLTex(blzPot(blzPaintField(14), 1024, 2048));
+  G.tex.crowd = blzGLTex(blzPaintCrowdGL(), 'u');
+  G.tex.ads = blzGLTex(blzPaintAdsGL(), 'u');
+  G.tex.suites = blzGLTex(blzPaintSuites(), 'u');
+  G.tex.markers = blzGLTex(blzPaintMarkers());
+  G.tex.num = blzGLTex(blzPaintJerseys());
+  G.tex.helm0 = blzGLTex(blzPaintHelmet(blzTeam(0)));
+  G.tex.helm1 = blzGLTex(blzPaintHelmet(blzTeam(1)));
+  G.key = key;
+}
+
+// the camera, as a clip-space matrix: blzProj line for line
+function blzGLMatrix(sx, sy) {
+  const c = blitz.cam, W = blitz.W, H = blitz.H, F = blitz.F, m = blitz.glr.vp;
+  const cw = c.cyw, sw = c.syw, s = c.s, cc = c.c;
+  const dxR = [cw, 0, -sw, -(c.x * cw - c.z * sw)];
+  const dzR = [sw, 0, cw, -(c.x * sw + c.z * cw)];
+  const dyR = [0, 1, 0, -c.h];
+  const zc = [0, 0, 0, 0], yc = [0, 0, 0, 0];
+  for (let i = 0; i < 4; i++) { zc[i] = -s * dyR[i] + cc * dzR[i]; yc[i] = cc * dyR[i] + s * dzR[i]; }
+  const n = 0.5, f = 700, a = (f + n) / (f - n), b = -2 * f * n / (f - n);
+  const A = 1 - 2 * blitz.cy / H;
+  for (let i = 0; i < 4; i++) {
+    m[i * 4] = (2 * F / W) * dxR[i] + (2 * sx / W) * zc[i];
+    m[i * 4 + 1] = (2 * F / H) * yc[i] + (A - 2 * sy / H) * zc[i];
+    m[i * 4 + 2] = a * zc[i] + (i === 3 ? b : 0);
+    m[i * 4 + 3] = zc[i];
+  }
+  return m;
+}
+
+function blzGLSize() {
+  const cv = blitz.glCv, vw = window.innerWidth, vh = window.innerHeight, dpr = window.devicePixelRatio || 1;
+  // small on purpose: the N64 smear is the CSS upscale of a ~600-line frame
+  const h = Math.max(240, Math.round(Math.min(vh * dpr, 620))), w = Math.max(240, Math.round(h * vw / vh));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+}
+
+function blzGLBind(mesh) {
+  const G = blitz.glr;
+  if (G.last === mesh) return;
+  const gl = blitz.gl, A = G.P.a;
+  G.last = mesh;
+  gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vb);
+  gl.vertexAttribPointer(A.aPos, 3, gl.FLOAT, false, 44, 0);
+  if (A.aNor >= 0) gl.vertexAttribPointer(A.aNor, 3, gl.FLOAT, false, 44, 12);
+  if (A.aCol >= 0) gl.vertexAttribPointer(A.aCol, 3, gl.FLOAT, false, 44, 24);
+  if (A.aUV >= 0) gl.vertexAttribPointer(A.aUV, 2, gl.FLOAT, false, 44, 36);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.ib);
+}
+// one draw: mesh, model matrix, texture (or null), and a few knobs
+function blzGLDraw1(mesh, M, tex, o) {
+  const gl = blitz.gl, U = blitz.glr.P.u;
+  blzGLBind(mesh);
+  gl.uniformMatrix4fv(U.uM, false, M);
+  gl.uniform1f(U.uLit, o && o.lit === 0 ? 0 : 1);
+  const t = (o && o.tint) || null;
+  gl.uniform3f(U.uTint, t ? t[0] : 1, t ? t[1] : 1, t ? t[2] : 1);
+  const uv = (o && o.uvx) || BLZ_UV1;
+  gl.uniform4f(U.uUVX, uv[0], uv[1], uv[2], uv[3]);
+  gl.uniform1f(U.uAlpha, o && o.alpha != null ? o.alpha : 1);
+  if (tex) { gl.uniform1f(U.uUseTex, 1); gl.bindTexture(gl.TEXTURE_2D, tex); }
+  else gl.uniform1f(U.uUseTex, 0);
+  gl.drawElements(gl.TRIANGLES, mesh.n, gl.UNSIGNED_SHORT, 0);
+}
+function blzGLMat() {
+  const G = blitz.glr;
+  let m = G.pool[G.pi];
+  if (!m) m = G.pool[G.pi] = new Float32Array(16);
+  G.pi++;
+  return m;
+}
+function blzGLBasis(O, X, Y, Z, sx, sy, sz) {
+  const m = blzGLMat();
+  m[0] = X[0] * sx; m[1] = X[1] * sx; m[2] = X[2] * sx; m[3] = 0;
+  m[4] = Y[0] * sy; m[5] = Y[1] * sy; m[6] = Y[2] * sy; m[7] = 0;
+  m[8] = Z[0] * sz; m[9] = Z[1] * sz; m[10] = Z[2] * sz; m[11] = 0;
+  m[12] = O[0]; m[13] = O[1]; m[14] = O[2]; m[15] = 1;
+  return m;
+}
+
+// every part of one player, as {mesh, m, tex, uvx} draws
+function blzGLPlayer(p, out) {
+  const G = blitz.glr, TM = G.team[p.team];
+  const J = blzPose(p);
+  const big = /^(C|LG|RG|DE1|DT|DE2)$/.test(p.pos), slim = /^(WR1|WR2|CB1|CB2|QB)$/.test(p.pos);
+  const sz = BLZ_BS * (big ? 1.07 : slim ? 0.96 : 1);
+  let fx = p.fx, fz = p.fz;
+  if (p.spinT > 0) {
+    const a = (1 - p.spinT / 0.5) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+    const nx = fx * c - fz * s; fz = fx * s + fz * c; fx = nx;
+  }
+  const rx = fz, rz = -fx;
+  const Wp = (v) => [p.x + (rx * v[0] + fx * v[2]) * sz, p.y + v[1] * sz, p.z + (rz * v[0] + fz * v[2]) * sz];
+  const Dv = (v) => blzN([rx * v[0] + fx * v[2], v[1], rz * v[0] + fz * v[2]]);
+  const fwd = Dv(J.fwd), up = Dv(J.up);
+  const P = {};
+  for (const k in J) if (k !== 'fwd' && k !== 'up') P[k] = Wp(J[k]);
+  const put = (mesh, O, F, s, sy, tex, uvx) => out.push({ mesh, m: blzGLBasis(O, F[0], F[1], F[2], s, sy, s), tex: tex || null, uvx: uvx || null });
+  const bone = (a, b, mesh, L0, ref, alt) => {
+    const A = P[a], B = P[b];
+    const d = [B[0] - A[0], B[1] - A[1], B[2] - A[2]], len = Math.hypot(d[0], d[1], d[2]) || 1e-3;
+    const Y = [d[0] / len, d[1] / len, d[2] / len];
+    put(mesh, A, blzFrame(Y, ref, alt), sz, len / L0);
+  };
+  const tF = blzFrame(blzN([P.neck[0] - P.pel[0], P.neck[1] - P.pel[1], P.neck[2] - P.pel[2]]), fwd, up);
+  const idx = p.team * 16 + (BLZ_OFF_POS.indexOf(p.pos) >= 0 ? BLZ_OFF_POS.indexOf(p.pos) : 7 + BLZ_DEF_POS.indexOf(p.pos));
+  const cell = G.cells[idx] || (G.cells[idx] = [1 / 8, 1 / 4, (idx % 8) / 8, ((idx / 8) | 0) / 4]);
+  put(big ? TM.torsoW : TM.torso, P.pel, tF, sz, sz, G.tex.num, cell);
+  put(big ? TM.padsW : TM.pads, P.pel, tF, sz, sz);
+  put(big ? TM.pelvisW : TM.pelvis, P.pel, tF, sz, sz);
+  bone('neck', 'head', G.sh.neck, 0.21, fwd, up);
+  const hF = blzFrame(blzN([P.head[0] - P.neck[0], P.head[1] - P.neck[1], P.head[2] - P.neck[2]]), fwd, up);
+  const hs = sz * (blitz.codes.huge ? 2.6 : blitz.codes.big ? 1.8 : 1);
+  put(G.sh.helmet, P.head, hF, hs, hs, p.team ? G.tex.helm1 : G.tex.helm0);
+  put(TM.mask, P.head, hF, hs, hs);
+  for (const sg of [-1, 1]) {
+    bone('sh' + sg, 'el' + sg, TM.upper, 0.3, fwd, up);
+    bone('el' + sg, 'hd' + sg, G.sh.fore, 0.27, fwd, up);
+    bone('hip' + sg, 'knee' + sg, TM.thigh, 0.47, fwd, up);
+    bone('knee' + sg, 'foot' + sg, TM.shin, 0.47, fwd, up);
+    bone('foot' + sg, 'toe' + sg, G.sh.cleat, 0.2, up, fwd);
+  }
+  // the ball, tucked in his arm
+  if (p === blitz.carrier && blitz.ball && blitz.ball.st === 'held') {
+    const H = P.hd1, Y = blzN([fwd[0] * 0.8 + up[0] * 0.55, fwd[1] * 0.8 + up[1] * 0.55, fwd[2] * 0.8 + up[2] * 0.55]);
+    const bs = blitz.codes.bigball ? 2.4 : 1;
+    put(G.sh.ball, H, blzFrame(Y, up, fwd), bs, bs);
+  }
+}
+
+function blzGLRender(sx, sy) {
+  const gl = blitz.gl, G = blitz.glr;
+  if (!gl || !G) return false;
+  blzGLSize();
+  const key = blitz.teams.join('|') + (blitz.codes.night ? 'n' : '');
+  if (G.key !== key) blzGLBuild(key);
+  if (!G.cells) G.cells = [];
+  const night = !!blitz.codes.night, U = G.P.u;
+  const fog = night ? [0.03, 0.04, 0.09] : [0.66, 0.76, 0.9];
+  gl.viewport(0, 0, blitz.glCv.width, blitz.glCv.height);
+  gl.clearColor(fog[0], fog[1], fog[2], 1);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true);
+  gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND); gl.disable(gl.POLYGON_OFFSET_FILL);
+  gl.useProgram(G.P.p);
+  gl.activeTexture(gl.TEXTURE0); gl.uniform1i(U.uTex, 0);
+  gl.uniformMatrix4fv(U.uVP, false, blzGLMatrix(sx, sy));
+  // the sun rides with the camera so the cart's look (lit backs, readable fronts) holds both ways
+  const d = blitz.cam.dir, L = blzN([-0.45 * d, 0.82, -0.36 * d]);
+  gl.uniform3f(U.uLight, L[0], L[1], L[2]);
+  gl.uniform1f(U.uAmb, night ? 0.4 : 0.5);
+  gl.uniform3f(U.uFog, fog[0], fog[1], fog[2]);
+  G.last = null; G.pi = 0;
+  const I = G.I, S = G.s;
+  // the stadium
+  blzGLDraw1(S.turf, I, null, { lit: 0 });
+  blzGLDraw1(S.field, I, G.tex.field, { lit: 0 });
+  blzGLDraw1(S.crowd, I, G.tex.crowd, { lit: 0, tint: night ? [0.62, 0.62, 0.7] : null });
+  blzGLDraw1(S.walls, I, G.tex.ads, { lit: 0 });
+  blzGLDraw1(S.suites, I, G.tex.suites, { lit: 0 });
+  blzGLDraw1(S.props, I, null, {});
+  blzGLDraw1(S.markers, I, G.tex.markers, {});
+  // painted-on lines: the line of scrimmage and the line to gain
+  const ph = blitz.phase;
+  gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(-2, -4);
+  if (ph === 'call' || ph === 'pre' || (ph === 'live' && blitz.pocket)) {
+    blzGLDraw1(G.sh.line, blzGLBasis([0, 0.01, blitz.los], [BLZ_WID, 0, 0], [0, 1, 0], [0, 0, 0.42], 1, 1, 1), null, { lit: 0, tint: [0.25, 0.5, 1] });
+    if (blitz.kind !== 'kick' && blitz.firstAt !== blzGoal(blitz.poss))
+      blzGLDraw1(G.sh.line, blzGLBasis([0, 0.01, blitz.firstAt], [BLZ_WID, 0, 0], [0, 1, 0], [0, 0, 0.42], 1, 1, 1), null, { lit: 0, tint: [1, 0.86, 0.15] });
+  }
+  // blob shadows + the human's ring (blended, no depth writes)
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+  for (const p of blitz.players) {
+    const lying = p.downT > 0 || p.diveT > 0;
+    const s = BLZ_BS * (lying ? 1.0 : 0.62) / (1 + p.y * 0.25), l = lying ? 1.7 : 1;
+    blzGLDraw1(G.sh.decal, blzGLBasis([p.x, 0.02, p.z], [p.fz, 0, -p.fx], [0, 1, 0], [p.fx, 0, p.fz], s, 1, s * l), G.tex.blob, { lit: 0 });
+  }
+  const B = blitz.ball;
+  if (B && !(B.st === 'held' && blitz.carrier)) blzGLDraw1(G.sh.decal, blzGLBasis([B.x, 0.02, B.z], [1, 0, 0], [0, 1, 0], [0, 0, 1], 0.32, 1, 0.32), G.tex.blob, { lit: 0 });
+  const me = blitz.ctl;
+  if (me && blzHuman(me.team) && ph !== 'final') {
+    const pulse = 1 + Math.sin(blitz.t * 7) * 0.05, s = BLZ_BS * 0.95 * pulse;
+    blzGLDraw1(G.sh.decal, blzGLBasis([me.x, 0.03, me.z], [1, 0, 0], [0, 1, 0], [0, 0, 1], s, 1, s), G.tex.ring, { lit: 0 });
+  }
+  gl.depthMask(true); gl.disable(gl.BLEND); gl.disable(gl.POLYGON_OFFSET_FILL);
+  // the players, grouped by mesh so each buffer binds once
+  const out = G.draws; out.length = 0;
+  for (const p of blitz.players) blzGLPlayer(p, out);
+  out.sort((a, b) => a.mesh.id - b.mesh.id);
+  for (const dr of out) blzGLDraw1(dr.mesh, dr.m, dr.tex, dr.uvx ? { uvx: dr.uvx } : null);
+  // the ball, when nobody has it
+  if (B && !(B.st === 'held' && blitz.carrier)) {
+    let Y = [0, 0, 1], spin = 0;
+    if (B.st === 'air') {
+      const u = Math.min(1, B.t / B.T);
+      Y = blzN([(B.tx - B.x0) / B.T, (B.ty - B.y0) / B.T + B.peak * 4 * (1 - 2 * u) / B.T, (B.tz - B.z0) / B.T]);
+      spin = blitz.t * 24;
+      if (B.kind !== 'pass' && B.kind !== 'lat') { Y = blzN([Math.sin(blitz.t * 9), Math.cos(blitz.t * 9), 0.3]); spin = 0; } // kicks tumble end over end
+    } else if (B.st === 'tee') Y = [0, 1, 0];
+    else Y = blzN([Math.cos(B.x * 1.3 + (B.st === 'loose' ? blitz.t * 10 : 0)), 0.15, Math.sin(B.x * 1.3 + (B.st === 'loose' ? blitz.t * 10 : 0))]);
+    const F = blzFrame(Y, [0, 1, 0], [1, 0, 0]), c = Math.cos(spin), s = Math.sin(spin);
+    const X2 = [F[0][0] * c + F[2][0] * s, F[0][1] * c + F[2][1] * s, F[0][2] * c + F[2][2] * s];
+    const Z2 = [F[2][0] * c - F[0][0] * s, F[2][1] * c - F[0][1] * s, F[2][2] * c - F[0][2] * s];
+    const bs = blitz.codes.bigball ? 2.4 : 1;
+    const y = B.st === 'tee' ? 0.3 : Math.max(B.y, 0.15);
+    blzGLDraw1(G.sh.ball, blzGLBasis([B.x, y, B.z], X2, Y, Z2, bs, bs, bs), null, {});
+  }
+  return true;
+}
+
+// the bits the polygons don't draw: sparks, the "1" arrow + name, the chevron, the fire glow
+function blzDrawOverlay3D(g, W, H) {
+  const items = [];
+  for (const q of blitz.parts) { const P = blzProj(q.x, q.y, q.z); if (P) items.push({ P, q }); }
+  items.sort((a, b) => b.P.zc - a.P.zc);
+  for (const it of items) blzDrawPart(g, it.q, it.P);
+  // on fire: a glow off the burning carrier / your man
+  for (const p of blitz.players) {
+    if (!blzOnFire(p.team) || !(p === blitz.carrier || p === blitz.ctl)) continue;
+    const P = blzProj(p.x, 1.6 + p.y, p.z);
+    if (!P) continue;
+    const r = P.k * 1.8;
+    g.save(); g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = 0.45 + 0.2 * Math.sin(blitz.t * 22);
+    const gr = g.createRadialGradient(P.x, P.y, 0, P.x, P.y, r);
+    gr.addColorStop(0, 'rgba(255,200,80,0.8)'); gr.addColorStop(0.5, 'rgba(255,100,20,0.45)'); gr.addColorStop(1, 'rgba(255,60,0,0)');
+    g.fillStyle = gr; g.beginPath(); g.ellipse(P.x, P.y, r * 0.8, r * 1.2, 0, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
+  const ph = blitz.phase, me = blitz.ctl;
+  if (me && blzHuman(me.team) && ph !== 'final') blzDrawMarker(g, me);
+  if (ph === 'live' && blitz.pocket && blitz.kind === 'pass' && blitz.carrier && blzHuman(blitz.carrier.team) && blitz.target) {
+    const r = blitz.target, P = blzProj(r.x, 3.5 + 0.25 * Math.sin(blitz.t * 10) + r.y, r.z);
+    if (P) {
+      const s = Math.max(4, P.k * 0.42);
+      g.fillStyle = '#ffd23a'; g.strokeStyle = '#000'; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(P.x - s, P.y - s); g.lineTo(P.x + s, P.y - s); g.lineTo(P.x, P.y + s * 0.6); g.closePath(); g.fill(); g.stroke();
+    }
+  }
+  if (blitz.codes.night) {
+    const v = g.createRadialGradient(W / 2, H * 0.6, H * 0.2, W / 2, H * 0.6, H * 0.9);
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,10,0.5)');
+    g.fillStyle = v; g.fillRect(0, 0, W, H);
+  }
+}
+
 // ---- HUD: the cart's chrome ----------------------------------------------------------------------
 function blzClockTxt() {
-  const s = Math.ceil(blitz.clock), m = (s / 60) | 0;
+  // the cart's quarters read 2:00; ours are BLZ_QLEN seconds of live play, shown at that scale
+  const s = Math.ceil(blitz.clock * 120 / BLZ_QLEN), m = (s / 60) | 0;
   return m + ':' + String(s % 60).padStart(2, '0');
 }
 // a beveled box with a blue-steel rim (slant > 0 leans it like the TURBO bar)
@@ -3087,47 +4099,50 @@ function blzDrawBanner(g, W, H) {
 function blzDrawCall(g, W, H) {
   const off = blitz.callFor === 'off';
   const plays = off ? BLZ_OFF_PLAYS : BLZ_DEF_PLAYS;
-  g.fillStyle = 'rgba(2,4,14,0.55)'; g.fillRect(0, 0, W, H);
-  const gw = Math.min(W - 16, 520), cw = (gw - 8) / 3, top = Math.max(58, H * 0.2);
-  const ch = Math.min(78, (H - top - 50) / 3 - 4);
+  g.fillStyle = 'rgba(2,4,14,0.5)'; g.fillRect(0, 0, W, H);
+  const gw = Math.min(W - 16, 540), cw = (gw - 12) / 3, top = Math.max(58, H * 0.19);
+  const ch = Math.min(80, (H - top - (off ? 72 : 40)) / 3 - 6);
   const x0 = (W - gw) / 2;
-  blzTextC(g, off ? 'SELECT OFFENSIVE PLAY' : 'SELECT DEFENSIVE PLAY', W / 2, top - 22, 18 * blitz.ui, off ? '#ffd23a' : '#7ad0ff');
+  g.save(); g.translate(W / 2, top - 22); g.transform(1, 0, -0.2, 1, 0, 0);
+  blzText(g, off ? 'SELECT OFFENSIVE PLAY' : 'SELECT DEFENSIVE PLAY', 0, 0, 18 * blitz.ui, off ? '#ffe23a' : '#7ad0ff', 'center');
+  g.restore();
   const T = 15 - blitz.callT;
-  blzText(g, String(Math.max(0, Math.ceil(T))), x0 + gw, top - 22, 14, T < 4 ? '#ff6a5a' : '#ffffff', 'right');
+  blzText(g, String(Math.max(0, Math.ceil(T))), x0 + gw, top - 22, 15, T < 4 ? '#ff6a5a' : '#ffffff', 'right');
   blitz.hit.cards = []; blitz.hit.extra = [];
   plays.forEach((pl, i) => {
     const r = (i / 3) | 0, cI = i % 3;
-    const x = x0 + cI * (cw + 4), y = top + r * (ch + 4);
+    const x = x0 + cI * (cw + 6), y = top + r * (ch + 6);
     const sel = i === blitz.callSel;
-    g.fillStyle = sel ? (off ? '#5a3a08' : '#0a3a5a') : 'rgba(8,10,24,0.9)';
-    g.fillRect(x, y, cw, ch);
-    g.strokeStyle = sel ? '#ffd23a' : off ? '#7a5a20' : '#2a5a8a'; g.lineWidth = sel ? 2 : 1;
-    g.strokeRect(x + 0.5, y + 0.5, cw - 1, ch - 1);
-    blzText(g, String(i + 1), x + 5, y + 9, 10, '#ffd23a');
-    blzText(g, pl.name, x + cw / 2, y + ch - 9, Math.min(12, cw / pl.name.length * 1.5), '#ffffff', 'center');
-    blzDrawDiagram(g, pl, off, x + 4, y + 16, cw - 8, ch - 30);
+    blzChrome(g, x, y, cw, ch, 0, sel ? (off ? 'rgba(90,60,10,0.92)' : 'rgba(10,60,96,0.92)') : 'rgba(6,12,30,0.88)');
+    if (sel) { g.strokeStyle = ((blitz.t * 4) | 0) % 2 ? '#ffe23a' : '#ffffff'; g.lineWidth = 2; g.strokeRect(x - 2, y - 2, cw + 4, ch + 4); }
+    blzText(g, String(i + 1), x + 7, y + 10, 10, '#ffe23a');
+    blzText(g, pl.name, x + cw / 2, y + ch - 10, Math.min(12, cw / pl.name.length * 1.5), '#ffffff', 'center');
+    blzDrawDiagram(g, pl, off, x + 6, y + 17, cw - 12, ch - 32);
     blitz.hit.cards.push({ x, y, w: cw, h: ch, n: i });
   });
-  // the special-teams row (offense only)
-  const ey = top + 3 * (ch + 4) + 4;
+  // special teams (offense only): FLIP, PUNT, FIELD GOAL — and the two fakes
+  let ey = top + 3 * (ch + 6) + 2;
   if (off) {
-    const items = [];
-    items.push({ t: (blitz.flip ? '◀ FLIPPED' : 'FLIP ▶') + ' [F]', n: 'flip' });
-    if (!blitz.pat2 && !blitz.codes.nopunt) items.push({ t: 'PUNT [P]', n: 'punt' });
+    const rows = [[{ t: (blitz.flip ? '◀ FLIPPED' : 'FLIP ▶') + ' [F]', n: 'flip' }], []];
+    if (!blitz.pat2 && !blitz.codes.nopunt) rows[0].push({ t: 'PUNT [P]', n: 'punt' });
     if (!blitz.pat2) {
       const dist = blzFGDist();
-      items.push({ t: 'FIELD GOAL ' + dist + (blitz.codes.fgpct ? ' (' + Math.round(blzFGOdds(dist) * 100) + '%)' : '') + ' [G]', n: 'fg' });
+      rows[0].push({ t: 'FIELD GOAL ' + dist + (blitz.codes.fgpct ? ' (' + Math.round(blzFGOdds(dist) * 100) + '%)' : '') + ' [G]', n: 'fg' });
+      rows[1].push({ t: 'FAKE PUNT [U]', n: 'fakepunt' }, { t: 'FAKE FIELD GOAL [H]', n: 'fakefg' });
     }
-    const iw = (gw - (items.length - 1) * 4) / items.length;
-    items.forEach((it, i) => {
-      const x = x0 + i * (iw + 4);
-      g.fillStyle = 'rgba(8,10,24,0.9)'; g.fillRect(x, ey, iw, 18);
-      g.strokeStyle = '#7a5a20'; g.lineWidth = 1; g.strokeRect(x + 0.5, ey + 0.5, iw - 1, 17);
-      blzText(g, it.t, x + iw / 2, ey + 10, 10, it.n === 'flip' && blitz.flip ? '#ffd23a' : '#ffffff', 'center');
-      blitz.hit.extra.push({ x, y: ey, w: iw, h: 18, n: it.n });
-    });
+    for (const items of rows) {
+      if (!items.length) continue;
+      const iw = (gw - (items.length - 1) * 6) / items.length;
+      items.forEach((it, i) => {
+        const x = x0 + i * (iw + 6);
+        blzChrome(g, x, ey, iw, 18, 0, it.n.startsWith('fake') ? 'rgba(70,16,10,0.88)' : 'rgba(6,12,30,0.88)');
+        blzText(g, it.t, x + iw / 2, ey + 10, 10, it.n === 'flip' && blitz.flip ? '#ffe23a' : '#ffffff', 'center');
+        blitz.hit.extra.push({ x, y: ey, w: iw, h: 18, n: it.n });
+      });
+      ey += 22;
+    }
   }
-  blzTextC(g, '1-9 / ARROWS + PASS · ' + blzOrd(blitz.down) + ' & ' + (blitz.firstAt === blzGoal(blitz.poss) ? 'GOAL' : Math.max(1, Math.round(Math.abs(blitz.firstAt - blitz.los)))) + ' · ' + blzYardTxt(blitz.los, blitz.poss), W / 2, ey + (off ? 30 : 8), 9, '#bfc6ff');
+  blzTextC(g, '1-9 / ARROWS + PASS · ' + blzOrd(blitz.down) + ' & ' + (blitz.firstAt === blzGoal(blitz.poss) ? 'GOAL' : Math.max(1, Math.round(Math.abs(blitz.firstAt - blitz.los)))) + ' · ' + blzYardTxt(blitz.los, blitz.poss), W / 2, ey + 8, 9, '#c8dcff');
 }
 
 // a little chalkboard: the play's routes from its own data
@@ -3282,6 +4297,8 @@ function blzCallKey(code) {
     if (code === 'KeyF') { blitz.flip = !blitz.flip; blzSfx('select'); return true; }
     if (code === 'KeyP') { blzChoose('punt'); return true; }
     if (code === 'KeyG') { blzChoose('fg'); return true; }
+    if (code === 'KeyU') { blzChoose('fakepunt'); return true; }
+    if (code === 'KeyH') { blzChoose('fakefg'); return true; }
   }
   const s = blitz.callSel;
   if (code === 'ArrowLeft' || code === 'KeyA') { blitz.callSel = (s + 8) % 9; blzSfx('select'); return true; }
@@ -3296,7 +4313,7 @@ window.addEventListener('keydown', (e) => {
   if (e.target && e.target.tagName === 'INPUT') return;
   if (blitz.phase === 'tier' || blzMenuOpen()) return;
   blzAudio();
-  const claimed = /^(Key[WASDJKLMQRFPGV]|Arrow(Up|Down|Left|Right)|Space|Enter|ShiftLeft|ShiftRight|Escape|Digit[1-9]|Numpad[1-9])$/.test(e.code);
+  const claimed = /^(Key[WASDJKLMQRFPGVUH]|Arrow(Up|Down|Left|Right)|Space|Enter|ShiftLeft|ShiftRight|Escape|Digit[1-9]|Numpad[1-9])$/.test(e.code);
   if (claimed) e.preventDefault();
   if (e.code === 'Escape') { if (!e.repeat && blitz.phase !== 'final' && blitz.phase !== 'vs' && blitz.phase !== 'teams') blitz.paused = !blitz.paused; return; }
   if (e.code === 'KeyM' && !e.repeat) {

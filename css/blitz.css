@@ -23,3 +23,6 @@ body.blitz-mode #blitzWorld { display: block; }
   touch-action: none;
   cursor: crosshair;
 }
+
+/* the polygon world sits under the 2D overlay (HUD, menus, labels) and never takes input */
+#blitzWorld canvas.blz-gl { pointer-events: none; }

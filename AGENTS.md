@@ -2180,4 +2180,47 @@ lines), `css/blitz.css`, the outer pair of uprights on the east island.
   GODS, each with an `alt` if you picked the opponent. The three ladder
   rosters carry the tuned stat lines of the old Demons/Havoc/Furies, so the
   balance ledger above still holds. `blitzDebug.pickTier` auto-picks the NUGS.
+- **🎮 THE POLYGON PASS (same night, Chris on max effort: "make the graphics
+  look much more true to my N64 screen shots").** The canvas fakery had hit its
+  ceiling; the cart's look is polygons. The world is **WebGL now** (`blzGLInit`
+  … `blzGLRender`, one tiny Gouraud shader, no libraries) on a canvas UNDER the
+  2D one; the 2D canvas (now 2× res for crisp HUD text) is cleared each frame
+  and draws only the HUD, menus, sparks, the "1" arrow + name and the chevron.
+  **`blzGLMatrix` is `blzProj` written as a matrix** — if you change one,
+  change the other, or every label floats off its player. No WebGL (or
+  `blitz.noGL = true` before the canvases exist) → `blitz.gl` stays null and
+  the canvas renderer draws the world exactly as before.
+  - Players are **rigid N64-style parts** placed by bones from `blzPose`
+    (torso + pads + pelvis in the spine frame, neck→helmet+cage, sleeves,
+    breaded forearms, striped thighs, socks, cleats), ~16 draws each, sorted by
+    mesh. Jersey numbers are a 1024×512 atlas, one cell per player (team×16 +
+    position index), mapped front AND back the right way round. Helmets are a
+    per-team equirect texture (stripe on the u = 0/½ meridians, logos at ¼/¾, a
+    breaded face in the opening). `BLZ_BS` 1.4.
+  - The stadium is static geometry per matchup (`blzGLScene`): the field is
+    `blzPaintField(14)` resampled to 1024×2048 (mipmapped + anisotropic), the
+    raked lower deck / suite band / upper deck / fascia + light rigs on all four
+    sides with corner wedges, the ad wall, goalposts, pylons, and the orange
+    down markers with their numbers. Rebuilt when the teams or NIGHT GAME change.
+  - **The camera yaws now** (`cam.yaw/h/pitch/back` are live; `blzCamTrig`).
+    In GL mode a returner running at the lens gets a real swing instead of the
+    white wipe, and kickoffs use the cart's high side shot (`BLZ_KICKCAM`).
+- **Mechanics that came with it:** the QB is **under center** (`BLZ_FORM.QB`
+  −1.35) and takes a 0.6s snap-and-drop before the stick has him (holding UP
+  at the snap used to run him through his own center and lose the pass);
+  QBs look at their target and zone defenders square up to the QB while
+  backpedaling (legs run backwards); **onside kicks** (your kicker waits:
+  PASS deep, TURBO+PASS onside; the CPU goes onside late and behind); **FAKE
+  PUNT [U] / FAKE FG [H]** on the 4th-down row (the CPU fakes too, behind the
+  same PUNT banner); **diving catches** (AI lays out; TURBO+JUMP for yours —
+  a carrier on the turf is down there); **monster hits launch** the carrier
+  into a flip (`air`/`flipA`), tackles drop him on his back or face by the
+  hit's direction, nearby defenders **pile on**, everyone gets up properly;
+  after the whistle PASS **shoves** and JUMP is the **ELBOW DROP**; the clock
+  reads the cart's 2:00 a quarter (`blzClockTxt` scales BLZ_QLEN). DL shed
+  1.62s now (under center made the pocket collapse early). Ledger (AI v AI):
+  identical rosters 23–20, PRO 17–17, ALL-BLITZ 17–26; a standing QB that
+  throws at 1.6s completes ~60%, sacked ~20%.
+- **Cache-bust `?v=` on the blitz.js/css tags in index.html on every change**
+  — Pages serves max-age=600 and Chris tested a stale build twice.
 
