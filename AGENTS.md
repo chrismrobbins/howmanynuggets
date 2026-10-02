@@ -2151,3 +2151,33 @@ lines), `css/blitz.css`, the outer pair of uprights on the east island.
   scores. A won ALL-BLITZ game pays ≈ 1–1.5k × perFlyer (the win alone is ~450; worker cap 60e6).
 - Globals are all `blz*` / `BLZ_*` / `blitz*`. `blitz` is a top-level const
   (not on `window`, see THE DOORMAN) — bare identifiers in `page.evaluate`.
+- **🎨 THE CART LOOK (same night, Chris: "make the graphics much more like
+  this", with two N64 frames).** Four changes, all in js/blitz.js:
+  (1) **textures, not fills** — the field is one canvas (`blzBuildField`,
+  world yards × `BLZ_TEX.ppy` 8, grained per pixel, with the lines, hashes,
+  big sideways numbers + arrows, end zones and the midfield NFN shield
+  painted in) laid on the ground by `blzTri` affine triangles; rows are
+  marched out from the lens (`blzDrawField`, thin near so lines stay
+  straight). The crowd (`blzBuildCrowd`) and ad boards (`blzBuildAds`) are
+  tiled textures on raked stands with a blue upper-deck facade; orange
+  sideline markers every 10. ~0.5ms a frame, 59fps headless.
+  (2) **skeleton players** (`blzPose` → `blzDrawPlayer`): joints in the
+  player's frame (run cycle, stance, throw, carry, block, stiff-arm, jump,
+  celebrate; dives/downs pitch the figure about the hips), projected, drawn
+  as outlined round-capped limbs + a jersey trapezoid with the number + a
+  helmet (face/cage at us, profile with logo, letter on the back), depth
+  sorted per player. `BLZ_BS` 1.3 draws them big like the cart; physics is
+  untouched. (3) **camera** h 14 / back 13 / pitch 0.64, focal 0.92H, the
+  focus one yard past the ball. (4) **HUD** in the cart's chrome
+  (`blzChrome`): clock/quarter + teams top left, the TURBO parallelogram
+  (the bar IS the meter), down & distance bottom right, the blue "1" arrow +
+  ring + yellow "NUM - NAME" on your man.
+- **Teams** are eight side dishes now (`BLZ_TEAMS`, `BLZ_TEAM_ORDER`): THE
+  NUGS (the old CRUNCH line), FRY GODS, TATER TOTS, RANCH HANDS, SAUCE
+  BOSSES, ONION RINGERS, HONEY MUSTARDS, CURLY FRIES. A TEAM SELECT screen
+  (phase `teams`, remembered in localStorage `nugBlitzTeam`) comes before the
+  VS screen; the ladder is ROOKIE vs TOTS / PRO vs BOSSES / ALL-BLITZ vs FRY
+  GODS, each with an `alt` if you picked the opponent. The three ladder
+  rosters carry the tuned stat lines of the old Demons/Havoc/Furies, so the
+  balance ledger above still holds. `blitzDebug.pickTier` auto-picks the NUGS.
+

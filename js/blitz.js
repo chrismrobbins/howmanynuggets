@@ -35,23 +35,46 @@ const blitzWorld = document.getElementById('blitzWorld');
 const BLZ_WID = 53.3, BLZ_MID = BLZ_WID / 2, BLZ_LEN = 120; // yards; end zones 0..10 and 110..120
 const BLZ_FIRST = 30;                // the Blitz first down
 const BLZ_QLEN = 75;                 // seconds of LIVE play per quarter (the clock stops between plays)
-const BLZ_CAM = { h: 13, back: 17, pitch: 0.5 };
+const BLZ_CAM = { h: 14, back: 13, pitch: 0.64 }; // high and steep, like the cart
 const BLZ_RES = 384;                 // internal canvas height: low-res, smoothed up (the N64 smear)
 const BLZ_OFF_POS = ['QB', 'C', 'LG', 'RG', 'WR1', 'WR2', 'RB'];
 const BLZ_DEF_POS = ['DE1', 'DT', 'DE2', 'LB', 'CB1', 'CB2', 'S'];
 const BLZ_ELIG = { WR1: 1, WR2: 1, RB: 1 };
 
 // ---- teams ------------------------------------------------------------------------------
+// The Nugget Football Nation: eight franchises, every one of them a side dish.
+// You pick yours on the TEAM SELECT screen; the ladder picks who you play
+// (`opp`, or `alt` if you picked them). Stat lines were tuned headless: the
+// NUGS are the old CRUNCH line, the TOTS/BOSSES/GODS are the three ladder
+// rungs, and the other four are pickable flavours of roughly NUGS strength.
+// helm/stripe/mask = helmet; c1 jersey, c2 trim; pants, sock; logo = helmet letter.
 const BLZ_TEAMS = {
-  crunch: { city: 'NUGGETOWN', name: 'CRUNCH', abbr: 'NUG',
-    c1: '#d6352a', c2: '#ffd23a', helm: '#d6352a', stripe: '#ffd23a', mask: '#e8e8ee', pants: '#ffd23a', num: '#ffffff', ez: '#9a2018' },
-  demons: { city: 'DRIVE-THRU', name: 'DEMONS', abbr: 'DTD',
-    c1: '#2b34a8', c2: '#ff4a3a', helm: '#1d2276', stripe: '#ff4a3a', mask: '#c8ccd8', pants: '#c8ccd8', num: '#ffffff', ez: '#1a2070' },
-  havoc: { city: 'HOT SAUCE', name: 'HAVOC', abbr: 'HSH',
-    c1: '#ff6a00', c2: '#1a1a1a', helm: '#1c1c1c', stripe: '#ff6a00', mask: '#ff6a00', pants: '#1c1c1c', num: '#1a1a1a', ez: '#a83c00' },
-  furies: { city: 'DEEP FRYER', name: 'FURIES', abbr: 'DFF',
-    c1: '#40125a', c2: '#39ff7a', helm: '#2a0a38', stripe: '#39ff7a', mask: '#39ff7a', pants: '#141414', num: '#39ff7a', ez: '#2c0c3e' },
+  nugs: { city: 'NUGGETOWN', name: 'NUGS', full: 'THE NUGS', abbr: 'NUG', logo: 'N',
+    c1: '#c8321f', c2: '#ffd23a', helm: '#c8321f', stripe: '#ffd23a', mask: '#e8e8ee', pants: '#ffd23a', sock: '#c8321f', num: '#ffffff', ez: '#8e1f16',
+    blurb: 'THE HOME TEAM. GOLDEN BROWN.' },
+  frygods: { city: 'MOUNT FRYMPUS', name: 'FRY GODS', full: 'THE FRY GODS', abbr: 'FRY', logo: 'F',
+    c1: '#f2f0e8', c2: '#e8b020', helm: '#e8b020', stripe: '#ffffff', mask: '#7a5a10', pants: '#e8b020', sock: '#f2f0e8', num: '#c8321f', ez: '#a8780e',
+    blurb: 'IMMORTAL. SALTED. UNDEFEATED.' },
+  tots: { city: 'SPUD VALLEY', name: 'TATER TOTS', full: 'THE TATER TOTS', abbr: 'TOT', logo: 'T',
+    c1: '#7a4a1e', c2: '#ff9a2a', helm: '#ff9a2a', stripe: '#7a4a1e', mask: '#3a2410', pants: '#e8d8b8', sock: '#7a4a1e', num: '#ff9a2a', ez: '#5a3410',
+    blurb: 'SMALL. CRISPY. EVERYWHERE.' },
+  ranch: { city: 'DIP CITY', name: 'RANCH HANDS', full: 'THE RANCH HANDS', abbr: 'DIP', logo: 'R',
+    c1: '#eef2e6', c2: '#3aa04a', helm: '#eef2e6', stripe: '#3aa04a', mask: '#3aa04a', pants: '#3aa04a', sock: '#eef2e6', num: '#2a7a36', ez: '#2a7a36',
+    blurb: 'COOL, CREAMY, AND MEAN.' },
+  bosses: { city: 'THE BBQ PIT', name: 'SAUCE BOSSES', full: 'THE SAUCE BOSSES', abbr: 'BBQ', logo: 'S',
+    c1: '#6a1420', c2: '#ff8a1e', helm: '#1c1c1c', stripe: '#ff8a1e', mask: '#ff8a1e', pants: '#1c1c1c', sock: '#6a1420', num: '#ff8a1e', ez: '#4a0e16',
+    blurb: 'SLOW SMOKED. FAST HITTING.' },
+  rings: { city: 'LAYERTOWN', name: 'ONION RINGERS', full: 'THE ONION RINGERS', abbr: 'ONI', logo: 'O',
+    c1: '#5a2a8a', c2: '#ffd23a', helm: '#5a2a8a', stripe: '#ffd23a', mask: '#ffd23a', pants: '#f2ecdc', sock: '#5a2a8a', num: '#ffd23a', ez: '#3e1a62',
+    blurb: 'THEY WILL MAKE YOU CRY.' },
+  mustard: { city: 'STING CITY', name: 'HONEY MUSTARDS', full: 'THE HONEY MUSTARDS', abbr: 'HNY', logo: 'H',
+    c1: '#ffd23a', c2: '#1c1c1c', helm: '#1c1c1c', stripe: '#ffd23a', mask: '#ffd23a', pants: '#1c1c1c', sock: '#ffd23a', num: '#1c1c1c', ez: '#b8901a',
+    blurb: 'SWEET ON THE FIELD. SPICY AFTER.' },
+  curly: { city: 'SPIRAL CITY', name: 'CURLY FRIES', full: 'THE CURLY FRIES', abbr: 'CRL', logo: 'C',
+    c1: '#14807e', c2: '#ff7a2a', helm: '#14807e', stripe: '#ff7a2a', mask: '#e8e8ee', pants: '#f2ecdc', sock: '#ff7a2a', num: '#ffffff', ez: '#0e5a58',
+    blurb: 'NOBODY KNOWS WHICH WAY THEY RUN.' },
 };
+const BLZ_TEAM_ORDER = ['nugs', 'frygods', 'tots', 'ranch', 'bosses', 'rings', 'mustard', 'curly'];
 // [speed yd/s, strength, hands]
 const BLZ_BASE = {
   QB: [7.0, 0.7, 0.5], C: [6.3, 1.15, 0.2], LG: [6.3, 1.15, 0.2], RG: [6.3, 1.15, 0.2],
@@ -61,7 +84,7 @@ const BLZ_BASE = {
 };
 // pos → [name, number, speed?, strength?, hands?]
 const BLZ_ROSTER = {
-  crunch: {
+  nugs: {
     QB: ['BRETT FRYVRE', 4, 7.3], RB: ['BARRY SAUCEDERS', 20, 9.1, 1.15, 0.8],
     WR1: ['RANDY MOSS-TARD', 84, 9.3, null, 0.93], WR2: ['TIM BROWN-GRAVY', 81, 9.0, null, 0.88],
     C: ['BISCUIT', 60], LG: ['DRUMSTICK', 62], RG: ['WISHBONE', 63],
@@ -69,23 +92,47 @@ const BLZ_ROSTER = {
     LB: ['THE SHREDDER', 55, 8.4, 1.15], CB1: ['PRIME TIME POPCORN', 21, 9.2, null, 0.72], CB2: ['NIGHT TRAIN', 24, 8.9],
     S: ['THE HIT MAN', 36, 8.7, 1.1, 0.65],
   },
-  demons: {
-    QB: ['HOLD THE PICKLE', 9], RB: ['SPECIAL SAUCE', 32], WR1: ['SUPERSIZE', 80], WR2: ['NUMBER SIX', 86],
-    C: ['THE SPEAKER', 61], LG: ['WINDOW ONE', 64], RG: ['WINDOW TWO', 65],
-    DE1: ['UPSELL', 91], DT: ['THE FRYER BASKET', 97], DE2: ['RECEIPT', 94],
-    LB: ['NIGHT MANAGER', 52], CB1: ['NAPKINS', 23], CB2: ['STRAWS', 27], S: ['THE KETCHUP PUMP', 31],
+  frygods: {
+    QB: ['ZEUS', 1, 7.6, 0.8], RB: ['HERMES', 22, 9.3, 1.25, 0.82], WR1: ['APOLLO CRINKLE', 83, 9.5, null, 0.92], WR2: ['ARTEMIS', 87, 9.2, null, 0.9],
+    C: ['ATLAS', 70], LG: ['THE COLOSSUS', 71], RG: ['TITAN', 72],
+    DE1: ['ARES', 90, 8.1, 1.25], DT: ['HEPHAESTUS', 96, null, 1.45], DE2: ['POSEIDON', 91, 8.0, 1.2],
+    LB: ['HADES', 50, 8.5, 1.2], CB1: ['ATHENA', 20, 9.4, null, 0.75], CB2: ['NIKE', 26, 9.1], S: ['THE KRAKEN', 33, 8.9, 1.1, 0.7],
   },
-  havoc: {
-    QB: ['SCOVILLE', 7, 7.4], RB: ['GHOST PEPPER', 28, 9.0, 1.15, 0.8], WR1: ['HABANERO', 82, 9.3, null, 0.91], WR2: ['CAYENNE', 88, 9.0, null, 0.88],
-    C: ['VINEGAR', 66], LG: ['GARLIC', 67], RG: ['THE BOTTLE', 68],
-    DE1: ['RED HOT', 95, 7.9, 1.2], DT: ['THE VAT', 98, null, 1.38], DE2: ['WILD WING', 93, 7.9, 1.15],
-    LB: ['MELTDOWN', 54, 8.4, 1.15], CB1: ['SRIRACHA', 25, 9.1, null, 0.7], CB2: ['TABASCO', 29, 8.9], S: ['THE SWEATS', 37, 8.7, 1.08, 0.65],
+  tots: {
+    QB: ['LIL TOT', 9], RB: ['HASH BROWNIE', 32], WR1: ['SMALL FRY', 80], WR2: ['TINY TIM', 86],
+    C: ['THE BAG', 61], LG: ['FROZEN', 64], RG: ['FAMILY SIZE', 65],
+    DE1: ['THE FREEZER', 91], DT: ['THE BIG TOT', 97], DE2: ['CRISPY', 94],
+    LB: ['TOT-AL CHAOS', 52], CB1: ['NUGLET', 23], CB2: ['BITE SIZE', 27], S: ['THE SPATULA', 31],
   },
-  furies: {
-    QB: ['THE OIL CHANGE', 1, 7.6, 0.8], RB: ['DEEP FRY', 22, 9.3, 1.25, 0.82], WR1: ['SPATTER', 83, 9.5, null, 0.92], WR2: ['SIZZLE', 87, 9.2, null, 0.9],
-    C: ['THE HOOD VENT', 70], LG: ['SMOKE', 71], RG: ['GREASE TRAP', 72],
-    DE1: ['FLASH POINT', 90, 8.1, 1.25], DT: ['THE BASKET DROP', 96, null, 1.45], DE2: ['THIRD DEGREE', 91, 8.0, 1.2],
-    LB: ['THE BURN WARD', 50, 8.5, 1.2], CB1: ['HOT OIL', 20, 9.4, null, 0.75], CB2: ['SPLASH', 26, 9.1], S: ['FIRE DRILL', 33, 8.9, 1.1, 0.7],
+  ranch: {
+    QB: ['HIDDEN VALLEY', 12, 7.2], RB: ['BUTTERMILK', 28, 8.9, 1.2, 0.78], WR1: ['THE DILL', 82, 9.2, null, 0.9], WR2: ['CHIVES', 85, 9.0, null, 0.88],
+    C: ['THE TUB', 66], LG: ['COLD CUP', 67], RG: ['DIP STICK', 68],
+    DE1: ['DOUBLE DIP', 95, 7.9, 1.2], DT: ['THE GALLON', 98, null, 1.35], DE2: ['DRESSING', 93, 7.9, 1.15],
+    LB: ['COOL HAND', 54, 8.4, 1.15], CB1: ['WING DING', 25, 9.1, null, 0.72], CB2: ['CELERY', 29, 8.8], S: ['THE LADLE', 37, 8.7, 1.05, 0.65],
+  },
+  bosses: {
+    QB: ['THE PITMASTER', 7, 7.4], RB: ['BRISKET', 28, 9.0, 1.15, 0.8], WR1: ['SMOKE RING', 82, 9.3, null, 0.91], WR2: ['DRY RUB', 88, 9.0, null, 0.88],
+    C: ['THE SMOKER', 66], LG: ['HICKORY', 67], RG: ['MESQUITE', 68],
+    DE1: ['BURNT ENDS', 95, 7.9, 1.2], DT: ['THE WHOLE HOG', 98, null, 1.38], DE2: ['RIB TIPS', 93, 7.9, 1.15],
+    LB: ['PULLED PORK', 54, 8.4, 1.15], CB1: ['MOLASSES', 25, 9.1, null, 0.7], CB2: ['VINEGAR', 29, 8.9], S: ['THE MOP', 37, 8.7, 1.08, 0.65],
+  },
+  rings: {
+    QB: ['VIDALIA', 3, 7.3], RB: ['THE BLOOMIN\'', 30, 9.2, 1.1, 0.78], WR1: ['SHALLOT', 80, 9.3, null, 0.9], WR2: ['SCALLION', 81, 9.1, null, 0.86],
+    C: ['THE PEEL', 62], LG: ['LAYER CAKE', 63], RG: ['RED ONION', 64],
+    DE1: ['THE TEARJERKER', 92, 7.9, 1.2], DT: ['BEER BATTER', 97, null, 1.35], DE2: ['SWEET ONION', 94, 7.8, 1.15],
+    LB: ['THE CRYING GAME', 51, 8.4, 1.12], CB1: ['RINGLEADER', 22, 9.1, null, 0.72], CB2: ['HULA HOOP', 27, 8.9], S: ['O-RING', 38, 8.6, 1.08, 0.65],
+  },
+  mustard: {
+    QB: ['DIJON', 10, 7.4], RB: ['THE STINGER', 34, 9.1, 1.15, 0.8], WR1: ['QUEEN BEE', 88, 9.2, null, 0.92], WR2: ['YELLOW JACKET', 83, 9.0, null, 0.88],
+    C: ['THE HIVE', 65], LG: ['COMB', 66], RG: ['BEESWAX', 67],
+    DE1: ['DRONE', 96, 7.9, 1.2], DT: ['THE SQUEEZE BOTTLE', 99, null, 1.38], DE2: ['WORKER BEE', 91, 7.9, 1.15],
+    LB: ['THE POLLINATOR', 53, 8.4, 1.15], CB1: ['GRAINY', 24, 9.1, null, 0.72], CB2: ['SPICY BROWN', 21, 8.9], S: ['HONEYCOMB', 35, 8.7, 1.08, 0.65],
+  },
+  curly: {
+    QB: ['THE CORKSCREW', 8, 7.4], RB: ['SPIRALIZER', 26, 9.3, 1.05, 0.8], WR1: ['LOOP DE LOOP', 89, 9.5, null, 0.9], WR2: ['THE SLINKY', 84, 9.2, null, 0.88],
+    C: ['THE COIL', 60], LG: ['SPRING', 61], RG: ['HELIX', 62],
+    DE1: ['TWISTER', 93, 8.0, 1.15], DT: ['THE PRETZEL', 95, null, 1.3], DE2: ['TORNADO', 90, 8.0, 1.1],
+    LB: ['WHIRLPOOL', 56, 8.5, 1.1], CB1: ['ZIG ZAG', 20, 9.3, null, 0.72], CB2: ['SQUIGGLE', 23, 9.0], S: ['THE SPINNER', 39, 8.8, 1.05, 0.65],
   },
 };
 
@@ -130,12 +177,12 @@ const BLZ_DEF_PLAYS = [
 
 // the ladder (ArcadeKit.tierSelect)
 const BLZ_TIERS = [
-  { key: 'rookie', emoji: '🍟', name: 'ROOKIE', mult: 1, opp: 'demons', spd: 0.97, str: 0.95, smart: 0.6, hands: 0.95,
-    blurb: 'vs the DRIVE-THRU DEMONS. they forgot your sauce.' },
-  { key: 'pro', emoji: '🌶️', name: 'PRO', mult: 2, opp: 'havoc', spd: 1.0, str: 1.0, smart: 0.85, hands: 1.0,
-    blurb: 'vs the HOT SAUCE HAVOC. it burns twice.' },
-  { key: 'allpro', emoji: '🔥', name: 'ALL-BLITZ', mult: 3, opp: 'furies', spd: 1.015, str: 1.04, smart: 1, hands: 1.05,
-    blurb: 'vs the DEEP FRYER FURIES. 375 degrees. no refs.', lockNote: 'win a PRO game' },
+  { key: 'rookie', emoji: '🍟', name: 'ROOKIE', mult: 1, opp: 'tots', alt: 'curly', spd: 0.97, str: 0.95, smart: 0.6, hands: 0.95,
+    blurb: 'vs the TATER TOTS. they\'re very small.' },
+  { key: 'pro', emoji: '🌶️', name: 'PRO', mult: 2, opp: 'bosses', alt: 'rings', spd: 1.0, str: 1.0, smart: 0.85, hands: 1.0,
+    blurb: 'vs the SAUCE BOSSES. slow smoked, fast hitting.' },
+  { key: 'allpro', emoji: '🔥', name: 'ALL-BLITZ', mult: 3, opp: 'frygods', alt: 'mustard', spd: 1.015, str: 1.04, smart: 1, hands: 1.05,
+    blurb: 'vs the FRY GODS on MOUNT FRYMPUS. no refs. no mortals.', lockNote: 'win a PRO game' },
 ];
 
 // the VS-screen codes: [turbo, jump, pass] taps, then a direction
@@ -156,7 +203,7 @@ const BLZ_CODES = [
 const blitz = {
   on: false, cv: null, g: null, W: 640, H: BLZ_RES, F: 420, cy: 180, ui: 1,
   phase: 'idle', cfg: BLZ_TIERS[0], tierPick: null, t: 0, paused: false, freeze: false, auto: false,
-  teams: ['crunch', 'demons'], score: [0, 0], q: 1, clock: BLZ_QLEN, ot: false, openKicker: 0,
+  teams: ['nugs', 'tots'], teamSel: 0, score: [0, 0], q: 1, clock: BLZ_QLEN, ot: false, openKicker: 0,
   poss: 0, los: 30, ballX: BLZ_MID, firstAt: 60, down: 1, pat2: false,
   players: [], carrier: null, ctl: null, target: null, ball: null, returner: null,
   play: null, dplay: null, flip: false, kind: 'call', pocket: false, thrown: false, playT: 0,
@@ -216,9 +263,9 @@ function blitzLayout() {
   blitz.W = Math.max(240, Math.min(1000, Math.round(vw * BLZ_RES / vh)));
   if (blitz.cv) { blitz.cv.width = blitz.W; blitz.cv.height = blitz.H; }
   // a portrait phone keeps the wideouts in frame by shortening the lens
-  blitz.F = Math.min(blitz.H * 0.88, blitz.W * 0.8);
-  blitz.cy = blitz.H * 0.42;
-  blitz.ui = blitz.W < 420 ? 0.8 : 1;
+  blitz.F = Math.min(blitz.H * 0.92, blitz.W * 0.82);
+  blitz.cy = blitz.H * 0.38;
+  blitz.ui = blzClamp(blitz.W / 400, 0.5, 1);
   blitz.crowdCv = null;
 }
 
@@ -382,9 +429,37 @@ function blzMake(team, pos) {
   };
 }
 
-function blzNewGame(tier) {
+// TEAM SELECT first (unless it's a rematch), then the VS screen.
+function blzMyTeam() {
+  try { const k = localStorage.getItem('nugBlitzTeam'); if (BLZ_TEAMS[k]) return k; } catch (e) { }
+  return 'nugs';
+}
+function blzNewGame(tier, rematch) {
   blitz.cfg = tier;
-  blitz.teams = ['crunch', tier.opp];
+  blitz.players = []; blitz.stats = null;
+  blzAudio(); blzCrowdStart();
+  if (rematch) { blzBeginMatchup(blitz.teams[0]); return; }
+  blitz.phase = 'teams'; blitz.vsT = 0;
+  blitz.teamSel = Math.max(0, BLZ_TEAM_ORDER.indexOf(blzMyTeam()));
+}
+function blzTeamMove(d) {
+  if (blitz.phase !== 'teams') return;
+  const n = BLZ_TEAM_ORDER.length;
+  blitz.teamSel = (blitz.teamSel + d + n) % n;
+  blzSfx('select');
+}
+function blzTeamPick(i) {
+  if (blitz.phase !== 'teams') return;
+  if (i != null) blitz.teamSel = i;
+  const k = BLZ_TEAM_ORDER[blitz.teamSel];
+  try { localStorage.setItem('nugBlitzTeam', k); } catch (e) { }
+  blzSfx('pick');
+  blzSay(BLZ_TEAMS[k].full.toLowerCase());
+  blzBeginMatchup(k);
+}
+function blzBeginMatchup(mine) {
+  const tier = blitz.cfg;
+  blitz.teams = [mine, tier.opp === mine ? tier.alt : tier.opp];
   blitz.score = [0, 0]; blitz.q = 1; blitz.clock = BLZ_QLEN; blitz.ot = false;
   blitz.stats = { yds: 0, tds: 0, sacks: 0, ints: 0, hits: 0, late: 0, fires: 0, plays: 0, long: 0, log: [], ev: {} };
   blitz.earned = 0; blitz.feed = []; blitz.parts = []; blitz.result = null;
@@ -393,7 +468,6 @@ function blzNewGame(tier) {
   blitz.turbo = [1, 1];
   blitz.codes = {}; blitz.codeIn = [0, 0, 0]; blitz.codeMsg = null;
   blitz.players = [];
-  blzAudio(); blzCrowdStart();
   blitz.phase = 'vs'; blitz.vsT = 0;
 }
 
@@ -611,7 +685,7 @@ function blzLineUp(play, dplay, flip) {
   OL.forEach((o, i) => { o.man = rushers[Math.min(i, rushers.length - 1)] || null; });
   blitz.ball = { st: 'held', x: bx, z: los, y: 0.3, kind: '' };
   blitz.carrier = null;
-  blzCamSnap(d, bx, los + d * 3);
+  blzCamSnap(d, bx, los + d * 1);
   // who you drive: QB (pass) or the back (run); on defense, the linebacker
   if (blzHuman(off)) blitz.ctl = play.kind === 'run' ? offP('RB') : offP('QB');
   else if (blzHuman(def)) blitz.ctl = blzByPos(def, 'LB');
@@ -709,7 +783,8 @@ function blzStickWorld() {
 function blzPressPass() {
   const ph = blitz.phase;
   if (ph === 'vs') { blzCodeTap(2); return; }
-  if (ph === 'final') { if (blitz.finalT > 1) blzNewGame(blitz.cfg); return; }
+  if (ph === 'teams') { blzTeamPick(); return; }
+  if (ph === 'final') { if (blitz.finalT > 1) blzNewGame(blitz.cfg, true); return; }
   if (ph === 'call') { blzChoose(blitz.callSel); return; }
   if (ph === 'pat') { blzPatChoose(blitz.callSel === 1 ? 2 : 1); return; }
   const off = blitz.poss;
@@ -1867,6 +1942,7 @@ function blitzUpdate(dt) {
   blitz.feed = blitz.feed.filter((f) => f.t > 0);
   blzParts(dt);
   const ph = blitz.phase;
+  if (ph === 'teams') { blitz.vsT += dt; return; }
   if (ph === 'vs') { blitz.vsT += dt; if (blitz.codeMsg) { blitz.codeMsg.t -= dt; if (blitz.codeMsg.t <= 0) blitz.codeMsg = null; } return; }
   if (ph === 'final') { blitz.finalT += dt; blzSim(dt); return; }
   if (ph === 'call' || ph === 'pat') {
@@ -1996,8 +2072,8 @@ function blzCamSnap(dir, fx, fz) {
 function blzCam(dt) {
   const c = blitz.cam, B = blitz.ball, C = blitz.carrier, ph = blitz.phase;
   let fx = BLZ_MID, fz = blitz.los;
-  if (ph === 'call' || ph === 'pre' || ph === 'pat') { fx = blitz.ballX; fz = blitz.los + c.dir * 3; }
-  else if (C) { fx = C.x; fz = C.z + c.dir * 2; }
+  if (ph === 'call' || ph === 'pre' || ph === 'pat') { fx = blitz.ballX; fz = blitz.los + c.dir * 1; }
+  else if (C) { fx = C.x; fz = C.z + c.dir * 1; }
   else if (B) {
     fx = B.x; fz = B.z;
     if (B.st === 'air' && (B.kind === 'kick' || B.kind === 'punt')) fz = B.z + (B.tz - B.z) * 0.35;
@@ -2069,7 +2145,7 @@ function blzFinal() {
     if (blitz.cfg.key === 'allpro') { try { localStorage.setItem('nugBlitzChamp', '1'); } catch (e) { } }
     blzRoar(1, 3); blzSfx('td');
     for (const p of blitz.players) if (p.team === 0) p.celebT = 6;
-    blzSay('what a game! the crunch win it!', true);
+    blzSay('what a game! ' + blzTeam(0).full.toLowerCase() + ' win it!', true);
   } else if (tie) { blzEarn(40, 'TIE'); blzSay('a tie. nobody is happy.', true); }
   else { blzSfx('bad'); blzSay('the ' + blzTeam(1).name.toLowerCase() + ' win it.', true); }
   try { ArcadeKit.saveBest('blitz', blitz.cfg.key, blitz.earned); } catch (e) { }
@@ -2162,6 +2238,7 @@ function blzDraw() {
   const ph = blitz.phase;
   if (ph === 'tier' || ph === 'idle') { blzDrawIdle(g, W, H); return; }
   if (ph === 'vs') { blzDrawVS(g, W, H); return; }
+  if (ph === 'teams') { blzDrawTeams(g, W, H); return; }
   let sx = 0, sy = 0;
   if (blitz.shakeT > 0) { sx = (Math.random() - 0.5) * blitz.shakeMag; sy = (Math.random() - 0.5) * blitz.shakeMag; }
   g.setTransform(1, 0, 0, 1, sx, sy);
@@ -2202,49 +2279,308 @@ function blzDrawIdle(g, W, H) {
   blzTextC(g, 'NUGGET BLITZ', W / 2, H * 0.3, 40, '#ffd23a');
 }
 
+// ---- textures ---------------------------------------------------------------------------------
+// The N64 look is TEXTURE: grainy turf with the lines and the big sideways
+// numbers painted into it, a crowd that's a wall of noisy pixels, ad boards.
+// So the field is ONE canvas (world yards × BLZ_TEX.ppy), built once per
+// matchup, and drawn onto the ground in perspective as a grid of affine
+// triangles (blzTri) — thin rows near the lens so the lines stay straight.
+const BLZ_TEX = { ppy: 8, x0: -12, z0: -12, w: BLZ_WID + 24, l: BLZ_LEN + 24 };
+const BLZ_ADS = [
+  ['HOWMANYNUGGETS.COM', '#ffd23a', '#7a1010'], ['NUGGET BLITZ', '#d6352a', '#ffffff'], ['DRINK SAUCE', '#102a5a', '#26e0ff'],
+  ['GREASE GARAGE', '#1a1a22', '#ff8a1e'], ['NOODLE NUG', '#5a1010', '#ffd23a'], ['DIP HOP NIGHTLY', '#2a0f3a', '#ff2fa0'],
+  ['NO REFS', '#f2f2f2', '#d6352a'], ['FRYER OIL CO.', '#1a3a1a', '#9aff6a'],
+];
+
+function blzCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+// grain: every pixel nudged a little, the way a 64×64 N64 texture looked blown up
+function blzGrain(g, w, h, amt, seed) {
+  const id = g.getImageData(0, 0, w, h), d = id.data;
+  let s = seed || 1;
+  for (let i = 0; i < d.length; i += 4) {
+    s = (s * 16807) % 2147483647;
+    const n = ((s / 2147483647) - 0.5) * amt;
+    d[i] += n; d[i + 1] += n * 1.15; d[i + 2] += n * 0.6;
+  }
+  g.putImageData(id, 0, 0);
+}
+
+function blzBuildField() {
+  const key = blitz.teams.join('|') + (blitz.codes.night ? 'n' : '');
+  if (blitz.fieldTex && blitz.fieldKey === key) return blitz.fieldTex;
+  const P = BLZ_TEX.ppy, W = Math.round(BLZ_TEX.w * P), L = Math.round(BLZ_TEX.l * P);
+  const c = blzCanvas(W, L), g = c.getContext('2d');
+  const X = (x) => (x - BLZ_TEX.x0) * P, Z = (z) => (z - BLZ_TEX.z0) * P;
+  const night = !!blitz.codes.night;
+  // the sideline turf, then the field in five-yard bands
+  g.fillStyle = night ? '#1c4420' : '#2c6a2a'; g.fillRect(0, 0, W, L);
+  for (let z = 10; z < 110; z += 5) {
+    g.fillStyle = ((z / 5) | 0) % 2 ? (night ? '#25602a' : '#3a8a34') : (night ? '#2a6a2e' : '#42953b');
+    g.fillRect(X(0), Z(z), BLZ_WID * P, 5 * P);
+  }
+  // end zones: whoever DEFENDS it, team color + diagonal pinstripes + the name
+  const ez = (z0, team, flipY) => {
+    const T = blzTeam(team);
+    g.fillStyle = T.ez; g.fillRect(X(0), Z(z0), BLZ_WID * P, 10 * P);
+    g.save(); g.beginPath(); g.rect(X(0), Z(z0), BLZ_WID * P, 10 * P); g.clip();
+    g.strokeStyle = 'rgba(255,255,255,0.08)'; g.lineWidth = P * 0.8;
+    for (let x = -10; x < BLZ_WID + 10; x += 2.4) { g.beginPath(); g.moveTo(X(x), Z(z0)); g.lineTo(X(x + 10), Z(z0 + 10)); g.stroke(); }
+    g.restore();
+    g.save();
+    g.translate(X(BLZ_MID), Z(z0 + 5));
+    // the end zone at the far end of each camera reads upright for that camera
+    if (flipY) g.scale(1, -1); else g.scale(-1, 1);
+    g.font = '900 italic ' + Math.round(P * 6.5) + 'px Impact, "Arial Black", sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    const tw = g.measureText(T.name).width, maxW = (BLZ_WID - 6) * P;
+    if (tw > maxW) g.scale(maxW / tw, 1);
+    g.lineWidth = P * 0.7; g.strokeStyle = blzMix(T.c2, 0.0); g.strokeText(T.name, 0, 0);
+    g.fillStyle = '#ffffff'; g.fillText(T.name, 0, 0);
+    g.restore();
+  };
+  ez(0, 0, false);
+  ez(110, 1, true);
+  const wl = night ? '#d8deea' : '#f4f4ee';
+  g.fillStyle = wl;
+  // border, goal lines, yard lines
+  g.fillRect(X(-0.6), Z(0), 0.6 * P, 120 * P); g.fillRect(X(BLZ_WID), Z(0), 0.6 * P, 120 * P);
+  g.fillRect(X(-0.6), Z(-0.6), (BLZ_WID + 1.2) * P, 0.6 * P); g.fillRect(X(-0.6), Z(120), (BLZ_WID + 1.2) * P, 0.6 * P);
+  for (let z = 10; z <= 110; z += 5) g.fillRect(X(0), Z(z) - P * (z === 10 || z === 110 ? 0.3 : 0.14), BLZ_WID * P, P * (z === 10 || z === 110 ? 0.6 : 0.28));
+  // hash marks + sideline ticks every yard
+  for (let z = 11; z < 110; z++) {
+    if (z % 5 === 0) continue;
+    for (const hx of [0.4, 23.1, 29.5, BLZ_WID - 1.2]) g.fillRect(X(hx), Z(z) - P * 0.08, 0.8 * P, P * 0.16);
+  }
+  // the big numbers, lying on their sides, tops toward the sideline, + arrows
+  g.font = '900 ' + Math.round(P * 2.6) + 'px Impact, "Arial Black", sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (let z = 20; z <= 100; z += 10) {
+    const n = String(z <= 60 ? z - 10 : 110 - z);
+    for (const side of [-1, 1]) {
+      const x = side < 0 ? 10.5 : BLZ_WID - 10.5;
+      g.save(); g.translate(X(x), Z(z)); g.rotate(side < 0 ? Math.PI / 2 : -Math.PI / 2);
+      g.fillStyle = wl;
+      g.fillText(n[0], -P * 1.25, 0); if (n[1]) g.fillText(n[1], P * 1.25, 0);
+      // arrow toward the nearer goal (the 50 has none)
+      if (z !== 60) {
+        const a = (z < 60 ? -1 : 1) * (side < 0 ? 1 : -1);
+        g.beginPath(); g.moveTo(a * P * 3.4, -P * 0.9); g.lineTo(a * P * 2.7, -P * 1.3); g.lineTo(a * P * 2.7, -P * 0.5); g.fill();
+      }
+      g.restore();
+    }
+  }
+  // midfield: the league shield (a nugget on it, naturally)
+  g.save(); g.translate(X(BLZ_MID), Z(60)); g.scale(1, -1);
+  const s = P * 2.6;
+  const shield = () => { g.beginPath(); g.moveTo(-s, -s * 0.9); g.lineTo(s, -s * 0.9); g.lineTo(s, s * 0.2); g.quadraticCurveTo(s * 0.9, s * 0.9, 0, s * 1.2); g.quadraticCurveTo(-s * 0.9, s * 0.9, -s, s * 0.2); g.closePath(); };
+  g.fillStyle = '#ffffff'; shield(); g.fill();
+  g.lineWidth = P * 0.35; g.strokeStyle = '#1d3a9a'; shield(); g.stroke();
+  g.fillStyle = '#1d3a9a'; g.fillRect(-s, -s * 0.9, s * 2, s * 0.55);
+  for (let i = 0; i < 5; i++) { g.fillStyle = '#ffffff'; g.beginPath(); g.arc(-s * 0.7 + i * s * 0.35, -s * 0.62, P * 0.18, 0, 7); g.fill(); }
+  g.fillStyle = '#d99a3c'; g.beginPath(); g.ellipse(0, s * 0.35, s * 0.55, s * 0.4, 0.2, 0, 7); g.fill();
+  g.font = '900 italic ' + Math.round(P * 1.5) + 'px Impact, sans-serif';
+  g.fillStyle = '#c8321f'; g.fillText('NFN', 0, s * 0.33);
+  g.restore();
+  blzGrain(g, W, L, night ? 16 : 22, 7);
+  blitz.fieldTex = c; blitz.fieldKey = key;
+  return c;
+}
+
+// the crowd: a wall of noisy colored pixels with aisles, and an upper-deck band
+function blzBuildCrowd() {
+  if (blitz.crowdTex && blitz.crowdKey === blitz.teams.join('|')) return blitz.crowdTex;
+  const w = 192, h = 128, c = blzCanvas(w, h), g = c.getContext('2d');
+  const A = blzTeam(0), B = blzTeam(1);
+  const pal = [A.c1, A.c2, B.c1, '#6a2a22', '#8a3a2a', '#a8584a', '#d8c8b8', '#3a2a2a', '#c87a5a', '#e8e0d0', '#4a3a5a'];
+  g.fillStyle = '#3a2a2e'; g.fillRect(0, 0, w, h);
+  for (let y = 0; y < h; y += 2) for (let x = 0; x < w; x += 2) {
+    const r = blzHash(x * 7.13 + y * 13.7);
+    g.fillStyle = pal[(r * pal.length) | 0];
+    g.fillRect(x, y, 2, 2);
+  }
+  // aisle stairs every quarter
+  for (let ax = 0; ax < w; ax += 48) {
+    g.fillStyle = '#9a8a80'; g.fillRect(ax + 20, 0, 6, h);
+    g.fillStyle = 'rgba(0,0,0,0.3)'; for (let y = 0; y < h; y += 4) g.fillRect(ax + 20, y, 6, 1);
+  }
+  // row shading: each tier a touch darker at its back
+  g.fillStyle = 'rgba(0,0,0,0.12)'; for (let y = 0; y < h; y += 6) g.fillRect(0, y, w, 2);
+  // the walkway between decks
+  g.fillStyle = '#d8c8b0'; g.fillRect(0, h * 0.62, w, 4);
+  g.fillStyle = '#1a1a22'; for (let ax = 8; ax < w; ax += 48) g.fillRect(ax, h * 0.64, 18, 7);
+  blzGrain(g, w, h, 18, 3);
+  blitz.crowdTex = c; blitz.crowdKey = blitz.teams.join('|');
+  return c;
+}
+function blzBuildAds() {
+  if (blitz.adTex) return blitz.adTex;
+  const segW = 160, h = 24, c = blzCanvas(segW * BLZ_ADS.length, h), g = c.getContext('2d');
+  BLZ_ADS.forEach((ad, i) => {
+    const x = i * segW;
+    g.fillStyle = '#1a3a8a'; g.fillRect(x, 0, segW, h);
+    g.fillStyle = ad[1]; g.fillRect(x + 6, 3, segW - 12, h - 6);
+    g.font = '900 italic 14px Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = ad[2]; g.fillText(ad[0], x + segW / 2, h / 2 + 1, segW - 20);
+  });
+  g.fillStyle = '#c8d0e8'; g.fillRect(0, 0, c.width, 2);
+  blitz.adTex = c;
+  return c;
+}
+
+// one textured triangle: the affine map from texture (u,v) to the screen
+function blzTri(g, img, s0, s1, s2, d0, d1, d2) {
+  const du1 = s1[0] - s0[0], dv1 = s1[1] - s0[1], du2 = s2[0] - s0[0], dv2 = s2[1] - s0[1];
+  const det = du1 * dv2 - du2 * dv1;
+  if (Math.abs(det) < 1e-6) return;
+  const dx1 = d1.x - d0.x, dy1 = d1.y - d0.y, dx2 = d2.x - d0.x, dy2 = d2.y - d0.y;
+  const a = (dx1 * dv2 - dx2 * dv1) / det, b = (dy1 * dv2 - dy2 * dv1) / det;
+  const c = (dx2 * du1 - dx1 * du2) / det, d = (dy2 * du1 - dy1 * du2) / det;
+  const e = d0.x - a * s0[0] - c * s0[1], f = d0.y - b * s0[0] - d * s0[1];
+  // fatten the clip a hair so the seams don't show
+  const cx = (d0.x + d1.x + d2.x) / 3, cy = (d0.y + d1.y + d2.y) / 3;
+  g.save();
+  g.beginPath();
+  for (let i = 0; i < 3; i++) {
+    const p = i === 0 ? d0 : i === 1 ? d1 : d2;
+    const ex = p.x - cx, ey = p.y - cy, m = Math.hypot(ex, ey) || 1;
+    if (i === 0) g.moveTo(p.x + ex / m * 0.7, p.y + ey / m * 0.7); else g.lineTo(p.x + ex / m * 0.7, p.y + ey / m * 0.7);
+  }
+  g.closePath(); g.clip();
+  g.transform(a, b, c, d, e, f);
+  const u0 = Math.max(0, Math.floor(Math.min(s0[0], s1[0], s2[0]) - 1)), v0 = Math.max(0, Math.floor(Math.min(s0[1], s1[1], s2[1]) - 1));
+  const u1 = Math.min(img.width, Math.ceil(Math.max(s0[0], s1[0], s2[0]) + 1)), v1 = Math.min(img.height, Math.ceil(Math.max(s0[1], s1[1], s2[1]) + 1));
+  if (u1 > u0 && v1 > v0) g.drawImage(img, u0, v0, u1 - u0, v1 - v0, u0, v0, u1 - u0, v1 - v0);
+  g.restore();
+}
+// a textured quad from four world points and their texture coords
+function blzTexQuad(g, img, pts, uv) {
+  const q = pts.map((p) => blzProj(p[0], p[1], p[2]));
+  if (!q[0] || !q[1] || !q[2] || !q[3]) return;
+  const W = blitz.W, H = blitz.H;
+  if (Math.max(q[0].x, q[1].x, q[2].x, q[3].x) < -2 || Math.min(q[0].x, q[1].x, q[2].x, q[3].x) > W + 2) return;
+  if (Math.max(q[0].y, q[1].y, q[2].y, q[3].y) < -2 || Math.min(q[0].y, q[1].y, q[2].y, q[3].y) > H + 2) return;
+  blzTri(g, img, uv[0], uv[1], uv[2], q[0], q[1], q[2]);
+  blzTri(g, img, uv[0], uv[2], uv[3], q[0], q[2], q[3]);
+}
+
+function blzDrawField(g) {
+  const tex = blzBuildField(), P = BLZ_TEX.ppy, c = blitz.cam;
+  const x0 = BLZ_TEX.x0, x1 = BLZ_TEX.x0 + BLZ_TEX.w, zLo = BLZ_TEX.z0, zHi = BLZ_TEX.z0 + BLZ_TEX.l;
+  const cols = 8, cw = (x1 - x0) / cols;
+  // rows marched outward from the lens: thin near (straight lines), fat far (cheap)
+  let dz = 3;
+  while (dz < 170) {
+    const step = blzClamp(dz * 0.11, 2, 12);
+    let za = blzZAt(dz), zb = blzZAt(dz + step);
+    if (za > zb) { const t = za; za = zb; zb = t; }
+    dz += step;
+    if (zb < zLo || za > zHi) continue;
+    za = Math.max(za, zLo); zb = Math.min(zb, zHi);
+    for (let i = 0; i < cols; i++) {
+      const xa = x0 + i * cw, xb = xa + cw;
+      const U = (x) => (x - x0) * P, V = (z) => (z - zLo) * P;
+      blzTexQuad(g, tex, [[xa, 0, za], [xb, 0, za], [xb, 0, zb], [xa, 0, zb]],
+        [[U(xa), V(za)], [U(xb), V(za)], [U(xb), V(zb)], [U(xa), V(zb)]]);
+    }
+  }
+}
+
+// the bowl: ad wall, raked lower deck, the walkway, upper deck, the blue facade
+function blzDrawStands(g, night) {
+  const crowd = blzBuildCrowd(), ads = blzBuildAds(), c = blitz.cam;
+  const CW = crowd.width, CH = crowd.height, AW = ads.width, AH = ads.height;
+  const seg = 8;                                   // yards of stand per textured strip
+  const zs = [];
+  for (let z = -40; z < BLZ_LEN + 40; z += seg) zs.push(z);
+  zs.sort((a, b) => (b - c.z) * c.dir - (a - c.z) * c.dir); // far first
+  const XW = 4.5;                                 // the wall stands 4.5 yds off the sideline
+  const rakeOut = 26, rakeUp = 19;
+  for (const side of [-1, 1]) {
+    const xIn = side < 0 ? -XW : BLZ_WID + XW, xOut = side < 0 ? -XW - rakeOut : BLZ_WID + XW + rakeOut;
+    for (const z of zs) {
+      const cl = blzClipZ(z, z + seg, 4);
+      if (!cl) continue;
+      const za = Math.min(cl[0], cl[1]), zb = Math.max(cl[0], cl[1]);
+      const ua = (((za % 24) + 24) % 24) / 24 * CW, ub = ua + (zb - za) / 24 * CW;
+      if (ub > CW + 0.5) continue; // (a strip never straddles the tile seam: 24 is a multiple of 8)
+      // the crowd, bottom row at the wall top, raked back and up
+      blzTexQuad(g, crowd, [[xIn, 1.6, za], [xIn, 1.6, zb], [xOut, rakeUp, zb], [xOut, rakeUp, za]],
+        [[ua, CH], [ub, CH], [ub, 0], [ua, 0]]);
+      // the upper-deck facade: the blue band with the white pinstripe
+      const fa = blzProj(xOut, rakeUp, za), fb = blzProj(xOut, rakeUp, zb), fc = blzProj(xOut, rakeUp + 3.5, zb), fd = blzProj(xOut, rakeUp + 3.5, za);
+      if (fa && fb && fc && fd) {
+        blzPoly(g, [fa, fb, fc, fd], night ? '#122a6a' : '#2a4aa8');
+        const ga = blzProj(xOut, rakeUp + 2.6, za), gb = blzProj(xOut, rakeUp + 2.6, zb);
+        if (ga && gb) { g.strokeStyle = '#c8d4f0'; g.lineWidth = Math.max(1, ga.k * 0.15); g.beginPath(); g.moveTo(ga.x, ga.y); g.lineTo(gb.x, gb.y); g.stroke(); }
+        const ra = blzProj(xOut - side * 6, rakeUp + 8, za), rb = blzProj(xOut - side * 6, rakeUp + 8, zb);
+        if (ra && rb) blzPoly(g, [fd, fc, rb, ra], night ? '#08080e' : '#1a1a24');
+      }
+      // the padded wall with the ads on it
+      const aa = (((za % 64) + 64) % 64) / 64 * AW, ab = aa + (zb - za) / 64 * AW;
+      if (ab <= AW + 0.5) blzTexQuad(g, ads, [[xIn, 0, za], [xIn, 0, zb], [xIn, 1.6, zb], [xIn, 1.6, za]], [[aa, AH], [ab, AH], [ab, 0], [aa, 0]]);
+      // the wall's top rail
+      const r0 = blzProj(xIn, 1.6, za), r1 = blzProj(xIn, 1.6, zb);
+      if (r0 && r1) { g.strokeStyle = '#d8dce8'; g.lineWidth = Math.max(1, r0.k * 0.12); g.beginPath(); g.moveTo(r0.x, r0.y); g.lineTo(r1.x, r1.y); g.stroke(); }
+    }
+  }
+  // the end stands behind each goal (only the far one is ever in frame)
+  for (const ezw of [-XW - 2, BLZ_LEN + XW + 2]) {
+    const dzw = (ezw - c.z) * c.dir;
+    if (dzw < 6) continue;
+    const out = ezw + (ezw < 0 ? -rakeOut : rakeOut);
+    for (let x = -40; x < BLZ_WID + 40; x += seg) {
+      const ua = (((x % 24) + 24) % 24) / 24 * CW, ub = ua + seg / 24 * CW;
+      blzTexQuad(g, crowd, [[x, 1.6, ezw], [x + seg, 1.6, ezw], [x + seg, rakeUp, out], [x, rakeUp, out]], [[ua, CH], [ub, CH], [ub, 0], [ua, 0]]);
+      const aa = (((x % 64) + 64) % 64) / 64 * AW, ab = aa + seg / 64 * AW;
+      blzTexQuad(g, ads, [[x, 0, ezw], [x + seg, 0, ezw], [x + seg, 1.6, ezw], [x, 1.6, ezw]], [[aa, AH], [ab, AH], [ab, 0], [aa, 0]]);
+    }
+  }
+}
+
+// orange sideline markers, the down box style of the cart
+function blzDrawPylons(g, items) {
+  for (let z = 10; z <= 110; z += 10) {
+    for (const x of [-1.6, BLZ_WID + 1.6]) {
+      const P = blzProj(x, 0, z);
+      if (!P || P.k < 1.2) continue;
+      items.push({ zc: P.zc, k: 'y', x, z, P, n: z === 10 || z === 110 ? '' : String(z <= 60 ? z - 10 : 110 - z) });
+    }
+  }
+}
+function blzDrawPylon(g, it) {
+  const { x, z } = it, hw = 0.45, h = 0.75;
+  const a = blzProj(x - hw, 0, z), b = blzProj(x + hw, 0, z), cc = blzProj(x + hw, h, z), d = blzProj(x - hw, h, z);
+  if (!a || !b || !cc || !d) return;
+  const dir = blitz.cam.dir;
+  const t0 = blzProj(x - hw, h, z + dir * 0.4), t1 = blzProj(x + hw, h, z + dir * 0.4);
+  if (t0 && t1) blzPoly(g, [d, cc, t1, t0], '#ff9a4a');
+  blzPoly(g, [a, b, cc, d], '#e8561a');
+  if (it.n && it.P.k > 7) {
+    const m = blzProj(x, h * 0.5, z);
+    g.font = '900 ' + Math.round(m.k * 0.45) + 'px Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#ffffff'; g.fillText(it.n, m.x, m.y);
+  }
+}
+
 function blzDrawWorld(g, W, H) {
   const night = !!blitz.codes.night;
   // sky (what little of it the camera sees over the far stands)
   const sky = g.createLinearGradient(0, 0, 0, H * 0.4);
-  sky.addColorStop(0, night ? '#02030a' : '#3b6fc4'); sky.addColorStop(1, night ? '#0a0f26' : '#a9c8ef');
+  sky.addColorStop(0, night ? '#02030a' : '#5a86d0'); sky.addColorStop(1, night ? '#0a0f26' : '#b8d2f0');
   g.fillStyle = sky; g.fillRect(-10, -10, W + 20, H + 20);
+  blzGround(g, -60, BLZ_WID + 60, -60, BLZ_LEN + 60, night ? '#173a1a' : '#2a6428');
+  // a narrow lens sees turf closer than the textured rows start: paint under them
+  const nearY = blzProj(blitz.cam.x, 0, blzZAt(3.2));
+  if (nearY && nearY.y < H) { g.fillStyle = night ? '#25602a' : '#3c8c36'; g.fillRect(-10, nearY.y - 2, W + 20, H - nearY.y + 12); }
+  blzDrawField(g);
   blzDrawStands(g, night);
-  // the ground around the field
-  blzGround(g, -14, BLZ_WID + 14, -14, BLZ_LEN + 14, night ? '#173a1a' : '#2d6a2e');
-  // grass stripes, 5 yards each
-  for (let z = 10; z < 110; z += 5) blzGround(g, 0, BLZ_WID, z, z + 5, ((z / 5) | 0) % 2 ? (night ? '#25602a' : '#3c8a37') : (night ? '#2b6c30' : '#45983f'));
-  // end zones in the home colors of whoever defends them
-  const ez0 = blzTeam(0).ez, ez1 = blzTeam(1).ez;
-  blzGround(g, 0, BLZ_WID, 0, 10, ez0);
-  blzGround(g, 0, BLZ_WID, 110, 120, ez1);
-  blzGroundText(g, blzTeam(0).name, BLZ_MID, 5, 6, '#ffffff', 0.9);
-  blzGroundText(g, blzTeam(1).name, BLZ_MID, 115, 6, '#ffffff', 0.9);
-  // yard lines, sidelines, goal lines
-  const wl = night ? 'rgba(235,240,255,0.85)' : 'rgba(250,250,250,0.92)';
-  for (let z = 10; z <= 110; z += 5) blzGround(g, 0, BLZ_WID, z - (z % 10 === 0 ? 0.14 : 0.1), z + (z % 10 === 0 ? 0.14 : 0.1), wl);
-  blzGround(g, -0.45, 0, 0, 120, wl); blzGround(g, BLZ_WID, BLZ_WID + 0.45, 0, 120, wl);
-  blzGround(g, 0, BLZ_WID, -0.3, 0, wl); blzGround(g, 0, BLZ_WID, 120, 120.3, wl);
-  // hash marks
-  const cz0 = blitz.cam.z;
-  for (let z = 11; z < 110; z++) {
-    if (z % 5 === 0) continue;
-    if (Math.abs(z - cz0) > 90) continue;
-    blzGround(g, 22.9, 23.9, z - 0.07, z + 0.07, wl); blzGround(g, 29.4, 30.4, z - 0.07, z + 0.07, wl);
-    blzGround(g, 0.4, 1.2, z - 0.07, z + 0.07, wl); blzGround(g, BLZ_WID - 1.2, BLZ_WID - 0.4, z - 0.07, z + 0.07, wl);
-  }
-  // the numbers
-  for (let z = 20; z <= 100; z += 10) {
-    const n = z <= 60 ? z - 10 : 110 - z;
-    blzGroundText(g, String(n), 8, z, 3.2, wl, 1);
-    blzGroundText(g, String(n), BLZ_WID - 8, z, 3.2, wl, 1);
-  }
-  // the scrimmage line and the line to gain
+  // the scrimmage line and the line to gain, laid on the turf
   const ph = blitz.phase;
   if (ph === 'call' || ph === 'pre' || (ph === 'live' && blitz.pocket)) {
-    blzGround(g, 0, BLZ_WID, blitz.los - 0.22, blitz.los + 0.22, 'rgba(60,120,255,0.85)');
-    if (blitz.kind !== 'kick' && blitz.firstAt !== blzGoal(blitz.poss)) blzGround(g, 0, BLZ_WID, blitz.firstAt - 0.22, blitz.firstAt + 0.22, 'rgba(255,220,40,0.9)');
+    blzGround(g, 0, BLZ_WID, blitz.los - 0.2, blitz.los + 0.2, 'rgba(70,130,255,0.85)', 0.01);
+    if (blitz.kind !== 'kick' && blitz.firstAt !== blzGoal(blitz.poss)) blzGround(g, 0, BLZ_WID, blitz.firstAt - 0.2, blitz.firstAt + 0.2, 'rgba(255,225,40,0.9)', 0.01);
   }
-  // what's left of the world, back to front: the far goalpost, people, the ball, sparks
+  // back to front: posts, pylons, people, ball, sparks
   const items = [];
   for (const p of blitz.players) {
     const P = blzProj(p.x, 0, p.z);
@@ -2254,24 +2590,24 @@ function blzDrawWorld(g, W, H) {
   if (B && !(B.st === 'held' && blitz.carrier)) { const P = blzProj(B.x, 0, B.z); if (P) items.push({ zc: P.zc - 0.05, k: 'b', P }); }
   for (const q of blitz.parts) { const P = blzProj(q.x, q.y, q.z); if (P) items.push({ zc: P.zc, k: 'q', q, P }); }
   for (const gz of [0, 120]) { const P = blzProj(BLZ_MID, 0, gz); if (P) items.push({ zc: P.zc + 0.5, k: 'g', z: gz }); }
+  blzDrawPylons(g, items);
   items.sort((a, b) => b.zc - a.zc);
-  // shadows first, so nobody stands on somebody's shadow
   for (const it of items) if (it.k === 'p') blzShadow(g, it.p, it.P);
   for (const it of items) {
     if (it.k === 'p') blzDrawPlayer(g, it.p, it.P);
     else if (it.k === 'b') blzDrawBall(g, B, it.P);
     else if (it.k === 'q') blzDrawPart(g, it.q, it.P);
     else if (it.k === 'g') blzDrawPosts(g, it.z);
+    else if (it.k === 'y') blzDrawPylon(g, it);
   }
-  if (B && B.st === 'held' && blitz.carrier) {
-    const C = blitz.carrier, P = blzProj(B.x, 0, B.z);
-    if (P && !(C.downT > 0)) blzDrawBall(g, B, P);
-  }
+  // the human's marker: blue arrow with the 1, and the name in yellow
+  const me = blitz.ctl;
+  if (me && blzHuman(me.team) && ph !== 'final') blzDrawMarker(g, me);
   // receiver marker: the yellow chevron over the man you're throwing to
   if (ph === 'live' && blitz.pocket && blitz.kind === 'pass' && blitz.carrier && blzHuman(blitz.carrier.team) && blitz.target) {
-    const r = blitz.target, P = blzProj(r.x, 3.1 + 0.25 * Math.sin(blitz.t * 10), r.z);
+    const r = blitz.target, P = blzProj(r.x, 3.4 + 0.25 * Math.sin(blitz.t * 10) + r.y, r.z);
     if (P) {
-      const s = Math.max(4, P.k * 0.5);
+      const s = Math.max(4, P.k * 0.42);
       g.fillStyle = '#ffd23a'; g.strokeStyle = '#000'; g.lineWidth = 1.5;
       g.beginPath(); g.moveTo(P.x - s, P.y - s); g.lineTo(P.x + s, P.y - s); g.lineTo(P.x, P.y + s * 0.6); g.closePath(); g.fill(); g.stroke();
     }
@@ -2282,112 +2618,6 @@ function blzDrawWorld(g, W, H) {
     g.fillStyle = v; g.fillRect(0, 0, W, H);
   }
 }
-
-// text painted flat on the turf, squashed by the perspective
-function blzGroundText(g, str, x, z, sizeYd, col, aspect) {
-  const P = blzProj(x, 0, z), Q = blzProj(x, 0, z + blitz.cam.dir);
-  if (!P || !Q) return;
-  const kv = Math.abs(Q.y - P.y);
-  if (P.k < 1.2) return;
-  g.save();
-  g.translate(P.x, P.y);
-  g.scale(P.k * (aspect || 1) / 10, kv / 10);
-  g.font = '900 ' + Math.round(sizeYd * 10) + 'px Impact, "Arial Black", sans-serif';
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillStyle = col; g.fillText(str, 0, 0);
-  g.restore();
-}
-
-function blzDrawStands(g, night) {
-  const c = blitz.cam;
-  const base = night ? '#141826' : '#3a4256', wall = night ? '#0d1a2e' : '#1b3a6a';
-  // side stands, far to near: a raked bank of seats along each sideline
-  const z0 = blzZAt(176), z1 = blzZAt(3);
-  const step = 6;
-  const zs = [];
-  for (let z = Math.floor(Math.min(z0, z1) / step) * step; z < Math.max(z0, z1); z += step) zs.push(z);
-  zs.sort((a, b) => (b - c.z) * c.dir - (a - c.z) * c.dir);
-  for (const side of [-1, 1]) {
-    const xIn = side < 0 ? -6 : BLZ_WID + 6, xOut = side < 0 ? -30 : BLZ_WID + 30;
-    for (const z of zs) {
-      const cl = blzClipZ(z, z + step, 4);
-      if (!cl) continue;
-      const a = blzProj(xIn, 0.9, cl[0]), b = blzProj(xOut, 16, cl[0]), cc = blzProj(xOut, 16, cl[1]), d = blzProj(xIn, 0.9, cl[1]);
-      if (!a || !b || !cc || !d) continue;
-      blzPoly(g, [a, b, cc, d], base);
-      // the crowd: rows of nugget heads in team colors and confetti shirts
-      for (let row = 0; row < 7; row++) {
-        const u = (row + 0.5) / 7;
-        const x = xIn + (xOut - xIn) * u, y = 0.9 + 15.1 * u;
-        for (let s = 0; s < 4; s++) {
-          const zz = cl[0] + (cl[1] - cl[0]) * ((s + 0.5) / 4);
-          const P = blzProj(x, y, zz);
-          if (!P) continue;
-          const h = blzHash(Math.round(zz * 3) * 31 + row * 7 + side * 3);
-          const sz = Math.max(1, P.k * 1.1);
-          const bounce = (blitz.sfx.crowdGain ? 0 : 0) + (h > 0.5 ? Math.sin(blitz.t * 8 + h * 20) * sz * 0.15 : 0);
-          g.fillStyle = h < 0.3 ? blzTeam(0).c1 : h < 0.45 ? blzTeam(0).c2 : h < 0.6 ? blzTeam(1).c1 : h < 0.8 ? '#d99a3c' : '#e8e0d0';
-          g.fillRect(P.x - sz * 0.5, P.y - sz + bounce, sz, sz);
-        }
-      }
-      // the padded wall at the front of the stands, with the ads
-      const w0 = blzProj(xIn + side * 0.1, 0, cl[0]), w1 = blzProj(xIn + side * 0.1, 0, cl[1]), w2 = blzProj(xIn + side * 0.1, 1.6, cl[1]), w3 = blzProj(xIn + side * 0.1, 1.6, cl[0]);
-      if (w0 && w1 && w2 && w3) {
-        const ad = BLZ_ADS[((Math.round(z / step) % BLZ_ADS.length) + BLZ_ADS.length) % BLZ_ADS.length];
-        blzPoly(g, [w0, w1, w2, w3], ad[1]);
-        const m = blzProj(xIn + side * 0.1, 0.8, (cl[0] + cl[1]) / 2);
-        if (m && m.k > 3) {
-          g.save(); g.translate(m.x, m.y);
-          const wpx = Math.abs(w1.x - w0.x);
-          g.font = '900 italic ' + Math.max(4, Math.round(m.k * 1.0)) + 'px Impact, sans-serif';
-          g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = ad[2];
-          const tw = g.measureText(ad[0]).width;
-          if (tw > 0) g.scale(Math.min(1, wpx * 0.9 / tw), 1);
-          g.fillText(ad[0], 0, 0); g.restore();
-        }
-      }
-    }
-  }
-  // the end stands behind each goal (only the far one is ever in frame)
-  for (const ez of [-12, BLZ_LEN + 12]) {
-    const dz = (ez - c.z) * c.dir;
-    if (dz < 4) continue;
-    const out = ez + (ez < 0 ? -18 : 18);
-    const a = blzProj(-30, 0.9, ez), b = blzProj(BLZ_WID + 30, 0.9, ez), cc = blzProj(BLZ_WID + 30, 16, out), d = blzProj(-30, 16, out);
-    if (!a || !b || !cc || !d) continue;
-    blzPoly(g, [a, b, cc, d], base);
-    for (let row = 0; row < 7; row++) {
-      const u = (row + 0.5) / 7, y = 0.9 + 15.1 * u, zz = ez + (out - ez) * u;
-      for (let s = 0; s < 22; s++) {
-        const x = -28 + (BLZ_WID + 56) * (s + 0.5) / 22;
-        const P = blzProj(x, y, zz);
-        if (!P) continue;
-        const h = blzHash(s * 13 + row * 7 + ez);
-        const sz = Math.max(1, P.k * 1.1);
-        g.fillStyle = h < 0.3 ? blzTeam(0).c1 : h < 0.45 ? blzTeam(0).c2 : h < 0.6 ? blzTeam(1).c1 : h < 0.8 ? '#d99a3c' : '#e8e0d0';
-        g.fillRect(P.x - sz * 0.5, P.y - sz, sz, sz);
-      }
-    }
-    const w0 = blzProj(-14, 0, ez + (ez < 0 ? 0.5 : -0.5)), w1 = blzProj(BLZ_WID + 14, 0, ez + (ez < 0 ? 0.5 : -0.5));
-    const w2 = blzProj(BLZ_WID + 14, 1.6, ez + (ez < 0 ? 0.5 : -0.5)), w3 = blzProj(-14, 1.6, ez + (ez < 0 ? 0.5 : -0.5));
-    if (w0 && w1 && w2 && w3) blzPoly(g, [w0, w1, w2, w3], wall);
-  }
-  // light towers (night): four bright clusters
-  if (night) {
-    for (const [x, z] of [[-20, 20], [BLZ_WID + 20, 20], [-20, 100], [BLZ_WID + 20, 100]]) {
-      const P = blzProj(x, 26, z);
-      if (!P) continue;
-      const r = Math.max(3, P.k * 3);
-      const gl = g.createRadialGradient(P.x, P.y, 0, P.x, P.y, r * 3);
-      gl.addColorStop(0, 'rgba(255,255,230,0.95)'); gl.addColorStop(0.3, 'rgba(255,250,200,0.35)'); gl.addColorStop(1, 'rgba(255,250,200,0)');
-      g.fillStyle = gl; g.fillRect(P.x - r * 3, P.y - r * 3, r * 6, r * 6);
-    }
-  }
-}
-const BLZ_ADS = [
-  ['HOWMANYNUGGETS.COM', '#ffd23a', '#7a1010'], ['GREASE GARAGE', '#1a1a22', '#ff8a1e'], ['DRINK SAUCE', '#102a5a', '#26e0ff'],
-  ['NOODLE NUG', '#5a1010', '#ffd23a'], ['DIP HOP NIGHTLY', '#2a0f3a', '#ff2fa0'], ['NO REFS', '#f2f2f2', '#d6352a'],
-];
 
 function blzDrawPosts(g, z) {
   const P0 = blzProj(BLZ_MID, 0, z);
@@ -2405,170 +2635,267 @@ function blzDrawPosts(g, z) {
 
 function blzShadow(g, p, P) {
   const lying = p.downT > 0 || p.diveT > 0;
-  g.fillStyle = 'rgba(0,0,0,0.32)';
+  g.fillStyle = 'rgba(0,0,0,0.35)';
   g.beginPath();
-  g.ellipse(P.x, P.y, P.k * (lying ? 1.2 : 0.75) / (1 + p.y * 0.3), P.k * 0.25, 0, 0, Math.PI * 2);
+  g.ellipse(P.x, P.y, P.k * BLZ_BS * (lying ? 1.1 : 0.62) / (1 + p.y * 0.3), P.k * BLZ_BS * 0.26, 0, 0, Math.PI * 2);
   g.fill();
 }
 
-// A nugget in pads, drawn from whatever angle the camera's at.
+// ---- the players: a skeleton, posed, projected, drawn back to front ------------------------------
+// Each nugget is ~2 yds of joints in its own frame (a = right, b = up, c =
+// forward), run through a pose (run cycle, stance, throw, carry, block, dive,
+// down, jump, celebrate), pitched for dives and pile-ups, then every joint goes
+// through blzProj. Limbs are thick round-capped strokes with a dark outline
+// pass, sorted by depth — so the camera sees a real figure from any angle:
+// a numbered back running away from you, a facemask coming at you.
+// the cart drew its players big (≈2.7 yds tall); so do we. Physics is unchanged.
+const BLZ_BS = 1.3;
+const BLZ_CRUST = '#d99a3c', BLZ_CRUST_D = '#a8691f', BLZ_CRUST_L = '#f0c068';
+
+function blzPose(p) {
+  const C = blitz.carrier, ph = p.anim * 2.1;
+  const sp = Math.hypot(p.vx, p.vz), moving = sp > 0.8 && p.downT <= 0;
+  const J = {};
+  let pel = 1.0, lean = 0;
+  const stance = blitz.phase === 'pre' && /^(C|LG|RG|DE1|DT|DE2)$/.test(p.pos);
+  if (stance) { pel = 0.72; lean = 0.42; }
+  else if (moving) lean = p.turboOn ? 0.34 : 0.2;
+  if (p.eng) { pel = 0.88; lean = 0.38; }
+  const lc = Math.sin(lean) * 0.6;              // how far forward the shoulders ride
+  const jumpT = p.jumpT > 0;
+  for (const sg of [-1, 1]) {
+    const phs = ph + (sg > 0 ? Math.PI : 0);
+    let th = 0.06, bend = 0.12;
+    if (moving) { th = Math.sin(phs) * (p.turboOn ? 0.95 : 0.8); bend = 0.3 + Math.max(0, -Math.cos(phs)) * 1.2; }
+    if (stance) { th = sg < 0 ? 0.9 : 0.3; bend = 1.6; }
+    if (p.eng) { th = sg < 0 ? 0.55 : -0.1; bend = 0.7; }
+    if (jumpT) { th = 0.7; bend = 1.5; }
+    const hip = [sg * 0.15, pel, 0];
+    const knee = [sg * 0.17, pel - 0.47 * Math.cos(th), 0.47 * Math.sin(th)];
+    const foot = [sg * 0.17, knee[1] - 0.47 * Math.cos(th - bend), knee[2] + 0.47 * Math.sin(th - bend)];
+    const toe = [sg * 0.17, foot[1] - 0.02, foot[2] + 0.2];
+    J['hip' + sg] = hip; J['knee' + sg] = knee; J['foot' + sg] = foot; J['toe' + sg] = toe;
+    // arms swing against the legs
+    const sh = [sg * 0.36, pel + 0.6, lc];
+    let al = moving ? -Math.sin(phs) * 0.9 : 0.12;
+    let el = [sg * 0.43, sh[1] - 0.3 * Math.cos(al), sh[2] + 0.3 * Math.sin(al)];
+    let hd = [sg * 0.4, el[1] - 0.27 * Math.cos(al + 1.1), el[2] + 0.27 * Math.sin(al + 1.1)];
+    if (stance && sg > 0) { el = [0.32, pel + 0.2, lc + 0.25]; hd = [0.28, 0.12, lc + 0.45]; }
+    if (p.eng) { el = [sg * 0.34, pel + 0.42, lc + 0.3]; hd = [sg * 0.2, pel + 0.5, lc + 0.62]; }
+    if (p.celebT > 0) { el = [sg * 0.48, pel + 0.95, lc]; hd = [sg * 0.42, pel + 1.35, lc + 0.05 * Math.sin(blitz.t * 12)]; }
+    if (jumpT) { el = [sg * 0.3, pel + 0.95, lc + 0.15]; hd = [sg * 0.2, pel + 1.3, lc + 0.25]; }
+    if (sg > 0 && p.throwT > 0) {
+      const u = p.throwT > 0.18 ? 0 : 1;          // cocked, then the follow-through
+      el = [0.44, pel + 0.82 - u * 0.25, lc - 0.15 + u * 0.35]; hd = [0.34, pel + 1.08 - u * 0.4, lc - 0.3 + u * 0.7];
+    }
+    if (sg > 0 && p === C && !(blitz.pocket && p.pos === 'QB')) { el = [0.34, pel + 0.3, lc + 0.02]; hd = [0.2, pel + 0.44, lc + 0.24]; }
+    if (p.stiffT > 0 && sg < 0) { el = [-0.4, pel + 0.62, lc + 0.35]; hd = [-0.38, pel + 0.66, lc + 0.75]; }
+    J['sh' + sg] = sh; J['el' + sg] = el; J['hd' + sg] = hd;
+  }
+  J.pel = [0, pel, 0]; J.neck = [0, pel + 0.7, lc + 0.03];
+  J.head = [0, pel + 0.88, lc + 0.07];
+  // dives and pile-ups pitch the whole figure forward about the hips
+  let pitch = 0, drop = 0;
+  if (p.diveT > 0) { pitch = 1.25; drop = 0.45; }
+  else if (p.downT > 0) { pitch = 1.5; drop = 0.72; }
+  if (pitch) {
+    const cs = Math.cos(pitch), sn = Math.sin(pitch), py = pel;
+    for (const k in J) {
+      const v = J[k], b = v[1] - py, cz = v[2];
+      J[k] = [v[0], py + b * cs - cz * sn - drop, b * sn + cz * cs];
+    }
+  }
+  return J;
+}
+
 function blzDrawPlayer(g, p, P) {
-  const T = blzTeam(p.team), k = P.k, c = blitz.cam;
-  if (k < 0.8) return;
-  const crust = '#d99a3c', crustD = '#a8691f', crustL = '#f3c66a';
-  // facing in view space: +vz = away from the camera
-  const vx = p.fx * c.dir, vz = p.fz * c.dir;
-  const view = vz > 0.45 ? 'back' : vz < -0.45 ? 'front' : 'side';
-  const sideSign = vx >= 0 ? 1 : -1;
-  const hs = blitz.codes.huge ? 3 : blitz.codes.big ? 1.9 : 1;
-  const human = p === blitz.ctl && blzHuman(p.team);
-  const X = P.x, Y = P.y - p.y * k;
-  // the human's ring on the turf
-  if (human) {
-    g.strokeStyle = blitz.t % 0.5 < 0.25 ? '#ffd23a' : '#ffffff'; g.lineWidth = Math.max(1.2, k * 0.12);
-    g.beginPath(); g.ellipse(P.x, P.y, k * 1.0, k * 0.34, 0, 0, Math.PI * 2); g.stroke();
+  if (P.k < 0.8) return;
+  const T = blzTeam(p.team), cam = blitz.cam;
+  const J = blzPose(p);
+  const fx = p.fx, fz = p.fz, rx = fz, rz = -fx;
+  const yb = p.y;
+  const W = (v) => blzProj(p.x + (rx * v[0] + fx * v[2]) * BLZ_BS, v[1] * BLZ_BS + yb, p.z + (rz * v[0] + fz * v[2]) * BLZ_BS);
+  const S = {};
+  for (const k in J) { S[k] = W(J[k]); if (!S[k]) return; }
+  const k = P.k * BLZ_BS, hs = blitz.codes.huge ? 2.6 : blitz.codes.big ? 1.8 : 1;
+  const els = [];
+  const seg = (a, b, w, col) => els.push({ t: 'l', a: S[a], b: S[b], w: w * k, col, z: (S[a].zc + S[b].zc) / 2 });
+  // legs: pants, socks (team stripe), cleats
+  for (const sg of [-1, 1]) {
+    seg('hip' + sg, 'knee' + sg, 0.24, T.pants);
+    seg('knee' + sg, 'foot' + sg, 0.17, T.sock);
+    seg('foot' + sg, 'toe' + sg, 0.14, '#121216');
   }
-  if (p.downT > 0 || p.diveT > 0) {
-    const tilt = p.diveT > 0 ? 0.25 : 0;
-    const bx = X, by = Y - k * (0.42 + tilt * 0.6);
-    const dir = (vx >= 0 ? 1 : -1);
-    g.save(); g.translate(bx, by); g.rotate(dir * (p.diveT > 0 ? 1.15 : 1.45));
-    blzBody(g, T, k, view === 'front' ? 'front' : 'back', 0, 0, crust, crustD, crustL, p, 0);
-    g.restore();
-    return;
+  // torso: a jersey trapezoid from the pads to the belt
+  const tz = (S.sh1.zc + S['sh-1'].zc + S['hip-1'].zc + S.hip1.zc) / 4;
+  els.push({ t: 'torso', z: tz });
+  // arms: sleeves, breaded forearms, hands
+  for (const sg of [-1, 1]) {
+    seg('sh' + sg, 'el' + sg, 0.19, T.c1);
+    seg('el' + sg, 'hd' + sg, 0.15, BLZ_CRUST);
+    els.push({ t: 'c', a: S['hd' + sg], r: 0.09 * k, col: BLZ_CRUST_L, z: S['hd' + sg].zc - 0.01 });
   }
-  const run = Math.hypot(p.vx, p.vz) > 0.8;
-  const ph = run ? Math.sin(p.anim * 2.2) : 0;
-  const stance = blitz.phase === 'pre' && (p.pos === 'C' || p.pos === 'LG' || p.pos === 'RG' || p.pos === 'DE1' || p.pos === 'DT' || p.pos === 'DE2');
-  const crouch = stance ? 0.25 : p.eng ? 0.12 : 0;
-  // legs
-  const legW = k * 0.24, legH = k * (0.62 - crouch * 0.6);
-  g.fillStyle = T.pants;
-  const lx = view === 'side' ? [-0.12, 0.12] : [-0.24, 0.24];
-  for (let i = 0; i < 2; i++) {
-    const sw = (i ? ph : -ph) * 0.18;
-    const ox = view === 'side' ? sideSign * sw * 1.6 : 0;
-    const oy = view === 'side' ? 0 : sw * 0.6;
-    g.fillStyle = i ? T.pants : blzMix(T.pants, 0.25, '#000000');
-    g.fillRect(X + (lx[i] + ox) * k - legW / 2, Y - legH + oy * k, legW, legH * 0.62);
-    g.fillStyle = '#9a5a1e';
-    g.fillRect(X + (lx[i] + ox) * k - legW / 2.4, Y - legH * 0.4 + oy * k, legW * 0.8, legH * 0.38);
-    g.fillStyle = '#121216';
-    g.fillRect(X + (lx[i] + ox) * k - legW / 2, Y - k * 0.08 + oy * k, legW * 1.15, k * 0.1);
+  els.push({ t: 'head', z: S.head.zc - 0.02 });
+  els.sort((a, b) => b.z - a.z);
+  // facing relative to the camera: +1 running away (we see the back), -1 at us
+  const vd = fz * cam.dir;
+  // the human's ring on the turf: Blitz blue, three dots
+  if (p === blitz.ctl && blzHuman(p.team)) {
+    g.fillStyle = 'rgba(30,80,255,0.75)';
+    g.beginPath(); g.ellipse(P.x, P.y, k * 0.95, k * 0.36, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(10,30,140,0.9)';
+    g.beginPath(); g.ellipse(P.x, P.y, k * 0.6, k * 0.2, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(90,150,255,0.9)';
+    for (const ox of [-0.45, 0, 0.45]) { g.beginPath(); g.ellipse(P.x + ox * k, P.y, k * 0.13, k * 0.06, 0, 0, Math.PI * 2); g.fill(); }
   }
-  const by = Y - k * (1.05 - crouch);
-  const spin = p.spinT > 0 ? p.spinT * 25 : 0;
-  g.save(); g.translate(X, by);
-  if (spin) g.scale(Math.cos(spin), 1);
-  const lean = p.turboOn ? 0.18 : 0;
-  if (view === 'side') g.rotate(sideSign * lean);
-  blzBody(g, T, k, view, sideSign, ph, crust, crustD, crustL, p, crouch);
-  g.restore();
-  // helmet
-  const hr = k * 0.38 * hs;
-  const hy = by - k * 0.72 - (hs - 1) * k * 0.3;
-  blzHelmet(g, T, X + (view === 'side' ? sideSign * k * 0.06 : 0), hy, hr, view, sideSign);
-  // on fire: a halo of flame
-  if (blzOnFire(p.team) && (p === blitz.carrier || human)) {
-    g.globalAlpha = 0.5 + 0.3 * Math.sin(blitz.t * 20);
-    g.fillStyle = '#ff6a1a';
-    g.beginPath(); g.ellipse(X, by - k * 0.2, k * 0.9, k * 1.3, 0, 0, Math.PI * 2); g.fill();
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  for (const e of els) {
+    if (e.t === 'l') {
+      g.strokeStyle = 'rgba(0,0,0,0.55)'; g.lineWidth = e.w + Math.max(1, k * 0.05);
+      g.beginPath(); g.moveTo(e.a.x, e.a.y); g.lineTo(e.b.x, e.b.y); g.stroke();
+      g.strokeStyle = e.col; g.lineWidth = e.w;
+      g.beginPath(); g.moveTo(e.a.x, e.a.y); g.lineTo(e.b.x, e.b.y); g.stroke();
+    } else if (e.t === 'c') {
+      g.fillStyle = e.col; g.beginPath(); g.arc(e.a.x, e.a.y, Math.max(0.8, e.r), 0, Math.PI * 2); g.fill();
+    } else if (e.t === 'torso') blzTorso(g, p, T, S, k, vd);
+    else if (e.t === 'head') blzHead(g, p, T, S, k * hs, vd);
+  }
+  // the ball, tucked in the carry arm
+  if (p === blitz.carrier && blitz.ball && blitz.ball.st === 'held' && p.downT <= 0) {
+    const h = S.hd1;
+    blzBallSprite(g, h.x, h.y, k, 0.6);
+  }
+  // on fire: flames licking off the shoulders
+  if (blzOnFire(p.team) && (p === blitz.carrier || p === blitz.ctl)) {
+    g.globalAlpha = 0.55 + 0.25 * Math.sin(blitz.t * 22);
+    const m = S.neck, gr = g.createRadialGradient(m.x, m.y, 0, m.x, m.y, k * 1.3);
+    gr.addColorStop(0, 'rgba(255,220,90,0.9)'); gr.addColorStop(0.5, 'rgba(255,110,20,0.6)'); gr.addColorStop(1, 'rgba(255,60,0,0)');
+    g.fillStyle = gr; g.beginPath(); g.ellipse(m.x, m.y + k * 0.2, k * 1.0, k * 1.4, 0, 0, Math.PI * 2); g.fill();
     g.globalAlpha = 1;
   }
-  if (p.celebT > 0 && ((blitz.t * 6) | 0) % 2) {
-    g.fillStyle = crust;
-    g.fillRect(X - k * 0.7, by - k * 1.3, k * 0.18, k * 0.6); g.fillRect(X + k * 0.52, by - k * 1.3, k * 0.18, k * 0.6);
-  }
 }
 
-function blzBody(g, T, k, view, sideSign, ph, crust, crustD, crustL, p, crouch) {
-  const rx = k * 0.64, ry = k * 0.74;
-  // arms behind
-  g.fillStyle = crustD;
-  const armSw = ph * 0.25 * k;
-  if (view !== 'side') {
-    if (p.throwT > 0) { g.fillRect(rx * 0.7, -ry * 1.4, k * 0.2, k * 0.7); }
-    else { g.fillRect(-rx - k * 0.12, -ry * 0.2 + armSw, k * 0.22, k * 0.55); g.fillRect(rx - k * 0.1, -ry * 0.2 - armSw, k * 0.22, k * 0.55); }
-  }
-  // the nugget
-  g.fillStyle = crust;
-  g.beginPath(); g.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2); g.fill();
-  // crumb grain (a few lumps, stable per player)
-  const seed = (p.num || 1) * 7 + p.team * 3;
-  g.fillStyle = crustL;
-  for (let i = 0; i < 4; i++) { const a = blzHash(seed + i) * 6.28, r = 0.55 * blzHash(seed + i + 9); g.fillRect(Math.cos(a) * rx * r, Math.sin(a) * ry * r - ry * 0.4, k * 0.1, k * 0.1); }
-  // jersey band over the shoulders and chest
-  g.save();
-  g.beginPath(); g.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2); g.clip();
-  g.fillStyle = T.c1; g.fillRect(-rx * 1.1, -ry * 0.95, rx * 2.2, ry * 1.25);
-  g.fillStyle = blzMix(T.c1, 0.3, '#000000'); g.fillRect(view === 'side' ? -sideSign * rx * 0.2 - rx * 0.5 : rx * 0.45, -ry * 0.95, rx * 0.7, ry * 1.25);
-  g.fillStyle = T.c2; g.fillRect(-rx * 1.1, -ry * 0.05, rx * 2.2, ry * 0.12);
-  g.restore();
-  // shoulder pads
-  g.fillStyle = blzMix(T.c1, 0.15);
-  if (view !== 'side') {
-    g.beginPath(); g.ellipse(-rx * 0.62, -ry * 0.72, rx * 0.42, ry * 0.22, -0.3, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.ellipse(rx * 0.62, -ry * 0.72, rx * 0.42, ry * 0.22, 0.3, 0, Math.PI * 2); g.fill();
-  } else {
-    g.beginPath(); g.ellipse(0, -ry * 0.72, rx * 0.6, ry * 0.24, 0, 0, Math.PI * 2); g.fill();
-  }
-  // the number
-  if (view !== 'side' && p.num && k > 5) {
-    g.font = '900 ' + Math.round(k * 0.62) + 'px Impact, "Arial Black", sans-serif';
+function blzTorso(g, p, T, S, k, vd) {
+  const a = S['sh-1'], b = S.sh1, c = S.hip1, d = S['hip-1'];
+  // pad width in screen space (the trapezoid flares at the shoulders)
+  const flare = (u, v, f) => ({ x: u.x + (u.x - v.x) * f, y: u.y + (u.y - v.y) * f });
+  const A = flare(a, b, 0.18), Bq = flare(b, a, 0.18);
+  g.fillStyle = 'rgba(0,0,0,0.55)';
+  g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(Bq.x, Bq.y); g.lineTo(c.x, c.y); g.lineTo(d.x, d.y); g.closePath();
+  g.lineWidth = Math.max(1.5, k * 0.1); g.strokeStyle = 'rgba(0,0,0,0.55)'; g.stroke();
+  const gr = g.createLinearGradient(A.x, A.y, d.x, d.y);
+  gr.addColorStop(0, blzMix(T.c1, 0.22)); gr.addColorStop(1, blzMix(T.c1, 0.25, '#000000'));
+  g.fillStyle = gr; g.fill();
+  // the shoulder pads: one fat bar across the top, trim-colored stripe
+  g.lineCap = 'round';
+  g.strokeStyle = blzMix(T.c1, 0.12); g.lineWidth = k * 0.3;
+  g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(Bq.x, Bq.y); g.stroke();
+  g.strokeStyle = T.c2; g.lineWidth = Math.max(1, k * 0.06);
+  const m1 = flare(a, b, 0.05), m2 = flare(b, a, 0.05);
+  g.beginPath(); g.moveTo(m1.x, m1.y + k * 0.08); g.lineTo(m2.x, m2.y + k * 0.08); g.stroke();
+  // the belt
+  g.strokeStyle = blzMix(T.pants, 0.3, '#000000'); g.lineWidth = Math.max(1, k * 0.07);
+  g.beginPath(); g.moveTo(d.x, d.y); g.lineTo(c.x, c.y); g.stroke();
+  // the number, front or back, squashed by how square-on we see it
+  const sq = Math.abs(vd);
+  if (sq > 0.3 && p.num && k > 4 && p.downT <= 0 && p.diveT <= 0) {
+    const cx = (A.x + Bq.x + c.x + d.x) / 4, cy = (A.y + Bq.y + c.y + d.y) / 4;
+    g.save(); g.translate(cx, cy - k * 0.04); g.scale(sq, 1);
+    g.font = '900 ' + Math.round(k * 0.5) + 'px Impact, "Arial Black", sans-serif';
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillStyle = T.num; g.fillText(String(p.num), 0, -ry * 0.38);
+    g.lineWidth = Math.max(1.5, k * 0.08); g.strokeStyle = T.c2 === T.num ? '#000' : T.c2; g.strokeText(String(p.num), 0, 0);
+    g.fillStyle = T.num; g.fillText(String(p.num), 0, 0);
+    g.restore();
   }
-  // arms in front
-  g.fillStyle = crust;
-  if (view === 'side') {
-    if (p.stiffT > 0) g.fillRect(sideSign > 0 ? rx * 0.6 : -rx * 0.6 - k * 0.7, -ry * 0.55, k * 0.7, k * 0.2);
-    else g.fillRect(sideSign * rx * 0.1 - k * 0.11 + armSw * sideSign, -ry * 0.3, k * 0.22, k * 0.55);
-  } else if (p.stiffT > 0) g.fillRect(rx * 0.5, -ry * 0.6, k * 0.6, k * 0.2);
 }
 
-function blzHelmet(g, T, x, y, r, view, sideSign) {
-  g.fillStyle = T.helm;
-  g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
-  g.fillStyle = blzMix(T.helm, 0.35);
-  g.beginPath(); g.arc(x - r * 0.3, y - r * 0.35, r * 0.35, 0, Math.PI * 2); g.fill();
+function blzHead(g, p, T, S, k, vd) {
+  const h = S.head, r = k * 0.23;
+  const nk = S.neck;
+  g.strokeStyle = BLZ_CRUST_D; g.lineWidth = k * 0.14; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(nk.x, nk.y); g.lineTo(h.x, h.y + r * 0.5); g.stroke();
+  // the shell
+  g.fillStyle = 'rgba(0,0,0,0.55)'; g.beginPath(); g.arc(h.x, h.y, r + Math.max(0.8, k * 0.03), 0, Math.PI * 2); g.fill();
+  const gr = g.createRadialGradient(h.x - r * 0.4, h.y - r * 0.45, r * 0.1, h.x, h.y, r * 1.05);
+  gr.addColorStop(0, blzMix(T.helm, 0.55)); gr.addColorStop(0.55, T.helm); gr.addColorStop(1, blzMix(T.helm, 0.4, '#000000'));
+  g.fillStyle = gr; g.beginPath(); g.arc(h.x, h.y, r, 0, Math.PI * 2); g.fill();
+  // which way is the face, on screen?
+  const f = blzProj(p.x + p.fx * 0.5, 1.9, p.z + p.fz * 0.5), o = blzProj(p.x, 1.9, p.z);
+  let sx = 1;
+  if (f && o) sx = f.x >= o.x ? 1 : -1;
+  const side = Math.abs(vd) < 0.55;
+  // the stripe over the crown
+  g.save(); g.beginPath(); g.arc(h.x, h.y, r, 0, Math.PI * 2); g.clip();
   g.fillStyle = T.stripe;
-  if (view === 'side') g.fillRect(x - r * 0.95, y - r * 0.82, r * 1.7, r * 0.22);
-  else g.fillRect(x - r * 0.13, y - r, r * 0.26, r * (view === 'back' ? 1.7 : 0.8));
-  g.strokeStyle = T.mask; g.lineWidth = Math.max(1, r * 0.16);
-  if (view === 'front') {
-    // eyes behind the bars — nuggets have eyes
-    g.fillStyle = '#fff8e8';
-    g.fillRect(x - r * 0.45, y - r * 0.1, r * 0.3, r * 0.3); g.fillRect(x + r * 0.15, y - r * 0.1, r * 0.3, r * 0.3);
-    g.fillStyle = '#141418';
-    g.fillRect(x - r * 0.38, y - r * 0.02, r * 0.16, r * 0.18); g.fillRect(x + r * 0.22, y - r * 0.02, r * 0.16, r * 0.18);
-    g.beginPath(); g.moveTo(x - r * 0.7, y + r * 0.35); g.lineTo(x + r * 0.7, y + r * 0.35); g.stroke();
-    g.beginPath(); g.moveTo(x - r * 0.55, y + r * 0.62); g.lineTo(x + r * 0.55, y + r * 0.62); g.stroke();
-    g.beginPath(); g.moveTo(x, y + r * 0.2); g.lineTo(x, y + r * 0.75); g.stroke();
-  } else if (view === 'side') {
-    const fx = x + sideSign * r * 0.75;
-    g.fillStyle = '#fff8e8'; g.fillRect(x + sideSign * r * 0.32 - r * 0.12, y - r * 0.1, r * 0.24, r * 0.28);
-    g.beginPath(); g.moveTo(fx, y - r * 0.15); g.lineTo(fx + sideSign * r * 0.18, y + r * 0.55); g.lineTo(x + sideSign * r * 0.25, y + r * 0.7); g.stroke();
-    g.beginPath(); g.moveTo(x + sideSign * r * 0.3, y + r * 0.3); g.lineTo(fx + sideSign * r * 0.12, y + r * 0.3); g.stroke();
+  if (side) g.fillRect(h.x - r, h.y - r * 0.95, r * 2, r * 0.26);
+  else g.fillRect(h.x - r * 0.14, h.y - r, r * 0.28, r * (vd > 0 ? 2 : 0.9));
+  g.restore();
+  if (vd < -0.3) {
+    // at us: a breaded face behind the bars
+    g.fillStyle = BLZ_CRUST; g.beginPath(); g.ellipse(h.x, h.y + r * 0.25, r * 0.62, r * 0.5, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#fff8e8'; g.fillRect(h.x - r * 0.42, h.y, r * 0.28, r * 0.26); g.fillRect(h.x + r * 0.14, h.y, r * 0.28, r * 0.26);
+    g.fillStyle = '#141418'; g.fillRect(h.x - r * 0.34, h.y + r * 0.07, r * 0.14, r * 0.16); g.fillRect(h.x + r * 0.22, h.y + r * 0.07, r * 0.14, r * 0.16);
+    g.strokeStyle = T.mask; g.lineWidth = Math.max(1, r * 0.16);
+    g.beginPath(); g.moveTo(h.x - r * 0.68, h.y + r * 0.42); g.lineTo(h.x + r * 0.68, h.y + r * 0.42); g.stroke();
+    g.beginPath(); g.moveTo(h.x - r * 0.52, h.y + r * 0.7); g.lineTo(h.x + r * 0.52, h.y + r * 0.7); g.stroke();
+    g.beginPath(); g.moveTo(h.x, h.y + r * 0.3); g.lineTo(h.x, h.y + r * 0.85); g.stroke();
+  } else if (side) {
+    // profile: the cage out front, the logo on the shell
+    const fx0 = h.x + sx * r * 0.7;
+    g.fillStyle = BLZ_CRUST; g.beginPath(); g.ellipse(h.x + sx * r * 0.45, h.y + r * 0.2, r * 0.32, r * 0.45, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#141418'; g.fillRect(h.x + sx * r * 0.45 - r * 0.07, h.y - r * 0.05, r * 0.14, r * 0.16);
+    g.strokeStyle = T.mask; g.lineWidth = Math.max(1, r * 0.16);
+    g.beginPath(); g.moveTo(fx0, h.y - r * 0.1); g.lineTo(fx0 + sx * r * 0.22, h.y + r * 0.5); g.lineTo(h.x + sx * r * 0.3, h.y + r * 0.75); g.stroke();
+    g.beginPath(); g.moveTo(h.x + sx * r * 0.3, h.y + r * 0.32); g.lineTo(fx0 + sx * r * 0.18, h.y + r * 0.32); g.stroke();
+    if (r > 3) {
+      const lx = h.x - sx * r * 0.2, ly = h.y - r * 0.05;
+      g.fillStyle = T.c2; g.beginPath(); g.arc(lx, ly, r * 0.36, 0, Math.PI * 2); g.fill();
+      g.font = '900 ' + Math.round(r * 0.55) + 'px Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillStyle = T.helm === T.c2 ? '#ffffff' : T.helm; g.fillText(T.logo, lx, ly + r * 0.03);
+    }
+  } else if (r > 3) {
+    // the back of the helmet: the team letter on the bumper
+    g.font = '900 ' + Math.round(r * 0.5) + 'px Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = T.stripe; g.fillText(T.logo, h.x, h.y + r * 0.62);
   }
 }
 
+// the blue arrow with the 1 and the yellow name label, Blitz style
+function blzDrawMarker(g, p) {
+  const P = blzProj(p.x, 1.4 + p.y, p.z), F = blzProj(p.x, 0, p.z);
+  if (!P || !F) return;
+  const k = Math.max(9, P.k), x = P.x - k * 1.25, y = P.y;
+  g.fillStyle = '#1f4fe8'; g.strokeStyle = '#c8dcff'; g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(x - k * 0.2, y - k * 0.32); g.lineTo(x + k * 0.55, y); g.lineTo(x - k * 0.2, y + k * 0.32); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = '#0a1a7a'; g.beginPath(); g.arc(x - k * 0.25, y, k * 0.32, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#c8dcff'; g.stroke();
+  g.font = '900 ' + Math.round(k * 0.45) + 'px Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#ffffff'; g.fillText('1', x - k * 0.25, y + 1);
+  if (blitz.phase === 'pre' || blitz.phase === 'live' || blitz.phase === 'dead') {
+    const last = p.name.split(' ').slice(-1)[0];
+    blzText(g, p.num + ' - ' + last, F.x, F.y + Math.max(8, F.k * 0.7), Math.max(9, Math.min(15, F.k * 0.5)), '#ffe23a', 'center');
+  }
+}
+
+function blzBallSprite(g, x, y, k, rot) {
+  const big = blitz.codes.bigball ? 2.4 : 1;
+  g.save(); g.translate(x, y); g.rotate(rot);
+  g.fillStyle = 'rgba(0,0,0,0.5)';
+  g.beginPath(); g.ellipse(0, 0, Math.max(2.4, k * 0.3 * big), Math.max(1.6, k * 0.19 * big), 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#7a3a14';
+  g.beginPath(); g.ellipse(0, 0, Math.max(2, k * 0.27 * big), Math.max(1.3, k * 0.16 * big), 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#a85a2a'; g.beginPath(); g.ellipse(-k * 0.05 * big, -k * 0.05 * big, k * 0.12 * big, k * 0.05 * big, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#f2ecdc'; g.fillRect(-k * 0.1 * big, -k * 0.015 * big, k * 0.2 * big, Math.max(0.6, k * 0.035 * big));
+  g.restore();
+}
 function blzDrawBall(g, B, P) {
-  const k = P.k, big = blitz.codes.bigball ? 2.4 : 1;
   const H = blzProj(B.x, B.y, B.z);
   if (!H) return;
-  // shadow on the turf
   g.fillStyle = 'rgba(0,0,0,0.3)';
-  g.beginPath(); g.ellipse(P.x, P.y, k * 0.3 * big, k * 0.1 * big, 0, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.ellipse(P.x, P.y, P.k * 0.3, P.k * 0.1, 0, 0, Math.PI * 2); g.fill();
   const fire = B.st === 'air' && B.kind === 'pass' && B.from && blzOnFire(B.from.team);
-  if (fire) {
-    g.fillStyle = 'rgba(255,120,20,0.6)';
-    g.beginPath(); g.arc(H.x, H.y, k * 0.55 * big, 0, Math.PI * 2); g.fill();
-  }
-  g.save(); g.translate(H.x, H.y); g.rotate(B.st === 'air' ? blitz.t * 14 : 0.4);
-  g.fillStyle = '#7a3a14';
-  g.beginPath(); g.ellipse(0, 0, Math.max(2, k * 0.36 * big), Math.max(1.3, k * 0.22 * big), 0, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#f2ecdc'; g.fillRect(-k * 0.12 * big, -k * 0.02 * big, k * 0.24 * big, Math.max(0.6, k * 0.04 * big));
-  g.restore();
+  if (fire) { g.fillStyle = 'rgba(255,120,20,0.6)'; g.beginPath(); g.arc(H.x, H.y, H.k * 0.6, 0, Math.PI * 2); g.fill(); }
+  blzBallSprite(g, H.x, H.y, H.k, B.st === 'air' ? blitz.t * 14 : 0.4);
 }
 
 function blzDrawPart(g, q, P) {
@@ -2580,71 +2907,154 @@ function blzDrawPart(g, q, P) {
   g.globalAlpha = 1;
 }
 
-// ---- HUD ----------------------------------------------------------------------------------------
+// ---- HUD: the cart's chrome ----------------------------------------------------------------------
 function blzClockTxt() {
   const s = Math.ceil(blitz.clock), m = (s / 60) | 0;
   return m + ':' + String(s % 60).padStart(2, '0');
 }
+// a beveled box with a blue-steel rim (slant > 0 leans it like the TURBO bar)
+function blzChrome(g, x, y, w, h, slant, fill) {
+  const c = Math.min(7, h * 0.32), s = slant || 0;
+  const path = () => {
+    g.beginPath();
+    g.moveTo(x + c + s, y); g.lineTo(x + w - c + s, y); g.lineTo(x + w + s * 0.5, y + c); g.lineTo(x + w, y + h - c);
+    g.lineTo(x + w - c - s * 0.2, y + h); g.lineTo(x + c - s, y + h); g.lineTo(x - s * 0.5, y + h - c); g.lineTo(x + s * 0.2, y + c);
+    g.closePath();
+  };
+  path();
+  g.fillStyle = fill || 'rgba(6,12,30,0.86)'; g.fill();
+  g.lineJoin = 'round';
+  g.lineWidth = 4; g.strokeStyle = '#0a1024'; g.stroke();
+  const gr = g.createLinearGradient(0, y, 0, y + h);
+  gr.addColorStop(0, '#e8f2ff'); gr.addColorStop(0.45, '#7aa8e8'); gr.addColorStop(1, '#2a4a9a');
+  g.lineWidth = 1.8; g.strokeStyle = gr; g.stroke();
+  return path;
+}
+
 function blzDrawHud(g, W, H) {
-  const ui = blitz.ui;
-  // the score box, top left (on a portrait phone the storm pill wraps to
-  // several lines up there, so the boxes drop below it)
-  const top = H > W * 1.2 ? Math.round(H * 0.17) : 6;
-  const x0 = 6, y0 = top, bw = 128 * ui, bh = 15 * ui;
+  const ui = blitz.ui, portrait = H > W * 1.2;
+  // the scorebox: clock + quarter on the left, the two teams on the right
+  const top = portrait ? Math.round(H * 0.17) : 6;
+  const bx = 8, by = top, bw = 124 * ui, bh = 36 * ui;
+  blzChrome(g, bx, by, bw, bh);
+  blzText(g, blzClockTxt(), bx + 8 * ui, by + bh * 0.3, 15 * ui, blitz.clock < 10 ? '#ff7a6a' : '#ffffff');
+  blzText(g, blitz.ot ? 'OT' : blzOrd(blitz.q), bx + 8 * ui, by + bh * 0.74, 13 * ui, '#ffffff');
   for (let i = 0; i < 2; i++) {
-    const T = blzTeam(i), y = y0 + i * (bh + 1);
-    g.fillStyle = 'rgba(0,0,0,0.65)'; g.fillRect(x0, y, bw, bh);
-    g.fillStyle = T.c1; g.fillRect(x0, y, 5 * ui, bh);
-    blzText(g, T.abbr, x0 + 9 * ui, y + bh / 2 + 1, 12 * ui, '#ffffff');
-    blzText(g, String(blitz.score[i]), x0 + bw - 6, y + bh / 2 + 1, 13 * ui, i === blitz.poss && blitz.kind !== 'kick' ? '#ffd23a' : '#ffffff', 'right');
-    if (i === blitz.poss && blitz.kind !== 'kick') { g.fillStyle = '#7a3a14'; g.beginPath(); g.ellipse(x0 + bw - 34 * ui, y + bh / 2, 4 * ui, 2.4 * ui, 0.3, 0, 7); g.fill(); }
-    if (blzOnFire(i)) blzText(g, '🔥', x0 + bw - 50 * ui, y + bh / 2 + 1, 10 * ui, '#fff', 'center', false);
+    const T = blzTeam(i), y = by + bh * (i ? 0.74 : 0.3);
+    const col = i === 0 ? '#ffe23a' : '#ffffff';
+    blzText(g, T.abbr, bx + 62 * ui, y, 13 * ui, col);
+    blzText(g, String(blitz.score[i]), bx + bw - 8 * ui, y, 14 * ui, col, 'right');
+    if (i === blitz.poss && blitz.kind !== 'kick') { g.fillStyle = '#a85a2a'; g.beginPath(); g.ellipse(bx + 55 * ui, y, 3.4 * ui, 2 * ui, 0.4, 0, 7); g.fill(); }
+    if (blzOnFire(i)) blzText(g, '🔥', bx + bw + 8, y, 10 * ui, '#fff', 'center', false);
   }
-  const qy = y0 + 2 * (bh + 1);
-  g.fillStyle = 'rgba(0,0,0,0.65)'; g.fillRect(x0, qy, bw, bh);
-  blzText(g, blitz.ot ? 'OT' : blzOrd(blitz.q), x0 + 6, qy + bh / 2 + 1, 11 * ui, '#bfe8ff');
-  blzText(g, blzClockTxt(), x0 + bw - 6, qy + bh / 2 + 1, 12 * ui, blitz.clock < 10 ? '#ff6a5a' : '#ffffff', 'right');
-  // down & distance, top right
-  if (blitz.kind !== 'kick' && blitz.phase !== 'final') {
-    const goal = blitz.firstAt === blzGoal(blitz.poss);
-    const togo = Math.max(1, Math.round(Math.abs(blitz.firstAt - blitz.los)));
-    const dd = blitz.pat2 ? '2-PT TRY' : blzOrd(blitz.down) + ' & ' + (goal ? 'GOAL' : togo);
-    const tw = 112 * ui;
-    const ty = H > W * 1.2 ? y0 + 3 * (bh + 1) + 4 : 6, tx = H > W * 1.2 ? x0 + tw : W - 6;
-    g.fillStyle = 'rgba(0,0,0,0.65)'; g.fillRect(tx - tw, ty, tw, bh * 2 + 1);
-    blzText(g, dd, tx - 6, ty + bh / 2 + 1, 13 * ui, '#ffd23a', 'right');
-    blzText(g, blzYardTxt(blitz.los, blitz.poss), tx - 6, ty + bh * 1.5 + 2, 10 * ui, '#ffffff', 'right');
-  }
-  // turbo meter (yours), bottom left
-  const me = blitz.ctl;
-  if (blitz.phase !== 'final' && blitz.phase !== 'call') {
-    const tx = 8, ty = H - 22 * ui, tw = 110 * ui, th = 8 * ui;
+  const ph = blitz.phase;
+  // TURBO, bottom left: the bar IS the meter
+  if (ph !== 'final' && ph !== 'call') {
+    const tw = 150 * ui, th = 20 * ui, tx = 14, ty = H - th - 8;
     const fire = blzOnFire(0) || blitz.codes.inf;
-    blzText(g, 'TURBO', tx, ty - 7 * ui, 9 * ui, fire ? '#ff8a1e' : '#bfe8ff');
-    g.fillStyle = 'rgba(0,0,0,0.7)'; g.fillRect(tx, ty, tw, th);
+    const path = blzChrome(g, tx, ty, tw, th, 6, 'rgba(6,12,30,0.86)');
     const v = fire ? 1 : blitz.turbo[0];
-    const segs = 12;
-    for (let i = 0; i < segs; i++) {
-      if (i / segs >= v) break;
-      g.fillStyle = fire ? (((blitz.t * 10 + i) | 0) % 2 ? '#ff6a1a' : '#ffd23a') : i < 4 ? '#e8412c' : i < 8 ? '#ffb020' : '#ffe23a';
-      g.fillRect(tx + 1 + i * (tw - 2) / segs, ty + 1, (tw - 2) / segs - 1, th - 2);
-    }
-    if (me && blzHuman(me.team)) blzText(g, '#' + me.num + ' ' + me.name, tx, ty + th + 7 * ui, 8 * ui, '#ffffff');
+    g.save(); path(); g.clip();
+    const fg = g.createLinearGradient(0, ty, 0, ty + th);
+    if (fire) { const f = ((blitz.t * 10) | 0) % 2; fg.addColorStop(0, f ? '#ffd23a' : '#ff8a1e'); fg.addColorStop(1, f ? '#c84a0a' : '#a82a0a'); }
+    else { fg.addColorStop(0, '#6aa0ff'); fg.addColorStop(0.5, '#2a5ae8'); fg.addColorStop(1, '#122a8a'); }
+    g.fillStyle = fg; g.fillRect(tx - 10, ty, (tw + 20) * v, th);
+    g.restore();
+    g.save(); g.translate(tx + tw / 2, ty + th / 2 + 1); g.transform(1, 0, -0.25, 1, 0, 0);
+    blzText(g, 'TURBO', 0, 0, 15 * ui, '#e8eeff', 'center');
+    g.restore();
   }
-  // the feed, bottom centre-right
-  let fy = H - 14;
+  // down & distance, bottom right (where the cart says PRESS START)
+  if (ph !== 'final') {
+    let dd = '', sub = '';
+    if (blitz.kind === 'kick') dd = 'KICKOFF';
+    else if (blitz.pat2) dd = '2-PT TRY';
+    else {
+      const goal = blitz.firstAt === blzGoal(blitz.poss);
+      dd = blzOrd(blitz.down) + ' & ' + (goal ? 'GOAL' : Math.max(1, Math.round(Math.abs(blitz.firstAt - blitz.los))));
+      sub = blzYardTxt(blitz.los, blitz.poss);
+    }
+    const tw = 132 * ui, th = 20 * ui, tx = W - tw - 14, ty = H - th - 8;
+    blzChrome(g, tx, ty, tw, th, 6);
+    g.save(); g.translate(tx + tw / 2, ty + th / 2 + 1); g.transform(1, 0, -0.2, 1, 0, 0);
+    blzText(g, dd, 0, 0, 14 * ui, '#ffffff', 'center');
+    g.restore();
+    if (sub) blzText(g, sub, tx + tw - 4, ty - 8, 10 * ui, '#c8dcff', 'right');
+  }
+  // the feed, right side above the box
+  let fy = H - 48 * ui;
   for (let i = blitz.feed.length - 1; i >= 0; i--) {
     const f = blitz.feed[i];
     g.globalAlpha = Math.min(1, f.t * 2);
-    blzText(g, f.text, W - 10, fy, 10 * ui, f.color, 'right');
+    blzText(g, f.text, W - 14, fy, 10 * ui, f.color, 'right');
     fy -= 13 * ui;
   }
   g.globalAlpha = 1;
-  // pre-snap prompt
-  if (blitz.phase === 'pre' && blzHuman(blitz.poss) && ((blitz.t * 2) | 0) % 2 === 0)
-    blzTextC(g, 'PRESS PASS TO HIKE', W / 2, H * 0.84, 14 * ui, '#ffffff');
-  if (blitz.phase === 'pre' && blzHuman(1 - blitz.poss))
-    blzTextC(g, 'PASS = SWITCH DEFENDER', W / 2, H * 0.88, 10 * ui, '#bfe8ff');
+  if (ph === 'pre' && blzHuman(blitz.poss) && ((blitz.t * 2) | 0) % 2 === 0)
+    blzTextC(g, 'PRESS PASS TO HIKE', W / 2, H * 0.8, 14 * ui, '#ffffff');
+  if (ph === 'pre' && blzHuman(1 - blitz.poss))
+    blzTextC(g, 'PASS = SWITCH DEFENDER', W / 2, H * 0.84, 10 * ui, '#c8dcff');
+}
+
+// ---- TEAM SELECT -----------------------------------------------------------------------------------
+// a big helmet in profile, for the select screen and the VS screen
+function blzHelmetIcon(g, T, x, y, r, facing) {
+  const s = facing || 1;
+  g.fillStyle = '#000'; g.beginPath(); g.arc(x, y, r + 3, 0, Math.PI * 2); g.fill();
+  const gr = g.createRadialGradient(x - r * 0.4 * s, y - r * 0.45, r * 0.1, x, y, r * 1.05);
+  gr.addColorStop(0, blzMix(T.helm, 0.6)); gr.addColorStop(0.55, T.helm); gr.addColorStop(1, blzMix(T.helm, 0.45, '#000000'));
+  g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  g.save(); g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.clip();
+  g.fillStyle = T.stripe; g.fillRect(x - r, y - r * 0.92, r * 2, r * 0.22);
+  g.fillStyle = '#0a0a10'; g.fillRect(x + s * r * 0.55 - (s < 0 ? r * 0.5 : 0), y + r * 0.05, r * 0.5, r * 0.6);
+  g.restore();
+  g.strokeStyle = T.mask; g.lineWidth = Math.max(2, r * 0.12); g.lineCap = 'round';
+  const fx0 = x + s * r * 0.75;
+  g.beginPath(); g.moveTo(fx0, y - r * 0.05); g.lineTo(fx0 + s * r * 0.3, y + r * 0.5); g.lineTo(x + s * r * 0.35, y + r * 0.85); g.stroke();
+  g.beginPath(); g.moveTo(x + s * r * 0.3, y + r * 0.35); g.lineTo(fx0 + s * r * 0.25, y + r * 0.35); g.stroke();
+  g.beginPath(); g.moveTo(x + s * r * 0.3, y + r * 0.62); g.lineTo(fx0 + s * r * 0.15, y + r * 0.62); g.stroke();
+  const lx = x - s * r * 0.15, ly = y - r * 0.05;
+  g.fillStyle = T.c2; g.beginPath(); g.arc(lx, ly, r * 0.38, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#000'; g.lineWidth = 1.5; g.stroke();
+  g.font = '900 italic ' + Math.round(r * 0.58) + 'px Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = T.helm === T.c2 ? '#ffffff' : T.helm; g.fillText(T.logo, lx, ly + r * 0.03);
+}
+
+function blzDrawTeams(g, W, H) {
+  const bg = g.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#0a1a4a'); bg.addColorStop(1, '#02040e');
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  g.strokeStyle = 'rgba(80,130,255,0.12)'; g.lineWidth = 1;
+  for (let x = -H; x < W; x += 16) { g.beginPath(); g.moveTo(x, H); g.lineTo(x + H, 0); g.stroke(); }
+  const t = blitz.vsT;
+  g.save(); g.translate(W / 2, 34); g.transform(1, 0, -0.2, 1, 0, 0);
+  blzText(g, 'SELECT YOUR TEAM', 0, 0, 24, '#ffe23a', 'center');
+  g.restore();
+  const cols = W < 420 ? 2 : 4, rows = BLZ_TEAM_ORDER.length / cols;
+  const gw = Math.min(W - 20, 560), cw = (gw - (cols - 1) * 8) / cols;
+  const top = 58, ch = Math.min(96, (H - top - 92) / rows - 8);
+  const x0 = (W - gw) / 2;
+  blitz.hit.cards = [];
+  BLZ_TEAM_ORDER.forEach((key, i) => {
+    const T = BLZ_TEAMS[key], r = (i / cols) | 0, c = i % cols;
+    const x = x0 + c * (cw + 8), y = top + r * (ch + 8);
+    const sel = i === blitz.teamSel;
+    const fill = sel ? blzMix(T.c1, 0.1, '#000000') : 'rgba(6,12,30,0.86)';
+    blzChrome(g, x, y, cw, ch, 0, fill);
+    if (sel) { g.strokeStyle = ((t * 4) | 0) % 2 ? '#ffe23a' : '#ffffff'; g.lineWidth = 2.5; g.strokeRect(x - 3, y - 3, cw + 6, ch + 6); }
+    blzHelmetIcon(g, T, x + cw / 2, y + ch * 0.4, Math.min(ch * 0.27, cw * 0.22), 1);
+    blzText(g, String(i + 1), x + 8, y + 10, 10, '#ffe23a');
+    blzText(g, T.name, x + cw / 2, y + ch * 0.8, Math.min(13, cw / T.name.length * 1.7), '#ffffff', 'center');
+    blzText(g, T.city, x + cw / 2, y + ch * 0.93, Math.min(8, cw / T.city.length * 1.4), blzMix(T.c2, 0.2), 'center');
+    blitz.hit.cards.push({ x, y, w: cw, h: ch, n: i });
+  });
+  const T = BLZ_TEAMS[BLZ_TEAM_ORDER[blitz.teamSel]];
+  const tier = blitz.cfg, opp = BLZ_TEAMS[tier.opp === BLZ_TEAM_ORDER[blitz.teamSel] ? tier.alt : tier.opp];
+  const yb = top + rows * (ch + 8) + 10;
+  blzText(g, T.full, W / 2, yb + 4, 18, blzMix(T.c2, 0.15), 'center');
+  blzText(g, T.blurb, W / 2, yb + 24, 10, '#c8dcff', 'center');
+  blzText(g, tier.name + ' · VS ' + opp.full, W / 2, yb + 42, 11, '#ffffff', 'center');
+  if (((t * 2) | 0) % 2 === 0) blzText(g, 'ARROWS + PASS / ENTER (OR TAP A TEAM)', W / 2, H - 14, 10, '#ffe23a', 'center');
 }
 
 function blzDrawBanner(g, W, H) {
@@ -2788,6 +3198,9 @@ function blzDrawVS(g, W, H) {
   blzText(g, B.city, W * 0.75 + (1 - slide) * W * 0.4, H * 0.22, sz * 0.5, B.c2, 'center');
   blzText(g, B.name, W * 0.75 + (1 - slide) * W * 0.4, H * 0.22 + sz * 0.7, sz, '#ffffff', 'center');
   blzTextC(g, 'VS', W / 2, H * 0.3, sz * 1.4 * (t < 0.4 ? 1 + (0.4 - t) * 3 : 1), '#ffd23a');
+  const hr = Math.min(H * 0.1, W * 0.07);
+  blzHelmetIcon(g, A, W * 0.25 - (1 - slide) * W * 0.4, H * 0.22 + sz * 0.7 + hr * 1.6, hr, 1);
+  blzHelmetIcon(g, B, W * 0.75 + (1 - slide) * W * 0.4, H * 0.22 + sz * 0.7 + hr * 1.6, hr, -1);
   blzTextC(g, blitz.cfg.name + ' · ×' + blitz.cfg.mult, W / 2, H * 0.45, 12, '#ffffff');
   // the three code boxes
   const labels = ['TURBO', 'JUMP', 'PASS'];
@@ -2813,7 +3226,7 @@ function blzDrawFinal(g, W, H) {
   let y = H * 0.18;
   blzTextC(g, 'FINAL', W / 2, y, 24, '#bfe8ff'); y += 32;
   blzTextC(g, blzTeam(0).name + '  ' + blitz.score[0] + '  -  ' + blitz.score[1] + '  ' + blzTeam(1).name, W / 2, y, Math.min(22, W / 22), '#ffffff'); y += 30;
-  const head = R.champ ? 'ALL-BLITZ CHAMPIONS!' : R.won ? 'CRUNCH WIN!' : R.tie ? 'A TIE. NOBODY SLEEPS.' : blzTeam(1).name + ' WIN';
+  const head = R.champ ? 'ALL-BLITZ CHAMPIONS!' : R.won ? blzTeam(0).name + ' WIN!' : R.tie ? 'A TIE. NOBODY SLEEPS.' : blzTeam(1).name + ' WIN';
   blzTextC(g, head, W / 2, y, 20, R.won ? (((t * 5) | 0) % 2 ? '#ffd23a' : '#ffffff') : '#ff8a7a'); y += 28;
   blzTextC(g, st.yds + ' YDS · ' + st.tds + ' TD · ' + st.sacks + ' SACKS · ' + st.ints + ' INT', W / 2, y, 11, '#bfc6ff'); y += 16;
   blzTextC(g, st.hits + ' MONSTER HITS · ' + st.late + ' LATE HITS · ' + st.fires + 'x ON FIRE · LONG ' + st.long, W / 2, y, 11, '#bfc6ff'); y += 20;
@@ -2885,7 +3298,7 @@ window.addEventListener('keydown', (e) => {
   blzAudio();
   const claimed = /^(Key[WASDJKLMQRFPGV]|Arrow(Up|Down|Left|Right)|Space|Enter|ShiftLeft|ShiftRight|Escape|Digit[1-9]|Numpad[1-9])$/.test(e.code);
   if (claimed) e.preventDefault();
-  if (e.code === 'Escape') { if (!e.repeat && blitz.phase !== 'final' && blitz.phase !== 'vs') blitz.paused = !blitz.paused; return; }
+  if (e.code === 'Escape') { if (!e.repeat && blitz.phase !== 'final' && blitz.phase !== 'vs' && blitz.phase !== 'teams') blitz.paused = !blitz.paused; return; }
   if (e.code === 'KeyM' && !e.repeat) {
     const S = blitz.sfx; S.muted = !S.muted;
     if (S.master) S.master.gain.value = S.muted ? 0 : 0.34;
@@ -2904,6 +3317,15 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (blitz.phase === 'final' && e.code === 'KeyR' && !e.repeat) { blzOpenTier(); return; }
+  if (blitz.phase === 'teams') {
+    if (e.repeat) return;
+    const mv = { ArrowLeft: -1, KeyA: -1, ArrowRight: 1, KeyD: 1, ArrowUp: -4, KeyW: -4, ArrowDown: 4, KeyS: 4 }[e.code];
+    if (mv) { blzTeamMove(mv); return; }
+    const m = /^(Digit|Numpad)([1-8])$/.exec(e.code);
+    if (m) { blzTeamPick(+m[2] - 1); return; }
+    if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyJ') blzTeamPick();
+    return;
+  }
   if (blitz.phase === 'vs') {
     if (e.repeat) return;
     if (e.code === 'Enter') { blzStartGame(); return; }
@@ -2929,6 +3351,7 @@ function blzTapUI(x, y) {
   const ph = blitz.phase;
   for (const c of blitz.hit.cards) if (x >= c.x && x < c.x + c.w && y >= c.y && y < c.y + c.h) {
     if (ph === 'vs' && c.n === 'go') { blzStartGame(); return true; }
+    if (ph === 'teams') { blzTeamPick(c.n); return true; }
     if (ph === 'pat') { blzPatChoose(c.n === 1 ? 2 : 1); return true; }
     if (ph === 'call') { blitz.callSel = c.n; blzChoose(c.n); return true; }
   }
@@ -2947,7 +3370,7 @@ function blzPointerDown(e) {
   if (blitz.paused) { blitz.paused = false; return; }
   const p = blzWorldXY(e.clientX, e.clientY);
   if (blzTapUI(p.x, p.y)) return;
-  if (blitz.phase === 'vs') return;
+  if (blitz.phase === 'vs' || blitz.phase === 'teams') return;
   if (e.button === 2) blzPressJump(); else blzPressPass();
 }
 
@@ -2961,7 +3384,8 @@ blitzWorld.addEventListener('touchstart', (e) => {
     const x = t.clientX, y = t.clientY;
     if (blitz.paused) { blitz.paused = false; continue; }
     const wp = blzWorldXY(x, y);
-    if ((blitz.phase === 'call' || blitz.phase === 'pat') && blzTapUI(wp.x, wp.y)) continue;
+    if ((blitz.phase === 'call' || blitz.phase === 'pat' || blitz.phase === 'teams') && blzTapUI(wp.x, wp.y)) continue;
+    if (blitz.phase === 'teams') continue;
     let hit = null;
     for (const b of blzTouchBtns()) if (Math.hypot(x - b.x, y - b.y) <= b.r + 10) { hit = b; break; }
     if (hit) {
@@ -3017,6 +3441,7 @@ function blzPollPad() {
   const nav = Math.abs(P.lx) > 0.6 ? (P.lx > 0 ? 'R' : 'L') : Math.abs(P.ly) > 0.6 ? (P.ly > 0 ? 'D' : 'U') : '';
   if (nav && nav !== P._nav) {
     if (blitz.phase === 'vs') blzCodeDir(nav);
+    else if (blitz.phase === 'teams') blzTeamMove({ R: 1, L: -1, U: -4, D: 4 }[nav]);
     else if (blitz.phase === 'call') blzCallKey({ R: 'ArrowRight', L: 'ArrowLeft', U: 'ArrowUp', D: 'ArrowDown' }[nav]);
     else if (blitz.phase === 'pat' && (nav === 'L' || nav === 'R')) blitz.callSel ^= 1;
   }
@@ -3024,7 +3449,7 @@ function blzPollPad() {
   if (a && !P._a) blzPressPass();
   if (b && !P._b) blzPressJump();
   if (tu && !P._t && blitz.phase === 'vs') blzCodeTap(0);
-  if (st && !P._st) { if (blitz.phase === 'vs') blzStartGame(); else if (blitz.phase !== 'final') blitz.paused = !blitz.paused; }
+  if (st && !P._st) { if (blitz.phase === 'teams') blzTeamPick(); else if (blitz.phase === 'vs') blzStartGame(); else if (blitz.phase !== 'final') blitz.paused = !blitz.paused; }
   P._a = a; P._b = b; P._t = tu; P._st = st;
 }
 
@@ -3044,7 +3469,9 @@ window.blitzDebug = {
   pickTier: (i) => {
     if (blitz.tierPick) { blitz.tierPick.close(); blitz.tierPick = null; }
     blzNewGame(BLZ_TIERS[i] || BLZ_TIERS[0]);
+    blzTeamPick(BLZ_TEAM_ORDER.indexOf('nugs'));
   },
+  pickTeam: (k) => { blitz.phase = 'teams'; blzTeamPick(BLZ_TEAM_ORDER.indexOf(k)); },
   start: () => blzStartGame(),
   code: (taps, dir) => { blitz.codeIn = taps.slice(); blzCodeDir(dir); },
   auto: (v) => { blitz.auto = v !== false; },
