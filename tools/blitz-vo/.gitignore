@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+lines.json
+tmp.wav
+asr.json
+*.wav

@@ -89,6 +89,18 @@ const BLZ_TRASH = ['YOU ARE GOING DOWN!', 'I SMELL FRIES!', 'COME GET SOME!', 'E
   'NICE HELMET. NOT.', 'YOU ARE SOGGY!', 'BREADED AND READY!', 'OVER HERE, BUTTERFINGERS!', 'NO REFS, NO RULES!', 'YOU ARE ON THE MENU!',
   'HIKE IT, I DARE YOU!', 'YOU ARE GETTING DUNKED!', 'NOBODY BEATS THE BATTER!'];
 const BLZ_TAUNTS = ['flex', 'point', 'beckon', 'clap', 'chest', 'dance', 'hop', 'wiggle', 'roar'];
+// (every spoken line is pre-recorded — js/blitzVO.js — so the dynamic bits are finite:
+// four cadence numbers, each team's own share of the generic trash, a call name per man)
+const BLZ_CAD_NUMS = [22, 34, 44, 80];
+const BLZ_FIRSTNAMES = new Set(['BRETT', 'BARRY', 'RANDY', 'TIM', 'REGGIE', 'BRUCE']);
+function blzCallName(p) {
+  const w = String(p.name).split(' ');
+  return BLZ_FIRSTNAMES.has(w[0]) && w.length > 1 ? w.slice(1).join(' ') : p.name;
+}
+function blzTrashPool(teamKey) {
+  const i = Math.max(0, BLZ_TEAM_ORDER.indexOf(teamKey));
+  return (BLZ_FLAVOR[teamKey] || BLZ_FLAVOR.nugs).lines.concat(BLZ_TRASH.filter((_, j) => (j + i) % 3 === 0));
+}
 const BLZ_TEAM_ORDER = ['nugs', 'frygods', 'tots', 'ranch', 'bosses', 'rings', 'mustard', 'curly'];
 // [speed yd/s, strength, hands]
 const BLZ_BASE = {
@@ -510,7 +522,7 @@ function blzTeamPick(i) {
   const k = BLZ_TEAM_ORDER[blitz.teamSel];
   try { localStorage.setItem('nugBlitzTeam', k); } catch (e) { }
   blzSfx('pick');
-  blzSay(BLZ_TEAMS[k].full.toLowerCase());
+  blzSay(BLZ_TEAMS[k].full + '!');
   blzBeginMatchup(k);
 }
 function blzBeginMatchup(mine) {
@@ -535,6 +547,7 @@ function blzStartGame() {
   blitz.openKicker = Math.random() < 0.5 ? 0 : 1;
   blzSfx('horn'); blzRoar(0.7, 2);
   blzBuildExtras();
+  blzVoPrefetch(blitz.teams);
   blitz.rec = []; blitz.playsSinceReplay = 3; blitz.fw = []; blitz.bulbs = []; blitz.wave = null; blitz.waveQ = 0;
   const recv = 1 - blitz.openKicker;
   blzBanner(blzTeam(recv).name + ' RECEIVE', '#ffd23a', blzTeam(0).city + ' vs ' + blzTeam(1).city, 1.6);
@@ -1069,10 +1082,10 @@ function blzBubble(p, text, o) {
 }
 function blzTauntAnim(p, kind, T) { p.taunt = { kind: kind || blzPick(BLZ_TAUNTS), t: 0, T: T || 1.3 }; }
 function blzFlavor(team) { return BLZ_FLAVOR[blitz.teams[team]] || BLZ_FLAVOR.nugs; }
-function blzTrashLine(team) { return Math.random() < 0.55 ? blzPick(blzFlavor(team).lines) : blzPick(BLZ_TRASH); }
+function blzTrashLine(team) { return blzPick(blzTrashPool(blitz.teams[team])); }
 function blzPreStart() {
   const off = blitz.poss;
-  blitz.cad = { word: blzFlavor(off).cad, num: 10 + ((Math.random() * 89) | 0), i: 0, next: 0.3 };
+  blitz.cad = { word: blzFlavor(off).cad, num: blzPick(BLZ_CAD_NUMS), i: 0, next: 0.3 };
   blitz.tauntNext = blzRnd(0.45, 0.8);
   blitz.tauntsDown = [0, 0];
   blitz.chargeSaid = false; blitz.answer = null;
@@ -1090,14 +1103,14 @@ function blzPreStep(dt) {
   if (C && qb && t >= C.next && blitz.kind !== 'kick') {
     const set = C.i % 3 === 2, line = set ? 'SET!' : C.word + ' ' + C.num + '!';
     blzBubble(qb, line, { T: set ? 0.8 : 0.75, col: '#fff3c0' });
-    blzSpeak(line.replace('!', ''), { who: 'qb', prio: 1, maxAge: 0.7 });
+    blzSpeak(line, { who: 'qb', team: off, prio: 1, maxAge: 0.7 });
     C.i++;
     C.next = t + (C.i % 3 === 0 ? 1.5 : 0.65);
   }
   // somebody answers your taunt
   if (blitz.answer && t >= blitz.answer.at) {
     const o = blitz.answer.p; blitz.answer = null;
-    if (o && o.downT <= 0) { blzTauntAnim(o); blzBubble(o, blzTrashLine(o.team), { T: 1.4 }); blzTauntHype(o.team); }
+    if (o && o.downT <= 0) { const ln = blzTrashLine(o.team); blzTauntAnim(o); blzBubble(o, ln, { T: 1.4 }); blzTauntHype(o.team); blzSpeak(ln, { who: 'player', team: o.team, prio: 0, maxAge: 1 }); }
   }
   // trash talk from both sides
   if (t >= blitz.tauntNext) {
@@ -1108,7 +1121,7 @@ function blzPreStep(dt) {
       if (!/^(C|LG|RG|DE1|DT|DE2)$/.test(p.pos)) blzTauntAnim(p);
       const line = blzTrashLine(p.team);
       blzBubble(p, line, { T: 1.4 });
-      if (Math.random() < 0.18) blzSpeak(line, { who: 'player', prio: 0, maxAge: 0.8 });
+      if (Math.random() < 0.22) blzSpeak(line, { who: 'player', team: p.team, prio: 0, maxAge: 0.8 });
       if (!blzHuman(p.team)) blzTauntHype(p.team);
       blzEv('trash');
     }
@@ -1125,7 +1138,7 @@ function blzHumanTaunt() {
   blzTauntAnim(me, kind, 1.2);
   const line = blzTrashLine(me.team);
   blzBubble(me, line, { T: 1.6, col: '#ffe23a', big: true });
-  blzSpeak(line, { who: 'player', prio: 1, maxAge: 1.2 });
+  blzSpeak(line, { who: 'player', team: me.team, prio: 1, maxAge: 1.2 });
   blzRoar(0.45, 0.8);
   blzCrowdSay(Math.random() < 0.5 ? 'yeah' : 'oooh');
   blzTauntHype(me.team);
@@ -1256,7 +1269,7 @@ function blzSnap() {
   for (const p of blitz.players) p.taunt = null;
   blitz.bubbles = blitz.bubbles.filter((b) => b.p === qb);
   if (qb) blzBubble(qb, 'HUT!', { T: 0.6, col: '#fff3c0', big: true });
-  blzSpeak('hut!', { who: 'qb', prio: 2, maxAge: 0.5 });
+  blzSpeak('HUT!', { who: 'qb', team: off, prio: 2, maxAge: 0.5 });
   if (blitz.play && blitz.play.fake) {
     blzBanner(blitz.play.name + '!', '#ff8a3a', '', 1.2);
     blzSay(blitz.play.fake === 'punt' ? 'fake punt!' : 'it\'s a fake!', true);
@@ -1838,7 +1851,7 @@ function blzCaught(r) {
   blitz.fire[1 - team].stops = 0;
   const B = blitz.ball, far = B && B.x0 != null ? Math.hypot(B.x0 - r.x, B.z0 - r.z) : 0;
   if (r.diveT > 0) blzColor(BLZ_COLOR.dive, 0.7);
-  else if (far > 18) { blzColor(BLZ_COLOR.grab, 0.55); if (Math.random() < 0.4) blzSpeak(r.name.split(' ').slice(-1)[0] + '!', { who: 'pbp', prio: 1, maxAge: 1 }); }
+  else if (far > 18) { blzColor(BLZ_COLOR.grab, 0.55); if (Math.random() < 0.45) blzSpeak(blzCallName(r) + ' WITH THE CATCH!', { who: 'pbp', prio: 1, maxAge: 1.2 }); }
 }
 function blzPick6(def) {
   blzEv('int' + def.team);
@@ -3046,8 +3059,8 @@ function blzAfterDead() {
     if (gain >= 25) blzEarn(4, gain + ' YD PLAY');
   }
   // the call: big gains get a number, losses get a wince, the rest mostly get the crowd
-  if (gain >= 15) { blzSpeak(blzPick(['HE PICKS UP ' + gain + '!', gain + ' YARDS ON THE PLAY!', 'A GAIN OF ' + gain + '!']), { who: 'pbp', prio: 1, maxAge: 2 }); blzHype(off, 0.06, D.who, 'gain'); blzCheer(off, 1.6); blitz.flashT = Math.max(blitz.flashT, 1); }
-  else if (gain <= -2) blzSpeak(blzPick(['LOSS OF ' + (-gain) + '!', 'HE GOES BACKWARDS!', 'DROPPED FOR A LOSS!']), { who: 'pbp', prio: 1, maxAge: 2 });
+  if (gain >= 15) { blzSpeak(blzPick(gain >= 30 ? ['WHAT A HUGE GAIN!', 'HE IS GOING TO RUN ALL DAY!', 'THAT IS A MONSTER GAIN!'] : ['BIG GAIN!', 'A HUGE CHUNK OF YARDAGE!', 'HE IS EATING UP YARDS!', 'WHAT A PICKUP!']), { who: 'pbp', prio: 1, maxAge: 2 }); blzHype(off, 0.06, D.who, 'gain'); blzCheer(off, 1.6); blitz.flashT = Math.max(blitz.flashT, 1); }
+  else if (gain <= -2) blzSpeak(blzPick(['LOSING YARDAGE!', 'HE GOES BACKWARDS!', 'DROPPED FOR A LOSS!']), { who: 'pbp', prio: 1, maxAge: 2 });
   blzNextDown(spot);
 }
 
@@ -3471,9 +3484,9 @@ function blzFinal() {
     if (blitz.cfg.key === 'allpro') { try { localStorage.setItem('nugBlitzChamp', '1'); } catch (e) { } }
     blzRoar(1, 3); blzSfx('td');
     for (const p of blitz.players) if (p.team === 0) p.celebT = 6;
-    blzSay('what a game! ' + blzTeam(0).full.toLowerCase() + ' win it!', true);
+    blzSay('WHAT A GAME! ' + blzTeam(0).full + ' WIN IT!', true);
   } else if (tie) { blzEarn(40, 'TIE'); blzSay('a tie. nobody is happy.', true); }
-  else { blzSfx('bad'); blzSay('the ' + blzTeam(1).name.toLowerCase() + ' win it.', true); }
+  else { blzSfx('bad'); blzSay(blzTeam(1).full + ' WIN IT.', true); }
   try { ArcadeKit.saveBest('blitz', blitz.cfg.key, blitz.earned); } catch (e) { }
   blitz.result = { won, tie, unlock: won && blitz.cfg.key === 'pro', champ: won && blitz.cfg.key === 'allpro' };
 }
@@ -3520,7 +3533,7 @@ function blzCodeDir(dirKey) {
     blitz.codes[code.id] = true;
     blitz.codeMsg = { text: code.name, t: 2, ok: true };
     blzSfx('code');
-    blzSay(code.name.toLowerCase());
+    blzSay(code.name + '!');
   } else if (blitz.codeIn.some((n) => n > 0)) {
     blitz.codeMsg = { text: 'NO CODE', t: 1, ok: false };
   }
@@ -5821,13 +5834,13 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM' && !e.repeat) {
     const S = blitz.sfx; S.muted = !S.muted;
     if (S.master) S.master.gain.value = S.muted ? 0 : 0.34;
-    if (S.muted && window.speechSynthesis) window.speechSynthesis.cancel();
+    if (S.muted) blzBoothHush();
     blzFeed(S.muted ? 'SOUND OFF' : 'SOUND ON', '#6a7290');
     return;
   }
   if (e.code === 'KeyV' && !e.repeat) {
     blitz.voice = !blitz.voice;
-    if (!blitz.voice && window.speechSynthesis) window.speechSynthesis.cancel();
+    if (!blitz.voice) blzBoothHush();
     blzFeed(blitz.voice ? 'ANNOUNCER ON' : 'ANNOUNCER OFF', '#6a7290');
     return;
   }

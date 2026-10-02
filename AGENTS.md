@@ -255,7 +255,8 @@ already bitten someone.
 > stiff-arm, defensive dive + MONSTER HITS, LATE HITS after the whistle, HE'S
 > ON FIRE (3 straight catches by one receiver, or 3 straight defensive stops),
 > live fumbles, kick/punt returns, PAT-or-go-for-two, sudden-death OT, the VS
-> screen CODES and a CPU rubber band. Browser-speech announcer (V toggles).
+> screen CODES and a CPU rubber band. Neural-voice announcers + players
+> (pre-rendered Kokoro clips in `audio/blitz/vo/`, V toggles; see 🎙️ THE VOICES).
 > Tiers (ArcadeKit `blitz`): ROOKIE vs the Drive-Thru Demons / PRO vs the Hot
 > Sauce Havoc / ALL-BLITZ vs the Deep Fryer Furies (earned: `nugBlitzPro`;
 > winning it sets `nugBlitzChamp`). No lore exhibit — it's just football.
@@ -2324,13 +2325,13 @@ lines), `css/blitz.css`, the outer pair of uprights on the east island.
     dive in blitz.js (loads later = wins) — it threw on the first CPU dive.
     It's `blzMusDive`; check `comm` of both files' top-level names on any new
     audio function.
-  - **The booth** (`blzSpeak`, same file): ONE speechSynthesis queue for every
-    voice — play-by-play, colour (`BLZ_COLOR`), the QB's cadence, players' trash
-    talk — with priorities and shelf lives (stale news is dropped) and a valve
-    for engines that never fire onend. `blzPBP` situational calls (3rd & long,
-    4th down, red zone, goal to go, the last minute), gains by the number, the
-    breakaway countdown (the thirty… the twenty… the ten…), name calls on big
-    catches.
+  - **The booth** (`blzSpeak`, same file): every voice — play-by-play, colour
+    (`BLZ_COLOR`), the QB's cadence, players' trash talk — with priorities and
+    shelf lives (stale news is dropped). `blzPBP` situational calls (3rd & long,
+    4th down, red zone, goal to go, the last minute), gains, the breakaway
+    countdown (the thirty… the twenty… the ten…), name calls on big catches.
+    First shipped on speechSynthesis; replaced the same afternoon by recorded
+    clips — see 🎙️ THE VOICES below.
   - **The line** (`blzPreStart`/`blzPreStep`): the QB's cadence with each team's
     word (`BLZ_FLAVOR`: GOLDEN 44! … SET! … HUT!), trash talk in comic bubbles
     (`blzBubble`, stacked so they don't overlap) with the whole body selling it
@@ -2368,4 +2369,56 @@ lines), `css/blitz.css`, the outer pair of uprights on the east island.
     sequencer timing exact (kicks on steps 0/8/10 at 140 BPM); master peaks
     ~0.24 with the music up; identical rosters 27–27, PRO 28–25, ROOKIE 50–9,
     ALL-BLITZ 21–38; the button QB still completes ~74%.
-
+- **🎙️ THE VOICES (Chris: "the voices are far too robotic … make them more
+  human like").** speechSynthesis is gone (no reference left anywhere in js/).
+  Every spoken line is a clip pre-rendered offline with **Kokoro-82M** (an open,
+  Apache-2.0 neural TTS) — the pipeline lives in `tools/blitz-vo/` (README there
+  has the install + the re-render steps).
+  - **Files:** `audio/blitz/vo/*.mp3` (360 clips, 48 kbps mono 24 kHz, ~3.3 MB,
+    named `tag-<sha1(key)[:8]>.mp3` so a re-render never moves an unchanged
+    clip); `js/blitzVO.js` = the generated manifest `BLZ_VO` (key →
+    `[file, seconds]`), loaded between blitz.js and blitzAudio.js.
+    `tools/blitz-vo/manifest.json` is the render cache and records what each
+    clip actually SAYS (+ phonemes).
+  - **Keys:** `pbp|TEXT`, `color|TEXT`, `qb:<team>|TEXT`, `player:<team>|TEXT`,
+    TEXT = `blzVoNorm` (upper-case, A–Z 0–9 single spaces). The team is the
+    team KEY (`blitz.teams[o.team]`), so call
+    `blzSpeak(line, { who: 'qb'|'player', team: <0|1>, prio, maxAge })`.
+  - **⚠️ The rule: a line without a clip is SILENT.** `blzSpeak` drops a miss
+    and records the key in `blzVoice.miss` — after touching any spoken text,
+    play a game and read `blzVoice.miss`, then re-render (`node
+    tools/blitz-vo/extract.js` with the repo served on :8787, then
+    `python tools/blitz-vo/render.py`). That's why every dynamic line is FINITE
+    now: gains are number-free pools, cadence numbers come from
+    `BLZ_CAD_NUMS` (22 34 44 80), name calls go through `blzCallName` (drops a
+    first name) + "WITH THE CATCH!", trash talk is a fixed per-team pool
+    (`blzTrashPool` = the team's `BLZ_FLAVOR` lines + a third of `BLZ_TRASH`).
+    New inline lines (not in a table) must be added to `extract.js`.
+  - **Cast** (`render.py`): play-by-play `am_michael` ×1.12, colour `af_heart`
+    ×1.04, one voice per team for its QB and players (nugs `am_puck`, fry gods
+    `bm_george`, tots `am_eric`, ranch `am_fenrir`, bosses `am_onyx`, rings
+    `bm_fable`, mustard `am_liam`, curly `am_echo`). Text is sentence-cased
+    before synthesis (ALL CAPS reads as acronyms) and made-up words get
+    respellings (`SAY`).
+  - **Checked by ear-substitute:** `asr.py` transcribes every clip back with
+    faster-whisper and scores word error against the intended text. Short barks
+    and puns garbled ("SET!" was mush, "we put the nug in nugget" came back
+    "noggin noggin"); `variants.py` renders candidate phrasings in the real
+    voice and keeps whichever Whisper understands, into `overrides.json` (the
+    on-screen bubble keeps its words; the voice says e.g. "Ready, set!" or the
+    team's best "Ready, hike!" / "Hike the ball!"). Final: mean WER 0.055 over
+    360 clips; what's left is made-up names.
+  - **Runtime** (`blitzAudio.js`): two channels that may overlap — **booth**
+    (pbp + colour) and **field** (QB + players) — each playing one clip with a
+    2-deep priority queue (prio ≥ 3, or > current+1, preempts). Booth chain:
+    HP 95 → presence peak 3.2 kHz +3.5 dB → compressor → slapback + a little
+    reverb; while it talks the music ducks to 0.55× and the field to 0.35×.
+    Field chain: HP 140 / LP 7 kHz (a stadium PA) with more reverb, and a
+    0.97–1.03 playback-rate jitter so repeated barks aren't identical. Decoded
+    AudioBuffers are an LRU of 64; `blzVoPrefetch(blitz.teams)` at kickoff
+    fetches pbp + colour + both teams' scopes, 4 at a time. M / V toggles call
+    `blzBoothHush`. Silent in `blitzDebug.auto` (the AI-vs-AI sim).
+  - Ledger: 45s of scripted human play (auto off) = 33 clips (24 distinct),
+    0 missing keys, 264 prefetches 0 bad;
+    music RMS 0.067 → booth 0.086 over the ducked music, field 0.076, peaks
+    < 0.42; no page errors.

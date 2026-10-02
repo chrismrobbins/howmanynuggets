@@ -1,0 +1,2162 @@
+{
+ "pbp|TOUCHDOWN": [
+  "pbp-bf27e1bf.mp3",
+  0.7,
+  "Touchdown!",
+  "t\u02c8\u028c\u02a7d\u02ccWn!"
+ ],
+ "pbp|HE TAKES IT ALL THE WAY": [
+  "pbp-81681147.mp3",
+  1.24,
+  "He takes it all the way!",
+  "h\u02cci t\u02c8Aks \u026at \u02c8\u0254l \u00f0\u0259 w\u02c8A!"
+ ],
+ "pbp|SIX POINTS": [
+  "pbp-89d051d5.mp3",
+  1.09,
+  "That's six points!",
+  "\u00f0\u02c8\u00e6ts s\u02c8\u026aks p\u02c8Ynts!"
+ ],
+ "pbp|SACKED": [
+  "pbp-b59ea32c.mp3",
+  0.8,
+  "He's sacked!",
+  "h\u02cciz s\u02c8\u00e6kt!"
+ ],
+ "pbp|THE QUARTERBACK GOES DOWN": [
+  "pbp-7d07ee1a.mp3",
+  1.36,
+  "The quarterback goes down!",
+  "\u00f0\u0259 kw\u02c8\u0254\u0279T\u0259\u0279b\u02cc\u00e6k \u0261\u02c8Oz d\u02ccWn!"
+ ],
+ "pbp|HE GOT CRUNCHED": [
+  "pbp-f4215b41.mp3",
+  0.93,
+  "He got crunched!",
+  "h\u02cci \u0261\u0251t k\u0279\u02c8\u028cn\u02a7t!"
+ ],
+ "pbp|MONSTER HIT": [
+  "pbp-4be4a81a.mp3",
+  0.93,
+  "Monster hit!",
+  "m\u02c8\u0251nst\u0259\u0279 h\u02c8\u026at!"
+ ],
+ "pbp|OH DID YOU SEE THAT": [
+  "pbp-86667a8b.mp3",
+  1.02,
+  "Oh! Did you see that?",
+  "\u02c8O! d\u02c8\u026ad ju s\u02c8i \u00f0\u02c8\u00e6t?"
+ ],
+ "pbp|HE GOT BREADED": [
+  "pbp-789c0fea.mp3",
+  0.91,
+  "He got breaded!",
+  "h\u02cci \u0261\u0251t b\u0279\u02c8\u025bd\u1d7bd!"
+ ],
+ "pbp|HE WILL FEEL THAT ONE TOMORROW": [
+  "pbp-e76c8c04.mp3",
+  1.63,
+  "He will feel that one tomorrow!",
+  "h\u02cci w\u026al f\u02c8il \u00f0\u02c8\u00e6t w\u02c8\u028cn t\u0259m\u02c8\u0251\u0279O!"
+ ],
+ "pbp|LATE HIT": [
+  "pbp-bb133c02.mp3",
+  0.74,
+  "Late hit!",
+  "l\u02c8At h\u02c8\u026at!"
+ ],
+ "pbp|AFTER THE WHISTLE": [
+  "pbp-2ce5ea07.mp3",
+  0.91,
+  "After the whistle!",
+  "\u02c8\u00e6ft\u0259\u0279 \u00f0\u0259 w\u02c8\u026as\u1d4al!"
+ ],
+ "pbp|NO MERCY": [
+  "pbp-6730e4d5.mp3",
+  0.77,
+  "No mercy!",
+  "n\u02c8O m\u02c8\u025c\u0279si!"
+ ],
+ "pbp|INTERCEPTED": [
+  "pbp-c6652c36.mp3",
+  0.83,
+  "Intercepted!",
+  "\u02cc\u026ant\u0259\u0279s\u02c8\u025bpt\u1d7bd!"
+ ],
+ "pbp|PICKED OFF": [
+  "pbp-483bf660.mp3",
+  0.68,
+  "Picked off!",
+  "p\u02c8\u026akt \u02c8\u0254f!"
+ ],
+ "pbp|FUMBLE": [
+  "pbp-cefefe14.mp3",
+  0.61,
+  "Fumble!",
+  "f\u02c8\u028cmb\u1d4al!"
+ ],
+ "pbp|HE COUGHS IT UP": [
+  "pbp-fdc28cab.mp3",
+  0.96,
+  "He coughs it up!",
+  "h\u02cci k\u02c8\u0254fs \u026at \u02cc\u028cp!"
+ ],
+ "pbp|FIRST DOWN": [
+  "pbp-582476b7.mp3",
+  0.89,
+  "First down!",
+  "f\u02c8\u025c\u0279st d\u02ccWn!"
+ ],
+ "pbp|MOVE THE CHAINS": [
+  "pbp-0aff6808.mp3",
+  1.0,
+  "Move the chains!",
+  "m\u02c8uv \u00f0\u0259 \u02a7\u02c8Anz!"
+ ],
+ "pbp|HE S ON FIRE": [
+  "pbp-201c207d.mp3",
+  0.96,
+  "He's on fire!",
+  "h\u02cciz \u02cc\u0254n f\u02c8I\u0259\u0279!"
+ ],
+ "pbp|THE DEFENSE IS ON FIRE": [
+  "pbp-3f7a40e0.mp3",
+  1.39,
+  "The defense is on fire!",
+  "\u00f0\u0259 d\u0259f\u02c8\u025bns \u026az \u02cc\u0254n f\u02c8I\u0259\u0279!"
+ ],
+ "pbp|IT S GOOD": [
+  "pbp-96bd34ce.mp3",
+  0.71,
+  "It's good!",
+  "\u02cc\u026ats \u0261\u02c8\u028ad!"
+ ],
+ "pbp|NO GOOD": [
+  "pbp-a435daf6.mp3",
+  0.77,
+  "No good!",
+  "n\u02c8O \u0261\u02c8\u028ad!"
+ ],
+ "pbp|WHAT A MOVE": [
+  "pbp-146765df.mp3",
+  0.81,
+  "What a move!",
+  "w\u02cc\u028ct \u0250 m\u02c8uv!"
+ ],
+ "pbp|SPIN CYCLE": [
+  "pbp-f5ad33f7.mp3",
+  0.91,
+  "Spin cycle!",
+  "sp\u02c8\u026an s\u02c8Ik\u0259l!"
+ ],
+ "pbp|STIFF ARM": [
+  "pbp-fe2696f9.mp3",
+  0.82,
+  "Stiff arm!",
+  "st\u02c8\u026af \u02c8\u0251\u0279m!"
+ ],
+ "pbp|GET OFF ME": [
+  "pbp-daf9c95c.mp3",
+  0.82,
+  "Get off me!",
+  "\u0261\u02cc\u025bt \u02c8\u0254f m\u02cci!"
+ ],
+ "pbp|HE JUMPS OVER HIM": [
+  "pbp-d0a3bca2.mp3",
+  1.14,
+  "He jumps over him!",
+  "h\u02cci \u02a4\u02c8\u028cmps \u02c8Ov\u0259\u0279 h\u02cc\u026am!"
+ ],
+ "pbp|DA BOMB": [
+  "pbp-55f13996.mp3",
+  0.69,
+  "Da bomb!",
+  "d\u02cc\u0259 b\u02c8\u0251m!"
+ ],
+ "pbp|WAY DOWNFIELD": [
+  "pbp-000b5484.mp3",
+  0.99,
+  "Way downfield!",
+  "w\u02c8A d\u02ccWnf\u02c8ild!"
+ ],
+ "pbp|THROW THE BALL": [
+  "pbp-0536196d.mp3",
+  0.89,
+  "Throw the ball!",
+  "\u03b8\u0279\u02c8O \u00f0\u0259 b\u02c8\u0254l!"
+ ],
+ "pbp|GET RID OF IT": [
+  "pbp-c07d9de7.mp3",
+  0.86,
+  "Get rid of it!",
+  "\u0261\u02cc\u025bt \u0279\u02c8\u026ad \u028cv \u026at!"
+ ],
+ "pbp|HE S HEATING UP": [
+  "pbp-0c6ec11b.mp3",
+  0.95,
+  "He's heating up!",
+  "h\u02cciz h\u02c8iT\u026a\u014b \u02cc\u028cp!"
+ ],
+ "pbp|HE IS HEATING UP": [
+  "pbp-b268d84a.mp3",
+  1.02,
+  "He is heating up!",
+  "h\u02cci \u026az h\u02c8iT\u026a\u014b \u02cc\u028cp!"
+ ],
+ "pbp|GETTING WARM": [
+  "pbp-94baee72.mp3",
+  0.88,
+  "Getting warm!",
+  "\u0261\u02c8\u025bT\u026a\u014b w\u02c8\u0254\u0279m!"
+ ],
+ "pbp|THIS DEFENSE IS HEATING UP": [
+  "pbp-7f922ef4.mp3",
+  1.43,
+  "This defense is heating up!",
+  "\u00f0\u02cc\u026as d\u0259f\u02c8\u025bns \u026az h\u02c8iT\u026a\u014b \u02cc\u028cp!"
+ ],
+ "pbp|THE DEFENSE IS GETTING WARM": [
+  "pbp-ba56f025.mp3",
+  1.53,
+  "The defense is getting warm!",
+  "\u00f0\u0259 d\u0259f\u02c8\u025bns \u026az \u0261\u02c8\u025bT\u026a\u014b w\u02c8\u0254\u0279m!"
+ ],
+ "pbp|THIRD DOWN": [
+  "pbp-b40993da.mp3",
+  0.82,
+  "Third down!",
+  "\u03b8\u02c8\u025c\u0279d d\u02ccWn!"
+ ],
+ "pbp|BIG THIRD DOWN HERE": [
+  "pbp-f23cdf01.mp3",
+  1.16,
+  "Big third down here!",
+  "b\u02c8\u026a\u0261 \u03b8\u02c8\u025c\u0279d d\u02ccWn h\u02c8\u026a\u0279!"
+ ],
+ "pbp|THIRD DOWN THIS IS IT": [
+  "pbp-6d9d0210.mp3",
+  1.31,
+  "Third down. This is it.",
+  "\u03b8\u02c8\u025c\u0279d d\u02ccWn. \u00f0\u02cc\u026as \u026az \u026at."
+ ],
+ "pbp|THIRD AND LONG": [
+  "pbp-fc8eee11.mp3",
+  0.9,
+  "Third and long!",
+  "\u03b8\u02c8\u025c\u0279d \u00e6nd l\u02c8\u0254\u014b!"
+ ],
+ "pbp|THIRD AND A MILE": [
+  "pbp-d6817059.mp3",
+  1.08,
+  "Third and a mile!",
+  "\u03b8\u02c8\u025c\u0279d \u00e6nd \u0250 m\u02c8Il!"
+ ],
+ "pbp|THIRD AND FOREVER": [
+  "pbp-7958a4e3.mp3",
+  1.13,
+  "Third and forever!",
+  "\u03b8\u02c8\u025c\u0279d \u00e6nd f\u0259\u0279\u02c8\u025bv\u0259\u0279!"
+ ],
+ "pbp|FOURTH DOWN THEY ARE GOING FOR IT": [
+  "pbp-00a4ee15.mp3",
+  1.59,
+  "Fourth down! They are going for it!",
+  "f\u02c8\u0254\u0279\u03b8 d\u02ccWn! \u00f0\u02ccA \u0251\u0279 \u0261\u02c8O\u026a\u014b f\u0254\u0279 \u026at!"
+ ],
+ "pbp|FOURTH DOWN NO PUNTING": [
+  "pbp-9b953e1d.mp3",
+  1.37,
+  "Fourth down. No punting!",
+  "f\u02c8\u0254\u0279\u03b8 d\u02ccWn. n\u02c8O p\u02c8\u028cnt\u026a\u014b!"
+ ],
+ "pbp|GUTS TIME FOURTH DOWN": [
+  "pbp-1b7430ce.mp3",
+  1.39,
+  "Guts time. Fourth down.",
+  "\u0261\u02c8\u028cts t\u02c8Im. f\u02c8\u0254\u0279\u03b8 d\u02ccWn."
+ ],
+ "pbp|RED ZONE": [
+  "pbp-ed63c568.mp3",
+  0.78,
+  "Red zone!",
+  "\u0279\u02c8\u025bd z\u02c8On!"
+ ],
+ "pbp|KNOCKING ON THE DOOR": [
+  "pbp-44bba91b.mp3",
+  1.02,
+  "Knocking on the door!",
+  "n\u02c8\u0251k\u026a\u014b \u02cc\u0254n \u00f0\u0259 d\u02c8\u0254\u0279!"
+ ],
+ "pbp|THEY CAN SMELL IT": [
+  "pbp-c332f32a.mp3",
+  0.91,
+  "They can smell it!",
+  "\u00f0\u02ccA k\u00e6n sm\u02c8\u025bl \u026at!"
+ ],
+ "pbp|GOAL TO GO": [
+  "pbp-8fa485f9.mp3",
+  0.83,
+  "Goal to go!",
+  "\u0261\u02c8Ol t\u0259 \u0261\u02ccO!"
+ ],
+ "pbp|FIRST AND GOAL": [
+  "pbp-b053e17e.mp3",
+  1.04,
+  "First and goal!",
+  "f\u02c8\u025c\u0279st \u00e6nd \u0261\u02c8Ol!"
+ ],
+ "pbp|UNDER A MINUTE TO GO": [
+  "pbp-f78c4f3d.mp3",
+  1.07,
+  "Under a minute to go!",
+  "\u02c8\u028cnd\u0259\u0279 \u0250 m\u02c8\u026an\u0259t t\u0259 \u0261\u02ccO!"
+ ],
+ "pbp|THE CLOCK IS TICKING": [
+  "pbp-b3010972.mp3",
+  1.14,
+  "The clock is ticking!",
+  "\u00f0\u0259 kl\u02c8\u0251k \u026az t\u02c8\u026ak\u026a\u014b!"
+ ],
+ "pbp|CRUNCH TIME": [
+  "pbp-358b7d2b.mp3",
+  0.89,
+  "Crunch time!",
+  "k\u0279\u02c8\u028cn\u02a7 t\u02c8Im!"
+ ],
+ "pbp|INCOMPLETE": [
+  "pbp-daf1240f.mp3",
+  0.83,
+  "Incomplete!",
+  "\u02cc\u026ank\u0259mpl\u02c8it!"
+ ],
+ "pbp|FALLS INCOMPLETE": [
+  "pbp-e0e2deb0.mp3",
+  1.48,
+  "The pass falls incomplete!",
+  "\u00f0\u0259 p\u02c8\u00e6s f\u02c8\u0254lz \u02cc\u026ank\u0259mpl\u02c8it!"
+ ],
+ "pbp|NO CATCH": [
+  "pbp-cd3aa8b1.mp3",
+  0.71,
+  "No catch!",
+  "n\u02c8O k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|HERE IS THE KICK": [
+  "pbp-ed4ee57a.mp3",
+  0.97,
+  "Here is the kick!",
+  "h\u02c8\u026a\u0279 \u026az \u00f0\u0259 k\u02c8\u026ak!"
+ ],
+ "pbp|AND WE ARE UNDERWAY": [
+  "pbp-146f6601.mp3",
+  1.16,
+  "And we are underway!",
+  "\u02cc\u00e6nd wi \u0251\u0279 \u02cc\u028cnd\u0259\u0279w\u02c8A!"
+ ],
+ "pbp|THE BOOT IS AWAY": [
+  "pbp-9cc810ab.mp3",
+  1.1,
+  "The boot is away!",
+  "\u00f0\u0259 b\u02c8ut \u026az \u0259w\u02c8A!"
+ ],
+ "pbp|A NICE RETURN": [
+  "pbp-435e68b6.mp3",
+  1.02,
+  "A nice return!",
+  "\u0250 n\u02c8Is \u0279\u0259t\u02c8\u025c\u0279n!"
+ ],
+ "pbp|HE BRINGS IT BACK": [
+  "pbp-50ba5f52.mp3",
+  1.05,
+  "He brings it back!",
+  "h\u02cci b\u0279\u02c8\u026a\u014bz \u026at b\u02c8\u00e6k!"
+ ],
+ "pbp|GOOD FIELD POSITION": [
+  "pbp-661beca9.mp3",
+  1.18,
+  "Good field position!",
+  "\u0261\u02c8\u028ad f\u02c8ild p\u0259z\u02c8\u026a\u0283\u0259n!"
+ ],
+ "pbp|PICK SIX": [
+  "pbp-917a4d5a.mp3",
+  1.09,
+  "That's a pick six!",
+  "\u00f0\u02c8\u00e6ts \u0250 p\u02c8\u026ak s\u02c8\u026aks!"
+ ],
+ "pbp|HE IS GONE THE OTHER WAY": [
+  "pbp-1049c818.mp3",
+  1.37,
+  "He is gone the other way!",
+  "h\u02cci \u026az \u0261\u0254n \u00f0i \u02c8\u028c\u00f0\u0259\u0279 w\u02c8A!"
+ ],
+ "pbp|HE SPUN HIM AROUND": [
+  "pbp-f47f6f0d.mp3",
+  1.15,
+  "He spun him around!",
+  "h\u02cci sp\u02c8\u028cn h\u02cc\u026am \u0259\u0279\u02c8Wnd!"
+ ],
+ "pbp|AND HE THROWS HIM DOWN": [
+  "pbp-879ca3c2.mp3",
+  1.31,
+  "And he throws him down!",
+  "\u02cc\u00e6nd hi \u03b8\u0279\u02c8Oz h\u02cc\u026am d\u02ccWn!"
+ ],
+ "pbp|GERMAN SUPLEX": [
+  "pbp-66f32e97.mp3",
+  1.1,
+  "German suplex!",
+  "\u02a4\u02c8\u025c\u0279m\u0259n s\u02c8upl\u025bks!"
+ ],
+ "pbp|OH THE SUPLEX": [
+  "pbp-80b0ebb2.mp3",
+  1.02,
+  "Oh, the suplex!",
+  "\u02c8O, \u00f0\u0259 s\u02c8upl\u025bks!"
+ ],
+ "pbp|SPINEBUSTER": [
+  "pbp-552520fb.mp3",
+  0.83,
+  "Spinebuster!",
+  "sp\u02c8Inb\u028cst\u0259\u0279!"
+ ],
+ "pbp|HE PICKED HIM UP BY THE FACE MASK": [
+  "pbp-c2d140dc.mp3",
+  1.8,
+  "He picked him up by the face mask!",
+  "h\u02cci p\u02c8\u026akt h\u02cc\u026am \u02cc\u028cp bI \u00f0\u0259 f\u02c8As m\u02c8\u00e6sk!"
+ ],
+ "pbp|NECKBREAKER": [
+  "pbp-7ba6ea6a.mp3",
+  0.84,
+  "Neckbreaker!",
+  "n\u02c8\u025bkb\u0279Ak\u0259\u0279!"
+ ],
+ "pbp|CLOTHESLINE": [
+  "pbp-4c530a25.mp3",
+  0.82,
+  "Clothesline!",
+  "kl\u02c8O\u00f0zl\u02ccIn!"
+ ],
+ "pbp|HE TOOK HIS HEAD OFF": [
+  "pbp-f168afef.mp3",
+  1.17,
+  "He took his head off!",
+  "h\u02cci t\u02c8\u028ak h\u026az h\u02c8\u025bd \u02c8\u0254f!"
+ ],
+ "pbp|SPEARED": [
+  "pbp-f37b26ba.mp3",
+  1.07,
+  "Oh, he got speared!",
+  "\u02c8O, hi \u0261\u0251t sp\u02c8\u026a\u0279d!"
+ ],
+ "pbp|FROM THE TOP ROPE": [
+  "pbp-06102bda.mp3",
+  1.03,
+  "From the top rope!",
+  "f\u0279\u02cc\u028cm \u00f0\u0259 t\u02c8\u0251p \u0279\u02c8Op!"
+ ],
+ "pbp|ELBOW DROP": [
+  "pbp-d42079d3.mp3",
+  0.84,
+  "Elbow drop!",
+  "\u02c8\u025blb\u02ccO d\u0279\u02c8\u0251p!"
+ ],
+ "pbp|LEG DROP": [
+  "pbp-a0c43fd9.mp3",
+  0.75,
+  "Leg drop!",
+  "l\u02c8\u025b\u0261 d\u0279\u02c8\u0251p!"
+ ],
+ "pbp|BROTHER": [
+  "pbp-cee66319.mp3",
+  0.55,
+  "Brother!",
+  "b\u0279\u02c8\u028c\u00f0\u0259\u0279!"
+ ],
+ "color|THAT IS GONNA LEAVE A CRUMB": [
+  "color-24089a27.mp3",
+  1.32,
+  "That is gonna leave a crumb!",
+  "\u00f0\u02c8\u00e6t \u026az \u0261\u02c8\u028cn\u0259 l\u02c8iv \u0250 k\u0279\u02c8\u028cm!"
+ ],
+ "color|SOMEBODY CHECK ON HIM": [
+  "color-a3943e61.mp3",
+  1.17,
+  "Somebody check on him!",
+  "s\u02c8\u028cmb\u0259di \u02a7\u02c8\u025bk \u02cc\u0254n h\u02cc\u026am!"
+ ],
+ "color|HE FELT THAT ONE IN THE BATTER": [
+  "color-4283599e.mp3",
+  1.53,
+  "He felt that one in the batter!",
+  "h\u02cci f\u02c8\u025blt \u00f0\u00e6t w\u02c8\u028cn \u026an \u00f0\u0259 b\u02c8\u00e6T\u0259\u0279!"
+ ],
+ "color|HE GOT DEEP FRIED": [
+  "color-6726ed74.mp3",
+  1.07,
+  "He got deep fried!",
+  "h\u02cci \u0261\u0251t d\u02c8ip f\u0279\u02c8Id!"
+ ],
+ "color|I FELT THAT ONE UP HERE": [
+  "color-7b0dec0a.mp3",
+  1.3,
+  "I felt that one up here!",
+  "\u02ccI f\u02c8\u025blt \u00f0\u00e6t w\u02c8\u028cn \u02cc\u028cp h\u02c8\u026a\u0279!"
+ ],
+ "color|OH HIS MOTHER FELT THAT": [
+  "color-817e78ad.mp3",
+  1.45,
+  "Oh, his mother felt that!",
+  "\u02c8O, h\u026az m\u02c8\u028c\u00f0\u0259\u0279 f\u02c8\u025blt \u00f0\u02c8\u00e6t!"
+ ],
+ "color|NO FLAGS IN THIS LEAGUE": [
+  "color-1396239a.mp3",
+  1.32,
+  "No flags in this league!",
+  "n\u02c8O fl\u02c8\u00e6\u0261z \u026an \u00f0\u026as l\u02c8i\u0261!"
+ ],
+ "color|THE WHISTLE IS JUST A SUGGESTION": [
+  "color-3836d167.mp3",
+  1.72,
+  "The whistle is just a suggestion!",
+  "\u00f0\u0259 w\u02c8\u026as\u1d4al \u026az \u02a4\u02c8\u028cst \u0250 s\u0259\u02a4\u02c8\u025bs\u02a7\u0259n!"
+ ],
+ "color|THAT ONE WAS PERSONAL": [
+  "color-d34ea78f.mp3",
+  1.12,
+  "That one was personal!",
+  "\u00f0\u02c8\u00e6t w\u02c8\u028cn w\u028cz p\u02c8\u025c\u0279s\u1d4an\u0259l!"
+ ],
+ "color|NO MERCY BABY": [
+  "color-6cca15fe.mp3",
+  1.13,
+  "No mercy, baby!",
+  "n\u02c8O m\u02c8\u025c\u0279si, b\u02c8Abi!"
+ ],
+ "color|EXTRA CRISPY": [
+  "color-9b9f9e68.mp3",
+  0.97,
+  "Extra crispy!",
+  "\u02c8\u025bkst\u0279\u0259 k\u0279\u02c8\u026aspi!"
+ ],
+ "color|GOLDEN BROWN AND DELICIOUS": [
+  "color-ca65ab3c.mp3",
+  1.51,
+  "Golden brown and delicious!",
+  "\u0261\u02c8Old\u0259n b\u0279\u02c8Wn \u00e6nd d\u0259l\u02c8\u026a\u0283\u0259s!"
+ ],
+ "color|ORDER UP": [
+  "color-35298ce6.mp3",
+  0.68,
+  "Order up!",
+  "\u02c8\u0254\u0279d\u0259\u0279 \u02cc\u028cp!"
+ ],
+ "color|SERVE IT UP": [
+  "color-ae3c8675.mp3",
+  0.73,
+  "Serve it up!",
+  "s\u02c8\u025c\u0279v \u026at \u02cc\u028cp!"
+ ],
+ "color|THAT IS A TEN PIECE": [
+  "color-d5b299a9.mp3",
+  1.14,
+  "That is a ten piece!",
+  "\u00f0\u02c8\u00e6t \u026az \u0250 t\u02c8\u025bn p\u02c8is!"
+ ],
+ "color|HE NEVER SAW IT COMING": [
+  "color-f3e62100.mp3",
+  1.32,
+  "He never saw it coming!",
+  "h\u02cci n\u02c8\u025bv\u0259\u0279 s\u02c8\u0254 \u026at k\u02c8\u028cm\u026a\u014b!"
+ ],
+ "color|THAT QUARTERBACK IS TOAST": [
+  "color-5ba81909.mp3",
+  1.38,
+  "That quarterback is toast!",
+  "\u00f0\u02c8\u00e6t kw\u02c8\u0254\u0279T\u0259\u0279b\u02cc\u00e6k \u026az t\u02c8Ost!"
+ ],
+ "color|WELCOME TO THE N F N": [
+  "color-479d78dd.mp3",
+  1.4,
+  "Welcome to the N. F. N.!",
+  "w\u02c8\u025blk\u0259m t\u0259 \u00f0i \u02c8\u025bn \u02c8\u025bf \u02c8\u025bn!"
+ ],
+ "color|RIGHT IN THE BREADING": [
+  "color-7ad82b19.mp3",
+  0.99,
+  "Right in the breading!",
+  "\u0279\u02c8It \u026an \u00f0\u0259 b\u0279\u02c8\u025bd\u026a\u014b!"
+ ],
+ "color|HE THREW IT RIGHT TO HIM": [
+  "color-24f12a86.mp3",
+  1.25,
+  "He threw it right to him!",
+  "h\u02cci \u03b8\u0279\u02c8u \u026at \u0279\u02c8It t\u0259 h\u02cc\u026am!"
+ ],
+ "color|WHAT WAS HE THINKING": [
+  "color-74f14338.mp3",
+  1.01,
+  "What was he thinking?",
+  "w\u02cc\u028ct w\u028cz hi \u03b8\u02c8\u026a\u014bk\u026a\u014b?"
+ ],
+ "color|THAT ONE IS GOING ON THE BLOOPER REEL": [
+  "color-8ddd1ce9.mp3",
+  1.7,
+  "That one is going on the blooper reel!",
+  "\u00f0\u02c8\u00e6t w\u02c8\u028cn \u026az \u0261\u02c8O\u026a\u014b \u02cc\u0254n \u00f0\u0259 bl\u02c8up\u0259\u0279 \u0279\u02c8il!"
+ ],
+ "color|BUTTERFINGERS": [
+  "color-814cecdc.mp3",
+  0.85,
+  "Butterfingers!",
+  "b\u02c8\u028cT\u0259\u0279f\u02cc\u026a\u014b\u0261\u0259\u0279z!"
+ ],
+ "color|HE HAD IT AND HE DROPPED IT": [
+  "color-5812caa9.mp3",
+  1.39,
+  "He had it and he dropped it!",
+  "h\u02cci h\u00e6d \u026at \u00e6nd hi d\u0279\u02c8\u0251pt \u026at!"
+ ],
+ "color|HANDS OF STONE": [
+  "color-602db501.mp3",
+  0.93,
+  "Hands of stone!",
+  "h\u02c8\u00e6ndz \u028cv st\u02c8On!"
+ ],
+ "color|TOO GREASY": [
+  "color-e7a5ed2b.mp3",
+  0.8,
+  "Too greasy!",
+  "t\u02c8u \u0261\u0279\u02c8isi!"
+ ],
+ "color|WHAT A GRAB": [
+  "color-8c16e5bd.mp3",
+  0.73,
+  "What a grab!",
+  "w\u02cc\u028ct \u0250 \u0261\u0279\u02c8\u00e6b!"
+ ],
+ "color|HE SNAGGED IT": [
+  "color-3dd236dd.mp3",
+  0.87,
+  "He snagged it!",
+  "h\u02cci sn\u02c8\u00e6\u0261d \u026at!"
+ ],
+ "color|WHAT HANDS": [
+  "color-fc442f9c.mp3",
+  0.72,
+  "What hands!",
+  "w\u02cc\u028ct h\u02c8\u00e6ndz!"
+ ],
+ "color|STICKY FINGERS": [
+  "color-ab9deccc.mp3",
+  0.95,
+  "Sticky fingers!",
+  "st\u02c8\u026aki f\u02c8\u026a\u014b\u0261\u0259\u0279z!"
+ ],
+ "color|HE LAID OUT FOR IT": [
+  "color-7509b20b.mp3",
+  1.05,
+  "He laid out for it!",
+  "h\u02cci l\u02c8Ad \u02c8Wt f\u0254\u0279 \u026at!"
+ ],
+ "color|WHAT A DIVE": [
+  "color-10871209.mp3",
+  0.72,
+  "What a dive!",
+  "w\u02cc\u028ct \u0250 d\u02c8Iv!"
+ ],
+ "color|FULL EXTENSION": [
+  "color-cbda1a89.mp3",
+  0.98,
+  "Full extension!",
+  "f\u02c8\u028al \u026akst\u02c8\u025bn\u0283\u1d4an!"
+ ],
+ "color|OH HE IS TALKING NOW": [
+  "color-17630679.mp3",
+  1.24,
+  "Oh, he is talking now!",
+  "\u02c8O, hi \u026az t\u02c8\u0254k\u026a\u014b n\u02c8W!"
+ ],
+ "color|A LITTLE TRASH TALK AT THE LINE": [
+  "color-3025fa43.mp3",
+  1.54,
+  "A little trash talk at the line!",
+  "\u0250 l\u02c8\u026aT\u1d4al t\u0279\u02c8\u00e6\u0283 t\u02c8\u0254k \u00e6t \u00f0\u0259 l\u02c8In!"
+ ],
+ "color|SOMEBODY IS CONFIDENT": [
+  "color-6ccb0c4f.mp3",
+  1.33,
+  "Somebody is confident!",
+  "s\u02c8\u028cmb\u0259di \u026az k\u02c8\u0251nf\u0259d\u1d4ant!"
+ ],
+ "color|THESE TWO DO NOT LIKE EACH OTHER": [
+  "color-14970948.mp3",
+  1.66,
+  "These two do not like each other!",
+  "\u00f0\u02cciz t\u02c8u d\u02c8u n\u02cc\u0251t l\u02c8Ik \u02c8i\u02a7 \u02c8\u028c\u00f0\u0259\u0279!"
+ ],
+ "color|OH THEY ARE JAWING": [
+  "color-75dbe093.mp3",
+  1.59,
+  "Oh, these two are talking trash!",
+  "\u02c8O, \u00f0iz t\u02c8u \u0251\u0279 t\u02c8\u0254k\u026a\u014b t\u0279\u02c8\u00e6\u0283!"
+ ],
+ "color|LOOK AT HIM SHOWBOAT": [
+  "color-7630c23d.mp3",
+  1.05,
+  "Look at him showboat!",
+  "l\u02c8\u028ak \u00e6t h\u02cc\u026am \u0283\u02c8Ob\u02ccOt!"
+ ],
+ "color|HE IS TAUNTING THEM": [
+  "color-250d691e.mp3",
+  1.11,
+  "He is taunting them!",
+  "h\u02cci \u026az t\u02c8\u0254nt\u026a\u014b \u00f0\u02cc\u025bm!"
+ ],
+ "color|SOMEBODY STOP THIS MAN": [
+  "color-1c9c5317.mp3",
+  1.28,
+  "Somebody stop this man!",
+  "s\u02c8\u028cmb\u0259di st\u02c8\u0251p \u00f0\u026as m\u02c8\u00e6n!"
+ ],
+ "color|OH THE DISRESPECT": [
+  "color-a1cc1ae6.mp3",
+  1.43,
+  "Now that is disrespectful!",
+  "n\u02c8W \u00f0\u02c8\u00e6t \u026az d\u02cc\u026as\u0279\u0259sp\u02c8\u025bktf\u1d4al!"
+ ],
+ "color|STUFFED": [
+  "color-2f32d065.mp3",
+  0.59,
+  "Stuffed!",
+  "st\u02c8\u028cft!"
+ ],
+ "color|NOWHERE TO GO": [
+  "color-2ba6d731.mp3",
+  0.93,
+  "Nowhere to go!",
+  "n\u02c8Ohw\u02cc\u025b\u0279 t\u0259 \u0261\u02ccO!"
+ ],
+ "color|HE RAN INTO A WALL": [
+  "color-9ed740de.mp3",
+  1.09,
+  "He ran into a wall!",
+  "h\u02cci \u0279\u02c8\u00e6n \u02c8\u026antu \u0250 w\u02c8\u0254l!"
+ ],
+ "color|NOTHING THERE": [
+  "color-f5b1c7db.mp3",
+  0.8,
+  "Nothing there!",
+  "n\u02c8\u028c\u03b8\u026a\u014b \u00f0\u02c8\u025b\u0279!"
+ ],
+ "color|HE IS LOOSE": [
+  "color-405ba7d5.mp3",
+  0.83,
+  "He is loose!",
+  "h\u02cci \u026az l\u02c8us!"
+ ],
+ "color|LOOK AT HIM GO": [
+  "color-77360f4e.mp3",
+  0.87,
+  "Look at him go!",
+  "l\u02c8\u028ak \u00e6t h\u02cc\u026am \u0261\u02ccO!"
+ ],
+ "color|BREAKAWAY": [
+  "color-a5fa62ac.mp3",
+  0.68,
+  "Breakaway!",
+  "b\u0279\u02c8Ak\u0259w\u02ccA!"
+ ],
+ "color|SEE YOU LATER": [
+  "color-f36cac5e.mp3",
+  0.83,
+  "See you later!",
+  "s\u02c8i ju l\u02c8AT\u0259\u0279!"
+ ],
+ "color|SOMEBODY GET A FIRE EXTINGUISHER": [
+  "color-e0ee60ec.mp3",
+  1.69,
+  "Somebody get a fire extinguisher!",
+  "s\u02c8\u028cmb\u0259di \u0261\u025bt \u0250 f\u02c8I\u0259\u0279 \u026akst\u02c8\u026a\u014b\u0261w\u026a\u0283\u0259\u0279!"
+ ],
+ "color|TOO HOT TO HANDLE": [
+  "color-76060b79.mp3",
+  1.07,
+  "Too hot to handle!",
+  "t\u02c8u h\u02c8\u0251t t\u0259 h\u02c8\u00e6nd\u0259l!"
+ ],
+ "color|THE FRYER IS ON": [
+  "color-d3101b16.mp3",
+  1.02,
+  "The fryer is on!",
+  "\u00f0\u0259 f\u0279\u02c8I\u0259\u0279 \u026az \u02cc\u0254n!"
+ ],
+ "color|OOF": [
+  "color-ea59fa94.mp3",
+  0.52,
+  "Oof.",
+  "\u02c8uf."
+ ],
+ "color|THAT IS GONNA MAKE THE BLOOPER REEL": [
+  "color-8db3a615.mp3",
+  1.7,
+  "That is gonna make the blooper reel.",
+  "\u00f0\u02c8\u00e6t \u026az \u0261\u02c8\u028cn\u0259 m\u02ccAk \u00f0\u0259 bl\u02c8up\u0259\u0279 \u0279\u02c8il."
+ ],
+ "color|YIKES": [
+  "color-dca0b4e2.mp3",
+  0.59,
+  "Yikes.",
+  "j\u02c8Iks."
+ ],
+ "pbp|ONSIDE KICK": [
+  "pbp-d0f374a2.mp3",
+  1.35,
+  "It's an onside kick!",
+  "\u02cc\u026ats \u0250n \u02cc\u0254ns\u02c8Id k\u02c8\u026ak!"
+ ],
+ "pbp|FAKE PUNT": [
+  "pbp-8c1ba0ee.mp3",
+  1.04,
+  "It's a fake punt!",
+  "\u02cc\u026ats \u0250 f\u02c8Ak p\u02c8\u028cnt!"
+ ],
+ "pbp|IT S A FAKE": [
+  "pbp-b3475fbb.mp3",
+  0.8,
+  "It's a fake!",
+  "\u02cc\u026ats \u0250 f\u02c8Ak!"
+ ],
+ "pbp|IT S TIPPED": [
+  "pbp-06407b01.mp3",
+  1.04,
+  "The ball is tipped!",
+  "\u00f0\u0259 b\u02c8\u0254l \u026az t\u02c8\u026apt!"
+ ],
+ "pbp|UP FOR GRABS": [
+  "pbp-18b041b3.mp3",
+  0.94,
+  "Up for grabs!",
+  "\u02cc\u028cp f\u0254\u0279 \u0261\u0279\u02c8\u00e6bz!"
+ ],
+ "pbp|OH THE ELBOW": [
+  "pbp-2db926f6.mp3",
+  0.9,
+  "Oh, the elbow!",
+  "\u02c8O, \u00f0i \u02c8\u025blb\u02ccO!"
+ ],
+ "pbp|TWO POINTS": [
+  "pbp-78fc36fe.mp3",
+  1.08,
+  "That's two points!",
+  "\u00f0\u02c8\u00e6ts t\u02c8u p\u02c8Ynts!"
+ ],
+ "pbp|SAFETY": [
+  "pbp-b6ebc8cb.mp3",
+  0.7,
+  "Safety!",
+  "s\u02c8Afti!"
+ ],
+ "pbp|THAT IS HALFTIME": [
+  "pbp-3363fd6a.mp3",
+  1.05,
+  "That is halftime!",
+  "\u00f0\u02c8\u00e6t \u026az h\u02c8\u00e6ft\u02ccIm!"
+ ],
+ "pbp|HALFTIME HERE AT THE FRYER": [
+  "pbp-a5c648cc.mp3",
+  1.38,
+  "Halftime here at the fryer!",
+  "h\u02c8\u00e6ft\u02ccIm h\u02c8\u026a\u0279 \u00e6t \u00f0\u0259 f\u0279\u02c8I\u0259\u0279!"
+ ],
+ "pbp|LOOK AT HIM SHOWBOAT": [
+  "pbp-62ca63b4.mp3",
+  1.0,
+  "Look at him showboat!",
+  "l\u02c8\u028ak \u00e6t h\u02cc\u026am \u0283\u02c8Ob\u02ccOt!"
+ ],
+ "pbp|HE S DANCING IN": [
+  "pbp-e2a99f90.mp3",
+  1.06,
+  "He's dancing in!",
+  "h\u02cciz d\u02c8\u00e6ns\u026a\u014b \u02c8\u026an!"
+ ],
+ "pbp|THE THIRTY": [
+  "pbp-35e04b7d.mp3",
+  0.72,
+  "The thirty!",
+  "\u00f0\u0259 \u03b8\u02c8\u025c\u0279Ti!"
+ ],
+ "pbp|THE TWENTY": [
+  "pbp-1d6a20cf.mp3",
+  0.8,
+  "The twenty!",
+  "\u00f0\u0259 tw\u02c8\u025bnti!"
+ ],
+ "pbp|THE TEN": [
+  "pbp-07c29175.mp3",
+  0.68,
+  "The ten!",
+  "\u00f0\u0259 t\u02c8\u025bn!"
+ ],
+ "pbp|A TIE NOBODY IS HAPPY": [
+  "pbp-6b821dfd.mp3",
+  1.52,
+  "A tie. Nobody is happy.",
+  "\u0250 t\u02c8I. n\u02c8Ob\u02cc\u0251di \u026az h\u02c8\u00e6pi."
+ ],
+ "pbp|WHAT A HUGE GAIN": [
+  "pbp-bc0674fd.mp3",
+  1.1,
+  "What a huge gain!",
+  "w\u02cc\u028ct \u0250 hj\u02c8u\u02a4 \u0261\u02c8An!"
+ ],
+ "pbp|HE IS GOING TO RUN ALL DAY": [
+  "pbp-7e7a19ce.mp3",
+  1.41,
+  "He is going to run all day!",
+  "h\u02cci \u026az \u0261\u02c8O\u026a\u014b t\u0259 \u0279\u02c8\u028cn \u02c8\u0254l d\u02c8A!"
+ ],
+ "pbp|THAT IS A MONSTER GAIN": [
+  "pbp-173fddfd.mp3",
+  1.31,
+  "That is a monster gain!",
+  "\u00f0\u02c8\u00e6t \u026az \u0250 m\u02c8\u0251nst\u0259\u0279 \u0261\u02c8An!"
+ ],
+ "pbp|BIG GAIN": [
+  "pbp-1b87fd9c.mp3",
+  0.8,
+  "Big gain!",
+  "b\u02c8\u026a\u0261 \u0261\u02c8An!"
+ ],
+ "pbp|A HUGE CHUNK OF YARDAGE": [
+  "pbp-77159df8.mp3",
+  1.49,
+  "A huge chunk of yardage!",
+  "\u0250 hj\u02c8u\u02a4 \u02a7\u02c8\u028c\u014bk \u028cv j\u02c8\u0251\u0279d\u026a\u02a4!"
+ ],
+ "pbp|HE IS EATING UP YARDS": [
+  "pbp-feb38452.mp3",
+  1.35,
+  "He is eating up yards!",
+  "h\u02cci \u026az \u02c8iT\u026a\u014b \u02cc\u028cp j\u02c8\u0251\u0279dz!"
+ ],
+ "pbp|WHAT A PICKUP": [
+  "pbp-d5f58968.mp3",
+  0.89,
+  "What a pickup!",
+  "w\u02cc\u028ct \u0250 p\u02c8\u026ak\u02cc\u028cp!"
+ ],
+ "pbp|LOSING YARDAGE": [
+  "pbp-416ee4ad.mp3",
+  1.01,
+  "Losing yardage!",
+  "l\u02c8uz\u026a\u014b j\u02c8\u0251\u0279d\u026a\u02a4!"
+ ],
+ "pbp|HE GOES BACKWARDS": [
+  "pbp-a3d27a41.mp3",
+  1.15,
+  "He goes backwards!",
+  "h\u02cci \u0261\u02c8Oz b\u02c8\u00e6kw\u0259\u0279dz!"
+ ],
+ "pbp|DROPPED FOR A LOSS": [
+  "pbp-b26ff3fb.mp3",
+  1.05,
+  "Dropped for a loss!",
+  "d\u0279\u02c8\u0251pt f\u0254\u0279 \u0250 l\u02c8\u0254s!"
+ ],
+ "color|LOOK AT THIS": [
+  "color-70dfee40.mp3",
+  0.75,
+  "Look at this!",
+  "l\u02c8\u028ak \u00e6t \u00f0\u02c8\u026as!"
+ ],
+ "color|OH HE IS FEELING IT": [
+  "color-039ea06d.mp3",
+  1.12,
+  "Oh, he is feeling it!",
+  "\u02c8O, hi \u026az f\u02c8il\u026a\u014b \u026at!"
+ ],
+ "color|CELEBRATION TIME": [
+  "color-e5e0d885.mp3",
+  1.17,
+  "Celebration time!",
+  "s\u02cc\u025bl\u0259b\u0279\u02c8A\u0283\u0259n t\u02c8Im!"
+ ],
+ "color|GET A PICTURE OF THIS": [
+  "color-90fd04a4.mp3",
+  1.2,
+  "Get a picture of this!",
+  "\u0261\u02cc\u025bt \u0250 p\u02c8\u026ak\u02a7\u0259\u0279 \u028cv \u00f0\u02c8\u026as!"
+ ],
+ "pbp|THE NUGS": [
+  "pbp-27a9045c.mp3",
+  0.74,
+  "The nugs!",
+  "\u00f0\u0259 n\u02c8\u028c\u0261z!"
+ ],
+ "pbp|WHAT A GAME THE NUGS WIN IT": [
+  "pbp-f0a5848a.mp3",
+  1.7,
+  "What a game! The nugs win it!",
+  "w\u02cc\u028ct \u0250 \u0261\u02c8Am! \u00f0\u0259 n\u02c8\u028c\u0261z w\u02c8\u026an \u026at!"
+ ],
+ "pbp|THE NUGS WIN IT": [
+  "pbp-6529dfac.mp3",
+  1.19,
+  "The nugs win the game.",
+  "\u00f0\u0259 n\u02c8\u028c\u0261z w\u02c8\u026an \u00f0\u0259 \u0261\u02c8Am."
+ ],
+ "pbp|MOSS TARD WITH THE CATCH": [
+  "pbp-587d1391.mp3",
+  1.26,
+  "Moss-tard with the catch!",
+  "m\u02cc\u0254st\u02c8\u0251\u0279d w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|BROWN GRAVY WITH THE CATCH": [
+  "pbp-7198e83a.mp3",
+  1.41,
+  "Brown-gravy with the catch!",
+  "b\u0279\u02ccWn\u0261\u0279\u02c8Avi w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|SAUCEDERS WITH THE CATCH": [
+  "pbp-33f9253e.mp3",
+  1.36,
+  "Sauce-ders with the catch!",
+  "s\u02c8\u0254sd\u02c8\u025b\u0279z w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|FRYVRE WITH THE CATCH": [
+  "pbp-0ea33a90.mp3",
+  1.24,
+  "Fry-ver with the catch!",
+  "f\u0279\u02c8Iv\u02cc\u025c\u0279 w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "qb:nugs|GOLDEN 22": [
+  "qb-nugs-a8b73075.mp3",
+  0.99,
+  "Golden 22!",
+  "\u0261\u02c8Old\u0259n tw\u02c8\u025bnti t\u02c8u!"
+ ],
+ "qb:nugs|GOLDEN 34": [
+  "qb-nugs-12098df4.mp3",
+  1.06,
+  "Golden 34!",
+  "\u0261\u02c8Old\u0259n \u03b8\u02c8\u025c\u0279Ti f\u02c8\u0254\u0279!"
+ ],
+ "qb:nugs|GOLDEN 44": [
+  "qb-nugs-951d2352.mp3",
+  1.0,
+  "Golden 44!",
+  "\u0261\u02c8Old\u0259n f\u02c8\u0254\u0279Ti f\u02c8\u0254\u0279!"
+ ],
+ "qb:nugs|GOLDEN 80": [
+  "qb-nugs-93061e02.mp3",
+  0.8,
+  "Golden 80!",
+  "\u0261\u02c8Old\u0259n \u02c8ATi!"
+ ],
+ "qb:nugs|SET": [
+  "qb-nugs-ec84eb95.mp3",
+  0.71,
+  "Ready, set!",
+  "\u0279\u02c8\u025bdi, s\u02c8\u025bt!"
+ ],
+ "qb:nugs|HUT": [
+  "qb-nugs-7871cb4c.mp3",
+  0.71,
+  "Ready, hike!",
+  "\u0279\u02c8\u025bdi, h\u02c8Ik!"
+ ],
+ "player:nugs|GOLDEN BROWN BABY": [
+  "pl-nugs-9f80dbbf.mp3",
+  1.08,
+  "Golden brown, baby!",
+  "\u0261\u02c8Old\u0259n b\u0279\u02c8Wn, b\u02c8Abi!"
+ ],
+ "player:nugs|YOU ARE ABOUT TO GET DIPPED": [
+  "pl-nugs-838aa711.mp3",
+  1.04,
+  "You are about to get dipped!",
+  "j\u02ccu \u0251\u0279 \u0259b\u02c8Wt t\u0259 \u0261\u025bt d\u02c8\u026apt!"
+ ],
+ "player:nugs|TEN PIECE NO WAITING": [
+  "pl-nugs-6516eb7d.mp3",
+  1.13,
+  "Ten piece. No waiting!",
+  "t\u02c8\u025bn p\u02c8is. n\u02c8O w\u02c8AT\u026a\u014b!"
+ ],
+ "player:nugs|NUGGETOWN STAND UP": [
+  "pl-nugs-7bc60536.mp3",
+  1.11,
+  "Nugget town, stand up!",
+  "n\u02c8\u028c\u0261\u0259t t\u02c8Wn, st\u02c8\u00e6nd \u02cc\u028cp!"
+ ],
+ "player:nugs|WE PUT THE NUG IN NUGGET": [
+  "pl-nugs-bdea7b3c.mp3",
+  1.27,
+  "We put the nug... in nugget!",
+  "w\u02cci p\u02cc\u028at \u00f0\u0259 n\u02c8\u028c\u0261... \u026an n\u02c8\u028c\u0261\u0259t!"
+ ],
+ "player:nugs|YOU ARE GOING DOWN": [
+  "pl-nugs-2fa1eb40.mp3",
+  0.82,
+  "You are going down!",
+  "j\u02ccu \u0251\u0279 \u0261\u02c8O\u026a\u014b d\u02ccWn!"
+ ],
+ "player:nugs|EXTRA CRISPY": [
+  "pl-nugs-1c806ece.mp3",
+  0.97,
+  "Extra crispy!",
+  "\u02c8\u025bkst\u0279\u0259 k\u0279\u02c8\u026aspi!"
+ ],
+ "player:nugs|NICE HELMET NOT": [
+  "pl-nugs-ff324e93.mp3",
+  0.91,
+  "Nice helmet. Not.",
+  "n\u02c8Is h\u02c8\u025blm\u0259t. n\u02cc\u0251t."
+ ],
+ "player:nugs|OVER HERE BUTTERFINGERS": [
+  "pl-nugs-2312c80a.mp3",
+  1.15,
+  "Over here, butterfingers!",
+  "\u02c8Ov\u0259\u0279 h\u02c8\u026a\u0279, b\u02c8\u028cT\u0259\u0279f\u02cc\u026a\u014b\u0261\u0259\u0279z!"
+ ],
+ "player:nugs|HIKE IT I DARE YOU": [
+  "pl-nugs-b3487ca0.mp3",
+  1.32,
+  "Go ahead, hike it! I dare you!",
+  "\u0261\u02ccO \u0259h\u02c8\u025bd, h\u02c8Ik \u026at! \u02ccI d\u02c8\u025b\u0279 ju!"
+ ],
+ "pbp|THE FRY GODS": [
+  "pbp-f06e1c96.mp3",
+  1.02,
+  "The fry gods!",
+  "\u00f0\u0259 f\u0279\u02c8I \u0261\u02c8\u0251dz!"
+ ],
+ "pbp|WHAT A GAME THE FRY GODS WIN IT": [
+  "pbp-1f2a1dda.mp3",
+  1.9,
+  "What a game! The fry gods win it!",
+  "w\u02cc\u028ct \u0250 \u0261\u02c8Am! \u00f0\u0259 f\u0279\u02c8I \u0261\u02c8\u0251dz w\u02c8\u026an \u026at!"
+ ],
+ "pbp|THE FRY GODS WIN IT": [
+  "pbp-60ab55e0.mp3",
+  1.48,
+  "The fry gods win the game.",
+  "\u00f0\u0259 f\u0279\u02c8I \u0261\u02c8\u0251dz w\u02c8\u026an \u00f0\u0259 \u0261\u02c8Am."
+ ],
+ "pbp|APOLLO CRINKLE WITH THE CATCH": [
+  "pbp-13850acf.mp3",
+  1.57,
+  "Apollo crinkle with the catch!",
+  "\u0259p\u02c8\u0251lO k\u0279\u02c8\u026a\u014bk\u1d4al w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|ARTEMIS WITH THE CATCH": [
+  "pbp-7046f9af.mp3",
+  1.31,
+  "Artemis with the catch!",
+  "\u02c8\u0251\u0279T\u0259m\u0259s w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|HERMES WITH THE CATCH": [
+  "pbp-065807ff.mp3",
+  1.26,
+  "Hermes with the catch!",
+  "h\u02c8\u025c\u0279miz w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|ZEUS WITH THE CATCH": [
+  "pbp-3f249a31.mp3",
+  1.12,
+  "Zeus with the catch!",
+  "z\u02c8us w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "qb:frygods|OLYMPUS 22": [
+  "qb-frygods-2dd7befa.mp3",
+  1.79,
+  "Olympus 22!",
+  "\u0259l\u02c8\u026amp\u0259s tw\u02c8\u025bnti t\u02c8u\u02d0!"
+ ],
+ "qb:frygods|OLYMPUS 34": [
+  "qb-frygods-95a4f5a0.mp3",
+  1.86,
+  "Olympus 34!",
+  "\u0259l\u02c8\u026amp\u0259s \u03b8\u02c8\u025c\u02d0ti f\u02c8\u0254\u02d0!"
+ ],
+ "qb:frygods|OLYMPUS 44": [
+  "qb-frygods-f31b0536.mp3",
+  1.75,
+  "Olympus 44!",
+  "\u0259l\u02c8\u026amp\u0259s f\u02c8\u0254\u02d0ti f\u02c8\u0254\u02d0!"
+ ],
+ "qb:frygods|OLYMPUS 80": [
+  "qb-frygods-05d4dfe9.mp3",
+  1.38,
+  "Olympus 80!",
+  "\u0259l\u02c8\u026amp\u0259s \u02c8Ati!"
+ ],
+ "qb:frygods|SET": [
+  "qb-frygods-8283f7fe.mp3",
+  0.91,
+  "Get set!",
+  "\u0261\u02cc\u025bt s\u02c8\u025bt!"
+ ],
+ "qb:frygods|HUT": [
+  "qb-frygods-09ff37b3.mp3",
+  1.15,
+  "Hike the ball!",
+  "h\u02c8Ik \u00f0\u0259 b\u02c8\u0254\u02d0l!"
+ ],
+ "player:frygods|KNEEL BEFORE THE FRY": [
+  "pl-frygods-7314e3f9.mp3",
+  1.65,
+  "Kneel before the fry!",
+  "n\u02c8i\u02d0l b\u026af\u02c8\u0254\u02d0 \u00f0\u0259 f\u0279\u02c8I!"
+ ],
+ "player:frygods|SALTED BY THE GODS": [
+  "pl-frygods-cd43b61b.mp3",
+  1.64,
+  "Salted by the gods!",
+  "s\u02c8\u0252lt\u026ad bI \u00f0\u0259 \u0261\u02c8\u0252dz!"
+ ],
+ "player:frygods|BEHOLD MORTAL": [
+  "pl-frygods-18b60044.mp3",
+  1.54,
+  "Behold, mortal!",
+  "b\u026ah\u02c8Qld, m\u02c8\u0254\u02d0t\u1d4al!"
+ ],
+ "player:frygods|YOU DARE CHALLENGE US": [
+  "pl-frygods-528da096.mp3",
+  1.71,
+  "You dare challenge us?",
+  "j\u02ccu\u02d0 d\u02c8\u025b\u02d0 \u02a7\u02c8al\u026an\u02a4 \u02cc\u028cs?"
+ ],
+ "player:frygods|CRINKLE CUT BABY": [
+  "pl-frygods-b4b838f1.mp3",
+  1.62,
+  "Crinkle cut, baby!",
+  "k\u0279\u02c8\u026a\u014bk\u1d4al k\u02c8\u028ct, b\u02c8Abi!"
+ ],
+ "player:frygods|COME GET SOME": [
+  "pl-frygods-a9bf694e.mp3",
+  1.16,
+  "Come get some!",
+  "k\u02c8\u028cm \u0261\u025bt s\u02cc\u028cm!"
+ ],
+ "player:frygods|I AM COMING FOR YOU": [
+  "pl-frygods-ac52d49e.mp3",
+  1.48,
+  "I am coming for you!",
+  "\u02ccI \u0250m k\u02c8\u028cm\u026a\u014b f\u0254\u02d0 ju\u02d0!"
+ ],
+ "player:frygods|BREADED AND READY": [
+  "pl-frygods-394a3b3a.mp3",
+  1.39,
+  "Breaded and ready!",
+  "b\u0279\u02c8\u025bd\u026ad and \u0279\u02c8\u025bdi!"
+ ],
+ "player:frygods|YOU ARE ON THE MENU": [
+  "pl-frygods-0f683d56.mp3",
+  1.63,
+  "You are on the menu!",
+  "j\u02ccu\u02d0 \u0251\u02d0 \u02cc\u0252n \u00f0\u0259 m\u02c8\u025bnju\u02d0!"
+ ],
+ "player:frygods|NOBODY BEATS THE BATTER": [
+  "pl-frygods-ef03d5a6.mp3",
+  1.79,
+  "Nobody beats the batter!",
+  "n\u02c8Qb\u0259di b\u02c8i\u02d0ts \u00f0\u0259 b\u02c8at\u0259!"
+ ],
+ "pbp|THE TATER TOTS": [
+  "pbp-8ed70214.mp3",
+  1.06,
+  "The tater tots!",
+  "\u00f0\u0259 t\u02c8AT\u0259\u0279 t\u02c8\u0251ts!"
+ ],
+ "pbp|WHAT A GAME THE TATER TOTS WIN IT": [
+  "pbp-db829444.mp3",
+  1.86,
+  "What a game! The tater tots win it!",
+  "w\u02cc\u028ct \u0250 \u0261\u02c8Am! \u00f0\u0259 t\u02c8AT\u0259\u0279 t\u02c8\u0251ts w\u02c8\u026an \u026at!"
+ ],
+ "pbp|THE TATER TOTS WIN IT": [
+  "pbp-1cca49ac.mp3",
+  1.44,
+  "The tater tots win the game.",
+  "\u00f0\u0259 t\u02c8AT\u0259\u0279 t\u02c8\u0251ts w\u02c8\u026an \u00f0\u0259 \u0261\u02c8Am."
+ ],
+ "pbp|SMALL FRY WITH THE CATCH": [
+  "pbp-46552e45.mp3",
+  1.33,
+  "Small fry with the catch!",
+  "sm\u02c8\u0254l f\u0279\u02c8I w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|TINY TIM WITH THE CATCH": [
+  "pbp-fb208ba0.mp3",
+  1.28,
+  "Tiny tim with the catch!",
+  "t\u02c8Ini t\u02c8\u026am w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|HASH BROWNIE WITH THE CATCH": [
+  "pbp-03baded0.mp3",
+  1.37,
+  "Hash brownie with the catch!",
+  "h\u02c8\u00e6\u0283 b\u0279\u02c8Wni w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|LIL TOT WITH THE CATCH": [
+  "pbp-a4372cfc.mp3",
+  1.29,
+  "Lil tot with the catch!",
+  "l\u02c8\u026al t\u02c8\u0251t w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "qb:tots|TOT TOT 22": [
+  "qb-tots-b1a2018e.mp3",
+  1.17,
+  "Tot, tot 22!",
+  "t\u02c8\u0251t, t\u02c8\u0251t tw\u02c8\u025bnti t\u02c8u!"
+ ],
+ "qb:tots|TOT TOT 34": [
+  "qb-tots-9f90a3f3.mp3",
+  1.21,
+  "Tot, tot 34!",
+  "t\u02c8\u0251t, t\u02c8\u0251t \u03b8\u02c8\u025c\u0279Ti f\u02c8\u0254\u0279!"
+ ],
+ "qb:tots|TOT TOT 44": [
+  "qb-tots-6589c6e2.mp3",
+  1.23,
+  "Tot, tot 44!",
+  "t\u02c8\u0251t, t\u02c8\u0251t f\u02c8\u0254\u0279Ti f\u02c8\u0254\u0279!"
+ ],
+ "qb:tots|TOT TOT 80": [
+  "qb-tots-4848402b.mp3",
+  0.96,
+  "Tot, tot 80!",
+  "t\u02c8\u0251t, t\u02c8\u0251t \u02c8ATi!"
+ ],
+ "qb:tots|SET": [
+  "qb-tots-2bb05d87.mp3",
+  0.77,
+  "Ready, set!",
+  "\u0279\u02c8\u025bdi, s\u02c8\u025bt!"
+ ],
+ "qb:tots|HUT": [
+  "qb-tots-596a953a.mp3",
+  0.76,
+  "Ready, hike!",
+  "\u0279\u02c8\u025bdi, h\u02c8Ik!"
+ ],
+ "player:tots|WE ARE SMALL BUT WE ARE MEAN": [
+  "pl-tots-b7dd4684.mp3",
+  1.35,
+  "We are small but we are mean!",
+  "w\u02cci \u0251\u0279 sm\u02c8\u0254l b\u02cc\u028ct wi \u0251\u0279 m\u02c8in!"
+ ],
+ "player:tots|BITE SIZE BIG HITS": [
+  "pl-tots-ed74c765.mp3",
+  1.17,
+  "Bite size, big hits!",
+  "b\u02c8It s\u02c8Iz, b\u02c8\u026a\u0261 h\u02c8\u026ats!"
+ ],
+ "player:tots|TOTS TOTS TOTS": [
+  "pl-tots-32c811c3.mp3",
+  1.13,
+  "Tots! Tots! Tots!",
+  "t\u02c8\u0251ts! t\u02c8\u0251ts! t\u02c8\u0251ts!"
+ ],
+ "player:tots|YOU ARE TOAST": [
+  "pl-tots-f7587e09.mp3",
+  0.81,
+  "You are toast!",
+  "j\u02ccu \u0251\u0279 t\u02c8Ost!"
+ ],
+ "player:tots|FAMILY SIZE BEATDOWN": [
+  "pl-tots-5ac1684f.mp3",
+  1.3,
+  "Family size beatdown!",
+  "f\u02c8\u00e6m\u1d4ali s\u02c8Iz b\u02c8itd\u02ccWn!"
+ ],
+ "player:tots|I SMELL FRIES": [
+  "pl-tots-3a2dd9c7.mp3",
+  0.94,
+  "I smell fries!",
+  "\u02ccI sm\u02c8\u025bl f\u0279\u02c8Iz!"
+ ],
+ "player:tots|IS THAT ALL YOU GOT": [
+  "pl-tots-d130f37e.mp3",
+  1.03,
+  "Is that all you got?",
+  "\u02cc\u026az \u00f0\u02c8\u00e6t \u02c8\u0254l ju \u0261\u02c8\u0251t?"
+ ],
+ "player:tots|YOU ARE SOGGY": [
+  "pl-tots-84a219c6.mp3",
+  0.88,
+  "You are soggy!",
+  "j\u02ccu \u0251\u0279 s\u02c8\u0251\u0261i!"
+ ],
+ "player:tots|NO REFS NO RULES": [
+  "pl-tots-bf14791b.mp3",
+  1.22,
+  "No refs, no rules!",
+  "n\u02c8O \u0279\u02c8\u025bfs, n\u02c8O \u0279\u02c8ulz!"
+ ],
+ "player:tots|YOU ARE GETTING DUNKED": [
+  "pl-tots-5b869014.mp3",
+  1.06,
+  "You are getting dunked!",
+  "j\u02ccu \u0251\u0279 \u0261\u02c8\u025bT\u026a\u014b d\u02c8\u028c\u014bkt!"
+ ],
+ "pbp|THE RANCH HANDS": [
+  "pbp-8036dbca.mp3",
+  0.98,
+  "The ranch hands!",
+  "\u00f0\u0259 \u0279\u02c8\u00e6n\u02a7 h\u02c8\u00e6ndz!"
+ ],
+ "pbp|WHAT A GAME THE RANCH HANDS WIN IT": [
+  "pbp-27aade31.mp3",
+  1.92,
+  "What a game! The ranch hands win it!",
+  "w\u02cc\u028ct \u0250 \u0261\u02c8Am! \u00f0\u0259 \u0279\u02c8\u00e6n\u02a7 h\u02c8\u00e6ndz w\u02c8\u026an \u026at!"
+ ],
+ "pbp|THE RANCH HANDS WIN IT": [
+  "pbp-ad297dd6.mp3",
+  1.48,
+  "The ranch hands win the game.",
+  "\u00f0\u0259 \u0279\u02c8\u00e6n\u02a7 h\u02c8\u00e6ndz w\u02c8\u026an \u00f0\u0259 \u0261\u02c8Am."
+ ],
+ "pbp|THE DILL WITH THE CATCH": [
+  "pbp-f35e4ef1.mp3",
+  1.23,
+  "The dill with the catch!",
+  "\u00f0\u0259 d\u02c8\u026al w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|CHIVES WITH THE CATCH": [
+  "pbp-4ff5e0e3.mp3",
+  1.12,
+  "Chives with the catch!",
+  "\u02a7\u02c8Ivz w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|BUTTERMILK WITH THE CATCH": [
+  "pbp-68487ed3.mp3",
+  1.34,
+  "Buttermilk with the catch!",
+  "b\u02c8\u028cT\u0259\u0279m\u02cc\u026alk w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|HIDDEN VALLEY WITH THE CATCH": [
+  "pbp-4c646ae8.mp3",
+  1.45,
+  "Hidden valley with the catch!",
+  "h\u02c8\u026ad\u1d4an v\u02c8\u00e6li w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "qb:ranch|COOL RANCH 22": [
+  "qb-ranch-e6044c5a.mp3",
+  1.2,
+  "Cool ranch 22!",
+  "k\u02c8ul \u0279\u02c8\u00e6n\u02a7 tw\u02c8\u025bnti t\u02c8u!"
+ ],
+ "qb:ranch|COOL RANCH 34": [
+  "qb-ranch-a89b229a.mp3",
+  1.24,
+  "Cool ranch 34!",
+  "k\u02c8ul \u0279\u02c8\u00e6n\u02a7 \u03b8\u02c8\u025c\u0279Ti f\u02c8\u0254\u0279!"
+ ],
+ "qb:ranch|COOL RANCH 44": [
+  "qb-ranch-335ca33c.mp3",
+  1.23,
+  "Cool ranch 44!",
+  "k\u02c8ul \u0279\u02c8\u00e6n\u02a7 f\u02c8\u0254\u0279Ti f\u02c8\u0254\u0279!"
+ ],
+ "qb:ranch|COOL RANCH 80": [
+  "qb-ranch-11f87b5f.mp3",
+  1.0,
+  "Cool ranch 80!",
+  "k\u02c8ul \u0279\u02c8\u00e6n\u02a7 \u02c8ATi!"
+ ],
+ "qb:ranch|SET": [
+  "qb-ranch-50847f4c.mp3",
+  0.77,
+  "Ready, set!",
+  "\u0279\u02c8\u025bdi, s\u02c8\u025bt!"
+ ],
+ "qb:ranch|HUT": [
+  "qb-ranch-966c7785.mp3",
+  0.49,
+  "Hike!",
+  "h\u02c8Ik!"
+ ],
+ "player:ranch|STAY COOL KID": [
+  "pl-ranch-9bf59215.mp3",
+  0.94,
+  "Stay cool, kid.",
+  "st\u02c8A k\u02c8ul, k\u02c8\u026ad."
+ ],
+ "player:ranch|WELCOME TO DIP CITY": [
+  "pl-ranch-7454804c.mp3",
+  1.17,
+  "Welcome to dip city!",
+  "w\u02c8\u025blk\u0259m t\u0259 d\u02c8\u026ap s\u02c8\u026aTi!"
+ ],
+ "player:ranch|WE GO WITH EVERYTHING": [
+  "pl-ranch-c9271aaa.mp3",
+  1.09,
+  "We go with everything!",
+  "w\u02cci \u0261\u02ccO w\u026a\u00f0 \u02c8\u025bv\u0259\u0279i\u03b8\u02cc\u026a\u014b!"
+ ],
+ "player:ranch|CREAMY AND MEAN": [
+  "pl-ranch-ae333b1c.mp3",
+  0.97,
+  "Creamy. And mean.",
+  "k\u0279\u02c8imi. \u02cc\u00e6nd m\u02c8in."
+ ],
+ "player:ranch|YOU ARE DRESSED FOR A LOSS": [
+  "pl-ranch-9011e9b7.mp3",
+  1.17,
+  "You are dressed for a loss!",
+  "j\u02ccu \u0251\u0279 d\u0279\u02c8\u025bst f\u0254\u0279 \u0250 l\u02c8\u0254s!"
+ ],
+ "player:ranch|YOU ARE GOING DOWN": [
+  "pl-ranch-57a0e414.mp3",
+  0.96,
+  "You are going down!",
+  "j\u02ccu \u0251\u0279 \u0261\u02c8O\u026a\u014b d\u02ccWn!"
+ ],
+ "player:ranch|EXTRA CRISPY": [
+  "pl-ranch-55cbcb98.mp3",
+  1.0,
+  "Extra crispy!",
+  "\u02c8\u025bkst\u0279\u0259 k\u0279\u02c8\u026aspi!"
+ ],
+ "player:ranch|NICE HELMET NOT": [
+  "pl-ranch-bf3c1130.mp3",
+  1.04,
+  "Nice helmet. Not.",
+  "n\u02c8Is h\u02c8\u025blm\u0259t. n\u02cc\u0251t."
+ ],
+ "player:ranch|OVER HERE BUTTERFINGERS": [
+  "pl-ranch-ea460481.mp3",
+  1.31,
+  "Over here, butterfingers!",
+  "\u02c8Ov\u0259\u0279 h\u02c8\u026a\u0279, b\u02c8\u028cT\u0259\u0279f\u02cc\u026a\u014b\u0261\u0259\u0279z!"
+ ],
+ "player:ranch|HIKE IT I DARE YOU": [
+  "pl-ranch-cdf2a4c3.mp3",
+  1.5,
+  "Go ahead, hike it! I dare you!",
+  "\u0261\u02ccO \u0259h\u02c8\u025bd, h\u02c8Ik \u026at! \u02ccI d\u02c8\u025b\u0279 ju!"
+ ],
+ "pbp|THE SAUCE BOSSES": [
+  "pbp-89926cef.mp3",
+  1.09,
+  "The sauce bosses!",
+  "\u00f0\u0259 s\u02c8\u0254s b\u02c8\u0254s\u1d7bz!"
+ ],
+ "pbp|WHAT A GAME THE SAUCE BOSSES WIN IT": [
+  "pbp-e0e0aa61.mp3",
+  2.08,
+  "What a game! The sauce bosses win it!",
+  "w\u02cc\u028ct \u0250 \u0261\u02c8Am! \u00f0\u0259 s\u02c8\u0254s b\u02c8\u0254s\u1d7bz w\u02c8\u026an \u026at!"
+ ],
+ "pbp|THE SAUCE BOSSES WIN IT": [
+  "pbp-8fac7b15.mp3",
+  1.58,
+  "The sauce bosses win the game.",
+  "\u00f0\u0259 s\u02c8\u0254s b\u02c8\u0254s\u1d7bz w\u02c8\u026an \u00f0\u0259 \u0261\u02c8Am."
+ ],
+ "pbp|SMOKE RING WITH THE CATCH": [
+  "pbp-844dbd9a.mp3",
+  1.33,
+  "Smoke ring with the catch!",
+  "sm\u02c8Ok \u0279\u02c8\u026a\u014b w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|DRY RUB WITH THE CATCH": [
+  "pbp-99c079d2.mp3",
+  1.23,
+  "Dry rub with the catch!",
+  "d\u0279\u02c8I \u0279\u02c8\u028cb w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|BRISKET WITH THE CATCH": [
+  "pbp-3f666076.mp3",
+  1.23,
+  "Brisket with the catch!",
+  "b\u0279\u02c8\u026ask\u0259t w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|THE PITMASTER WITH THE CATCH": [
+  "pbp-74b579c8.mp3",
+  1.5,
+  "The pitmaster with the catch!",
+  "\u00f0\u0259 p\u02c8\u026atm\u00e6st\u0259\u0279 w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "qb:bosses|BIG SMOKE 22": [
+  "qb-bosses-e805464d.mp3",
+  1.53,
+  "Big smoke 22!",
+  "b\u02c8\u026a\u0261 sm\u02c8Ok tw\u02c8\u025bnti t\u02c8u!"
+ ],
+ "qb:bosses|BIG SMOKE 34": [
+  "qb-bosses-30a0fc1f.mp3",
+  1.62,
+  "Big smoke 34!",
+  "b\u02c8\u026a\u0261 sm\u02c8Ok \u03b8\u02c8\u025c\u0279Ti f\u02c8\u0254\u0279!"
+ ],
+ "qb:bosses|BIG SMOKE 44": [
+  "qb-bosses-7f88b4d3.mp3",
+  1.62,
+  "Big smoke 44!",
+  "b\u02c8\u026a\u0261 sm\u02c8Ok f\u02c8\u0254\u0279Ti f\u02c8\u0254\u0279!"
+ ],
+ "qb:bosses|BIG SMOKE 80": [
+  "qb-bosses-6ee025d5.mp3",
+  1.19,
+  "Big smoke 80!",
+  "b\u02c8\u026a\u0261 sm\u02c8Ok \u02c8ATi!"
+ ],
+ "qb:bosses|SET": [
+  "qb-bosses-2c9cef46.mp3",
+  0.89,
+  "Ready, set!",
+  "\u0279\u02c8\u025bdi, s\u02c8\u025bt!"
+ ],
+ "qb:bosses|HUT": [
+  "qb-bosses-d9357617.mp3",
+  0.9,
+  "Ready, hike!",
+  "\u0279\u02c8\u025bdi, h\u02c8Ik!"
+ ],
+ "player:bosses|YOU ARE GETTING SAUCED": [
+  "pl-bosses-9c5f490b.mp3",
+  1.39,
+  "You are getting sauced!",
+  "j\u02ccu \u0251\u0279 \u0261\u02c8\u025bT\u026a\u014b s\u02c8\u0254st!"
+ ],
+ "player:bosses|LOW AND SLOW BABY": [
+  "pl-bosses-ba8a3303.mp3",
+  1.55,
+  "Low and slow, baby!",
+  "l\u02c8O \u00e6nd sl\u02c8O, b\u02c8Abi!"
+ ],
+ "player:bosses|I SMELL BRISKET": [
+  "pl-bosses-b0af461b.mp3",
+  1.34,
+  "I smell brisket!",
+  "\u02ccI sm\u02c8\u025bl b\u0279\u02c8\u026ask\u0259t!"
+ ],
+ "player:bosses|WE SMOKE FOOLS": [
+  "pl-bosses-7582862d.mp3",
+  1.21,
+  "We smoke fools!",
+  "w\u02cci sm\u02c8Ok f\u02c8ulz!"
+ ],
+ "player:bosses|PASS THE SAUCE": [
+  "pl-bosses-9600dfd5.mp3",
+  1.05,
+  "Pass the sauce!",
+  "p\u02c8\u00e6s \u00f0\u0259 s\u02c8\u0254s!"
+ ],
+ "player:bosses|COME GET SOME": [
+  "pl-bosses-19a256f3.mp3",
+  1.04,
+  "Come get some!",
+  "k\u02c8\u028cm \u0261\u025bt s\u02cc\u028cm!"
+ ],
+ "player:bosses|I AM COMING FOR YOU": [
+  "pl-bosses-fe999db7.mp3",
+  1.33,
+  "I am coming for you!",
+  "\u02ccI \u0250m k\u02c8\u028cm\u026a\u014b f\u0254\u0279 ju!"
+ ],
+ "player:bosses|BREADED AND READY": [
+  "pl-bosses-6334c493.mp3",
+  1.15,
+  "Breaded and ready!",
+  "b\u0279\u02c8\u025bd\u1d7bd \u00e6nd \u0279\u02c8\u025bdi!"
+ ],
+ "player:bosses|YOU ARE ON THE MENU": [
+  "pl-bosses-a05bb14f.mp3",
+  1.27,
+  "You are on the menu!",
+  "j\u02ccu \u0251\u0279 \u02cc\u0254n \u00f0\u0259 m\u02c8\u025bnju!"
+ ],
+ "player:bosses|NOBODY BEATS THE BATTER": [
+  "pl-bosses-e6baedc6.mp3",
+  1.62,
+  "Nobody beats the batter!",
+  "n\u02c8Ob\u02cc\u0251di b\u02c8its \u00f0\u0259 b\u02c8\u00e6T\u0259\u0279!"
+ ],
+ "pbp|THE ONION RINGERS": [
+  "pbp-ca82b9b6.mp3",
+  1.12,
+  "The onion ringers!",
+  "\u00f0i \u02c8\u028cnj\u1d4an \u0279\u02c8\u026a\u014b\u0259\u0279z!"
+ ],
+ "pbp|WHAT A GAME THE ONION RINGERS WIN IT": [
+  "pbp-865890b2.mp3",
+  2.04,
+  "What a game! The onion ringers win it!",
+  "w\u02cc\u028ct \u0250 \u0261\u02c8Am! \u00f0i \u02c8\u028cnj\u1d4an \u0279\u02c8\u026a\u014b\u0259\u0279z w\u02c8\u026an \u026at!"
+ ],
+ "pbp|THE ONION RINGERS WIN IT": [
+  "pbp-e7f05245.mp3",
+  1.57,
+  "The onion ringers win the game.",
+  "\u00f0i \u02c8\u028cnj\u1d4an \u0279\u02c8\u026a\u014b\u0259\u0279z w\u02c8\u026an \u00f0\u0259 \u0261\u02c8Am."
+ ],
+ "pbp|SHALLOT WITH THE CATCH": [
+  "pbp-b8c5eb13.mp3",
+  1.16,
+  "Shallot with the catch!",
+  "\u0283\u0259l\u02c8\u0251t w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|SCALLION WITH THE CATCH": [
+  "pbp-cf665706.mp3",
+  1.27,
+  "Scallion with the catch!",
+  "sk\u02c8\u00e6lj\u0259n w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|THE BLOOMIN WITH THE CATCH": [
+  "pbp-57148660.mp3",
+  1.3,
+  "The bloomin with the catch!",
+  "\u00f0\u0259 bl\u02c8um\u026an w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|VIDALIA WITH THE CATCH": [
+  "pbp-7ad52631.mp3",
+  1.34,
+  "Vih-dale-ya with the catch!",
+  "v\u02c8\u026ad\u02c8Alj\u0259 w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "qb:rings|LAYER 22": [
+  "qb-rings-aa0ed9c0.mp3",
+  1.5,
+  "Layer 22!",
+  "l\u02c8A\u0259 tw\u02c8\u025bnti t\u02c8u\u02d0!"
+ ],
+ "qb:rings|LAYER 34": [
+  "qb-rings-fe719811.mp3",
+  1.55,
+  "Layer 34!",
+  "l\u02c8A\u0259 \u03b8\u02c8\u025c\u02d0ti f\u02c8\u0254\u02d0!"
+ ],
+ "qb:rings|LAYER 44": [
+  "qb-rings-f5c47a74.mp3",
+  1.51,
+  "Layer 44!",
+  "l\u02c8A\u0259 f\u02c8\u0254\u02d0ti f\u02c8\u0254\u02d0!"
+ ],
+ "qb:rings|LAYER 80": [
+  "qb-rings-1290498b.mp3",
+  1.03,
+  "Layer 80!",
+  "l\u02c8A\u0259 \u02c8Ati!"
+ ],
+ "qb:rings|SET": [
+  "qb-rings-0fb6a943.mp3",
+  0.66,
+  "Set!",
+  "s\u02c8\u025bt!"
+ ],
+ "qb:rings|HUT": [
+  "qb-rings-a4b791fe.mp3",
+  0.69,
+  "Hike!",
+  "h\u02c8Ik!"
+ ],
+ "player:rings|PREPARE TO CRY": [
+  "pl-rings-fe9e5c7a.mp3",
+  1.33,
+  "Prepare to cry!",
+  "p\u0279\u026ap\u02c8\u025b\u02d0 t\u0259 k\u0279\u02c8I!"
+ ],
+ "player:rings|WE GOT LAYERS": [
+  "pl-rings-4fa4220e.mp3",
+  1.16,
+  "We got layers!",
+  "w\u02cci\u02d0 \u0261\u0252t l\u02c8A\u0259z!"
+ ],
+ "player:rings|ONION YOU GO": [
+  "pl-rings-ea3b4f58.mp3",
+  1.16,
+  "Onion you go!",
+  "\u02c8\u028cnj\u0259n ju\u02d0 \u0261\u02ccQ!"
+ ],
+ "player:rings|PEEL HIM": [
+  "pl-rings-3d8ba670.mp3",
+  1.17,
+  "Peel him!",
+  "p\u02c8i\u02d0l h\u02cc\u026am!"
+ ],
+ "player:rings|TEARS ON THE FIELD": [
+  "pl-rings-bf5eacdf.mp3",
+  1.61,
+  "Tears on the field!",
+  "t\u02c8\u026a\u0259z \u02cc\u0252n \u00f0\u0259 f\u02c8i\u02d0ld!"
+ ],
+ "player:rings|I SMELL FRIES": [
+  "pl-rings-eb79b672.mp3",
+  1.41,
+  "I smell fries!",
+  "\u02ccI sm\u02c8\u025bl f\u0279\u02c8Iz!"
+ ],
+ "player:rings|IS THAT ALL YOU GOT": [
+  "pl-rings-99d6936d.mp3",
+  1.41,
+  "Is that all you got?",
+  "\u02cc\u026az \u00f0\u02c8at \u02c8\u0254\u02d0l ju\u02d0 \u0261\u02c8\u0252t?"
+ ],
+ "player:rings|YOU ARE SOGGY": [
+  "pl-rings-b46e42fd.mp3",
+  1.15,
+  "You are soggy!",
+  "j\u02ccu\u02d0 \u0251\u02d0 s\u02c8\u0252\u0261i!"
+ ],
+ "player:rings|NO REFS NO RULES": [
+  "pl-rings-7eb5837b.mp3",
+  1.89,
+  "No refs, no rules!",
+  "n\u02c8Q \u0279\u02c8\u025bfs, n\u02c8Q \u0279\u02c8u\u02d0lz!"
+ ],
+ "player:rings|YOU ARE GETTING DUNKED": [
+  "pl-rings-91ecb734.mp3",
+  1.44,
+  "You are getting dunked!",
+  "j\u02ccu\u02d0 \u0251\u02d0 \u0261\u02c8\u025bt\u026a\u014b d\u02c8\u028c\u014bkt!"
+ ],
+ "pbp|THE HONEY MUSTARDS": [
+  "pbp-b0f444e4.mp3",
+  1.15,
+  "The honey mustards!",
+  "\u00f0\u0259 h\u02c8\u028cni m\u02c8\u028cst\u0259\u0279dz!"
+ ],
+ "pbp|WHAT A GAME THE HONEY MUSTARDS WIN IT": [
+  "pbp-428c57cf.mp3",
+  2.02,
+  "What a game! The honey mustards win it!",
+  "w\u02cc\u028ct \u0250 \u0261\u02c8Am! \u00f0\u0259 h\u02c8\u028cni m\u02c8\u028cst\u0259\u0279dz w\u02c8\u026an \u026at!"
+ ],
+ "pbp|THE HONEY MUSTARDS WIN IT": [
+  "pbp-802fe557.mp3",
+  1.65,
+  "The honey mustards win the game.",
+  "\u00f0\u0259 h\u02c8\u028cni m\u02c8\u028cst\u0259\u0279dz w\u02c8\u026an \u00f0\u0259 \u0261\u02c8Am."
+ ],
+ "pbp|QUEEN BEE WITH THE CATCH": [
+  "pbp-ee95ae7b.mp3",
+  1.3,
+  "Queen bee with the catch!",
+  "kw\u02c8in b\u02c8i w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|YELLOW JACKET WITH THE CATCH": [
+  "pbp-1449763b.mp3",
+  1.47,
+  "Yellow jacket with the catch!",
+  "j\u02c8\u025blO \u02a4\u02c8\u00e6k\u0259t w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|THE STINGER WITH THE CATCH": [
+  "pbp-26170d1d.mp3",
+  1.29,
+  "The stinger with the catch!",
+  "\u00f0\u0259 st\u02c8\u026a\u014b\u0259\u0279 w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|DIJON WITH THE CATCH": [
+  "pbp-9ca5636c.mp3",
+  1.23,
+  "Dijon with the catch!",
+  "di\u0292\u02c8\u0251n w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "qb:mustard|STINGER 22": [
+  "qb-mustard-156e0e83.mp3",
+  1.27,
+  "Stinger 22!",
+  "st\u02c8\u026a\u014b\u0259\u0279 tw\u02c8\u025bnti t\u02c8u!"
+ ],
+ "qb:mustard|STINGER 34": [
+  "qb-mustard-c03d3b89.mp3",
+  1.36,
+  "Stinger 34!",
+  "st\u02c8\u026a\u014b\u0259\u0279 \u03b8\u02c8\u025c\u0279Ti f\u02c8\u0254\u0279!"
+ ],
+ "qb:mustard|STINGER 44": [
+  "qb-mustard-33d386f8.mp3",
+  1.3,
+  "Stinger 44!",
+  "st\u02c8\u026a\u014b\u0259\u0279 f\u02c8\u0254\u0279Ti f\u02c8\u0254\u0279!"
+ ],
+ "qb:mustard|STINGER 80": [
+  "qb-mustard-38a70f04.mp3",
+  1.04,
+  "Stinger 80!",
+  "st\u02c8\u026a\u014b\u0259\u0279 \u02c8ATi!"
+ ],
+ "qb:mustard|SET": [
+  "qb-mustard-57fe5ded.mp3",
+  0.71,
+  "Get set!",
+  "\u0261\u02cc\u025bt s\u02c8\u025bt!"
+ ],
+ "qb:mustard|HUT": [
+  "qb-mustard-cf3a6f5d.mp3",
+  0.94,
+  "Hike the ball!",
+  "h\u02c8Ik \u00f0\u0259 b\u02c8\u0254l!"
+ ],
+ "player:mustard|BUZZ OFF": [
+  "pl-mustard-d2f7dc00.mp3",
+  0.74,
+  "Buzz off!",
+  "b\u02c8\u028cz \u02c8\u0254f!"
+ ],
+ "player:mustard|YOU ARE GONNA GET STUNG": [
+  "pl-mustard-eaf4c4d1.mp3",
+  1.41,
+  "You are gonna get stung!",
+  "j\u02ccu \u0251\u0279 \u0261\u02c8\u028cn\u0259 \u0261\u025bt st\u02c8\u028c\u014b!"
+ ],
+ "player:mustard|SWEET NOT TODAY": [
+  "pl-mustard-760e40ba.mp3",
+  1.1,
+  "Sweet? Not today!",
+  "sw\u02c8it? n\u02cc\u0251t t\u0259d\u02c8A!"
+ ],
+ "player:mustard|BEE LIEVE IT": [
+  "pl-mustard-92210fc9.mp3",
+  0.91,
+  "Bee-leeve it!",
+  "b\u02c8il\u02c8iv \u026at!"
+ ],
+ "player:mustard|HONEY YOU ARE DONE": [
+  "pl-mustard-4f46dfc8.mp3",
+  1.21,
+  "Honey, you are done!",
+  "h\u02c8\u028cni, ju \u0251\u0279 d\u02c8\u028cn!"
+ ],
+ "player:mustard|YOU ARE GOING DOWN": [
+  "pl-mustard-e9aad31d.mp3",
+  1.29,
+  "You are going down!",
+  "j\u02ccu \u0251\u0279 \u0261\u02c8O\u026a\u014b d\u02ccWn!"
+ ],
+ "player:mustard|EXTRA CRISPY": [
+  "pl-mustard-28a679c5.mp3",
+  1.16,
+  "Extra crispy!",
+  "\u02c8\u025bkst\u0279\u0259 k\u0279\u02c8\u026aspi!"
+ ],
+ "player:mustard|NICE HELMET NOT": [
+  "pl-mustard-d9637d11.mp3",
+  1.26,
+  "Nice helmet. Not.",
+  "n\u02c8Is h\u02c8\u025blm\u0259t. n\u02cc\u0251t."
+ ],
+ "player:mustard|OVER HERE BUTTERFINGERS": [
+  "pl-mustard-2fb75816.mp3",
+  1.61,
+  "Over here, butterfingers!",
+  "\u02c8Ov\u0259\u0279 h\u02c8\u026a\u0279, b\u02c8\u028cT\u0259\u0279f\u02cc\u026a\u014b\u0261\u0259\u0279z!"
+ ],
+ "player:mustard|HIKE IT I DARE YOU": [
+  "pl-mustard-d84d1714.mp3",
+  1.63,
+  "Go ahead, hike it! I dare you!",
+  "\u0261\u02ccO \u0259h\u02c8\u025bd, h\u02c8Ik \u026at! \u02ccI d\u02c8\u025b\u0279 ju!"
+ ],
+ "pbp|THE CURLY FRIES": [
+  "pbp-f2e1f407.mp3",
+  1.08,
+  "The curly fries!",
+  "\u00f0\u0259 k\u02c8\u025c\u0279li f\u0279\u02c8Iz!"
+ ],
+ "pbp|WHAT A GAME THE CURLY FRIES WIN IT": [
+  "pbp-7f8aafdc.mp3",
+  1.98,
+  "What a game! The curly fries win it!",
+  "w\u02cc\u028ct \u0250 \u0261\u02c8Am! \u00f0\u0259 k\u02c8\u025c\u0279li f\u0279\u02c8Iz w\u02c8\u026an \u026at!"
+ ],
+ "pbp|THE CURLY FRIES WIN IT": [
+  "pbp-520319a9.mp3",
+  1.59,
+  "The curly fries win the game.",
+  "\u00f0\u0259 k\u02c8\u025c\u0279li f\u0279\u02c8Iz w\u02c8\u026an \u00f0\u0259 \u0261\u02c8Am."
+ ],
+ "pbp|LOOP DE LOOP WITH THE CATCH": [
+  "pbp-b3b9b36d.mp3",
+  1.42,
+  "Loop de loop with the catch!",
+  "l\u02c8up d\u0259 l\u02c8up w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|THE SLINKY WITH THE CATCH": [
+  "pbp-43b54d13.mp3",
+  1.27,
+  "The slinky with the catch!",
+  "\u00f0\u0259 sl\u02c8\u026a\u014bki w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|SPIRALIZER WITH THE CATCH": [
+  "pbp-b51c6b37.mp3",
+  1.41,
+  "Spiralizer with the catch!",
+  "sp\u02c8I\u0279\u0259l\u02ccIz\u0259\u0279 w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "pbp|THE CORKSCREW WITH THE CATCH": [
+  "pbp-c27d82fb.mp3",
+  1.43,
+  "The corkscrew with the catch!",
+  "\u00f0\u0259 k\u02c8\u0254\u0279ksk\u0279\u02ccu w\u026a\u00f0 \u00f0\u0259 k\u02c8\u025b\u02a7!"
+ ],
+ "qb:curly|SPIRAL 22": [
+  "qb-curly-e70973b9.mp3",
+  1.37,
+  "Spiral 22!",
+  "sp\u02c8I\u0279\u0259l tw\u02c8\u025bnti t\u02c8u!"
+ ],
+ "qb:curly|SPIRAL 34": [
+  "qb-curly-48390f06.mp3",
+  1.44,
+  "Spiral 34!",
+  "sp\u02c8I\u0279\u0259l \u03b8\u02c8\u025c\u0279Ti f\u02c8\u0254\u0279!"
+ ],
+ "qb:curly|SPIRAL 44": [
+  "qb-curly-a6240e62.mp3",
+  1.42,
+  "Spiral 44!",
+  "sp\u02c8I\u0279\u0259l f\u02c8\u0254\u0279Ti f\u02c8\u0254\u0279!"
+ ],
+ "qb:curly|SPIRAL 80": [
+  "qb-curly-715df81b.mp3",
+  1.06,
+  "Spiral 80!",
+  "sp\u02c8I\u0279\u0259l \u02c8ATi!"
+ ],
+ "qb:curly|SET": [
+  "qb-curly-2e29d0d6.mp3",
+  1.02,
+  "Ready, set!",
+  "\u0279\u02c8\u025bdi, s\u02c8\u025bt!"
+ ],
+ "qb:curly|HUT": [
+  "qb-curly-f7c67f36.mp3",
+  0.93,
+  "Ready, hike!",
+  "\u0279\u02c8\u025bdi, h\u02c8Ik!"
+ ],
+ "player:curly|YOU CANNOT CATCH CURLY": [
+  "pl-curly-204146e7.mp3",
+  1.48,
+  "You cannot catch curly!",
+  "j\u02ccu k\u0259n\u02c8\u0251t k\u02c8\u025b\u02a7 k\u02c8\u025c\u0279li!"
+ ],
+ "player:curly|TWIST AND SHOUT": [
+  "pl-curly-b02bfbd5.mp3",
+  1.21,
+  "Twist and shout!",
+  "tw\u02c8\u026ast \u00e6nd \u0283\u02c8Wt!"
+ ],
+ "player:curly|WE ARE TOO TWISTY": [
+  "pl-curly-56dc9a33.mp3",
+  1.33,
+  "We are too twisty!",
+  "w\u02cci \u0251\u0279 t\u02c8u tw\u02c8\u026asti!"
+ ],
+ "player:curly|LOOP DE LOOP": [
+  "pl-curly-4e0ab900.mp3",
+  1.15,
+  "Loop de loop!",
+  "l\u02c8up d\u0259 l\u02c8up!"
+ ],
+ "player:curly|GET SPUN": [
+  "pl-curly-30869e80.mp3",
+  0.87,
+  "Get spun!",
+  "\u0261\u02cc\u025bt sp\u02c8\u028cn!"
+ ],
+ "player:curly|COME GET SOME": [
+  "pl-curly-96422897.mp3",
+  1.06,
+  "Come get some!",
+  "k\u02c8\u028cm \u0261\u025bt s\u02cc\u028cm!"
+ ],
+ "player:curly|I AM COMING FOR YOU": [
+  "pl-curly-608845d1.mp3",
+  1.32,
+  "I am coming for you!",
+  "\u02ccI \u0250m k\u02c8\u028cm\u026a\u014b f\u0254\u0279 ju!"
+ ],
+ "player:curly|BREADED AND READY": [
+  "pl-curly-2c80e9fc.mp3",
+  1.23,
+  "Breaded and ready!",
+  "b\u0279\u02c8\u025bd\u1d7bd \u00e6nd \u0279\u02c8\u025bdi!"
+ ],
+ "player:curly|YOU ARE ON THE MENU": [
+  "pl-curly-c6ab3264.mp3",
+  1.19,
+  "You are on the menu!",
+  "j\u02ccu \u0251\u0279 \u02cc\u0254n \u00f0\u0259 m\u02c8\u025bnju!"
+ ],
+ "player:curly|NOBODY BEATS THE BATTER": [
+  "pl-curly-d5716199.mp3",
+  1.56,
+  "Nobody beats the batter!",
+  "n\u02c8Ob\u02cc\u0251di b\u02c8its \u00f0\u0259 b\u02c8\u00e6T\u0259\u0279!"
+ ],
+ "pbp|BIG HEAD": [
+  "pbp-145c8d00.mp3",
+  0.7,
+  "Big head!",
+  "b\u02c8\u026a\u0261 h\u02c8\u025bd!"
+ ],
+ "pbp|HUGE HEAD": [
+  "pbp-bb3bf1b3.mp3",
+  0.74,
+  "Huge head!",
+  "hj\u02c8u\u02a4 h\u02c8\u025bd!"
+ ],
+ "pbp|INFINITE TURBO": [
+  "pbp-ab3823b1.mp3",
+  0.94,
+  "Infinite turbo!",
+  "\u02c8\u026anf\u0259n\u0259t t\u02c8\u025c\u0279bO!"
+ ],
+ "pbp|NO PUNTING": [
+  "pbp-f6f8be61.mp3",
+  0.81,
+  "No punting!",
+  "n\u02c8O p\u02c8\u028cnt\u026a\u014b!"
+ ],
+ "pbp|NIGHT GAME": [
+  "pbp-fac2e1d7.mp3",
+  0.74,
+  "Night game!",
+  "n\u02c8It \u0261\u02c8Am!"
+ ],
+ "pbp|POWER UP SPEED": [
+  "pbp-87ea4106.mp3",
+  0.97,
+  "Power-up speed!",
+  "p\u02c8W\u0259\u0279\u02cc\u028cp sp\u02c8id!"
+ ],
+ "pbp|FAST PASSES": [
+  "pbp-6c66fffd.mp3",
+  0.99,
+  "Fast passes!",
+  "f\u02c8\u00e6st p\u02c8\u00e6s\u1d7bz!"
+ ],
+ "pbp|SHOW FIELD GOAL": [
+  "pbp-7f611a24.mp3",
+  1.37,
+  "Show field goal %!",
+  "\u0283\u02c8O f\u02c8ild \u0261\u02c8Ol p\u0259\u0279s\u02c8\u025bnt!"
+ ],
+ "pbp|BIG FOOTBALL": [
+  "pbp-7b8a57cc.mp3",
+  0.85,
+  "Big football!",
+  "b\u02c8\u026a\u0261 f\u02c8\u028atb\u02cc\u0254l!"
+ ],
+ "pbp|NO CPU ASSISTANCE": [
+  "pbp-77beb648.mp3",
+  1.5,
+  "No cpu assistance!",
+  "n\u02c8O s\u02ccip\u02ccij\u02c8u \u0259s\u02c8\u026ast\u1d4ans!"
+ ],
+ "pbp|START ON FIRE": [
+  "pbp-80b77af8.mp3",
+  1.01,
+  "Start on fire!",
+  "st\u02c8\u0251\u0279t \u02cc\u0254n f\u02c8I\u0259\u0279!"
+ ]
+}

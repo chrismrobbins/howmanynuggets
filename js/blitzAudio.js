@@ -16,9 +16,10 @@
 //     the sad trombone, the fire riff, the kickoff drum roll.
 //   • THE CROWD — a breathing bed plus synthesized voices: DE-FENSE! (clap
 //     clap) in time with the band, OOOH on a big hit, AWWW, BOOO, the roar.
-//   • THE BOOTH — one speech queue for every voice in the game (play-by-play,
-//     colour, the QB's cadence, trash talk at the line) with priorities and
-//     shelf lives, because speechSynthesis can only say one thing at a time.
+//   • THE BOOTH — every voice in the game (play-by-play, colour, the QB's
+//     cadence, trash talk at the line) is a pre-rendered neural-TTS clip
+//     (audio/blitz/vo/, manifest js/blitzVO.js), on two channels with
+//     priorities and shelf lives. No browser speech engine anywhere.
 //
 // Everything rides blitz.sfx.ctx (made on the first gesture in js/blitz.js).
 // Every note's last node disconnects itself onended — a full game is tens of
@@ -655,78 +656,153 @@ function blzChantBar(t, sd) {
   blzCrowdClap(t + beat * 2); blzCrowdClap(t + beat * 3);
 }
 
-// ---- the booth: one queue for every voice -------------------------------------------------------------
-// who: 'pbp' (play-by-play) · 'color' (the colour man) · 'qb' (cadence) · 'player' (trash talk)
-const blzBooth = { q: [], cur: null, voices: null, picked: false, until: 0 };
-const BLZ_VOICE = {
-  pbp: { rate: 1.16, pitch: 0.82, vol: 0.95 },
-  color: { rate: 1.02, pitch: 0.55, vol: 0.9 },
-  qb: { rate: 1.3, pitch: 1.05, vol: 0.85 },
-  player: { rate: 1.32, pitch: 1.35, vol: 0.85 },
+// ---- 🎙️ THE BOOTH, VOICED -----------------------------------------------------------------------
+// "the voices are far too robotic … make them more human like" — Chris. The
+// browser's speech engine IS the robot (and pitching it made it worse), so no
+// line is synthesized in the browser any more: every one of them was rendered
+// offline by Kokoro (an open neural TTS model) and ships as a small MP3 in
+// audio/blitz/vo/ (manifest: js/blitzVO.js, key = voice scope | normalized
+// text). The booth — play-by-play + colour — is ONE channel that never talks
+// over itself; the field — the QB's cadence, the trash talk — is a second,
+// quieter channel that ducks under the booth. Both run through a PA chain
+// (presence EQ, compression, the stadium's slapback and reverb), and the band
+// ducks under the booth. A line with no clip is simply not said.
+const blzVoice = {
+  bytes: new Map(), bufs: new Map(), lru: [], loading: new Map(),
+  ch: { booth: null, field: null }, q: { booth: [], field: [] }, bus: null, fieldBus: null, miss: new Set(),
 };
-function blzBoothVoices() {
-  if (blzBooth.picked) return;
-  const S = window.speechSynthesis;
-  const all = S && S.getVoices ? S.getVoices() : [];
-  if (!all.length) return;
-  blzBooth.picked = true;
-  const en = all.filter((v) => /^en/i.test(v.lang));
-  const pool = en.length ? en : all;
-  const find = (re) => pool.find((v) => re.test(v.name));
-  // deep and loud for the play-by-play, someone different in the colour seat
-  const pbp = find(/daniel|alex|fred|google uk english male|david|guy|aaron/i) || pool[0];
-  const color = find(/ralph|bruce|tom|google us english|mark|arthur|rocko|grandpa/i) || pool[1] || pool[0];
-  const qb = find(/junior|albert|reed|eddy|google uk english female|samantha/i) || pool[2] || pool[0];
-  blzBooth.voices = { pbp, color, qb, player: qb };
+const BLZ_VO_BASE = 'audio/blitz/vo/';
+function blzVoNorm(t) { return String(t).toUpperCase().replace(/[^A-Z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim(); }
+function blzVoKey(text, o) {
+  const who = o.who || 'pbp';
+  if (who === 'pbp' || who === 'color') return who + '|' + blzVoNorm(text);
+  const tk = o.team == null ? '' : (blitz.teams[o.team] || '');
+  return who + ':' + tk + '|' + blzVoNorm(text);
 }
-// text, { who, prio (0 chatter … 3 the play of the game), maxAge (secs it's still news) }
+function blzVoBuses() {
+  const S = blitz.sfx, ctx = S.ctx;
+  if (blzVoice.bus || !ctx) return !!blzVoice.bus;
+  blzMusInit();
+  // the booth: a broadcast voice in a stadium — cleaned up, pushed forward, a little slapback
+  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 95;
+  const pres = ctx.createBiquadFilter(); pres.type = 'peaking'; pres.frequency.value = 3200; pres.Q.value = 0.9; pres.gain.value = 3.5;
+  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -22; comp.ratio.value = 3.2; comp.attack.value = 0.003; comp.release.value = 0.12;
+  const out = ctx.createGain(); out.gain.value = 1.4;
+  hp.connect(pres); pres.connect(comp); comp.connect(out); out.connect(S.master);
+  const slap = ctx.createDelay(0.5); slap.delayTime.value = 0.115;
+  const slapG = ctx.createGain(); slapG.gain.value = 0.13;
+  const slapLp = ctx.createBiquadFilter(); slapLp.type = 'lowpass'; slapLp.frequency.value = 2600;
+  comp.connect(slap); slap.connect(slapLp); slapLp.connect(slapG); slapG.connect(S.master);
+  const rev = ctx.createGain(); rev.gain.value = 0.16; comp.connect(rev); if (blzMus.revIn) rev.connect(blzMus.revIn);
+  blzVoice.bus = hp;
+  // the field: players shouting at the line — further away, more stadium, never on top of the booth
+  const fhp = ctx.createBiquadFilter(); fhp.type = 'highpass'; fhp.frequency.value = 140;
+  const flp = ctx.createBiquadFilter(); flp.type = 'lowpass'; flp.frequency.value = 7000;
+  const fcomp = ctx.createDynamicsCompressor(); fcomp.threshold.value = -20; fcomp.ratio.value = 2.5;
+  const fg = ctx.createGain(); fg.gain.value = 0.5;
+  fhp.connect(flp); flp.connect(fcomp); fcomp.connect(fg); fg.connect(S.master);
+  const frev = ctx.createGain(); frev.gain.value = 0.34; fcomp.connect(frev); if (blzMus.revIn) frev.connect(blzMus.revIn);
+  blzVoice.fieldIn = fhp; blzVoice.fieldBus = fg;
+  return true;
+}
+function blzVoFetch(file) {
+  const V = blzVoice;
+  if (V.bytes.has(file)) return Promise.resolve(V.bytes.get(file));
+  if (V.loading.has(file)) return V.loading.get(file);
+  const pr = fetch(BLZ_VO_BASE + file).then((r) => (r.ok ? r.arrayBuffer() : null)).then((ab) => { V.loading.delete(file); if (ab) V.bytes.set(file, ab); return ab; })
+    .catch(() => { V.loading.delete(file); return null; });
+  V.loading.set(file, pr);
+  return pr;
+}
+function blzVoBuffer(file) {
+  const V = blzVoice, ctx = blitz.sfx.ctx;
+  if (V.bufs.has(file)) { V.lru.splice(V.lru.indexOf(file), 1); V.lru.push(file); return Promise.resolve(V.bufs.get(file)); }
+  return blzVoFetch(file).then((ab) => {
+    if (!ab || !ctx) return null;
+    // (decodeAudioData detaches its input: decode a copy, keep the MP3)
+    return new Promise((res) => ctx.decodeAudioData(ab.slice(0), res, () => res(null)));
+  }).then((buf) => {
+    if (!buf) return null;
+    V.bufs.set(file, buf); V.lru.push(file);
+    while (V.lru.length > 64) V.bufs.delete(V.lru.shift());   // a phone keeps ~16MB of voice, not the whole booth
+    return buf;
+  });
+}
+// warm the cache: the lines every game needs, and both teams' voices
+function blzVoPrefetch(teams) {
+  if (typeof BLZ_VO === 'undefined') return;
+  const want = [];
+  for (const k in BLZ_VO) {
+    const scope = k.slice(0, k.indexOf('|'));
+    if (scope === 'pbp' || scope === 'color' || teams.some((t) => scope.endsWith(':' + t))) want.push(BLZ_VO[k][0]);
+  }
+  let i = 0;
+  const next = () => { if (i < want.length) blzVoFetch(want[i++]).then(next); };
+  for (let n = 0; n < 4; n++) next();
+}
+// text, { who: 'pbp' | 'color' | 'qb' | 'player', team (index, for the field voices), prio (0 chatter … 3 the play of the game), maxAge (secs it's still news) }
 function blzSpeak(text, o) {
   o = o || {};
   blitz.say = text;
-  if (!blitz.voice || blitz.sfx.muted || blitz.auto) return;
-  const S = window.speechSynthesis;
-  if (!S) return;
-  blzBoothVoices();
-  const item = { text, who: o.who || 'pbp', prio: o.prio || 0, born: performance.now(), maxAge: (o.maxAge || 2.2) * 1000 };
-  const busy = blzBooth.cur && (S.speaking || S.pending) && performance.now() < blzBooth.until;
-  if (!busy) { blzBoothSay(item); return; }
-  if (item.prio > blzBooth.cur.prio + 1 || (item.prio >= 3 && blzBooth.cur.prio < 3)) {
-    blzBooth.q.length = 0;
-    try { S.cancel(); } catch (e) { }
-    blzBoothSay(item);
-    return;
-  }
-  // otherwise it waits its turn (a short queue, newest-best)
-  blzBooth.q.push(item);
-  blzBooth.q.sort((a, b) => b.prio - a.prio || b.born - a.born);
-  if (blzBooth.q.length > 3) blzBooth.q.length = 3;
+  if (!blitz.voice || blitz.sfx.muted || blitz.auto || !blitz.sfx.ctx || typeof BLZ_VO === 'undefined') return;
+  const key = blzVoKey(text, o), ent = BLZ_VO[key];
+  if (!ent) { blzVoice.miss.add(key); return; }
+  if (!blzVoBuses()) return;
+  const chan = o.who === 'qb' || o.who === 'player' ? 'field' : 'booth';
+  const item = { key, file: ent[0], dur: ent[1], prio: o.prio || 0, born: performance.now(), maxAge: (o.maxAge || 2.2) * 1000, chan };
+  const cur = blzVoice.ch[chan];
+  if (!cur) { blzVoStart(item); return; }
+  if (item.prio > cur.prio + 1 || (item.prio >= 3 && cur.prio < 3)) { blzVoStop(chan); blzVoice.q[chan].length = 0; blzVoStart(item); return; }
+  const Q = blzVoice.q[chan];
+  Q.push(item);
+  Q.sort((a, b) => b.prio - a.prio || b.born - a.born);
+  if (Q.length > 2) Q.length = 2;
 }
-function blzBoothSay(item) {
-  const S = window.speechSynthesis;
-  try {
-    const u = new SpeechSynthesisUtterance(item.text.toLowerCase());
-    const V = BLZ_VOICE[item.who] || BLZ_VOICE.pbp;
-    u.rate = V.rate; u.pitch = V.pitch; u.volume = V.vol;
-    const v = blzBooth.voices && blzBooth.voices[item.who];
-    if (v) u.voice = v;
-    u.onend = u.onerror = () => { if (blzBooth.cur === item) { blzBooth.cur = null; blzBoothNext(); } };
-    blzBooth.cur = item;
-    blzBooth.until = performance.now() + 900 + item.text.length * 85;   // (a stuck engine can't wedge the queue)
-    S.speak(u);
-  } catch (e) { blzBooth.cur = null; }
+function blzVoStart(item) {
+  const V = blzVoice, chan = item.chan;
+  V.ch[chan] = item;
+  item.pending = true;
+  blzVoBuffer(item.file).then((buf) => {
+    if (V.ch[chan] !== item) return;              // it was cut off while it loaded
+    const ctx = blitz.sfx.ctx;
+    if (!buf || !ctx || performance.now() - item.born > item.maxAge + 400) { V.ch[chan] = null; blzVoNext(chan); return; }
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    // a touch of variety so a repeated line isn't a carbon copy
+    src.playbackRate.value = chan === 'booth' ? 1 : 0.97 + Math.random() * 0.06;
+    src.connect(chan === 'booth' ? V.bus : V.fieldIn);
+    item.src = src; item.pending = false;
+    item.until = performance.now() + buf.duration * 1000 / src.playbackRate.value + 150;
+    src.onended = () => { if (V.ch[chan] === item) { V.ch[chan] = null; if (chan === 'booth') blzVoFieldLevel(1); blzVoNext(chan); } };
+    src.start();
+    if (chan === 'booth') { blzMusDuck(0.55, buf.duration); blzVoFieldLevel(0.35); }
+  });
 }
-function blzBoothNext() {
-  const now = performance.now();
-  while (blzBooth.q.length) {
-    const it = blzBooth.q.shift();
-    if (now - it.born < it.maxAge) { blzBoothSay(it); return; }
+function blzVoFieldLevel(k) {
+  const V = blzVoice, ctx = blitz.sfx.ctx;
+  if (V.fieldBus && ctx) V.fieldBus.gain.setTargetAtTime(0.5 * k, ctx.currentTime, 0.06);
+}
+function blzVoStop(chan) {
+  const it = blzVoice.ch[chan];
+  blzVoice.ch[chan] = null;
+  if (it && it.src) { try { it.src.onended = null; it.src.stop(); } catch (e) { } }
+}
+function blzVoNext(chan) {
+  const Q = blzVoice.q[chan], now = performance.now();
+  while (Q.length) {
+    const it = Q.shift();
+    if (now - it.born < it.maxAge) { blzVoStart(it); return; }
   }
 }
 function blzBoothTick() {
-  // the safety valve: if an engine never fired onend, move on
-  if (blzBooth.cur && performance.now() > blzBooth.until + 1500) { blzBooth.cur = null; blzBoothNext(); }
+  // the safety valve: an onended that never came can't wedge a channel
+  const now = performance.now();
+  for (const chan of ['booth', 'field']) {
+    const it = blzVoice.ch[chan];
+    if (it && !it.pending && it.until && now > it.until + 800) { blzVoice.ch[chan] = null; if (chan === 'booth') blzVoFieldLevel(1); blzVoNext(chan); }
+    if (it && it.pending && now - it.born > 6000) { blzVoice.ch[chan] = null; blzVoNext(chan); }
+  }
 }
 function blzBoothHush() {
-  blzBooth.q.length = 0; blzBooth.cur = null;
-  try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) { }
+  for (const chan of ['booth', 'field']) { blzVoice.q[chan].length = 0; blzVoStop(chan); }
+  blzVoFieldLevel(1);
 }
