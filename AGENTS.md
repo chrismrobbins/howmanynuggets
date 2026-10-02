@@ -2253,4 +2253,48 @@ lines), `css/blitz.css`, the outer pair of uprights on the east island.
   57%; bullets-only into anything 47% and picked a lot (that's the risk).
   AI v AI: identical 23–22, PRO 28–27, ALL-BLITZ (softened to spd 1.005)
   20–33 — Blitz scores are back.
+- **🤼 THE MOVES (Chris: "their arms just flail in the air when catching, the
+  tackling is not as brutal or goofy as … NFL Blitz, do research").** What the
+  research said (Vice / Den of Geek / Wikipedia on the cart): the lead artist
+  was a wrestling fan and mocapped the suplexes himself; the most common tackle
+  was GRAB, SPIN AND FLING (sometimes for extra yards); there was a German
+  suplex, a spinebuster where he lifts you by the facemask and SHAKES you
+  first, a neckbreaker, a piledriver (cut by the NFL); after the whistle: elbow
+  drops, leg drops, kicking a man when he's down, a three-second dogpile
+  window; showboating into the end zone; tipped passes and fumbles everybody
+  dives for. So:
+  - **Tackles are scripted two-man timelines** (`BLZ_MOVES` / `BLZ_MOVE_FN`,
+    `blzStartMove` … `blzEndMove`). Both men come off physics/AI (`p.scr`),
+    are placed + posed per frame in the move's frame (origin = contact, D =
+    the hit's direction, R its right) and handed back on the turf, face up or
+    down by the angle they finished at. `blzPickMove` chooses by angle / speed
+    / dive / sack: fling, suplex, spinebuster (with the shake), neckbreaker,
+    clothesline, spear, trip (faceplant), wrap; turbo collisions still LAUNCH
+    (the physics flip) and every fumble is a launch. The whistle blows at
+    contact; the dead-ball pause stretches to fit (`blzWhistle` + `blzStartMove`
+    extend `deadT`). A fling that lands him further gets him the yards.
+    `blzPose` reads `p.scr` (pitch / roll / drop + named arm and leg presets:
+    grab lift clothes spread flex elbow flail · kick split tuck sit stomp run).
+  - **Late hits are moves too:** Y = elbow drop (TURBO+Y or the coin = leg
+    drop) onto whoever's down; anything else = a stomp on a downed man or a
+    shove on a standing one. The CPU's late hits: 28% of whistles, mostly off
+    the top rope. Blockers can't engage a scripted man.
+  - **Catching is IK** (`blzIK`, `blzReachUpdate`): the man it's thrown to puts
+    BOTH hands where the ball will be for the last 0.55s (a defender gets one
+    hand on it), then secures it at his chest (`secureT`) before the tuck. The
+    old arms-straight-up catch pose is gone.
+  - **Tipped balls** (`blzTip`): a broken-up pass pops up 2.4 yds and lands
+    within ~3 — everybody near goes up for it, and whoever's under it catches
+    it (or picks it). ~3.5 a game. Fumbles on the turf get dived on.
+  - **Showboating:** a carrier free inside the 20 with nobody within 7 yds
+    high-steps in holding the ball up (`p.showboat`, 0.92 speed — you can get
+    caught doing it). Tacklers who stay standing flex over the victim.
+  - Ledger: moves per game ≈ 8 fling / 10 wrap / 10 trip / 10 spear / 5
+    spinebuster / 4 clothesline / 2 neckbreaker / 1.5 suplex + late hits
+    (elbow 5, leg drop 3, stomp 4). Balance unchanged (identical 31–28, PRO
+    31–24, ALL-BLITZ 15–26); the button QB still completes ~74%.
+  - Verification harness for animation: film a move at five points of its
+    timeline with a close camera and stitch a contact sheet (data-URI <img>s —
+    a blank page can't load file://). The first cut needed none of it to be
+    re-timed, but it's the only way to SEE a 1.3s move.
 

@@ -229,7 +229,7 @@ const blitz = {
   parts: [], keys: {}, voice: true,
   touch: { on: false, L: null, A: false, B: false, T: false, roles: {} }, pad: { on: false },
   sfx: { ctx: null, master: null, crowd: null, crowdGain: null, muted: false, noise: null },
-  hit: { cards: [], extra: [], rcv: [] }, crowdCv: null, inputMode: '', charge: null, rcv: null,
+  hit: { cards: [], extra: [], rcv: [] }, crowdCv: null, anims: [], saidShow: false, inputMode: '', charge: null, rcv: null,
 };
 
 function blitzActive() { return storm.mode === 'blitz' && storm.running; }
@@ -519,6 +519,7 @@ function blzClearPlay() {
   blitz.carrier = null; blitz.target = null; blitz.returner = null; blitz.thrown = false; blitz.pocket = false;
   blitz.handed = false; blitz.ezCatch = false; blitz.fg = null; blitz.punt = null; blitz.dead = null;
   blitz.playT = 0; blitz.kickT = 0; blitz.camFlipT = 0;
+  blitz.anims = []; blitz.saidShow = false;
 }
 
 // ---- kickoffs ---------------------------------------------------------------------------------
@@ -1188,6 +1189,7 @@ function blzBallUpdate(dt) {
     if (B.kind === 'fg') { if (u >= 1) blzFGResult(); return; }
     if (B.t >= B.T) {
       if (B.kind === 'pass' || B.kind === 'lat') blzCatchResolve();
+      else if (B.kind === 'tip') blzTipResolve();
       else blzKickArrive();
     }
     return;
@@ -1207,7 +1209,7 @@ function blzBallUpdate(dt) {
     if (B.looseT > 8) { blzWhistle('oob', { team: B.lastTeam, z: blzClamp(B.z, 1, BLZ_LEN - 1), x: B.x }); return; }
     if (B.y > 1.6 || B.looseT < 0.25) return;
     for (const p of blitz.players) {
-      if (p.downT > 0 || p.diveT > 0) continue;
+      if (p.downT > 0 || p.scr) continue;     // (a diver can fall on it)
       // an onside kick belongs to the receivers until it has gone ten yards
       if (B.kind === 'onside' && p.team !== B.lastTeam && Math.abs(B.z - B.oz) < 10) continue;
       if (Math.hypot(p.x - B.x, p.z - B.z) < 0.9 && Math.random() < dt * 9) {
@@ -1221,6 +1223,7 @@ function blzBallUpdate(dt) {
 function blzGiveBall(p, how) {
   const B = blitz.ball, prev = B.lastTeam;
   B.st = 'held'; B.kind = '';
+  p.secureT = 0.35; p.reach = null;
   blitz.carrier = p; blitz.pocket = false; blitz.target = null;
   if (blzHuman(p.team)) blitz.ctl = p;
   else if (blitz.ctl && blzHuman(1 - p.team)) blitz.ctl = blzNearestTo(1 - p.team, p, (q) => q.downT <= 0) || blitz.ctl;
@@ -1263,6 +1266,7 @@ function blzCatchResolve() {
     const roll = Math.random();
     if (roll < pInt) { blzPick6(def); return; }
     if (oIn && roll < pInt + 0.22) { blzCaught(off); return; }
+    if (Math.random() < 0.38) { blzTip(); return; }      // it pops up: anybody's ball
     done(def.jumpT > 0 ? 'SWATTED!' : 'BROKEN UP');
     return;
   }
@@ -1275,9 +1279,32 @@ function blzCatchResolve() {
   if (fire) pc += 0.2;
   if (Math.random() < blzClamp(pc, 0.15, 0.99)) { blzCaught(off); return; }
   if (contested && !fire && Math.random() < (0.1 + def.hands * 0.08) * (B.bullet ? 0.8 : 1)) { blzPick6(def); return; }
+  if (Math.random() < (contested ? 0.3 : 0.18)) { blzTip(); return; }   // off his hands and up in the air
   done(contested ? 'BROKEN UP' : edge > 0.6 ? 'JUST OUT OF REACH' : 'DROPPED');
 }
 
+// THE TIP: off a hand, up in the air, and whoever's under it when it comes down
+function blzTip() {
+  const B = blitz.ball;
+  B.st = 'air'; B.kind = 'tip';
+  B.x0 = B.x; B.z0 = B.z; B.y0 = 2.0;
+  B.tx = blzClamp(B.x + blzRnd(-2.8, 2.8), 0.5, BLZ_WID - 0.5); B.tz = B.z + blzRnd(-2.8, 2.8); B.ty = 1.4;
+  B.t = 0; B.T = 0.72; B.peak = 2.4;
+  blzEv('tip');
+  blzFeed('TIPPED!', '#ffcf8a');
+  if (Math.random() < 0.6) blzSay(blzPick(['it\'s tipped!', 'up for grabs!']));
+}
+function blzTipResolve() {
+  const B = blitz.ball, team = B.from ? B.from.team : blitz.poss;
+  let best = null, bd = 1.7;
+  for (const p of blitz.players) {
+    if (p.downT > 0 || p.scr || (p.team === team && !BLZ_ELIG[p.pos])) continue;
+    const d = Math.hypot(p.x - B.x, p.z - B.z) - (p.jumpT > 0 ? 0.5 : 0) - (p.diveT > 0 ? 0.7 : 0);
+    if (d < bd) { bd = d; best = p; }
+  }
+  if (best && Math.random() < 0.62) { if (best.team === team) blzCaught(best); else blzPick6(best); return; }
+  blzFeed('INCOMPLETE', '#bfc6ff'); blzWhistle('inc', {});
+}
 function blzCaught(r) {
   blzEv('comp' + r.team);
   blzGiveBall(r, 'catch');
@@ -1357,14 +1384,21 @@ function blzThink(p, dt) {
     const D = blitz.dead;
     if (D && !D.cpuLate && D.type !== 'td' && !blzHuman(p.team) && p.lateCd <= 0) {
       const v = D.who;
-      if (v && v.team !== p.team && blzDist(p, v) < 3) {
-        if (D.lateRoll == null) D.lateRoll = Math.random() < 0.3;
+      if (v && v.team !== p.team && blzDist(p, v) < 3.2 && !v.scr) {
+        if (D.lateRoll == null) {
+          D.lateRoll = Math.random() < 0.28;
+          // most of the CPU's late hits come off the top rope
+          const r = Math.random();
+          D.lateKind = r < 0.4 ? 'elbow' : r < 0.72 ? 'legdrop' : r < 0.88 ? 'stomp' : 'shove';
+        }
         if (D.lateRoll) {
           blzSeek(p, v.x, v.z, 1);
-          const dd = blzDist(p, v);
-          // a third of the CPU's late hits come off the top rope
-          if (dd < 2.6 && dd > 1.2 && v.downT > 0 && Math.random() < 0.012) { D.cpuLate = true; blzElbowDrop(p); }
-          else if (dd < 1.2) { D.cpuLate = true; blzLateHit(p); }
+          const dd = blzDist(p, v), top = D.lateKind === 'elbow' || D.lateKind === 'legdrop';
+          if (top && v.downT > 0 && dd < 2.8 && dd > 0.9 && p.lateCd <= 0) {
+            D.cpuLate = true; p.lateCd = 1.3;
+            const M = blzStartMove(D.lateKind, p, v, null); M.a0 = -Math.max(0.6, dd);
+            v.downT = Math.max(v.downT, M.T + 0.8);
+          } else if (!top && dd < 1.2) { D.cpuLate = true; blzLateHit(p); }
         }
       }
     }
@@ -1376,6 +1410,15 @@ function blzThink(p, dt) {
   if (p === C) {
     if (blitz.pocket && p.pos === 'QB') blzQBAI(p, dt);
     else blzRunnerAI(p, dt);
+    return;
+  }
+  if (B.st === 'air' && B.kind === 'tip') {
+    // everybody near it goes up for it
+    const dd = Math.hypot(p.x - B.tx, p.z - B.tz), team = B.from ? B.from.team : blitz.poss;
+    if (dd < 7 && (p.team !== team || BLZ_ELIG[p.pos])) {
+      blzSeek(p, B.tx, B.tz, 1); p.wt = true;
+      if (dd < 2.4 && B.T - B.t < 0.3 && p.jumpT <= 0 && Math.random() < 0.3) p.jumpT = 0.62;
+    } else { p.wx *= 0.6; p.wz *= 0.6; }
     return;
   }
   if (B.st === 'air' && B.kind === 'pass') { blzPassAirAI(p, dt); return; }
@@ -1664,6 +1707,8 @@ function blzLooseAI(p) {
   for (const q of blitz.players) if (q.team === p.team && q !== p && Math.hypot(q.x - B.x, q.z - B.z) < d) rank++;
   if (d < 16 || rank < 2) { blzSeek(p, B.x + B.vx * 0.3, B.z + B.vz * 0.3, 1); p.wt = true; }
   else { p.wx *= 0.5; p.wz *= 0.5; }
+  // a fumble on the turf: somebody always dives for it
+  if (d < 2.6 && d > 0.7 && B.y < 1 && p.diveT <= 0 && !blzHuman(p.team) && Math.random() < 0.06) blzDiveTo(p, B.x + B.vx * 0.15, B.z + B.vz * 0.15);
 }
 
 // ---- the human --------------------------------------------------------------------------------
@@ -1714,6 +1759,7 @@ function blzMove(p, dt) {
   if (p.throwT > 0) p.throwT -= dt;
   if (p.catchT > 0) p.catchT -= dt;
   if (p.pumpCd > 0) p.pumpCd -= dt;
+  if (p.secureT > 0) p.secureT -= dt;
   if (p.hitCd > 0) p.hitCd -= dt;
   if (p.lungeT > 0 && p.downT <= 0 && !p.air) {
     // the hit-stick lunge: committed, straight, at turbo
@@ -1766,7 +1812,7 @@ function blzMove(p, dt) {
   if (p.stunT > 0) { p.stunT -= dt; sp *= 0.45; }
   if (p.spinT > 0) { p.spinT -= dt; sp *= 0.85; }
   if (p.stiffT > 0) p.stiffT -= dt;
-  if (p === blitz.carrier) sp *= 0.95;
+  if (p === blitz.carrier) sp *= p.showboat ? 0.92 : 0.95;
   if (blitz.phase === 'dead' || blitz.phase === 'wait') sp *= human ? 0.8 : 0.4;
   // the rubber band (Blitz always had one): the CPU finds a gear when it's losing
   if (!blitz.codes.noassist && p.team === 1 && !blitz.auto) {
@@ -1837,9 +1883,9 @@ function blzBlocks(dt) {
   }
   // new engagements
   for (const o of blitz.players) {
-    if (!o.block || o.eng || o.noEngT > 0 || o.downT > 0 || o === C) continue;
+    if (!o.block || o.eng || o.noEngT > 0 || o.downT > 0 || o.scr || o === C) continue;
     for (const q of blitz.players) {
-      if (q.team === o.team || q.eng || q.downT > 0 || q.diveT > 0 || q === C) continue;
+      if (q.team === o.team || q.eng || q.downT > 0 || q.diveT > 0 || q.scr || q === C) continue;
       if (Math.hypot(q.x - o.x, q.z - o.z) > 1.15) continue;
       // in coverage before the throw, receivers aren't blocked
       if (blitz.pocket && blitz.kind === 'pass' && (q.role === 'man' || q.role === 'zone' || q.role === 'deep')) continue;
@@ -1900,53 +1946,339 @@ function blzTackles(dt) {
 function blzTackle(C, q, big) {
   if (big) blzEv('big');
   const d = blzDir(C.team);
-  C.downT = 1.4;
-  // a big hit sends him flying
-  const fly = big ? 7 : 2.5;
   const qs = Math.hypot(q.vx, q.vz) || 1;
-  C.vx = q.vx / qs * fly; C.vz = q.vz / qs * fly;
+  const sack = C.pos === 'QB' && blitz.kind === 'pass' && !blitz.thrown && blitz.pocket;
+  const behind = (C.z - blitz.los) * d < 0;
+  C.downT = 1.4;
   // hit from the front, he goes down on his back; from behind, on his face
   C.lieBack = (q.vx * C.fx + q.vz * C.fz) / qs < 0;
-  // the pile: anybody close dives on top
-  for (const o of blitz.players) {
-    if (o.team === C.team || o === q || o.downT > 0 || o.diveT > 0 || o.eng || o === blitz.ctl) continue;
-    const dd = blzDist(o, C);
-    if (dd > 1.0 && dd < 3.2 && Math.random() < 0.45) blzDiveTo(o, C.x, C.z);
-  }
-  if (big) {
+  // fumbles happen on big hits (and the occasional blindside) — and they stay live
+  const fumP = big ? (sack ? 0.07 : 0.035) : 0.006;
+  const fumble = Math.random() < fumP && !blzOnFire(C.team);
+  const kind = fumble ? 'launch' : blzPickMove(C, q, big, sack && behind);
+  if (kind === 'launch') {
     // MONSTER HIT: airborne, flipping, landing wherever physics says
-    C.air = true; C.vy = blzRnd(6.5, 8.5); C.y = 0.1;
-    C.flipA = 0; C.flipV = (C.lieBack ? -1 : 1) * blzRnd(6, 9.5);
+    const fly = big ? 7.5 : 4;
+    C.vx = q.vx / qs * fly; C.vz = q.vz / qs * fly;
+    C.air = true; C.vy = blzRnd(7, 9.5); C.y = 0.1;
+    C.flipA = 0; C.flipV = (C.lieBack ? -1 : 1) * blzRnd(7, 11);
     blitz.shakeT = 0.32; blitz.shakeMag = 6; blitz.hitStop = 0.09;
     blzSfx('crunch'); blzRoar(0.9, 1.4);
     blzBurst(C.x, C.z, 1.4, 14, '#fff6a8');
     if (blitz.stats && blzHuman(q.team)) { blitz.stats.hits++; blzEarn(2, 'MONSTER HIT'); }
     if (Math.random() < 0.5) blzSay(blzPick(BLZ_CALLS.hit));
-  } else blzSfx('hit');
-  if (q.diveT <= 0 && !big) { q.downT = 0.7; q.vx *= 0.3; q.vz *= 0.3; }
-  // fumbles happen on big hits (and the occasional blindside)
-  const fumP = big ? (C.pos === 'QB' && blitz.pocket ? 0.07 : 0.035) : 0.006;
-  if (Math.random() < fumP && !(blzOnFire(C.team))) {
-    C.downT = 1.2;
-    blzFumble(C, q);
-    return;
+    if (q.diveT <= 0) q.stunT = 0.3;
+  } else {
+    // a wrestling move: both men come off the sim and the move runs the show
+    const frame = kind === 'suplex' || kind === 'trip' ? [C.fx, C.fz] : null;
+    blzStartMove(kind, q, C, frame);
   }
-  // sack?
-  const behind = (C.z - blitz.los) * d < 0;
-  const sack = C.pos === 'QB' && blitz.kind === 'pass' && !blitz.thrown && blitz.pocket;
+  // the dogpile: anybody close dives on top
+  for (const o of blitz.players) {
+    if (o.team === C.team || o === q || o.scr || o.downT > 0 || o.diveT > 0 || o.eng || o === blitz.ctl) continue;
+    const dd = blzDist(o, C);
+    if (dd > 1.0 && dd < 3.2 && Math.random() < 0.45) blzDiveTo(o, C.x, C.z);
+  }
+  if (fumble) { C.downT = 1.2; blzFumble(C, q); return; }
   blzWhistle('tackle', { who: C, by: q, sack: sack && behind, big });
+}
+
+// ---- 🤼 THE MOVES ------------------------------------------------------------------------------
+// "the tackling is not as brutal or goofy as it was in NFL Blitz" — Chris. The
+// cart's tackles were pro wrestling: its lead artist was a wrestling fan who did
+// the suplexes himself in the mocap suit. The most common was a defender grabbing
+// the carrier, SPINNING him around and FLINGING him to the turf (sometimes for
+// extra yards); there was a German suplex, a SPINEBUSTER where he lifts you by the
+// facemask and SHAKES you before slamming you spine-first, a neckbreaker, and after
+// the whistle elbow drops, leg drops and stomps on whoever was down.
+//
+// Each move here is a scripted two-man timeline. Both players come off physics
+// and AI (p.scr is set), get placed and posed every frame in the move's own frame
+// (origin at the contact, D = the direction of the hit, R = its right), and are
+// handed back on the turf at the end. The whistle already blew at contact; the
+// dead-ball pause stretches to fit the move. blzPose reads p.scr for the pitch /
+// roll / drop of the whole body and named arm + leg presets.
+
+const BLZ_MOVES = {
+  fling:       { T: 1.3,  hit: 0.88, banner: '', feed: 'SPUN AND FLUNG!', say: ['he spun him around!', 'and he throws him down!'] },
+  suplex:      { T: 1.25, hit: 0.7,  banner: 'GERMAN SUPLEX!', say: ['german suplex!', 'oh, the suplex!'] },
+  spinebuster: { T: 1.45, hit: 0.8,  banner: 'SPINEBUSTER!', say: ['spinebuster!', 'he picked him up by the face mask!'] },
+  neckbreaker: { T: 1.0,  hit: 0.6,  banner: 'NECKBREAKER!', say: ['neckbreaker!'] },
+  clothesline: { T: 1.1,  hit: 0.74, banner: 'CLOTHESLINE!', say: ['clothesline!', 'he took his head off!'] },
+  spear:       { T: 0.95, hit: 0.32, banner: 'SPEARED!', say: ['speared!', 'monster hit!'] },
+  trip:        { T: 0.85, hit: 0.56, banner: '', feed: 'FACEPLANT!', say: [] },
+  wrap:        { T: 0.8,  hit: 0.62, banner: '', feed: '', say: [] },
+  elbow:       { T: 0.8,  hit: 0.86, banner: 'ELBOW DROP!', say: ['from the top rope!', 'elbow drop!'] },
+  legdrop:     { T: 0.85, hit: 0.86, banner: 'LEG DROP!', say: ['leg drop!', 'brother!'] },
+  stomp:       { T: 0.55, hit: 0.62, banner: '', feed: 'STOMP!', say: [] },
+};
+const blzSeg = (u, a, b) => blzClamp((u - a) / (b - a), 0, 1);
+const blzEase = (k) => k * k * (3 - 2 * k);
+
+// start move `kind`: a = the one doing it, v = the one it's done to
+function blzStartMove(kind, a, v, frameDir) {
+  const D = BLZ_MOVES[kind];
+  let dx = frameDir ? frameDir[0] : v.x - a.x, dz = frameDir ? frameDir[1] : v.z - a.z;
+  const m = Math.hypot(dx, dz);
+  if (m < 1e-3) { dx = a.fx; dz = a.fz; } else { dx /= m; dz /= m; }
+  const M = {
+    kind, t: 0, T: D.T, hit: D.hit, a, v, hitDone: false, ended: false,
+    ox: v.x, oz: v.z, dx, dz, rx: dz, rz: -dx,
+    ax: a.x, az: a.z, side: Math.random() < 0.5 ? -1 : 1,
+    // the victim's facing, expressed in the move's frame
+    vfa: v.fx * dx + v.fz * dz, vfs: v.fx * dz - v.fz * dx,
+    spd: Math.max(5, Math.hypot(a.vx, a.vz)),
+    a0: -Math.max(0.6, m || 1),       // (where the late-hit man jumps from, along D)
+  };
+  for (const p of [a, v]) { p.eng = null; p.diveT = 0; p.jumpT = 0; p.air = false; p.dropOn = null; p.lungeT = 0; }
+  a.scr = { pitch: 0 }; v.scr = { pitch: 0 };
+  blzEv('mv_' + kind);
+  blitz.anims.push(M);
+  if (blitz.phase === 'dead') blitz.deadT = Math.max(blitz.deadT, M.T + 0.5);
+  return M;
+}
+// put a player in the move's frame: along D, along R, height, facing (in frame), and the body
+function blzPut(M, p, al, sd, y, fal, fsd, pitch, roll, drop, arms, legs) {
+  p.x = M.ox + M.dx * al + M.rx * sd; p.z = M.oz + M.dz * al + M.rz * sd;
+  p.y = Math.max(0, y);
+  const fx = M.dx * fal + M.rx * fsd, fz = M.dz * fal + M.rz * fsd, fm = Math.hypot(fx, fz) || 1;
+  p.fx = fx / fm; p.fz = fz / fm;
+  p.vx = 0; p.vz = 0;
+  p.scr = { pitch: pitch || 0, roll: roll || 0, drop: drop || 0, arms: arms || null, legs: legs || null };
+}
+// lying where he fell, for the late-hit victims
+function blzLie(M, p) { p.scr = { pitch: p.lieBack ? -1.5 : 1.5, roll: 0, drop: 0.72, arms: 'spread', legs: null }; p.vx = p.vz = 0; }
+
+const BLZ_MOVE_FN = {
+  // grab, spin him around one and a quarter times, and let go
+  fling(M, u) {
+    const a = M.a, v = M.v, sp = M.side;
+    if (u < 0.14) {
+      const k = blzSeg(u, 0, 0.14);
+      blzPut(M, a, -1.0 + 0.3 * k, 0, 0, 1, 0, 0.1, 0, 0, 'grab', null);
+      blzPut(M, v, 0, 0, 0, M.vfa, M.vfs, 0, 0, 0, 'flail', 'split');
+      return;
+    }
+    const k = blzSeg(u, 0.14, 0.6), th0 = Math.PI, th = th0 + blzEase(k) * Math.PI * 2.5 * sp;
+    const ca = Math.cos(th), sa = Math.sin(th), R = 1.15;
+    if (u < 0.6) {
+      blzPut(M, a, -0.7 + 0.7 * k, 0, 0, -ca, -sa, 0.05, 0, 0.05, 'grab', 'split');           // the hub, facing his man
+      blzPut(M, v, -0.7 + 0.7 * k - ca * R, -sa * R, 0.25 + Math.sin(k * Math.PI) * 0.45, -sa * sp, ca * sp, 0, -1.15 * sp * k, 0, 'flail', 'split');
+      M.rel = [-ca * R, -sa * R, -sa * sp, ca * sp];
+      return;
+    }
+    // released along the tangent: tumbling through the air, then the turf
+    const r = M.rel, f = blzSeg(u, 0.6, 0.88), dist = 3.4;
+    const al = r[0] + r[2] * dist * f, sd = r[1] + r[3] * dist * f;
+    if (u < 0.88) {
+      blzPut(M, a, 0, 0, 0, -r[0], -r[1], 0, Math.sin(M.t * 13) * 0.18, 0, 'spread', null);    // dizzy
+      blzPut(M, v, al, sd, 0.5 + Math.sin(f * Math.PI) * 1.1, r[2], r[3], f * Math.PI * 1.6, -1.15 * sp * (1 - f), 0.2 * f, 'flail', 'kick');
+    } else {
+      const g = blzSeg(u, 0.88, 1);
+      blzPut(M, a, 0, 0, 0, -r[0], -r[1], 0, Math.sin(M.t * 13) * 0.12 * (1 - g), 0, 'flex', null);
+      blzPut(M, v, r[0] + r[2] * dist, r[1] + r[3] * dist, Math.sin(g * Math.PI) * 0.25, r[2], r[3], 1.6 * Math.PI + (1.5 - 1.6 * Math.PI) * blzEase(g), 0, 0.72, 'spread', null);
+    }
+  },
+  // from behind: lift, arch, and drop him on his head over your shoulders
+  suplex(M, u) {
+    const a = M.a, v = M.v;
+    if (u < 0.2) {
+      const k = blzSeg(u, 0, 0.2);
+      blzPut(M, a, -1.0 + 0.4 * k, 0, 0, 1, 0, 0.15 * k, 0, 0.05 * k, 'grab', null);
+      blzPut(M, v, 0, 0, 0, 1, 0, 0, 0, 0, 'flail', 'split');
+    } else if (u < 0.55) {
+      const k = blzEase(blzSeg(u, 0.2, 0.55));
+      blzPut(M, a, -0.6, 0, 0, 1, 0, -0.85 * k, 0, 0.15 * k, 'lift', null);
+      blzPut(M, v, -0.6 * k, 0, 1.0 * k, 1, 0, -1.7 * k, 0, 0, 'flail', 'kick');
+    } else if (u < 0.7) {
+      const k = blzSeg(u, 0.55, 0.7);
+      blzPut(M, a, -0.6, 0, 0, 1, 0, -0.85 - 0.65 * k, 0, 0.15 + 0.5 * k, 'lift', null);
+      blzPut(M, v, -0.6 - 0.9 * k, 0, 1.0 - 0.95 * k, 1, 0, -1.7 - 1.35 * k, 0, 0, 'flail', 'kick');
+    } else {
+      const k = blzEase(blzSeg(u, 0.7, 1));
+      blzPut(M, a, -0.6, 0, 0, 1, 0, -1.5, 0, 0.65, 'spread', 'kick');
+      blzPut(M, v, -1.5 - 0.25 * k, 0, 0.05 + Math.sin(k * Math.PI) * 0.2, 1, 0, -3.05 - 1.65 * k, 0, 0.72 * k, 'spread', 'kick');
+    }
+  },
+  // face to face: up by the facemask, a good long SHAKE, and down on his spine
+  spinebuster(M, u) {
+    const a = M.a, v = M.v;
+    if (u < 0.15) {
+      const k = blzSeg(u, 0, 0.15);
+      blzPut(M, a, -1.05 + 0.3 * k, 0, 0, 1, 0, 0, 0, 0, 'grab', null);
+      blzPut(M, v, 0, 0, 0, -1, 0, 0, 0, 0, 'flail', 'split');
+    } else if (u < 0.4) {
+      const k = blzEase(blzSeg(u, 0.15, 0.4));
+      blzPut(M, a, -0.75, 0, 0, 1, 0, -0.2 * k, 0, 0.05 * k, 'lift', null);
+      blzPut(M, v, -0.1 * k, 0, 0.95 * k, -1, 0, 0.1 * k, 0, 0, 'flail', 'split');
+    } else if (u < 0.64) {
+      // the shake (the cart's own word for it)
+      const t = M.t;
+      blzPut(M, a, -0.75, Math.sin(t * 31) * 0.05, 0, 1, 0, -0.2, Math.sin(t * 29) * 0.12, 0.05, 'lift', null);
+      blzPut(M, v, -0.1, Math.sin(t * 38) * 0.16, 0.95 + Math.sin(t * 50) * 0.09, -1, 0, 0.1, Math.sin(t * 33) * 0.4, 0, 'flail', 'split');
+    } else if (u < 0.8) {
+      const k = blzSeg(u, 0.64, 0.8);
+      blzPut(M, a, -0.75 + 0.4 * k, 0, 0, 1, 0, -0.2 + 1.45 * k, 0, 0.05 + 0.4 * k, 'grab', null);
+      blzPut(M, v, -0.1 + 0.25 * k, 0, 0.95 * (1 - k), -1, 0, 0.1 - 1.65 * k, 0, 0.72 * k, 'flail', 'kick');
+    } else {
+      const k = blzSeg(u, 0.8, 1);
+      blzPut(M, a, -0.35, 0, 0, 1, 0, 1.25 + 0.25 * k, 0, 0.45 + 0.27 * k, 'grab', 'split');
+      blzPut(M, v, 0.15, 0, Math.sin(k * Math.PI) * 0.15, -1, 0, -1.55, 0, 0.72, 'spread', null);
+    }
+  },
+  // an arm round the neck from the side, and both of you fall backwards
+  neckbreaker(M, u) {
+    const a = M.a, v = M.v, sd = M.side * 0.45;
+    if (u < 0.25) {
+      const k = blzSeg(u, 0, 0.25);
+      blzPut(M, a, -0.8 + 0.6 * k, sd, 0, M.vfa, M.vfs, 0, 0, 0, 'grab', null);
+      blzPut(M, v, 0, 0, 0, M.vfa, M.vfs, 0, 0, 0, 'flail', null);
+    } else {
+      const k = blzEase(blzSeg(u, 0.25, 0.6));
+      blzPut(M, a, -0.2 - 0.3 * k, sd, 0, M.vfa, M.vfs, -1.5 * k, 0, 0.72 * k, 'grab', 'kick');
+      blzPut(M, v, -0.45 * k, sd * 0.25 * k, Math.sin(k * Math.PI) * 0.2, M.vfa, M.vfs, -1.55 * k, -0.2 * M.side * k, 0.72 * k, 'flail', 'kick');
+    }
+  },
+  // at a dead sprint, arm out: his legs keep going, his head doesn't
+  clothesline(M, u) {
+    const a = M.a, v = M.v, run = M.spd * M.T;
+    a.anim += 0.3;
+    if (u < 0.22) {
+      const k = u / 0.22;
+      blzPut(M, a, -1.6 + 1.6 * k, 0.35, 0, 1, 0, 0.25, 0, 0, 'clothes', 'run');
+      blzPut(M, v, 0, 0, 0, M.vfa, M.vfs, 0, 0, 0, null, 'run');
+      return;
+    }
+    const k = blzSeg(u, 0.22, 0.74), g = blzSeg(u, 0.74, 1);
+    blzPut(M, a, run * 0.55 * blzSeg(u, 0.22, 1), 0.35, 0, 1, 0, 0.2 * (1 - g), 0, 0, g > 0.5 ? 'flex' : 'clothes', g > 0.3 ? null : 'run');
+    if (u < 0.74) blzPut(M, v, 0.9 * k, 0, Math.sin(k * Math.PI) * 1.0, -1, 0, -2.6 * blzEase(k), 0, 0, 'flail', 'kick');
+    else blzPut(M, v, 0.9, 0, Math.sin(g * Math.PI) * 0.18, -1, 0, -2.6 + 1.05 * blzEase(g), 0, 0.72 * g, 'spread', 'kick');
+  },
+  // a horizontal launch through his chest; you both keep going
+  spear(M, u) {
+    const a = M.a, v = M.v, e = blzEase(u);
+    blzPut(M, a, -1.1 + 3.0 * e, 0, 0.4 * (1 - u), 1, 0, 1.3 + 0.2 * u, 0, 0.45 + 0.27 * u, 'grab', 'split');
+    blzPut(M, v, 2.7 * e, 0, Math.sin(blzSeg(u, 0, 0.7) * Math.PI) * 0.55, -1, 0, -1.55 * blzEase(blzSeg(u, 0.1, 0.7)), 0, 0.72 * blzSeg(u, 0.4, 1), 'flail', 'kick');
+  },
+  // a dive at the ankles from behind: he goes face first
+  trip(M, u) {
+    const a = M.a, v = M.v;
+    const k = blzEase(blzSeg(u, 0, 0.5));
+    blzPut(M, a, -1.6 + 1.0 * k, 0, 0.15, 1, 0, 1.45, 0, 0.7, 'grab', 'split');
+    const f = blzEase(blzSeg(u, 0.12, 0.56));
+    blzPut(M, v, 1.7 * blzEase(u), 0, 0, 1, 0, 1.6 * f, 0, 0.72 * f, f < 0.8 ? 'spread' : 'flail', 'split');
+  },
+  // the plain wrap-up: arms round him, both of you down the way he was going
+  wrap(M, u) {
+    const a = M.a, v = M.v, e = blzEase(blzSeg(u, 0.1, 0.62));
+    const fwd = M.vfa > 0 ? 1 : -1;   // hit from behind: face first; from the front: on his back
+    blzPut(M, a, -0.55 + 0.85 * e, 0, 0, 1, 0, 1.35 * e, 0, 0.62 * e, 'grab', null);
+    blzPut(M, v, 0.85 * e, 0, Math.sin(e * Math.PI) * 0.12, M.vfa, M.vfs, 1.52 * e * fwd, 0, 0.72 * e, 'flail', 'split');
+  },
+  // after the whistle: off the ground and down elbow-first on whoever's lying there
+  elbow(M, u) {
+    const a = M.a, v = M.v, k = blzEase(u);
+    const al = M.a0 * (1 - k);
+    blzPut(M, a, al, 0, Math.sin(u * Math.PI) * 1.5, 1, 0, 1.3 * blzSeg(u, 0.4, 0.9), 0, 0.55 * blzSeg(u, 0.75, 1), 'elbow', 'tuck');
+    blzLie(M, v);
+  },
+  legdrop(M, u) {
+    const a = M.a, v = M.v, k = blzEase(u);
+    blzPut(M, a, M.a0 * (1 - k), 0.15, Math.sin(u * Math.PI) * 1.4, 0, 1, -1.15 * blzSeg(u, 0.35, 0.9), 0, 0.6 * blzSeg(u, 0.75, 1), 'spread', 'sit');
+    blzLie(M, v);
+  },
+  stomp(M, u) {
+    const a = M.a, v = M.v;
+    blzPut(M, a, -0.7, 0.2, 0, 1, 0, 0.15, 0, 0, 'spread', u < 0.6 ? 'stomp' : null);
+    blzLie(M, v);
+  },
+};
+
+function blzMovesStep(dt) {
+  if (!blitz.anims.length) return;
+  for (const M of blitz.anims) {
+    if (M.ended) continue;
+    M.t += dt;
+    const u = Math.min(1, M.t / M.T);
+    BLZ_MOVE_FN[M.kind](M, u);
+    if (!M.hitDone && u >= M.hit) { M.hitDone = true; blzMoveImpact(M); }
+    if (u >= 1) blzEndMove(M);
+  }
+  blitz.anims = blitz.anims.filter((M) => !M.ended);
+}
+function blzMoveImpact(M) {
+  const D = BLZ_MOVES[M.kind], v = M.v;
+  const late = M.kind === 'elbow' || M.kind === 'legdrop' || M.kind === 'stomp';
+  const big = !!D.banner;
+  blitz.shakeT = big ? 0.35 : 0.2; blitz.shakeMag = big ? 7 : 4;
+  if (big) blitz.hitStop = 0.06;
+  blzSfx(big || late ? 'crunch' : 'hit');
+  blzRoar(big ? 1 : 0.6, big ? 1.8 : 1);
+  blzBurst(v.x, v.z, 0.4, big ? 16 : 9, '#e8dcc0');
+  // the turf answers: a ring of dust where he lands
+  for (let i = 0; i < 10; i++) {
+    const a = i / 10 * Math.PI * 2;
+    blitz.parts.push({ x: v.x, z: v.z, y: 0.15, vx: Math.cos(a) * 3.5, vz: Math.sin(a) * 3.5, vy: 0.8, t: 0, T: 0.5, c: '#c8b890', k: 'spark' });
+  }
+  if (D.banner && (!M.quiet)) blzBanner(D.banner, late ? '#ff5a3a' : '#ff8a3a', late ? 'NO FLAG' : '', 1.0);
+  else if (D.feed) blzFeed(D.feed, '#ffcf8a');
+  if (D.say.length && Math.random() < 0.7) blzSay(blzPick(D.say), big);
+  if (v.scr && late) { v.y = 0.2; }
+  if (late && blitz.stats && blzHuman(M.a.team)) { blitz.stats.late++; blzEarn(M.kind === 'stomp' ? 1 : 2, M.kind === 'stomp' ? 'STOMP' : D.banner.replace('!', '')); }
+  if (!late && big && blitz.stats && blzHuman(M.a.team)) { blitz.stats.hits++; blzEarn(2, D.banner.replace('!', '')); }
+}
+function blzEndMove(M) {
+  M.ended = true;
+  for (const p of [M.a, M.v]) {
+    const sc = p.scr;
+    p.scr = null; p.y = 0;
+    if (!sc) continue;
+    // whatever angle he finished at decides face up or face down
+    let pn = sc.pitch % (Math.PI * 2);
+    if (pn > Math.PI) pn -= Math.PI * 2; if (pn < -Math.PI) pn += Math.PI * 2;
+    const lying = sc.drop > 0.35 || Math.abs(pn) > 0.9;
+    if (lying) { p.lieBack = pn < 0; p.downT = Math.max(p.downT, p === M.v ? 1.0 : 0.65); }
+    else { p.downT = 0; if (p === M.a && Math.random() < 0.55) p.celebT = 0.9; }  // stand over him and flex
+  }
+  // the cart's quirk: a fling that lands him further on gets him the yards
+  const Dd = blitz.dead;
+  if (M.kind === 'fling' && Dd && Dd.who === M.v && Dd.type === 'tackle' && Dd.team != null) {
+    const d = blzDir(Dd.team), lim = blzGoal(Dd.team) - d * 0.6;
+    if ((M.v.z - Dd.z) * d > 0 && M.v.x > 0 && M.v.x < BLZ_WID) { Dd.z = (M.v.z - lim) * d > 0 ? lim : M.v.z; Dd.x = M.v.x; blzFeed('+ THE FLING YARDS', '#bfe8ff'); }
+  }
+}
+
+// choose a tackle for the moment: angle, speed, dive, sack
+function blzPickMove(C, q, big, sack) {
+  const qs = Math.hypot(q.vx, q.vz) || 1;
+  const along = (q.vx * C.fx + q.vz * C.fz) / qs;      // > 0: hit from behind
+  const behind = along > 0.3, front = along < -0.3;
+  const w = (pairs) => { let s = 0; for (const [, x] of pairs) s += x; let r = Math.random() * s; for (const [k, x] of pairs) { if ((r -= x) <= 0) return k; } return pairs[0][0]; };
+  if (q.diveT > 0) return behind ? w([['trip', 4], ['spear', 1], ['wrap', 2]]) : w([['spear', 3], ['wrap', 3], ['trip', 2]]);
+  if (big) return front ? w([['launch', 3], ['clothesline', 3], ['spear', 2], ['spinebuster', 1]]) : w([['launch', 4], ['spear', 2], ['fling', 2], ['suplex', 1]]);
+  if (sack) return behind ? w([['suplex', 4], ['fling', 3], ['neckbreaker', 2], ['wrap', 1]]) : w([['spinebuster', 4], ['fling', 3], ['neckbreaker', 2], ['wrap', 1]]);
+  if (behind) return w([['fling', 4], ['wrap', 3], ['suplex', 2.5], ['trip', 1.5], ['neckbreaker', 1]]);
+  return w([['fling', 4], ['wrap', 3], ['spinebuster', 2], ['neckbreaker', 1.5], ['clothesline', 1.5]]);
 }
 
 // THE ELBOW DROP: jump on whoever's on the turf. Lands, or it doesn't.
 function blzElbowDrop(me) {
-  if (me.lateCd > 0 || me.downT > 0 || me.jumpT > 0) return;
+  if (me.lateCd > 0 || me.downT > 0 || me.jumpT > 0 || me.scr) return;
   let v = null, bd = 3.4;
   for (const p of blitz.players) {
-    if (p.team === me.team) continue;
+    if (p.team === me.team || p.scr) continue;
     const d = blzDist(p, me) - (p.downT > 0 ? 0.9 : 0);
     if (d < bd) { bd = d; v = p; }
   }
-  me.lateCd = 1.3; me.jumpT = 0.62;
+  me.lateCd = 1.3;
+  // somebody on the turf: off the top rope — the elbow, or (turbo, or the coin) the leg drop
+  if (v && v.downT > 0) {
+    const M = blzStartMove(blzTurboHeld() && blzHuman(me.team) || Math.random() < 0.4 ? 'legdrop' : 'elbow', me, v, null);
+    M.a0 = -Math.max(0.6, blzDist(me, v));
+    v.downT = Math.max(v.downT, M.T + 0.8);
+    return;
+  }
+  me.jumpT = 0.62;
   if (!v) return;
   me.dropOn = v;
   const dx = v.x - me.x, dz = v.z - me.z, m = Math.hypot(dx, dz) || 1, sp = Math.min(6.5, m / 0.55);
@@ -1968,15 +2300,17 @@ function blzElbowLand(me) {
 
 // LATE HITS: anyone, anytime after the whistle, no flag ever thrown
 function blzLateHit(me) {
-  if (me.lateCd > 0 || me.downT > 0) return;
+  if (me.lateCd > 0 || me.downT > 0 || me.scr) return;
   let v = null, bd = 2.2;
   for (const p of blitz.players) {
-    if (p.team === me.team || p === me) continue;
+    if (p.team === me.team || p === me || p.scr) continue;
     const d = blzDist(p, me);
     if (d < bd) { bd = d; v = p; }
   }
   me.lateCd = 1.2;
   if (!v) { if (blzHuman(me.team)) me.jumpT = 0.62; return; }
+  // he's already down: put a boot in him (the cart let you kick them when they were down)
+  if (v.downT > 0) { const M = blzStartMove('stomp', me, v, null); v.downT = Math.max(v.downT, M.T + 0.8); return; }
   const dx = v.x - me.x, dz = v.z - me.z, m = Math.hypot(dx, dz) || 1;
   v.downT = Math.max(v.downT, 1.3); v.vx = dx / m * 6; v.vz = dz / m * 6; v.y = 0.6;
   me.vx = dx / m * 4; me.vz = dz / m * 4;
@@ -1994,6 +2328,8 @@ function blzWhistle(type, info) {
   blitz.phase = 'dead';
   blitz.deadT = type === 'td' ? 2.6 : type === 'inc' ? 1.2 : 1.7;
   blitz.dead = Object.assign({ type }, info);
+  // a wrestling move in progress gets to finish before the next snap
+  for (const M of blitz.anims) blitz.deadT = Math.max(blitz.deadT, M.T - M.t + 0.5);
   if (type !== 'td') blzSfx('whistle');
   const Bd = blitz.ball;
   if (Bd && (Bd.st === 'air' || Bd.st === 'loose')) { Bd.st = 'dead'; Bd.y = Math.min(Bd.y, 0.2); }
@@ -2288,11 +2624,14 @@ function blitzUpdate(dt) {
 
 // players + camera, without rules
 function blzSim(dt) {
+  blzReachUpdate();
   for (const p of blitz.players) {
+    if (p.scr) continue;              // a wrestling move has him
     if (p === blitz.ctl && blzHuman(p.team) && blitz.phase !== 'final') blzHumanControl(p, dt);
     else blzThink(p, dt);
   }
-  for (const p of blitz.players) blzMove(p, dt);
+  for (const p of blitz.players) if (!p.scr) blzMove(p, dt);
+  blzMovesStep(dt);
   blzSeparate(dt);
   blzBallUpdate(dt);
   blzCam(dt);
@@ -2360,6 +2699,15 @@ function blzLive(dt) {
   const Cd = blitz.carrier;
   if (Cd && (Cd.downT > 0 || (Cd.diveT > 0 && Cd.diveT < 0.05)) && !Cd.air) { blzWhistle('tackle', { who: Cd }); return; }
   const C2 = blitz.carrier;
+  // free inside the twenty with nobody near: he starts DANCING (the cart did this)
+  if (C2 && C2.downT <= 0 && !(blitz.pocket && C2.pos === 'QB')) {
+    const g = (blzGoal(C2.team) - C2.z) * blzDir(C2.team);
+    let near = 99;
+    for (const q of blitz.players) if (q.team !== C2.team && q.downT <= 0) near = Math.min(near, blzDist(q, C2));
+    const sb = g > 0 && g < 20 && near > 7;
+    if (sb && !C2.showboat && !blitz.saidShow) { blitz.saidShow = true; blzEv('showboat'); blzFeed('SHOWBOATING!', '#ffcf8a'); if (Math.random() < 0.7) blzSay(blzPick(['look at him showboat!', 'he\'s dancing in!'])); }
+    C2.showboat = sb;
+  }
   if (C2 && C2.downT <= 0) {
     const d = blzDir(C2.team);
     if ((C2.z - blzGoal(C2.team)) * d >= 0) { blzTouchdown(C2); return; }
@@ -2375,10 +2723,10 @@ function blzSeparate(dt) {
   const P = blitz.players;
   for (let i = 0; i < P.length; i++) {
     const a = P[i];
-    if (a.downT > 0) continue;
+    if (a.downT > 0 || a.scr) continue;
     for (let j = i + 1; j < P.length; j++) {
       const b = P[j];
-      if (b.downT > 0 || a.eng === b) continue;
+      if (b.downT > 0 || b.scr || a.eng === b) continue;
       const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz);
       if (d > 0.75 || d < 1e-4) continue;
       const push = (0.75 - d) * 0.5;
@@ -3019,21 +3367,61 @@ function blzShadow(g, p, P) {
 const BLZ_BS = 1.4;
 const BLZ_CRUST = '#d99a3c', BLZ_CRUST_D = '#a8691f', BLZ_CRUST_L = '#f0c068';
 
+// two-bone arm IK (shoulder → elbow → hand), elbows bending out and down
+function blzIK(S, T, sg) {
+  const L1 = 0.3, L2 = 0.27;
+  const d = [T[0] - S[0], T[1] - S[1], T[2] - S[2]];
+  let dl = Math.hypot(d[0], d[1], d[2]) || 1e-3;
+  const u = [d[0] / dl, d[1] / dl, d[2] / dl];
+  dl = blzClamp(dl, 0.1, L1 + L2 - 0.005);
+  const ca = blzClamp((L1 * L1 + dl * dl - L2 * L2) / (2 * L1 * dl), -1, 1), sa = Math.sqrt(1 - ca * ca);
+  let P = [sg * 0.7, -0.7, -0.1];
+  const pd = P[0] * u[0] + P[1] * u[1] + P[2] * u[2];
+  P = blzN([P[0] - pd * u[0], P[1] - pd * u[1], P[2] - pd * u[2]]);
+  return [
+    [S[0] + u[0] * L1 * ca + P[0] * L1 * sa, S[1] + u[1] * L1 * ca + P[1] * L1 * sa, S[2] + u[2] * L1 * ca + P[2] * L1 * sa],
+    [S[0] + u[0] * dl, S[1] + u[1] * dl, S[2] + u[2] * dl],
+  ];
+}
+// who's reaching for the ball, and where (blzPose turns it into arm IK — no more
+// arms up in the air: both hands go to the ball, a defender gets one hand on it)
+function blzReachUpdate() {
+  for (const p of blitz.players) { p.reach = null; p.reachOne = false; }
+  const B = blitz.ball;
+  if (!B || B.st !== 'air') return;
+  const left = B.T - B.t;
+  const at = (p) => (Math.hypot(p.x - B.x, p.z - B.z) < 2.6 ? [B.x, B.y, B.z] : [B.tx, B.ty + 0.25, B.tz]);
+  if (B.kind === 'pass' || B.kind === 'tip' || B.kind === 'lat') {
+    const team = B.from ? B.from.team : blitz.poss;
+    for (const p of blitz.players) {
+      if (p.downT > 0 || p.scr) continue;
+      const dl = Math.hypot(p.x - B.tx, p.z - B.tz);
+      if (p === blitz.target && left < 0.55) p.reach = at(p);
+      else if (B.kind === 'tip' && dl < 2.6 && left < 0.45) p.reach = at(p);
+      else if (p.team !== team && dl < 2.4 && left < 0.4) { p.reach = at(p); p.reachOne = true; }
+    }
+  } else if ((B.kind === 'kick' || B.kind === 'punt') && blitz.returner && left < 1.0) {
+    const R = blitz.returner;
+    if (R.downT <= 0 && !R.scr && Math.hypot(R.x - B.tx, R.z - B.tz) < 3) R.reach = [B.x, B.y, B.z];
+  }
+}
+
 function blzPose(p) {
   const C = blitz.carrier, ph = p.anim * 2.1, t = blitz.t;
-  const sp = Math.hypot(p.vx, p.vz), moving = sp > 0.8 && p.downT <= 0 && !p.air;
+  const S = p.scr;   // a wrestling move is posing him
+  const sp = Math.hypot(p.vx, p.vz), moving = S ? S.legs === 'run' : sp > 0.8 && p.downT <= 0 && !p.air;
   const J = {};
   const pre = blitz.phase === 'pre' || blitz.phase === 'call';
   const lineman = /^(C|LG|RG|DE1|DT|DE2)$/.test(p.pos);
   const scrim = blitz.kind === 'pass' || blitz.kind === 'run';
   // the spine: pelvis height and how far forward the trunk leans
   let pel = 1.0, tilt = 0.08, sway = 0, stance = '';
-  if (pre && !moving && scrim) {
+  if (pre && !moving && scrim && !S) {
     if (lineman) { stance = '3pt'; pel = 0.6; tilt = 1.05; }
     else if (p.pos === 'QB' && p.team === blitz.poss && !(blitz.play && blitz.play.fake)) { stance = 'uc'; pel = 0.82; tilt = 0.55; }
     else { stance = 'ready'; pel = 0.88; tilt = 0.32; }
-  } else if (moving) tilt = p.turboOn ? 0.46 : 0.26;
-  if (p.eng) { pel = 0.84; tilt = 0.75; }
+  } else if (moving) tilt = p.turboOn || S ? 0.46 : p.showboat && p === C ? -0.08 : 0.26;
+  if (p.eng && !S) { pel = 0.84; tilt = 0.75; }
   if (moving) pel += Math.abs(Math.sin(ph)) * 0.06 - 0.03;
   else if (!stance && p.downT <= 0) pel += Math.sin(t * 2.2 + p.num) * 0.008;      // breathing
   const celeb = p.celebT > 0 ? (p.num % 3) : -1;
@@ -3055,6 +3443,15 @@ function blzPose(p) {
     if (p.eng) { th = sg < 0 ? 0.65 : -0.15; bend = 0.75; }
     if (jumpT) { th = sg < 0 ? 0.8 : 0.35; bend = 1.4; }
     if (celeb === 1) { th = 0.15; bend = 0.3; }
+    // the high-step into the end zone
+    if (!S && moving && p.showboat && p === C) { th = 0.25 + Math.sin(phs) * 1.15; bend = th > 0.4 ? th * 0.9 + 0.45 : 0.2; }
+    if (S && S.legs && S.legs !== 'run') {
+      if (S.legs === 'kick') { th = 1.25; bend = 0.25; }
+      else if (S.legs === 'split') { th = sg < 0 ? 0.9 : -0.55; bend = 0.35; }
+      else if (S.legs === 'tuck') { th = 1.4; bend = 2.1; }
+      else if (S.legs === 'sit') { th = 1.5; bend = 0.05; }
+      else if (S.legs === 'stomp') { th = sg > 0 ? 1.15 : 0.05; bend = sg > 0 ? 1.7 : 0.1; }
+    }
     const hx = sg * 0.15 + sway;
     const hip = [hx, pel, 0];
     const knee = [hx + sg * 0.02, pel - 0.47 * Math.cos(th), 0.47 * Math.sin(th)];
@@ -3074,25 +3471,53 @@ function blzPose(p) {
     else if (stance === 'ready') at(0.1, -0.24, 0.12, 0.02, -0.34, 0.3);
     if (p.eng) at(0.04, -0.1, 0.3, -0.12, -0.05, 0.58);
     if (p.diveT > 0) at(0.0, 0.05, 0.3, -0.12, 0.1, 0.6);
-    if (jumpT || p.catchT > 0) at(-0.02, 0.28, 0.12, -0.16, 0.55, 0.28);
+    if ((jumpT || p.catchT > 0) && !p.reach) at(-0.02, 0.28, 0.12, -0.16, 0.55, 0.28);
     if (celeb === 0 && sg > 0) { if (Math.sin(t * 6) > 0) at(0.05, 0.3, 0, 0.0, 0.62, 0.05); else at(0.08, -0.05, 0.25, 0.05, -0.32, 0.45); }
     if (celeb === 1) at(0.16, 0.02, 0, 0.1, 0.32, 0.02);                      // the flex
     if (celeb === 2) { const u = Math.sin(t * 9 + (sg > 0 ? 0 : Math.PI)); at(0.12, u > 0 ? 0.28 : -0.2, 0.05, 0.08, u > 0 ? 0.6 : -0.42, 0.12); }
     if (sg > 0 && p.throwT > 0) { if (p.throwT > 0.18) at(0.1, 0.22, -0.18, 0.0, 0.5, -0.32); else at(0.06, 0.05, 0.25, -0.06, -0.15, 0.55); }
     if (sg > 0 && p === C && !(blitz.pocket && p.pos === 'QB') && p.downT <= 0 && !p.air) at(-0.04, -0.3, 0.02, -0.2, -0.16, 0.24);
     if (sg < 0 && p.stiffT > 0) at(0.0, 0.0, 0.32, -0.02, 0.02, 0.6);
+    // just caught it: both hands on the ball at his chest, then the tuck
+    if (!S && p.secureT > 0 && p === C) at(-0.04, -0.28, 0.12, -0.3, -0.14, 0.3);
+    if (!S && moving && p.showboat && p === C && sg > 0) at(0.05, 0.3, 0.05, 0.0, 0.62, 0.12);   // ball up, showing it to the crowd
+    if (S && S.arms) {
+      const A = S.arms;
+      if (A === 'grab') at(-0.02, -0.12, 0.28, -0.26, -0.08, 0.52);
+      else if (A === 'lift') at(0.08, 0.32, 0.1, -0.14, 0.62, 0.16);
+      else if (A === 'clothes') { if (sg > 0) at(0.32, 0, 0, 0.62, 0.02, 0.05); else at(0.05, -0.25, 0.1, 0.02, -0.4, 0.25); }
+      else if (A === 'spread') at(0.3, 0.02, 0, 0.58, 0.05, 0.02);
+      else if (A === 'flex') at(0.16, 0.02, 0, 0.1, 0.32, 0.02);
+      else if (A === 'elbow') { if (sg > 0) at(0.15, -0.28, 0.12, 0.05, 0, 0.05); else at(0.3, 0.1, 0, 0.55, 0.2, 0); }
+      else if (A === 'flail') {
+        const fa = t * 16 + (sg > 0 ? 0 : Math.PI) + p.num;
+        el = [sh[0] + sg * 0.2, sh[1] + 0.24 * Math.cos(fa), sh[2] + 0.24 * Math.sin(fa)];
+        hd = [sh[0] + sg * 0.36, sh[1] + 0.52 * Math.cos(fa), sh[2] + 0.52 * Math.sin(fa)];
+      }
+    }
     J['sh' + sg] = sh; J['el' + sg] = el; J['hd' + sg] = hd;
   }
+  // reaching for the ball: both hands to it (one, for a defender's swat)
+  if (p.reach && !S) {
+    const rx = p.fz, rz = -p.fx, k = BLZ_BS;
+    const dx = p.reach[0] - p.x, dz = p.reach[2] - p.z;
+    const tA = (dx * rx + dz * rz) / k, tC = (dx * p.fx + dz * p.fz) / k, tB = (p.reach[1] - p.y) / k;
+    for (const sg of p.reachOne ? [1] : [-1, 1]) {
+      const ik = blzIK(J['sh' + sg], [tA + (p.reachOne ? 0 : sg * 0.09), Math.max(tB, 0.2), Math.max(tC, -0.25)], sg);
+      J['el' + sg] = ik[0]; J['hd' + sg] = ik[1];
+    }
+  }
   // dives, pile-ups, launches and getting up pitch the whole figure about the hips
-  let pitch = 0, drop = 0;
-  if (p.air) { pitch = p.flipA || 0; drop = 0.3; }
+  let pitch = 0, drop = 0, roll = 0;
+  if (S) { pitch = S.pitch || 0; drop = S.drop || 0; roll = S.roll || 0; }
+  else if (p.air) { pitch = p.flipA || 0; drop = 0.3; }
   else if (p.diveT > 0) { pitch = 1.25; drop = 0.45; }
   else if (p.downT > 0) {
     pitch = p.lieBack ? -1.5 : 1.5; drop = 0.72;
     if (p.downT < 0.4) { const f = p.downT / 0.4; pitch *= f; drop *= f; }
   }
   J.fwd = [0, 0, 1]; J.up = [0, 1, 0];
-  if (pitch) {
+  if (pitch || drop) {
     const cs = Math.cos(pitch), sn = Math.sin(pitch), py = pel;
     for (const k in J) {
       if (k === 'fwd' || k === 'up') continue;
@@ -3100,6 +3525,17 @@ function blzPose(p) {
       J[k] = [v[0], py + b * cs - cz * sn - drop, b * sn + cz * cs];
     }
     J.fwd = [0, -sn, cs]; J.up = [0, cs, sn];
+  }
+  // and a roll about the spine (spun-and-flung men lean out like a hammer throw)
+  if (roll) {
+    const cr = Math.cos(roll), sr = Math.sin(roll), cx = sway, cy = pel - drop;
+    for (const k in J) {
+      if (k === 'fwd' || k === 'up') continue;
+      const v = J[k], x = v[0] - cx, y = v[1] - cy;
+      J[k] = [cx + x * cr - y * sr, cy + x * sr + y * cr, v[2]];
+    }
+    const rot = (v) => [v[0] * cr - v[1] * sr, v[0] * sr + v[1] * cr, v[2]];
+    J.fwd = rot(J.fwd); J.up = rot(J.up);
   }
   return J;
 }
@@ -3999,7 +4435,7 @@ function blzGLRender(sx, sy) {
   // blob shadows + the human's ring (blended, no depth writes)
   gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
   for (const p of blitz.players) {
-    const lying = p.downT > 0 || p.diveT > 0;
+    const lying = p.downT > 0 || p.diveT > 0 || (p.scr && p.scr.drop > 0.35);
     const s = BLZ_BS * (lying ? 1.0 : 0.62) / (1 + p.y * 0.25), l = lying ? 1.7 : 1;
     blzGLDraw1(G.sh.decal, blzGLBasis([p.x, 0.02, p.z], [p.fz, 0, -p.fx], [0, 1, 0], [p.fx, 0, p.fz], s, 1, s * l), G.tex.blob, { lit: 0 });
   }
@@ -4703,7 +5139,8 @@ window.blitzDebug = {
   auto: (v) => { blitz.auto = v !== false; },
   choose: (n) => blzChoose(n),
   pressPass: () => blzPressPass(), pressJump: () => blzPressJump(),
-  btnDown: (b) => blzBtnDown(b), btnUp: (b) => blzBtnUp(b), rcv: () => Object.fromEntries(Object.entries(blitz.rcv || {}).map(([k, p]) => [k, p.pos])),
+  btnDown: (b) => blzBtnDown(b), btnUp: (b) => blzBtnUp(b),
+  move: (kind, a, v) => blzStartMove(kind, a, v, kind === 'suplex' || kind === 'trip' ? [v.fx, v.fz] : null), rcv: () => Object.fromEntries(Object.entries(blitz.rcv || {}).map(([k, p]) => [k, p.pos])),
   step: (secs, hz) => {
     const dt = 1 / (hz || 60), n = Math.round(secs / dt);
     for (let i = 0; i < n; i++) {
