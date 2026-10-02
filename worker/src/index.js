@@ -26,7 +26,7 @@ const ALLOWED_ORIGINS = new Set([
   'http://localhost:5173',
 ]);
 
-const GAMES = new Set(['catch', 'blaster', 'flappy', 'dunk', 'sim', 'run', 'knight', 'brawl', 'ranch', 'kart', 'reel', 'gta', 'beat', 'drain', 'croft', 'fortune', 'bots', 'bowl']);
+const GAMES = new Set(['catch', 'blaster', 'flappy', 'dunk', 'sim', 'run', 'knight', 'brawl', 'ranch', 'kart', 'reel', 'gta', 'beat', 'drain', 'croft', 'fortune', 'bots', 'bowl', 'blitz']);
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const PBKDF2_ITERATIONS = 100000;
 const MAX_SCORE = 1e15; // absolute backstop (per-game caps below are the real gate)
@@ -52,6 +52,7 @@ const GAME_MAX_SCORE = {
   croft: 40e6,                      // foes/rooms/floors + THE DOOR bonus (200× perFlyer), DARK BELOW 3×
   fortune: 60e6,                    // slots session: STORM JACKPOT (1500× perFlyer) × RIGGED 3× × FEVER 2× headroom
   bots: 30e6,                       // BatteredBots: match points ÷100 × perFlyer × FRYER 3×, many matches a session (brawl parity)
+  blitz: 60e6,                      // Nugget Blitz: a won ALL-BLITZ game ≈ 1-1.5k × perFlyer (3× incl.), bowl parity
   bowl: 60e6,                       // Nugmo Bowl: a won NUGGET BOWL ≈ 1.8k × perFlyer (3× incl.), ~2-3 big games a session (fortune parity)
 };
 const MIN_SUBMIT_INTERVAL_MS = 10000; // one score per 10s per account
@@ -219,7 +220,7 @@ async function scoresForUser(env, userId) {
   const { results } = await env.DB.prepare(
     'SELECT game, best_score FROM scores WHERE user_id = ?'
   ).bind(userId).all();
-  const map = { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0, knight: 0, brawl: 0, ranch: 0, kart: 0, reel: 0, gta: 0, beat: 0, drain: 0, croft: 0, fortune: 0, bots: 0, bowl: 0 };
+  const map = { catch: 0, blaster: 0, flappy: 0, dunk: 0, sim: 0, run: 0, knight: 0, brawl: 0, ranch: 0, kart: 0, reel: 0, gta: 0, beat: 0, drain: 0, croft: 0, fortune: 0, bots: 0, bowl: 0, blitz: 0 };
   for (const r of results) map[r.game] = r.best_score;
   return map;
 }

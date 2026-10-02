@@ -25,6 +25,7 @@
   <link rel="stylesheet" href="css/fortune.css" />
   <link rel="stylesheet" href="css/bots.css" />
   <link rel="stylesheet" href="css/bowl.css" />
+  <link rel="stylesheet" href="css/blitz.css" />
   <link rel="stylesheet" href="css/arcade.css" />
   <link rel="stylesheet" href="css/locker.css" />
   <link rel="stylesheet" href="css/multiplayer.css" />
@@ -120,6 +121,7 @@
         <div class="score-tile"><div class="game">🎡</div><div class="game-name">Fortune</div><div class="best" id="myFortune">0</div></div>
         <div class="score-tile"><div class="game">🤖</div><div class="game-name">Bots</div><div class="best" id="myBots">0</div></div>
         <div class="score-tile"><div class="game">🏈</div><div class="game-name">Bowl</div><div class="best" id="myBowl">0</div></div>
+        <div class="score-tile"><div class="game">💥</div><div class="game-name">Blitz</div><div class="best" id="myBlitz">0</div></div>
       </div>
     </div>
 
@@ -171,6 +173,7 @@
       <button type="button" data-mode="fortune" title="Reel of Fortune — the house wheel. spin, pick letters, solve the phrase. every puzzle is true.">🎡</button>
       <button type="button" data-mode="bots" title="BatteredBots — nugget RC battlebots under the Grease Garage. three minutes. last bot rolling.">🤖</button>
       <button type="button" data-mode="bowl" title="Nugmo Bowl — nine-on-nine nugget football. four plays, they guess one. Bo knows.">🏈</button>
+      <button type="button" data-mode="blitz" title="Nugget Blitz — seven-on-seven, 30 yards for a first, turbo, late hits. no refs.">💥</button>
     </span>
     <button id="stormStop" type="button">Stop</button>
   </div>
@@ -238,6 +241,9 @@
 
   <!-- Nugmo Bowl: Tecmo Bowl, but it's nuggets (canvas injected by js/bowl.js) -->
   <div id="bowlWorld"></div>
+
+  <!-- Nugget Blitz: NFL Blitz (N64), but it's nuggets (canvas injected by js/blitz.js) -->
+  <div id="blitzWorld"></div>
 
   <!-- Account modal: log in / create account / signed-in menu -->
   <div class="modal-overlay" id="authModal">
@@ -335,6 +341,7 @@
         <button type="button" data-game="fortune">🎡 Fortune</button>
         <button type="button" data-game="bots">🤖 Bots</button>
         <button type="button" data-game="bowl">🏈 Bowl</button>
+        <button type="button" data-game="blitz">💥 Blitz</button>
       </div>
       <div id="lbBody"><div class="lb-loading">Loading…</div></div>
     </div>
@@ -442,6 +449,7 @@
   <script src="js/botsSim.js"></script>
   <script src="js/bots.js"></script>
   <script src="js/bowl.js"></script>
+  <script src="js/blitz.js"></script>
   <script src="js/hallBoot.js"></script>
   <script src="js/hallArt.js"></script>
   <script src="js/hallMaps.js"></script>

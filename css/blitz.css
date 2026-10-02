@@ -1,0 +1,25 @@
+/* 💥 NUGGET BLITZ — the layer and nothing it doesn't need.
+   Same school as bowl.css: a fixed fullscreen world div that only exists
+   while body.blitz-mode is on, one low-res canvas inside it. Unlike Nugmo
+   Bowl's crisp pixels this canvas is SMOOTHED up on purpose: the N64 blurred
+   everything, and the blur is the look. No DOM HUD — the canvas draws it all. */
+
+#blitzWorld {
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 9990; /* the games' layer — same plane as croft/drain/fortune/bowl */
+  background: #05060c;
+}
+
+body.blitz-mode #blitzWorld { display: block; }
+
+#blitzWorld canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: auto;
+  touch-action: none;
+  cursor: crosshair;
+}

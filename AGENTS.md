@@ -242,6 +242,28 @@ already bitten someone.
 > step(secs) = fixed-60Hz headless sim / choose / pressA / pressB /
 > forceRead / set / freeze). Tuning ledger + knobs below in the NUGMO BOWL
 > section.
+> **2026-10-01 (evening) — 💥 NUGGET BLITZ (game 19, mode `blitz`, js/blitz.js):**
+> Chris: *"make a fun version of NFL Blitz … as close as possible to the
+> original NFL Blitz for N64"*. Nugmo Bowl is the Tecmo cartridge; this is the
+> other one. SEVEN ON SEVEN on a real perspective field seen from behind the
+> offense (projected per frame on a ~384px-tall canvas that CSS smooths up —
+> the N64 smear is on purpose, `image-rendering: auto`), 30 YARDS FOR A FIRST
+> DOWN, the 3×3 play-select (9 offense incl. DA BOMB / HAIL MARY / HB BLAST,
+> 9 defense incl. SUICIDE BLITZ / SAFE COVER, FLIP, PUNT, FIELD GOAL), TURBO
+> on its own button + meter, pass to whoever the stick points at (turbo =
+> bullet; past the line, pass = LATERAL), JUMP / TURBO+JUMP spin / TURBO+PASS
+> stiff-arm, defensive dive + MONSTER HITS, LATE HITS after the whistle, HE'S
+> ON FIRE (3 straight catches by one receiver, or 3 straight defensive stops),
+> live fumbles, kick/punt returns, PAT-or-go-for-two, sudden-death OT, the VS
+> screen CODES and a CPU rubber band. Browser-speech announcer (V toggles).
+> Tiers (ArcadeKit `blitz`): ROOKIE vs the Drive-Thru Demons / PRO vs the Hot
+> Sauce Havoc / ALL-BLITZ vs the Deep Fryer Furies (earned: `nugBlitzPro`;
+> winning it sets `nugBlitzChamp`). No lore exhibit — it's just football.
+> Hall: the east island's OUTER pair (x 3.65) is Blitz now, the inner pair
+> stays Nugmo Bowl (`outer` override on the ISLANDS row); face `blitzFace` on
+> the street atlas, plus a lit TOPPER box on each Blitz lid (`blitzTopper`,
+> 2.14..2.62m, e 0.42 — added after "I can't find the cabinet"); STREET_GAMES entry. Test seam `window.blitzDebug`. Notes +
+> tuning ledger in the NUGGET BLITZ section at the bottom.
 > **2026-08-08 (later the same night) — 🕯️ THE UNDERCROFT (game 15, mode
 > `croft`, js/croft.js):** the FIFTH street game, and the first built AROUND
 > the pick-1-of-3 deal — a roguelite crawl under Fort Nugget: single-screen
@@ -2065,3 +2087,67 @@ top for the shape; this is the stuff that bit or will bite.
   pick over moving wall cabinets in). They're quads only (~70) with two marq
   LIGHTS per island, not 16 — THE CLEARING took floor furniture out for perf
   once; check `19-openfloor`-style spots before adding more out there.
+
+## 💥 NUGGET BLITZ (game 19, mode `blitz`) — 2026-10-01
+
+NFL Blitz (N64), but it's nuggets. One file (js/blitz.js, canvas 2D, ~2.5k
+lines), `css/blitz.css`, the outer pair of uprights on the east island.
+
+- **The camera is a real projection, not a squash.** `blzProj(x, y, z)` takes
+  world yards (x across 0..53.3, z down the field 0..120 with end zones, y up)
+  through a pitched camera behind the offense (`BLZ_CAM` h 13 / back 17 /
+  pitch 0.5, focal `blitz.F`). `cam.dir` is ±1: the camera always sits behind
+  whoever is ATTACKING, and the screen-space stick maps to world through it
+  (`blzStickWorld`). When the ball changes direction mid-play (a return, a
+  pick) the camera does the Blitz swing: a 0.34s white wipe and `cam.dir`
+  flips at the midpoint. Everything drawn on the ground goes through
+  `blzClipZ` (dz ≥ 3) — a quad behind the lens projects to garbage, not to
+  nothing.
+- **Players are vector nuggets drawn per frame** from the camera's angle
+  (`back` / `front` / `side` from the facing in view space): the back shows
+  the number and the helmet stripe, the front shows eyes behind the facemask.
+  Draw order is a single depth sort of players, ball, sparks and goalposts;
+  shadows go down first so nobody stands on anyone's shadow.
+- **The first camera framed the receivers out.** At focal 1.08H and back 16,
+  wideouts lined up at ±15 yds sat past the canvas edge — the play started
+  with three receivers you couldn't see. Measured: F 0.88H, back 17, h 13
+  keeps ±15 in frame at the line and the QB's feet at ~83% of the height.
+  The RB moved from 7.5 deep to beside the QB (2.2, −5) for the same reason.
+- **Feel is a number (the BatteredBots / Bowl rule).** `blitzDebug.auto(true)`
+  + `step()` plays whole games in ~0.4s. What the ledger found, in order:
+  (1) every tackle was a MONSTER HIT (pursuers turbo'd from 11 yds and "big"
+  only checked speed) — now a big hit is turbo AND closing speed > 7.6, ~45%
+  of tackles; (2) fumbles at 9% per big hit put a TD-after-kickoff in most
+  games — 3.5% now (7% on a QB still in the pocket: the strip sack);
+  (3) team 1's defenders reacted 0.18s late to every pass and team 0's
+  didn't — an asymmetry that read as "the Crunch are better". Identical-
+  roster games are now 25.4–25.6; (4) speed dominates everything (a 5% tier
+  speed bump swung PRO from 9–1 to 2–8), so tiers lean on str/hands/smarts and
+  the pursuit uses a real intercept (`blzPursuitAI`) instead of a fixed lead;
+  (5) the human QB was sacked in under 1.5s a third of the time against
+  blitzes — second-level blitzers now read the snap for +0.35s. A scripted QB
+  that throws at 1.6s is sacked ~20%, one that throws at 1.0s ~2%.
+  Ladder (AI vs AI, 16 games): ROOKIE 15–1, PRO 10–6, ALL-BLITZ 2–14, scores
+  in the 30–25 range — Blitz scores, on purpose.
+- **A scripted human finds what AI-vs-AI can't** (Bowl's lesson, again): the
+  first one found the game hanging forever on a muffed kick nobody was within
+  16 yds of (`blzLooseAI` now sends each team's two nearest from any range,
+  and a loose ball blows dead after 8s), and 8–11 muffs a game from a human
+  steering the returner AWAY from the kick (the returner now fields it himself,
+  as in the original; you get him after the catch).
+- **Test the fire state separately.** The defense catches fire after three
+  straight stops, and a harness that replays the same down never resets it:
+  the first QB sweep read 49 sacks in 60 snaps, and it was the fire, not the
+  rush. Reset `blitz.fire` per rep.
+- **Codes** (VS screen: TURBO / JUMP / PASS taps set three digits 0–5, then a
+  direction): 2-0-0 → BIG HEAD · 0-4-0 ↑ HUGE HEAD · 5-1-4 ↑ INFINITE TURBO ·
+  1-5-1 ↑ NO PUNTING · 2-2-2 → NIGHT GAME · 4-0-4 ← POWER-UP SPEED ·
+  2-5-0 ← FAST PASSES · 0-0-1 ↓ SHOW FIELD GOAL % · 0-5-0 → BIG FOOTBALL ·
+  0-1-2 ↓ NO CPU ASSISTANCE · 3-3-3 ← START ON FIRE. Ours, not the cart's.
+- Pacing knobs: `BLZ_QLEN` (75s of LIVE play a quarter; the clock stops
+  between plays, ~60–70 plays a game), the 15s play-select clock, tier
+  `spd/str/hands/smart`, tackle base 0.6 + 0.38 × Δstr, DL shed 1.45s × the
+  str ratio (LB/S blitzers 0.7s), fire lasts 9 plays or until the other side
+  scores. A won ALL-BLITZ game pays ≈ 1–1.5k × perFlyer (the win alone is ~450; worker cap 60e6).
+- Globals are all `blz*` / `BLZ_*` / `blitz*`. `blitz` is a top-level const
+  (not on `window`, see THE DOORMAN) — bare identifiers in `page.evaluate`.

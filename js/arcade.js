@@ -4741,7 +4741,7 @@ void main() {
         ST.quad([x - rx * hw, y0, z - rz * hw], [x + rx * hw, y0, z + rz * hw],
           [x + rx * hw, y1, z + rz * hw], [x - rx * hw, y1, z - rz * hw], uvr, o);
       };
-      const upright = (mode, faceUv, tube, cx, cz, nx, nz, label) => {
+      const upright = (mode, faceUv, tube, cx, cz, nx, nz, label, topper) => {
         const rx = nz, rz = -nx;
         const fx = cx + nx * D / 2, fz = cz + nz * D / 2;     // the face plane
         quadN(fx + nx * 0.02, fz + nz * 0.02, nx, nz, W2 + 0.01, 0, Y0, suv.sw_black, {}); // plinth
@@ -4755,8 +4755,26 @@ void main() {
         const fl = [fx - rx * W2, Y1, fz - rz * W2], fr = [fx + rx * W2, Y1, fz + rz * W2];
         const br = [fr[0] - nx * D, Y1, fr[2] - nz * D], bl = [fl[0] - nx * D, Y1, fl[2] - nz * D];
         ST.quad(fl, fr, br, bl, suv.sw_iron, { tint: 0.75 });
-        H.glows.push({ p: [fx + nx * 0.12, Y1 - 0.2, fz + nz * 0.12], c: mode === 'bowl' ? [1, 0.72, 0.3] : [1, 0.82, 0.3], s: 0.9, a: 0.14, k: 'neon' });
-        H.glows.push({ p: [fx + nx * 0.1, 1.3, fz + nz * 0.1], c: mode === 'bowl' ? [0.45, 1, 0.5] : [0.5, 0.85, 1], s: 0.7, a: 0.08, k: 'crt' });
+        // 💥 a lit topper box on the lid (Blitz: "I can't find the cabinet" — Chris).
+        // Sits 2.14..2.62, a touch wider than the cabinet, sign face proud of the
+        // face plane so it reads from across the floor over the island's other row.
+        if (topper) {
+          const TW = W2 + 0.07, T0 = Y1 + 0.04, T1 = Y1 + 0.52, tf = 0.04;
+          quadN(fx + nx * tf, fz + nz * tf, nx, nz, TW, T0, T1, topper, { e: 0.42 });
+          quadN(fx + nx * (tf + 0.006), fz + nz * (tf + 0.006), nx, nz, TW, T1 - 0.03, T1, tube, { e: 0.55 });
+          quadN(fx + nx * (tf + 0.006), fz + nz * (tf + 0.006), nx, nz, TW, T0, T0 + 0.03, tube, { e: 0.55 });
+          const sd = 0.3; // box depth, back toward the seam
+          const sx0 = fx + nx * tf, sz0 = fz + nz * tf;
+          quadN(sx0 + rx * TW - nx * sd / 2, sz0 + rz * TW - nz * sd / 2, rx, rz, sd / 2, T0, T1, suv.sw_black, {});
+          quadN(sx0 - rx * TW - nx * sd / 2, sz0 - rz * TW - nz * sd / 2, -rx, -rz, sd / 2, T0, T1, suv.sw_black, {});
+          const tl = [sx0 - rx * TW, T1, sz0 - rz * TW], tr = [sx0 + rx * TW, T1, sz0 + rz * TW];
+          ST.quad(tl, tr, [tr[0] - nx * sd, T1, tr[2] - nz * sd], [tl[0] - nx * sd, T1, tl[2] - nz * sd], suv.sw_black, {});
+          H.glows.push({ p: [fx + nx * 0.2, (T0 + T1) / 2, fz + nz * 0.2], c: [1, 0.5, 0.15], s: 1.25, a: 0.2, k: 'neon' });
+        }
+        const neonC = mode === 'bowl' ? [1, 0.72, 0.3] : mode === 'blitz' ? [1, 0.55, 0.25] : [1, 0.82, 0.3];
+        const crtC = mode === 'bowl' || mode === 'blitz' ? [0.45, 1, 0.5] : [0.5, 0.85, 1];
+        H.glows.push({ p: [fx + nx * 0.12, Y1 - 0.2, fz + nz * 0.12], c: neonC, s: 0.9, a: 0.14, k: 'neon' });
+        H.glows.push({ p: [fx + nx * 0.1, 1.3, fz + nz * 0.1], c: crtC, s: 0.7, a: 0.08, k: 'crt' });
         const sx = fx + nx * 1.1, sz = fz + nz * 1.1;
         const ax = [cx - W2 - 0.05, cx + W2 + 0.05], az = [cz - D / 2 - 0.05, cz + D / 2 + 0.05];
         const min = nx ? [cx - D / 2 - 0.1, 0, cz - W2 - 0.1] : [ax[0], 0, az[0]];
@@ -4773,16 +4791,22 @@ void main() {
       };
       const ZC = -9.0;                         // the seam between the two rows
       const ISLANDS = [
+        // 💥 game 19 (2026-10-01): the east island's OUTER pair became NUGGET
+        // BLITZ — two Tecmos and two Blitzes back to back, the way a real hall
+        // racked its football machines. `outer` overrides the x = ±3.65 pair.
         { mode: 'bowl', side: 1, face: suv.bowlFace, tube: suv.sw_red, lc: [0.55, 0.34, 0.14],
-          label: '🏈 NUGMO BOWL — FOUR PLAYS. THEY GUESS ONE. BO KNOWS.' },
+          label: '🏈 NUGMO BOWL — FOUR PLAYS. THEY GUESS ONE. BO KNOWS.',
+          outer: { mode: 'blitz', face: suv.blitzFace, tube: suv.sw_amber, topper: suv.blitzTopper,
+            label: '💥 NUGGET BLITZ — 7 ON 7. 30 YARDS FOR A FIRST. NO REFS.' } },
         { mode: 'fortune', side: -1, face: suv.fortuneFace, tube: suv.sw_amber, lc: [0.55, 0.42, 0.16],
           label: '🎡 REEL OF FORTUNE — SPIN · GUESS · SOLVE (FREE, ASK NOBODY WHY)' },
       ];
       for (const I of ISLANDS) {
         const xs = [I.side * 2.75, I.side * 3.65];
         for (const x of xs) {
-          upright(I.mode, I.face, I.tube, x, ZC + D / 2 + 0.02, 0, 1, I.label);   // faces the doors
-          upright(I.mode, I.face, I.tube, x, ZC - D / 2 - 0.02, 0, -1, I.label);  // faces the thrones
+          const U = I.outer && x === xs[1] ? I.outer : I;
+          upright(U.mode, U.face, U.tube, x, ZC + D / 2 + 0.02, 0, 1, U.label, U.topper);   // faces the doors
+          upright(U.mode, U.face, U.tube, x, ZC - D / 2 - 0.02, 0, -1, U.label, U.topper);  // faces the thrones
         }
         // one marquee light per face row, out in the aisle it lights
         LIGHTS.push({ p: [I.side * 3.2, 1.9, ZC + 1.6], c: I.lc, k: 'marq' });

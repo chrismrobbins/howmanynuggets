@@ -44,6 +44,9 @@ const ArcadeArt = (() => {
     // east wall past the scoreboard. Same deal as fortune: street-page face
     // (bowlFace), scoreboard + leaderboards ride this entry.
     { mode: 'bowl', title: 'NUGMO BOWL', icon: '🏈', c1: '#ffd23a', c2: '#d23a2a', tag: 'BO KNOWS NUGGETS' },
+    // game 19 — NFL Blitz, but it's nuggets: the two outer uprights on the
+    // east island (Nugmo Bowl keeps the inner pair). Street-page face (blitzFace).
+    { mode: 'blitz', title: 'NUGGET BLITZ', icon: '💥', c1: '#ff6a1a', c2: '#2b6fff', tag: 'NO REFS. NO MERCY.' },
     // (game 17, BatteredBots, moved to GAMES — it has a cabinet on the back wall
     // now; the garage shutter on the street stays as a second door, botsFace.)
   ];
@@ -1599,6 +1602,9 @@ const ArcadeArt = (() => {
     alloc('botsFace', 128, 192, pBotsFace);
     // 🏈 game 18 — the football upright's face (marquee, field screen, deck)
     alloc('bowlFace', 128, 224, pBowlFace);
+    // 💥 game 19 — the Blitz upright's face (chrome marquee, the 3D field, a 3-button deck)
+    alloc('blitzFace', 128, 224, pBlitzFace);
+    alloc('blitzTopper', 256, 96, pBlitzTopper);
     const SW2 = {
       iron: '#3a4256', wood: '#6d5426', woodDark: '#42320e', red: '#e8412c',
       amber: '#ffb020', curb: '#3c3c46', black: '#0a0a12', white: '#f4f0e6',
@@ -2123,6 +2129,113 @@ const ArcadeArt = (() => {
     g.fillText('BO KNOWS NUGGETS', w / 2, h * 0.925);
     g.fillStyle = '#2e3250';
     for (let i = 0; i < 2; i++) g.fillRect(14, h * 0.95 + i * 3.4, w - 28, 2);
+  }
+
+  function pBlitzFace(g, w, h) {
+    g.fillStyle = '#10131f';
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#2c3a66'; g.lineWidth = 4;
+    g.strokeRect(2, 2, w - 4, h - 4);
+    // marquee: BLITZ fills the band edge to edge, slashed, outlined in black
+    // (the first cut had it at 21px in a navy box and nobody could find it)
+    const mq = g.createLinearGradient(0, 6, 0, h * 0.2);
+    mq.addColorStop(0, '#16224e'); mq.addColorStop(1, '#070c22');
+    g.fillStyle = mq; g.fillRect(6, 6, w - 12, h * 0.2 - 8);
+    g.fillStyle = '#c8701a'; g.fillRect(6, h * 0.2 - 4, w - 12, 2);
+    g.save();
+    g.translate(w / 2, h * 0.112); g.transform(1, 0, -0.22, 1, 0, 0);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '900 italic 9px Impact, Haettenschweiler, sans-serif';
+    g.fillStyle = '#9ab0d8'; g.fillText('NUGGET', 0, -h * 0.062);
+    g.font = '900 italic 34px Impact, Haettenschweiler, sans-serif';
+    g.lineWidth = 4; g.strokeStyle = '#000'; g.strokeText('BLITZ', 0, h * 0.012);
+    const bt = g.createLinearGradient(0, -12, 0, 14);
+    bt.addColorStop(0, '#e8b040'); bt.addColorStop(0.55, '#d8661e'); bt.addColorStop(1, '#8a2a0a');
+    g.fillStyle = bt; g.fillText('BLITZ', 0, h * 0.012);
+    g.restore();
+    // the CRT: the field from behind the quarterback, in perspective
+    const sx = 10, sy = h * 0.24, sw = w - 20, sh = h * 0.36;
+    g.fillStyle = '#05060a'; g.fillRect(sx - 3, sy - 3, sw + 6, sh + 6);
+    g.fillStyle = '#5a7ab8'; g.fillRect(sx, sy, sw, sh * 0.16);           // sky
+    g.fillStyle = '#2a3048'; g.fillRect(sx, sy + sh * 0.12, sw, sh * 0.14); // far stands
+    for (let i = 0; i < sw; i += 2) { g.fillStyle = ['#c03424', '#c8a040', '#d0c8b0', '#2a58b0'][(i * 7) % 4]; g.fillRect(sx + i, sy + sh * 0.15 + (i % 3), 1, 1); }
+    const top = sy + sh * 0.26, bot = sy + sh, cx = sx + sw / 2;
+    for (let i = 0; i < 8; i++) {
+      const u0 = i / 8, u1 = (i + 1) / 8;
+      const y0 = top + (bot - top) * u0 * u0, y1 = top + (bot - top) * u1 * u1;
+      const hw0 = sw * (0.22 + 0.5 * u0 * u0), hw1 = sw * (0.22 + 0.5 * u1 * u1);
+      g.fillStyle = i % 2 ? '#3c8a37' : '#45983f';
+      g.beginPath(); g.moveTo(cx - hw0, y0); g.lineTo(cx + hw0, y0); g.lineTo(cx + hw1, y1); g.lineTo(cx - hw1, y1); g.fill();
+      g.fillStyle = '#e8ecf0'; g.fillRect(cx - hw0, y0, hw0 * 2, 1);
+    }
+    g.fillStyle = '#3c78ff'; g.fillRect(sx + 4, top + (bot - top) * 0.36, sw - 8, 1);  // scrimmage
+    g.fillStyle = '#ffd23a'; g.fillRect(sx + 12, top + (bot - top) * 0.12, sw - 24, 1); // to gain (30 yds!)
+    // seven and seven, big chunky backs and helmets
+    for (let i = 0; i < 7; i++) {
+      const px = cx + (i - 3) * 9, py = top + (bot - top) * 0.33;
+      g.fillStyle = '#1d2276'; g.fillRect(px - 2, py - 7, 5, 5); g.fillStyle = '#c8ccd8'; g.fillRect(px - 1, py - 2, 3, 2);
+    }
+    for (let i = 0; i < 7; i++) {
+      const px = cx + (i - 3) * 11, py = top + (bot - top) * (i === 3 ? 0.78 : 0.52);
+      g.fillStyle = '#d99a3c'; g.fillRect(px - 3, py - 5, 7, 7);
+      g.fillStyle = '#d6352a'; g.fillRect(px - 3, py - 4, 7, 3);
+      g.fillStyle = '#d6352a'; g.beginPath(); g.arc(px, py - 7, 3, 0, 7); g.fill();
+    }
+    // the fire
+    g.fillStyle = 'rgba(255,120,20,0.85)'; g.beginPath(); g.ellipse(cx + 2, top + (bot - top) * 0.62, 5, 8, 0, 0, 7); g.fill();
+    g.fillStyle = '#7a3a14'; g.beginPath(); g.ellipse(cx + 2, top + (bot - top) * 0.62, 3, 2, 0.4, 0, 7); g.fill();
+    g.fillStyle = 'rgba(0,0,0,0.18)';
+    for (let y = sy; y < sy + sh; y += 2) g.fillRect(sx, y, sw, 1);
+    g.textAlign = 'center';
+    g.fillStyle = '#c8c0a8';
+    g.font = '700 8px Consolas, monospace';
+    g.fillText("HE'S ON FIRE!", w / 2, h * 0.655);
+    // the deck: stick + three buttons (TURBO · JUMP · PASS), two players' worth
+    g.fillStyle = '#22284a'; g.fillRect(6, h * 0.69, w - 12, h * 0.15);
+    g.fillStyle = '#121420'; g.fillRect(6, h * 0.69, w - 12, 2);
+    for (const px of [0.2, 0.6]) {
+      const bx = w * px, by = h * 0.765;
+      g.fillStyle = '#0a0a10'; g.beginPath(); g.arc(bx, by + 3, 5, 0, 7); g.fill();
+      g.fillStyle = '#c03424'; g.beginPath(); g.arc(bx, by - 3, 4, 0, 7); g.fill();
+      [['#c8a030', 13], ['#2a58b0', 21], ['#c03424', 29]].forEach(([c, dx]) => { g.fillStyle = c; g.beginPath(); g.arc(bx + dx, by - (dx === 21 ? 3 : 0), 3, 0, 7); g.fill(); });
+    }
+    g.fillStyle = '#cfd4e6';
+    g.font = '900 9px Consolas, monospace';
+    g.fillText('FREE PLAY', w / 2, h * 0.885);
+    g.fillStyle = '#8a86a8';
+    g.font = '700 7px Consolas, monospace';
+    g.fillText('NO REFS. NO MERCY.', w / 2, h * 0.925);
+    g.fillStyle = '#2e3250';
+    for (let i = 0; i < 2; i++) g.fillRect(14, h * 0.95 + i * 3.4, w - 28, 2);
+  }
+
+  // the lit box on top of the Blitz uprights — the thing you look for from the doors
+  function pBlitzTopper(g, w, h) {
+    g.fillStyle = '#05060e'; g.fillRect(0, 0, w, h);
+    // flame licks along the bottom
+    for (let x = 0; x < w; x += 6) {
+      const fh = 14 + ((x * 37) % 17);
+      const fg = g.createLinearGradient(0, h, 0, h - fh);
+      fg.addColorStop(0, '#a83a0a'); fg.addColorStop(1, 'rgba(168,58,10,0)');
+      g.fillStyle = fg; g.beginPath(); g.moveTo(x, h); g.lineTo(x + 3, h - fh); g.lineTo(x + 6, h); g.fill();
+    }
+    g.save();
+    g.translate(w / 2, h * 0.5); g.transform(1, 0, -0.22, 1, 0, 0);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '900 italic 58px Impact, Haettenschweiler, sans-serif';
+    g.lineWidth = 7; g.strokeStyle = '#000'; g.strokeText('BLITZ', 14, 6);
+    const bt = g.createLinearGradient(0, -26, 0, 30);
+    bt.addColorStop(0, '#f0c050'); bt.addColorStop(0.5, '#e06a1c'); bt.addColorStop(1, '#962c08');
+    g.fillStyle = bt; g.fillText('BLITZ', 14, 6);
+    g.font = '900 italic 15px Impact, Haettenschweiler, sans-serif';
+    g.lineWidth = 3; g.strokeText('NUGGET', -78, -22);
+    g.fillStyle = '#a8c0e8'; g.fillText('NUGGET', -78, -22);
+    g.restore();
+    // a football with a burning tail, left
+    g.fillStyle = '#c8501a'; g.beginPath(); g.ellipse(26, h * 0.62, 18, 7, -0.3, 0, 7); g.fill();
+    g.fillStyle = '#6a3412'; g.beginPath(); g.ellipse(30, h * 0.6, 11, 7, -0.3, 0, 7); g.fill();
+    g.strokeStyle = '#d8d0b8'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(26, h * 0.62); g.lineTo(34, h * 0.58); g.stroke();
+    g.strokeStyle = '#2b6fff'; g.lineWidth = 3; g.strokeRect(2, 2, w - 4, h - 4);
   }
 
   function pDrainSign(g, w, h) {
