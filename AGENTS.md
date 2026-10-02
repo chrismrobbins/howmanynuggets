@@ -2223,4 +2223,34 @@ lines), `css/blitz.css`, the outer pair of uprights on the east island.
   throws at 1.6s completes ~60%, sacked ~20%.
 - **Cache-bust `?v=` on the blitz.js/css tags in index.html on every change**
   — Pages serves max-age=600 and Chris tested a stale build twice.
+- **🎯 RECEIVER BUTTONS (Chris: "the passing mechanics are bad. make this
+  closer to … madden … specific buttons associated with each player").**
+  Every eligible receiver gets a button at the line (`blzAssignButtons`): the
+  outside man on the LEFT = X (blue), on the RIGHT = B (red), the one between
+  (the back/slot) = A (green). Keyboard = the IJKL diamond (J = X, K = A,
+  L = B, I = Y); pad = the face buttons (RT/RB/LT turbo, LB = the action
+  button); touch = tap the icon over his head. **Tap = lob, hold = bullet**
+  (`BLZ_HOLD` 0.17s — the held throw fires itself at the threshold; between
+  0.11 and 0.17 it's a touch pass), TURBO + button = an instant bullet, the
+  stick at release nudges the placement, throwing on the run costs accuracy.
+  SPACE still throws to the man the QB is looking at. Icons pin to the screen
+  edge with a pointer when the man is off-screen; the held button fills its rim.
+  All input goes through ONE dispatcher, `blzBtnDown(btn)` / `blzBtnUp(btn)`
+  with btn ∈ SP X A B Y, and the same diamond is context-sensitive:
+  QB: X/A/B throw, Y pump fake · carrier: B spin, A stiff arm, X dive forward
+  (down where he lands), Y hurdle, SP lateral · your receiver with the ball up:
+  Y high-point, X lay out · defense: B/SP switch, X dive, Y jump/swat, A the
+  hit-stick lunge (contact inside it is a MONSTER HIT; a whiff costs a beat) ·
+  after the whistle: Y elbow drop, anything else shove. Turbo is SHIFT only
+  now (L is a receiver). VS codes: SHIFT · I · SPACE.
+- **The catch was why passing felt bad**: a receiver with the ball in his
+  hands, nobody near, caught it ~60–70%. `blzCatchResolve` now: in his hands
+  ~95%, fingertips ~65%, contested −22%; a defender who gets there first picks
+  it (lob 1.25×, bullet 0.8×) or tips it. Coverage no longer runs to the
+  landing spot at the release — defenders shadow their man for the first 55%
+  of the flight, then break on the ball. Ledger (`qbbtn` harness, a QB that
+  presses the open man's button at 1.5s): 75% complete, 5% picked; lobs-only
+  57%; bullets-only into anything 47% and picked a lot (that's the risk).
+  AI v AI: identical 23–22, PRO 28–27, ALL-BLITZ (softened to spd 1.005)
+  20–33 — Blitz scores are back.
 

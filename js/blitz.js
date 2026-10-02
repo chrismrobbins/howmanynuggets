@@ -191,7 +191,7 @@ const BLZ_TIERS = [
     blurb: 'vs the TATER TOTS. they\'re very small.' },
   { key: 'pro', emoji: '🌶️', name: 'PRO', mult: 2, opp: 'bosses', alt: 'rings', spd: 1.0, str: 1.0, smart: 0.85, hands: 1.0,
     blurb: 'vs the SAUCE BOSSES. slow smoked, fast hitting.' },
-  { key: 'allpro', emoji: '🔥', name: 'ALL-BLITZ', mult: 3, opp: 'frygods', alt: 'mustard', spd: 1.015, str: 1.04, smart: 1, hands: 1.05,
+  { key: 'allpro', emoji: '🔥', name: 'ALL-BLITZ', mult: 3, opp: 'frygods', alt: 'mustard', spd: 1.005, str: 1.03, smart: 1, hands: 1.05,
     blurb: 'vs the FRY GODS on MOUNT FRYMPUS. no refs. no mortals.', lockNote: 'win a PRO game' },
 ];
 
@@ -229,7 +229,7 @@ const blitz = {
   parts: [], keys: {}, voice: true,
   touch: { on: false, L: null, A: false, B: false, T: false, roles: {} }, pad: { on: false },
   sfx: { ctx: null, master: null, crowd: null, crowdGain: null, muted: false, noise: null },
-  hit: { cards: [], extra: [] }, crowdCv: null,
+  hit: { cards: [], extra: [], rcv: [] }, crowdCv: null, inputMode: '', charge: null, rcv: null,
 };
 
 function blitzActive() { return storm.mode === 'blitz' && storm.running; }
@@ -731,6 +731,7 @@ function blzLineUp(play, dplay, flip) {
   OL.forEach((o, i) => { o.man = rushers[Math.min(i, rushers.length - 1)] || null; });
   blitz.ball = { st: 'held', x: bx, z: los, y: 0.3, kind: '' };
   blitz.carrier = null;
+  blzAssignButtons(off, bx, d);
   blzCamSnap(d, bx, los + d * 1);
   // who you drive: QB (pass) or the back (run); on defense, the linebacker
   if (blzHuman(off)) blitz.ctl = play.kind === 'run' ? offP('RB') : offP('QB');
@@ -738,6 +739,26 @@ function blzLineUp(play, dplay, flip) {
   else blitz.ctl = null;
   blitz.target = play.kind === 'pass' ? offP(play.primary) : null;
 }
+
+// THE RECEIVER BUTTONS (Madden-style): every eligible man gets a button by where
+// he lines up — the outside man on the LEFT is X, on the RIGHT is B, whoever is
+// in between (the back, the slot) is A. On a keyboard the IJKL cluster is the
+// controller's face-button diamond: J = X, K = A, L = B (and I = Y).
+const BLZ_HOLD = 0.17;   // hold a receiver button this long and it's a bullet (a quick tap is a lob)
+const BLZ_BTN_COL = { A: '#36c23a', B: '#e8402a', X: '#2a78ec', Y: '#f2c41e' };
+const BLZ_BTN_KEY = { A: 'K', B: 'L', X: 'J', Y: 'I' };
+function blzAssignButtons(off, bx, d) {
+  blitz.rcv = {};
+  blitz.charge = null;
+  const el = blitz.players.filter((q) => q.team === off && BLZ_ELIG[q.pos]);
+  el.sort((a, b) => (a.x - b.x) * d);
+  for (const q of blitz.players) q.btn = null;
+  if (!el.length) return;
+  const set = (k, q) => { if (q && !q.btn) { blitz.rcv[k] = q; q.btn = k; } };
+  set('X', el[0]); set('B', el[el.length - 1]);
+  for (const q of el) set('A', q);
+}
+function blzBtnLabel(btn) { return blitz.inputMode === 'pad' || blitz.inputMode === 'touch' ? btn : BLZ_BTN_KEY[btn]; }
 
 function blzSnap() {
   const off = blitz.poss;
@@ -822,7 +843,7 @@ function blzStick() {
 }
 function blzTurboHeld() {
   const K = blitz.keys;
-  return !!(K.ShiftLeft || K.ShiftRight || K.KeyL || blitz.touch.T || (blitz.pad.on && blitz.pad.turbo));
+  return !!(K.ShiftLeft || K.ShiftRight || blitz.touch.T || (blitz.pad.on && blitz.pad.turbo));
 }
 // world-space direction of the stick (screen up = downfield for the camera)
 function blzStickWorld() {
@@ -865,12 +886,110 @@ function blzPressPass() {
   const pastLos = (C.z - blitz.los) * blzDir(C.team) > 0.4;
   if (blitz.pocket && C.pos === 'QB' && blitz.kind === 'pass' && !blitz.thrown && !pastLos) {
     const tgt = blitz.target || blzBestTarget(C);
-    if (tgt) blzThrow(C, tgt, blzTurboHeld());
+    if (tgt) blzThrow(C, tgt, blzTurboHeld() ? 'bullet' : 'touch');
     return;
   }
   if (blzTurboHeld()) { blzStiffArm(C); return; }
   blzLateral(C);
 }
+// THE BUTTONS. SP = the action button (SPACE / Enter / LB / the PASS button),
+// X A B Y = the face diamond (J K L I / pad X A B Y / tapping a receiver's
+// icon). What each one does depends on who you are right now, Madden-style:
+//   QB in the pocket   X A B: throw to THAT receiver (tap = lob, hold = bullet)
+//                      Y: pump fake · SP: throw to the man you're looking at
+//   ball carrier       B: spin · A: stiff arm · X: dive forward · Y: hurdle · SP: lateral
+//   your receiver, ball in the air   Y: high-point it · X: lay out for it
+//   defense            B / SP: switch player · X: dive tackle · Y: jump / swat · A: the big-hit lunge
+//   after the whistle  Y: elbow drop · anything else: shove
+function blzBtnDown(btn, src) {
+  if (src) blitz.inputMode = src;
+  const ph = blitz.phase;
+  if (ph === 'vs') { if (btn === 'SP' || btn === 'A') blzCodeTap(2); else if (btn === 'Y') blzCodeTap(1); return; }
+  if (ph === 'teams' || ph === 'call' || ph === 'pat' || ph === 'final') { if (btn === 'SP' || btn === 'A') blzPressPass(); return; }
+  if (ph === 'pre') {
+    const off = blitz.poss;
+    if (blzHuman(off) && (btn === 'SP' || btn === 'A')) blzSnap();
+    else if (blzHuman(1 - off) && (btn === 'SP' || btn === 'B')) blzSwitchDefender();
+    return;
+  }
+  if (ph === 'dead' || ph === 'wait') {
+    const me = blitz.ctl;
+    if (me) { if (btn === 'Y') blzElbowDrop(me); else blzLateHit(me); }
+    return;
+  }
+  if (ph !== 'live') return;
+  const me = blitz.ctl, C = blitz.carrier, B = blitz.ball;
+  if (blitz.kind === 'kick' && B && B.st === 'tee' && blitz.kickWait) {
+    if (btn === 'SP' || btn === 'A') blzPressPass();
+    return;
+  }
+  if (!me) return;
+  if (btn === 'SP') { blzPressPass(); return; }
+  const pocketQB = me === C && blitz.pocket && me.pos === 'QB' && blitz.kind === 'pass' && !blitz.thrown;
+  if (btn === 'Y') { if (pocketQB) blzPumpFake(me); else blzPressJump(); return; }
+  if (pocketQB) {
+    const r = blitz.rcv && blitz.rcv[btn];
+    if (!r || r.downT > 0) return;
+    if ((C.z - blitz.los) * blzDir(C.team) > 0.4) { blzFeed('PAST THE LINE', '#bfc6ff'); return; }
+    blitz.target = r;
+    if (blzTurboHeld()) { blzThrow(C, r, 'bullet'); return; }
+    blitz.charge = { btn, r, t0: blitz.t };      // released soon = lob; held = bullet
+    return;
+  }
+  if (me === C) {
+    if (btn === 'B') { if (me.spinCd <= 0 && me.downT <= 0) { me.spinT = 0.5; me.spinCd = 1.1; blzSfx('turbo'); } }
+    else if (btn === 'A') blzStiffArm(me);
+    else if (btn === 'X') blzCarrierDive(me);
+    return;
+  }
+  if (!C && B && B.st === 'air' && B.kind === 'pass' && B.from && B.from.team === me.team) {
+    if (btn === 'X' && me.diveT <= 0 && me.downT <= 0) blzDiveTo(me, B.tx, B.tz);
+    return;
+  }
+  // defense
+  if (btn === 'B') { blzSwitchDefender(); return; }
+  if (me.diveT > 0 || me.downT > 0) return;
+  if (btn === 'X') { if (C && C.team !== me.team) blzDive(me); else if (B && B.st === 'air') blzDiveTo(me, B.tx, B.tz); return; }
+  if (btn === 'A') blzHitStick(me);
+}
+function blzBtnUp(btn) {
+  const ch = blitz.charge;
+  if (ch && ch.btn === btn) { blitz.charge = null; blzReleaseThrow(ch, false); }
+}
+function blzReleaseThrow(ch, held) {
+  const C = blitz.carrier;
+  if (blitz.phase !== 'live' || !C || C.pos !== 'QB' || !blitz.pocket || blitz.thrown || !ch.r || ch.r.downT > 0) return;
+  if ((C.z - blitz.los) * blzDir(C.team) > 0.4) return;
+  const t = blitz.t - ch.t0;
+  blzThrow(C, ch.r, held ? 'bullet' : t > 0.11 ? 'touch' : 'lob');
+}
+// the pump: the arm comes through, the coverage bites
+function blzPumpFake(qb) {
+  if ((qb.pumpCd || 0) > 0) return;
+  qb.pumpCd = 0.9; qb.throwT = 0.3;
+  blzSfx('throw');
+  for (const p of blitz.players) {
+    if (p.team === qb.team || p.downT > 0 || p === blitz.ctl) continue;
+    if ((p.role === 'zone' || p.role === 'deep' || p.role === 'man') && blzDist(p, qb) < 32 && Math.random() < 0.6) p.react = Math.max(p.react, 0.32);
+  }
+  blzFeed('PUMP FAKE', '#bfe8ff');
+}
+// a carrier going to the turf on purpose: two yards of dive, then down where he lands
+function blzCarrierDive(p) {
+  if (p.diveT > 0 || p.downT > 0 || p.jumpT > 0) return;
+  p.diveT = 0.42;
+  p.vx = p.fx * p.spd * 1.25; p.vz = p.fz * p.spd * 1.25;
+}
+// the hit stick: a turbo lunge — make contact inside it and it's a MONSTER HIT
+function blzHitStick(p) {
+  if ((p.hitCd || 0) > 0) return;
+  p.hitCd = 0.9; p.lungeT = 0.3;
+  const C = blitz.carrier;
+  let dx = p.fx, dz = p.fz;
+  if (C && C.team !== p.team && blzDist(p, C) < 6) { const d = blzDist(p, C) || 1; dx = (C.x + C.vx * 0.15 - p.x) / d; dz = (C.z + C.vz * 0.15 - p.z) / d; const m = Math.hypot(dx, dz) || 1; dx /= m; dz /= m; }
+  p.fx = dx; p.fz = dz; p.vx = dx * p.spd * 1.6; p.vz = dz * p.spd * 1.6;
+}
+
 // JUMP button: hurdle / spin with turbo · on defense high-point or dive with turbo
 function blzPressJump() {
   const ph = blitz.phase;
@@ -947,29 +1066,44 @@ function blzBestTarget(qb) {
 }
 
 // ---- the ball ---------------------------------------------------------------------------------
-function blzThrow(qb, r, bullet) {
+// type: 'lob' (tap — high, soft, over the linebackers), 'touch' (a quick tap,
+// or SPACE), 'bullet' (hold, or turbo — fast and flat, threads a window, and
+// the one a defender jumps). true/false still mean bullet/lob.
+const BLZ_THROW = { lob: { v: 17, p0: 1.0, pk: 0.13, e: 0 }, touch: { v: 21.5, p0: 0.7, pk: 0.085, e: 0.05 }, bullet: { v: 27.5, p0: 0.35, pk: 0.035, e: 0.15 } };
+function blzThrow(qb, r, kind) {
   const B = blitz.ball;
+  const type = kind === true ? 'bullet' : (kind === false || kind == null) ? 'lob' : kind;
+  const TH = BLZ_THROW[type] || BLZ_THROW.lob;
+  const bullet = type === 'bullet';
   const fast = blitz.codes.fastpass ? 1.3 : 1;
-  const spd = (bullet ? 27 : 18) * fast;
+  const spd = TH.v * fast;
   // lead the receiver: where he'll be when the ball gets there
   let tx = r.x, tz = r.z, T = 0.5;
   for (let i = 0; i < 3; i++) {
     T = Math.max(0.35, Math.hypot(tx - qb.x, tz - qb.z) / spd);
     tx = r.x + r.vx * T; tz = r.z + r.vz * T;
   }
+  // ball placement: the stick at release nudges it (lead him to the sideline, back
+  // shoulder, over the top); the human's QB only
+  if (blzHuman(qb.team)) {
+    const w = blzStickWorld();
+    if (w.m > 0.3) { const k = type === 'lob' ? 2.0 : type === 'touch' ? 1.6 : 1.1; tx += w.x * k; tz += w.z * k; }
+  }
   const dist = Math.hypot(tx - qb.x, tz - qb.z);
-  // pressure + distance spray the throw; the fire doesn't miss
+  // pressure, distance and throwing on the run spray it; the fire doesn't miss
   let press = 0;
   for (const p of blitz.players) if (p.team !== qb.team && p.downT <= 0 && blzDist(p, qb) < 2.5) press = 1;
-  let err = 0.3 + dist * 0.028 + press * 0.9 + (bullet ? 0.25 : 0);
+  const run = Math.hypot(qb.vx, qb.vz);
+  let err = 0.25 + dist * 0.022 + press * 0.8 + TH.e + Math.max(0, run - 2) * 0.06;
   if (blzOnFire(qb.team)) err *= 0.4;
   const a = Math.random() * Math.PI * 2, m = err * Math.sqrt(Math.random());
   tx += Math.cos(a) * m; tz += Math.sin(a) * m;
   B.st = 'air'; B.kind = 'pass';
   B.x0 = qb.x; B.z0 = qb.z; B.y0 = 2.1;
   B.tx = blzClamp(tx, -2, BLZ_WID + 2); B.tz = tz; B.ty = 1.6;
-  B.t = 0; B.T = T; B.peak = bullet ? 0.4 + dist * 0.04 : 1 + dist * 0.13;
-  B.from = qb; B.bullet = bullet;
+  B.t = 0; B.T = T; B.peak = TH.p0 + dist * TH.pk;
+  B.from = qb; B.bullet = bullet; B.lob = type === 'lob'; B.type = type;
+  blitz.charge = null;
   blzEv('att' + qb.team);
   blitz.target = r; blitz.thrown = true; blitz.pocket = false; blitz.carrier = null;
   qb.throwT = 0.35;
@@ -1107,36 +1241,41 @@ function blzCatchResolve() {
     blzFumble({ x: B.x, z: B.z, team, fx: 0, fz: 0 }, null);
     return;
   }
-  // who's under it?
+  const reachO = (p) => 1.55 + (p.jumpT > 0 ? 0.55 : 0) + (p.diveT > 0 ? 0.95 : 0);
+  const reachD = (p) => 1.3 + (p.jumpT > 0 ? 0.75 : 0) + (p.diveT > 0 ? 0.6 : 0);
+  // the man it was thrown to gets first claim; any eligible teammate can still come down with it
   let off = null, dO = 99, def = null, dD = 99;
   for (const p of blitz.players) {
     if (p.downT > 0) continue;
     const d = Math.hypot(p.x - B.x, p.z - B.z);
-    if (p.team === team) { if (BLZ_ELIG[p.pos] && d < dO) { dO = d; off = p; } }
+    if (p.team === team) { if (BLZ_ELIG[p.pos] && d - (p === r ? 0.35 : 0) < dO) { dO = d - (p === r ? 0.35 : 0); off = p; } }
     else if (d < dD) { dD = d; def = p; }
   }
-  const reach = (p) => 1.7 + (p.jumpT > 0 ? 0.8 : 0) + (p.diveT > 0 ? 0.5 : 0);
-  if (off && dO > reach(off)) off = null;
-  if (def && dD > reach(def)) def = null;
+  if (off) dO = Math.hypot(off.x - B.x, off.z - B.z);
+  const oIn = !!off && dO <= reachO(off), dIn = !!def && dD <= reachD(def);
   const done = (txt) => { blzFeed(txt, '#bfc6ff'); blzWhistle('inc', {}); };
-  if (!off && !def) { done('INCOMPLETE'); return; }
-  const qD = def ? def.hands * 0.75 * (1 - dD / 2.6) + (def.jumpT > 0 ? 0.25 : 0) + (blzHuman(def.team) && def === blitz.ctl ? 0.08 : 0) : 0;
-  const qR = off ? off.hands * (1 - dO / 3.2) + (off.jumpT > 0 ? 0.15 : 0) + (blzOnFire(team) ? 0.25 : 0) : 0;
-  if (def && (!off || dD < dO - 0.4)) {
-    // the defender has the better spot
-    if (Math.random() < blzClamp(qD * 0.3, 0.03, 0.3)) { blzPick6(def); return; }
-    if (off && Math.random() < qR * 0.45) { blzCaught(off); return; }
-    blzFeed(def.jumpT > 0 ? 'SWATTED!' : 'BROKEN UP', '#bfc6ff');
-    blzWhistle('inc', {});
+  if (!oIn && !dIn) { done('INCOMPLETE'); return; }
+  const fire = blzOnFire(team);
+  if (dIn && (!oIn || dD + 0.35 < dO)) {
+    // the defender got there first: a pick, a tip, or the receiver behind him still hauls it in
+    let pInt = (0.08 + def.hands * 0.18) * (B.lob ? 1.25 : B.bullet ? 0.8 : 1) + (def.jumpT > 0 ? 0.08 : 0) + (def === blitz.ctl && blzHuman(def.team) ? 0.1 : 0);
+    pInt = fire ? 0 : blzClamp(pInt, 0.04, 0.35);
+    const roll = Math.random();
+    if (roll < pInt) { blzPick6(def); return; }
+    if (oIn && roll < pInt + 0.22) { blzCaught(off); return; }
+    done(def.jumpT > 0 ? 'SWATTED!' : 'BROKEN UP');
     return;
   }
-  // the receiver's ball, maybe contested
-  const contested = def && Math.hypot(def.x - off.x, def.z - off.z) < 1.5;
-  let pc = contested ? qR * 0.82 - qD * 0.25 : 0.12 + qR * 0.86;
-  if (B.bullet && dO < 0.8) pc += 0.06;
-  if (Math.random() < blzClamp(pc, 0.15, 0.97)) { blzCaught(off); return; }
-  if (contested && Math.random() < qD * 0.09) { blzPick6(def); return; }
-  done(contested ? 'BROKEN UP' : 'DROPPED');
+  // the receiver's ball. In his hands it's a catch; at the fingertips, in traffic, it's a coin.
+  const edge = blzClamp((dO - 0.6) / Math.max(0.3, reachO(off) - 0.6), 0, 1);
+  const contested = dIn && dD < 1.6;
+  let pc = 0.97 - edge * 0.32 - (1 - off.hands) * 0.25;
+  if (contested) pc -= 0.22 + (def.jumpT > 0 ? 0.12 : 0) - (off.jumpT > 0 ? 0.08 : 0);
+  if (B.bullet && dO < 0.5) pc -= 0.04;         // a little hot
+  if (fire) pc += 0.2;
+  if (Math.random() < blzClamp(pc, 0.15, 0.99)) { blzCaught(off); return; }
+  if (contested && !fire && Math.random() < (0.1 + def.hands * 0.08) * (B.bullet ? 0.8 : 1)) { blzPick6(def); return; }
+  done(contested ? 'BROKEN UP' : edge > 0.6 ? 'JUST OUT OF REACH' : 'DROPPED');
 }
 
 function blzCaught(r) {
@@ -1279,7 +1418,8 @@ function blzQBAI(qb, dt) {
   if (t > 3.6 * pat && !blitz.saidPress) { blitz.saidPress = true; blzSay(blzPick(BLZ_CALLS.pressure)); }
   if (best.open > 3.2 || (pressure && best.open > 1.6 && t > 0.9) || t > 4.2 * pat) {
     if (best.open < 0.9 && t < 5.5 * pat && !pressure) return;
-    blzThrow(qb, best.r, best.open < 3 && blzDist(qb, best.r) < 22);
+    const bd = blzDist(qb, best.r);
+    blzThrow(qb, best.r, best.open < 3 && bd < 22 ? 'bullet' : bd > 26 ? 'lob' : 'touch');
   }
 }
 
@@ -1428,9 +1568,12 @@ function blzPassAirAI(p, dt) {
   const dl = Math.hypot(p.x - B.tx, p.z - B.tz);
   if (B.t < 0.18 + (p.team === 1 ? (1 - (blitz.cfg.smart || 1)) * 0.25 : 0)) { blzRoleAI(p, dt, B.from || p); return; }
   if (dl < 22 || p.role === 'man' || p.role === 'deep') {
-    const timeLeft = B.T - B.t;
-    // a jump at the ball if you're there in time
-    blzSeek(p, B.tx, B.tz, 1);
+    const timeLeft = B.T - B.t, u = B.t / B.T;
+    // nobody knows where it's coming down: early in the flight you stay on the
+    // man it's going to (or your own man); the last part of it, you go get the ball
+    const r = blitz.target, mine = p.role === 'man' && p.man ? p.man : r;
+    if (u < 0.55 && mine && dl > 2.5) blzSeek(p, mine.x + mine.vx * 0.25, mine.z + mine.vz * 0.25, 1);
+    else blzSeek(p, B.tx, B.tz, 1);
     p.wt = true;
     if (!blzHuman(p.team) && dl < 2.2 && timeLeft < 0.35 && p.jumpT <= 0 && Math.random() < 0.5) p.jumpT = 0.62;
   } else if (B.from) blzSeek(p, B.from.x, B.from.z, 0.4);
@@ -1537,7 +1680,7 @@ function blzHumanControl(p, dt) {
   }
   // the QB's eyes follow the stick
   if (p === blitz.carrier && blitz.pocket && p.pos === 'QB') {
-    blitz.target = blzAimTarget(p) || blitz.target;
+    blitz.target = blitz.charge ? blitz.charge.r : (blzAimTarget(p) || blitz.target);
   }
   // a receiver you aren't steering homes on the ball (assist)
   const B = blitz.ball;
@@ -1570,6 +1713,15 @@ function blzMove(p, dt) {
   if (p.celebT > 0) p.celebT -= dt;
   if (p.throwT > 0) p.throwT -= dt;
   if (p.catchT > 0) p.catchT -= dt;
+  if (p.pumpCd > 0) p.pumpCd -= dt;
+  if (p.hitCd > 0) p.hitCd -= dt;
+  if (p.lungeT > 0 && p.downT <= 0 && !p.air) {
+    // the hit-stick lunge: committed, straight, at turbo
+    p.lungeT -= dt; p.turboOn = true;
+    p.x += p.vx * dt; p.z += p.vz * dt;
+    if (p.lungeT <= 0) p.stunT = Math.max(p.stunT, 0.25);   // a whiff costs you a beat
+    return;
+  }
   if (p.air) {
     // launched: ballistic and tumbling until the turf catches him
     p.vy -= 24 * dt; p.y += p.vy * dt; p.flipA += p.flipV * dt;
@@ -2193,6 +2345,12 @@ function blzLive(dt) {
       if (blzHuman(rb.team)) blitz.ctl = rb;
     }
   }
+  // a held receiver button: wind up, and at the threshold it's a bullet
+  if (blitz.charge) {
+    const ch = blitz.charge;
+    if (!blitz.pocket || !C || C.pos !== 'QB' || blitz.thrown) blitz.charge = null;
+    else { C.throwT = 0.34; if (blitz.t - ch.t0 >= BLZ_HOLD) { blitz.charge = null; blzReleaseThrow(ch, true); } }
+  }
   // a QB who crosses the line is a runner now
   if (C && blitz.pocket && C.pos === 'QB' && (C.z - blitz.los) * blzDir(C.team) > 0.5) blitz.pocket = false;
   blzBlocks(dt);
@@ -2466,7 +2624,8 @@ function blzDraw() {
   if (ph === 'final') blzDrawFinal(g, W, H);
   // your kicker waits for the button
   if (ph === 'live' && blitz.kind === 'kick' && blitz.kickWait && ((blitz.t * 2) | 0) % 2 === 0) {
-    blzTextC(g, 'PASS = KICK OFF   ·   TURBO + PASS = ONSIDE KICK', W / 2, H * 0.78, 12 * blitz.ui, '#ffffff');
+    const k = blitz.inputMode === 'pad' ? 'A' : blitz.inputMode === 'touch' ? 'PASS' : 'SPACE';
+    blzTextC(g, k + ' = KICK OFF   ·   TURBO + ' + k + ' = ONSIDE KICK', W / 2, H * 0.78, 12 * blitz.ui, '#ffffff');
   }
   blzDrawTouch(g, W, H);
   if (blitz.paused) {
@@ -2818,15 +2977,8 @@ function blzDrawWorld(g, W, H) {
   // the human's marker: blue arrow with the 1, and the name in yellow
   const me = blitz.ctl;
   if (me && blzHuman(me.team) && ph !== 'final') blzDrawMarker(g, me);
-  // receiver marker: the yellow chevron over the man you're throwing to
-  if (ph === 'live' && blitz.pocket && blitz.kind === 'pass' && blitz.carrier && blzHuman(blitz.carrier.team) && blitz.target) {
-    const r = blitz.target, P = blzProj(r.x, 3.4 + 0.25 * Math.sin(blitz.t * 10) + r.y, r.z);
-    if (P) {
-      const s = Math.max(4, P.k * 0.42);
-      g.fillStyle = '#ffd23a'; g.strokeStyle = '#000'; g.lineWidth = 1.5;
-      g.beginPath(); g.moveTo(P.x - s, P.y - s); g.lineTo(P.x + s, P.y - s); g.lineTo(P.x, P.y + s * 0.6); g.closePath(); g.fill(); g.stroke();
-    }
-  }
+  // the receiver icons
+  blzDrawRcvIcons(g, W, H);
   if (night) {
     const v = g.createRadialGradient(W / 2, H * 0.6, H * 0.2, W / 2, H * 0.6, H * 0.9);
     v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,10,0.55)');
@@ -3115,7 +3267,9 @@ function blzDrawMarker(g, p) {
   g.strokeStyle = '#c8dcff'; g.stroke();
   g.font = '900 ' + Math.round(k * 0.45) + 'px Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
   g.fillStyle = '#ffffff'; g.fillText('1', x - k * 0.25, y + 1);
-  if (blitz.phase === 'pre' || blitz.phase === 'live' || blitz.phase === 'dead') {
+  // (not over your QB while the receiver icons are up — the back's icon lives there)
+  const icons = blitz.kind === 'pass' && p.pos === 'QB' && p.team === blitz.poss && (blitz.phase === 'pre' || (blitz.pocket && !blitz.thrown));
+  if (!icons && (blitz.phase === 'pre' || blitz.phase === 'live' || blitz.phase === 'dead')) {
     const last = p.name.split(' ').slice(-1)[0];
     blzText(g, p.num + ' - ' + last, F.x, F.y + Math.max(8, F.k * 0.7), Math.max(9, Math.min(15, F.k * 0.5)), '#ffe23a', 'center');
   }
@@ -3882,7 +4036,48 @@ function blzGLRender(sx, sy) {
   return true;
 }
 
-// the bits the polygons don't draw: sparks, the "1" arrow + name, the chevron, the fire glow
+// The receiver icons: a colored button over every eligible man's head (the
+// letter is the key you'd press: J K L on a keyboard, X A B on a pad or touch).
+// Off-screen receivers pin to the edge with a pointer. The man you're looking
+// at (SPACE throws to him) gets a white ring; a held button fills its rim.
+function blzDrawRcvIcons(g, W, H) {
+  blitz.hit.rcv = [];
+  const ph = blitz.phase, C = blitz.carrier, off = blitz.poss;
+  if (!blitz.rcv || !blzHuman(off) || blitz.kind !== 'pass') return;
+  if (!(ph === 'pre' || (ph === 'live' && blitz.pocket && C && C.pos === 'QB' && !blitz.thrown))) return;
+  const rad = Math.max(8, 10 * blitz.ui);
+  for (const btn of ['X', 'A', 'B']) {
+    const r = blitz.rcv[btn];
+    if (!r || r.downT > 0) continue;
+    const P = blzProj(r.x, 3.55 * (BLZ_BS / 1.4) + r.y, r.z);
+    if (!P) continue;
+    let x = P.x, y = P.y - rad * 0.4, pin = 0;
+    if (x < rad + 6) { x = rad + 6; pin = -1; } else if (x > W - rad - 6) { x = W - rad - 6; pin = 1; }
+    // (on a portrait phone the score boxes sit lower: keep the icons under them)
+    y = blzClamp(y, H > W * 1.2 ? H * 0.33 : rad + 52, H - rad - 40);
+    const col = BLZ_BTN_COL[btn];
+    if (pin) {
+      g.fillStyle = col; g.strokeStyle = '#000'; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(x + pin * (rad + 7), y); g.lineTo(x + pin * (rad - 1), y - 6); g.lineTo(x + pin * (rad - 1), y + 6); g.closePath(); g.fill(); g.stroke();
+    }
+    g.fillStyle = '#000'; g.beginPath(); g.arc(x, y, rad + 2, 0, Math.PI * 2); g.fill();
+    const gr = g.createRadialGradient(x - rad * 0.35, y - rad * 0.4, 1, x, y, rad);
+    gr.addColorStop(0, blzMix(col, 0.55)); gr.addColorStop(0.6, col); gr.addColorStop(1, blzMix(col, 0.4, '#000000'));
+    g.fillStyle = gr; g.beginPath(); g.arc(x, y, rad, 0, Math.PI * 2); g.fill();
+    g.font = '900 ' + Math.round(rad * 1.3) + 'px Impact, "Arial Black", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#ffffff'; g.fillText(blzBtnLabel(btn), x, y + 1);
+    if (blitz.target === r) { g.strokeStyle = 'rgba(255,255,255,' + (0.6 + 0.4 * Math.sin(blitz.t * 10)).toFixed(2) + ')'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, rad + 4, 0, Math.PI * 2); g.stroke(); }
+    const ch = blitz.charge;
+    if (ch && ch.btn === btn) {
+      const u = Math.min(1, (blitz.t - ch.t0) / BLZ_HOLD);
+      g.strokeStyle = u >= 1 ? '#ff5a3a' : '#ffffff'; g.lineWidth = 3;
+      g.beginPath(); g.arc(x, y, rad + 5, -Math.PI / 2, -Math.PI / 2 + u * Math.PI * 2); g.stroke();
+    }
+    blitz.hit.rcv.push({ x, y, r: rad + 8, btn });
+  }
+}
+
+// the bits the polygons don't draw: sparks, the "1" arrow + name, the receiver icons, the fire glow
 function blzDrawOverlay3D(g, W, H) {
   const items = [];
   for (const q of blitz.parts) { const P = blzProj(q.x, q.y, q.z); if (P) items.push({ P, q }); }
@@ -3903,14 +4098,7 @@ function blzDrawOverlay3D(g, W, H) {
   }
   const ph = blitz.phase, me = blitz.ctl;
   if (me && blzHuman(me.team) && ph !== 'final') blzDrawMarker(g, me);
-  if (ph === 'live' && blitz.pocket && blitz.kind === 'pass' && blitz.carrier && blzHuman(blitz.carrier.team) && blitz.target) {
-    const r = blitz.target, P = blzProj(r.x, 3.5 + 0.25 * Math.sin(blitz.t * 10) + r.y, r.z);
-    if (P) {
-      const s = Math.max(4, P.k * 0.42);
-      g.fillStyle = '#ffd23a'; g.strokeStyle = '#000'; g.lineWidth = 1.5;
-      g.beginPath(); g.moveTo(P.x - s, P.y - s); g.lineTo(P.x + s, P.y - s); g.lineTo(P.x, P.y + s * 0.6); g.closePath(); g.fill(); g.stroke();
-    }
-  }
+  blzDrawRcvIcons(g, W, H);
   if (blitz.codes.night) {
     const v = g.createRadialGradient(W / 2, H * 0.6, H * 0.2, W / 2, H * 0.6, H * 0.9);
     v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,10,0.5)');
@@ -4002,10 +4190,13 @@ function blzDrawHud(g, W, H) {
     fy -= 13 * ui;
   }
   g.globalAlpha = 1;
-  if (ph === 'pre' && blzHuman(blitz.poss) && ((blitz.t * 2) | 0) % 2 === 0)
-    blzTextC(g, 'PRESS PASS TO HIKE', W / 2, H * 0.8, 14 * ui, '#ffffff');
+  const pad = blitz.inputMode === 'pad', tch = blitz.inputMode === 'touch';
+  if (ph === 'pre' && blzHuman(blitz.poss)) {
+    if (((blitz.t * 2) | 0) % 2 === 0) blzTextC(g, pad ? 'A TO HIKE' : tch ? 'PASS TO HIKE' : 'SPACE TO HIKE', W / 2, H * 0.78, 14 * ui, '#ffffff');
+    if (blitz.kind === 'pass') blzTextC(g, (tch ? 'TAP A RECEIVER\'S ICON TO THROW' : (pad ? 'X · A · B' : 'J · K · L') + ' THROWS TO THAT RECEIVER') + ' — TAP = LOB · HOLD = BULLET', W / 2, H * 0.83, 9 * ui, '#c8dcff');
+  }
   if (ph === 'pre' && blzHuman(1 - blitz.poss))
-    blzTextC(g, 'PASS = SWITCH DEFENDER', W / 2, H * 0.84, 10 * ui, '#c8dcff');
+    blzTextC(g, pad ? 'B = SWITCH DEFENDER' : tch ? 'PASS = SWITCH DEFENDER' : 'SPACE / L = SWITCH DEFENDER', W / 2, H * 0.84, 10 * ui, '#c8dcff');
 }
 
 // ---- TEAM SELECT -----------------------------------------------------------------------------------
@@ -4230,7 +4421,7 @@ function blzDrawVS(g, W, H) {
   if (blitz.codeMsg) blzTextC(g, blitz.codeMsg.text + (blitz.codeMsg.ok ? '!' : ''), W / 2, y - 14, 16, blitz.codeMsg.ok ? '#39ff7a' : '#ff8a7a');
   const on = BLZ_CODES.filter((c) => blitz.codes[c.id]).map((c) => c.name);
   if (on.length) blzTextC(g, on.join(' · '), W / 2, y + 66, 9, '#39ff7a');
-  blzTextC(g, 'TAP TURBO · JUMP · PASS, THEN PUSH A DIRECTION', W / 2, H * 0.86, 9, '#ffffff');
+  blzTextC(g, 'TAP TURBO · JUMP · PASS' + (blitz.inputMode === 'pad' ? ' (RT · Y · A)' : blitz.inputMode === 'touch' ? '' : ' (SHIFT · I · SPACE)') + ', THEN PUSH A DIRECTION', W / 2, H * 0.86, 9, '#ffffff');
   if (((t * 2) | 0) % 2 === 0) blzTextC(g, 'PRESS ENTER (OR TAP HERE) TO KICK OFF', W / 2, H * 0.93, 13, '#ffd23a');
   blitz.hit.cards = [{ x: 0, y: H * 0.86, w: W, h: H * 0.14, n: 'go' }];
 }
@@ -4313,7 +4504,7 @@ window.addEventListener('keydown', (e) => {
   if (e.target && e.target.tagName === 'INPUT') return;
   if (blitz.phase === 'tier' || blzMenuOpen()) return;
   blzAudio();
-  const claimed = /^(Key[WASDJKLMQRFPGVUH]|Arrow(Up|Down|Left|Right)|Space|Enter|ShiftLeft|ShiftRight|Escape|Digit[1-9]|Numpad[1-9])$/.test(e.code);
+  const claimed = /^(Key[WASDIJKLMQRFPGVUH]|Arrow(Up|Down|Left|Right)|Space|Enter|ShiftLeft|ShiftRight|Escape|Digit[1-9]|Numpad[1-9])$/.test(e.code);
   if (claimed) e.preventDefault();
   if (e.code === 'Escape') { if (!e.repeat && blitz.phase !== 'final' && blitz.phase !== 'vs' && blitz.phase !== 'teams') blitz.paused = !blitz.paused; return; }
   if (e.code === 'KeyM' && !e.repeat) {
@@ -4340,7 +4531,7 @@ window.addEventListener('keydown', (e) => {
     if (mv) { blzTeamMove(mv); return; }
     const m = /^(Digit|Numpad)([1-8])$/.exec(e.code);
     if (m) { blzTeamPick(+m[2] - 1); return; }
-    if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyJ') blzTeamPick();
+    if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyK') blzTeamPick();
     return;
   }
   if (blitz.phase === 'vs') {
@@ -4348,18 +4539,24 @@ window.addEventListener('keydown', (e) => {
     if (e.code === 'Enter') { blzStartGame(); return; }
     const dk = { ArrowUp: 'U', KeyW: 'U', ArrowDown: 'D', KeyS: 'D', ArrowLeft: 'L', KeyA: 'L', ArrowRight: 'R', KeyD: 'R' }[e.code];
     if (dk) { blzCodeDir(dk); return; }
-    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyL') { blzCodeTap(0); return; }
-    if (e.code === 'KeyK') { blzCodeTap(1); return; }
-    if (e.code === 'Space' || e.code === 'KeyJ') { blzCodeTap(2); return; }
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { blzCodeTap(0); return; }
+    if (e.code === 'KeyI') { blzCodeTap(1); return; }
+    if (e.code === 'Space') { blzCodeTap(2); return; }
     return;
   }
   blitz.keys[e.code] = true;
   if (e.repeat) return;
+  blitz.inputMode = 'kb';
   if (blzCallKey(e.code)) return;
-  if (e.code === 'Space' || e.code === 'KeyJ' || e.code === 'Enter') blzPressPass();
-  else if (e.code === 'KeyK') blzPressJump();
+  const b = BLZ_KEYBTN[e.code];
+  if (b) blzBtnDown(b, 'kb');
 });
-window.addEventListener('keyup', (e) => { if (blitz.keys[e.code]) blitz.keys[e.code] = false; });
+const BLZ_KEYBTN = { Space: 'SP', Enter: 'SP', KeyJ: 'X', KeyK: 'A', KeyL: 'B', KeyI: 'Y' };
+window.addEventListener('keyup', (e) => {
+  if (blitz.keys[e.code]) blitz.keys[e.code] = false;
+  const b = BLZ_KEYBTN[e.code];
+  if (b && blitzActive()) blzBtnUp(b);
+});
 window.addEventListener('blur', () => { blitz.keys = {}; });
 window.addEventListener('resize', () => { if (blitz.on) blitzLayout(); });
 
@@ -4388,8 +4585,15 @@ function blzPointerDown(e) {
   const p = blzWorldXY(e.clientX, e.clientY);
   if (blzTapUI(p.x, p.y)) return;
   if (blitz.phase === 'vs' || blitz.phase === 'teams') return;
-  if (e.button === 2) blzPressJump(); else blzPressPass();
+  const ic = blzIconAt(p.x, p.y);
+  if (ic) { blitz.mouseBtn = ic; blzBtnDown(ic, 'kb'); return; }
+  if (e.button === 2) blzBtnDown('Y', 'kb'); else blzBtnDown('SP', 'kb');
 }
+function blzIconAt(x, y) {
+  for (const h of blitz.hit.rcv || []) if (Math.hypot(x - h.x, y - h.y) <= h.r) return h.btn;
+  return null;
+}
+window.addEventListener('pointerup', () => { if (blitz.mouseBtn) { const b = blitz.mouseBtn; blitz.mouseBtn = null; blzBtnUp(b); } });
 
 blitzWorld.addEventListener('contextmenu', (e) => { if (blitzActive()) e.preventDefault(); });
 blitzWorld.addEventListener('touchstart', (e) => {
@@ -4397,18 +4601,22 @@ blitzWorld.addEventListener('touchstart', (e) => {
   if (e.target.closest('.storm-hud, .ak-tier, .modal-overlay')) return;
   blzAudio();
   const T = blitz.touch; T.on = true;
+  blitz.inputMode = 'touch';
   for (const t of e.changedTouches) {
     const x = t.clientX, y = t.clientY;
     if (blitz.paused) { blitz.paused = false; continue; }
     const wp = blzWorldXY(x, y);
     if ((blitz.phase === 'call' || blitz.phase === 'pat' || blitz.phase === 'teams') && blzTapUI(wp.x, wp.y)) continue;
     if (blitz.phase === 'teams') continue;
+    // a receiver's icon is his button: tap = lob, hold = bullet
+    const ic = blitz.phase === 'live' || blitz.phase === 'pre' ? blzIconAt(wp.x, wp.y) : null;
+    if (ic) { T.roles[t.identifier] = 'R' + ic; blzBtnDown(ic, 'touch'); continue; }
     let hit = null;
     for (const b of blzTouchBtns()) if (Math.hypot(x - b.x, y - b.y) <= b.r + 10) { hit = b; break; }
     if (hit) {
       T.roles[t.identifier] = hit.k; T[hit.k] = true;
       if (blitz.phase === 'vs') blzCodeTap(hit.k === 'T' ? 0 : hit.k === 'B' ? 1 : 2);
-      else if (hit.k === 'A') blzPressPass(); else if (hit.k === 'B') blzPressJump();
+      else if (hit.k === 'A') blzBtnDown('SP', 'touch'); else if (hit.k === 'B') blzBtnDown('Y', 'touch');
       continue;
     }
     if (blitz.phase === 'vs' && blzTapUI(wp.x, wp.y)) continue;
@@ -4437,7 +4645,8 @@ const blzTouchEnd = (e) => {
         if (Math.max(Math.abs(dx), Math.abs(dy)) > 0.5) blzCodeDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'R' : 'L') : (dy > 0 ? 'D' : 'U'));
       }
       T.L = null;
-    } else if (role) T[role] = false;
+    } else if (role && role[0] === 'R' && role.length === 2) blzBtnUp(role[1]);
+    else if (role) T[role] = false;
   }
 };
 window.addEventListener('touchend', blzTouchEnd); window.addEventListener('touchcancel', blzTouchEnd);
@@ -4452,8 +4661,8 @@ function blzPollPad() {
   const dz = (v) => (Math.abs(v) < 0.2 ? 0 : v);
   P.lx = dz(gp.axes[0] || 0) + (btn(15) ? 1 : 0) - (btn(14) ? 1 : 0);
   P.ly = dz(gp.axes[1] || 0) + (btn(13) ? 1 : 0) - (btn(12) ? 1 : 0);
-  const a = btn(0), b = btn(1), tu = btn(2) || btn(5) || btn(7), st = btn(9);
-  if (P.lx || P.ly || a || b || tu) P.on = true;
+  const a = btn(0), b = btn(1), x = btn(2), y = btn(3), lb = btn(4), tu = btn(5) || btn(6) || btn(7), st = btn(9);
+  if (P.lx || P.ly || a || b || x || y || lb || tu) { P.on = true; blitz.inputMode = 'pad'; }
   P.turbo = tu;
   const nav = Math.abs(P.lx) > 0.6 ? (P.lx > 0 ? 'R' : 'L') : Math.abs(P.ly) > 0.6 ? (P.ly > 0 ? 'D' : 'U') : '';
   if (nav && nav !== P._nav) {
@@ -4463,11 +4672,11 @@ function blzPollPad() {
     else if (blitz.phase === 'pat' && (nav === 'L' || nav === 'R')) blitz.callSel ^= 1;
   }
   P._nav = nav;
-  if (a && !P._a) blzPressPass();
-  if (b && !P._b) blzPressJump();
+  const edge = (now, was, k) => { if (now && !was) blzBtnDown(k, 'pad'); else if (!now && was) blzBtnUp(k); };
+  edge(a, P._a, 'A'); edge(b, P._b, 'B'); edge(x, P._x, 'X'); edge(y, P._y, 'Y'); edge(lb, P._lb, 'SP');
   if (tu && !P._t && blitz.phase === 'vs') blzCodeTap(0);
   if (st && !P._st) { if (blitz.phase === 'teams') blzTeamPick(); else if (blitz.phase === 'vs') blzStartGame(); else if (blitz.phase !== 'final') blitz.paused = !blitz.paused; }
-  P._a = a; P._b = b; P._t = tu; P._st = st;
+  P._a = a; P._b = b; P._x = x; P._y = y; P._lb = lb; P._t = tu; P._st = st;
 }
 
 // ---- test seam ---------------------------------------------------------------------------------
@@ -4494,6 +4703,7 @@ window.blitzDebug = {
   auto: (v) => { blitz.auto = v !== false; },
   choose: (n) => blzChoose(n),
   pressPass: () => blzPressPass(), pressJump: () => blzPressJump(),
+  btnDown: (b) => blzBtnDown(b), btnUp: (b) => blzBtnUp(b), rcv: () => Object.fromEntries(Object.entries(blitz.rcv || {}).map(([k, p]) => [k, p.pos])),
   step: (secs, hz) => {
     const dt = 1 / (hz || 60), n = Math.round(secs / dt);
     for (let i = 0; i < n; i++) {
