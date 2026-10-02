@@ -2297,4 +2297,75 @@ lines), `css/blitz.css`, the outer pair of uprights on the east island.
     timeline with a close camera and stitch a contact sheet (data-URI <img>s —
     a blank page can't load file://). The first cut needed none of it to be
     re-timed, but it's the only way to SEE a 1.3s move.
+- **🎸 THE SHOW (Chris: "make the music more fun … the gameplay is kind of
+  boring … it just feels kind of empty. Bring the game to life more. Add
+  taunting during the hiking … study what other games have done").** The
+  research: Blitz's soundtrack was ROCK AND METAL, original tracks per quarter
+  and per event; its announcer (Tim Kitzrow, NBA Jam) wrote and voiced a
+  constant stream of catchphrases; NBA Jam's "heating up → on fire"; NFL
+  Street's style points (taunt/showboat = slower + fumble-prone, fills the
+  Gamebreaker meter); Blitz: The League's taunts filling Unleash; Madden's play
+  art on the turf + hot routes (receiver, then a direction). What shipped:
+  - **js/blitzAudio.js (new):** a 16th-step sequencer scheduled off the game
+    loop (0.14s lookahead) driving synthesized drums, a power-chord guitar
+    through a soft-clip drive, bass (pick / slap / tuba), lead, brass, clav and
+    a stadium organ with a Leslie wobble, plus a synthetic stadium reverb.
+    Seven ORIGINAL songs (`BLZ_TRACKS`): theme (menus), q1 GREASE FIRE rock, q2
+    SAUCE BOSS STRUT funk, half (marching band, `blitz.halftime`), q3 CRUNCH
+    TIME, q4/OT MELTDOWN metal, win / lose. Stems duck by phase
+    (`BLZ_MIXES`: full between plays, drums+bass live, drums alone under the
+    snap count). Stingers (`blzSting`): td, charge (the bugle call, CPU on
+    3rd/4th down vs your D), first, sack, trombone (THEIR failures only), fire,
+    heat, roll (kickoffs), int, big. Crowd voices (`blzVox`: detuned saws +
+    breath through two gliding vowel formants): DE-FENSE + claps locked to the
+    band's bar, OOOH, AWWW, BOOO, YEAH. N toggles music. Every note's tail
+    disconnects itself (`blzNode`). **Prefix discipline:** the first cut had a
+    guitar-dive stinger named `blzDive`, which silently replaced the defender
+    dive in blitz.js (loads later = wins) — it threw on the first CPU dive.
+    It's `blzMusDive`; check `comm` of both files' top-level names on any new
+    audio function.
+  - **The booth** (`blzSpeak`, same file): ONE speechSynthesis queue for every
+    voice — play-by-play, colour (`BLZ_COLOR`), the QB's cadence, players' trash
+    talk — with priorities and shelf lives (stale news is dropped) and a valve
+    for engines that never fire onend. `blzPBP` situational calls (3rd & long,
+    4th down, red zone, goal to go, the last minute), gains by the number, the
+    breakaway countdown (the thirty… the twenty… the ten…), name calls on big
+    catches.
+  - **The line** (`blzPreStart`/`blzPreStep`): the QB's cadence with each team's
+    word (`BLZ_FLAVOR`: GOLDEN 44! … SET! … HUT!), trash talk in comic bubbles
+    (`blzBubble`, stacked so they don't overlap) with the whole body selling it
+    (`p.taunt` kinds in blzPose: flex point beckon clap chest dance hop wiggle
+    roar), the other side answering, the CPU snapping after 1.9–2.9s now, the
+    camera pushing in. **TURBO before the snap = your taunt** (`blzHumanTaunt`):
+    crowd + HYPE, twice a down.
+  - **HYPE** (`blzHype`, HUD bar over TURBO + a strip per team in the
+    scorebox): catches (same receiver again counts more), stops, picks, big
+    hits, gains, TDs, taunts, showboating; −0.055 every snap; the other side
+    scoring empties it; full = ON FIRE (7 plays). Tuned with `stats.hy` (hype
+    by source) to ~1 fire per team per AI game — the human earns more by
+    taunting and showboating. **Showboat** = Y/I with the ball in open field
+    (with a man in front it's still the hurdle): 0.88 speed, 4× fumble odds,
+    and a showboat fumble empties your hype.
+  - **Hot routes + play art:** routes painted on the turf pre-snap in each
+    receiver's button colour (GL ribbons `blzGLArtMesh`, canvas lines in the
+    fallback); Y/I → receiver button → ↑ GO ↓ CURL, toward the ball SLANT,
+    toward the sideline OUT (`blzHotRoute`); touch/mouse: tap an icon to cycle.
+  - **The stadium:** benches (8 a side, react via `blzCheer`), a coach (arms
+    crossed → fist pump / facepalm), three-a-side cheer squad with pom-poms,
+    and SIR NUGSALOT the giant-nugget mascot running the home sideline with the
+    ball (cartwheels on your TDs, faceplants on theirs) — `blitz.extras`, drawn
+    with the player rig (bare nugget heads, `blzPaintNugFace`), skipped on
+    handhelds. Flashbulbs in the stands on big moments, fireworks over the end
+    zone on TDs, the wave (a shader band, `uWave`) after a home TD, the crowd
+    texture bouncing on big plays.
+  - **Instant replay** on TDs and the biggest hits/moves (`blzRec` at 30 Hz →
+    `blzStartReplay`): a low sideline camera, slo-mo through the moment, TV
+    chrome, any button skips; skipped in auto/headless. **Hit cam:** launches
+    get 0.32s of slow motion (`blitz.slowT`). **TD celebrations:** J/X spike, K/A
+    dance, L/B backflip, I/Y flex (the CPU picks its own); teammates swarm the
+    scorer and chest-bump him.
+  - Ledger: no page errors in either renderer or on a phone; 59fps headless;
+    sequencer timing exact (kicks on steps 0/8/10 at 140 BPM); master peaks
+    ~0.24 with the music up; identical rosters 27–27, PRO 28–25, ROOKIE 50–9,
+    ALL-BLITZ 21–38; the button QB still completes ~74%.
 

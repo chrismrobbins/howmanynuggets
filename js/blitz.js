@@ -74,6 +74,21 @@ const BLZ_TEAMS = {
     c1: '#14807e', c2: '#ff7a2a', helm: '#14807e', stripe: '#ff7a2a', mask: '#e8e8ee', pants: '#f2ecdc', sock: '#ff7a2a', num: '#ffffff', ez: '#0e5a58',
     blurb: 'NOBODY KNOWS WHICH WAY THEY RUN.' },
 };
+// what each team shouts at the line: the QB's cadence word, and the trash talk
+const BLZ_FLAVOR = {
+  nugs: { cad: 'GOLDEN', lines: ['GOLDEN BROWN, BABY!', 'YOU ARE ABOUT TO GET DIPPED!', 'TEN PIECE, NO WAITING!', 'NUGGETOWN, STAND UP!', 'WE PUT THE NUG IN NUGGET!'] },
+  frygods: { cad: 'OLYMPUS', lines: ['KNEEL BEFORE THE FRY!', 'SALTED BY THE GODS!', 'BEHOLD, MORTAL!', 'YOU DARE CHALLENGE US?', 'CRINKLE CUT, BABY!'] },
+  tots: { cad: 'TOT TOT', lines: ['WE ARE SMALL BUT WE ARE MEAN!', 'BITE SIZE, BIG HITS!', 'TOTS! TOTS! TOTS!', 'YOU ARE TOAST!', 'FAMILY SIZE BEATDOWN!'] },
+  ranch: { cad: 'COOL RANCH', lines: ['STAY COOL, KID.', 'WELCOME TO DIP CITY!', 'WE GO WITH EVERYTHING!', 'CREAMY. AND MEAN.', 'YOU ARE DRESSED FOR A LOSS!'] },
+  bosses: { cad: 'BIG SMOKE', lines: ['YOU ARE GETTING SAUCED!', 'LOW AND SLOW, BABY!', 'I SMELL BRISKET!', 'WE SMOKE FOOLS!', 'PASS THE SAUCE!'] },
+  rings: { cad: 'LAYER', lines: ['PREPARE TO CRY!', 'WE GOT LAYERS!', 'ONION YOU GO!', 'PEEL HIM!', 'TEARS ON THE FIELD!'] },
+  mustard: { cad: 'STINGER', lines: ['BUZZ OFF!', 'YOU ARE GONNA GET STUNG!', 'SWEET? NOT TODAY!', 'BEE-LIEVE IT!', 'HONEY, YOU ARE DONE!'] },
+  curly: { cad: 'SPIRAL', lines: ['YOU CANNOT CATCH CURLY!', 'TWIST AND SHOUT!', 'WE ARE TOO TWISTY!', 'LOOP DE LOOP!', 'GET SPUN!'] },
+};
+const BLZ_TRASH = ['YOU ARE GOING DOWN!', 'I SMELL FRIES!', 'COME GET SOME!', 'EXTRA CRISPY!', 'IS THAT ALL YOU GOT?', 'I AM COMING FOR YOU!',
+  'NICE HELMET. NOT.', 'YOU ARE SOGGY!', 'BREADED AND READY!', 'OVER HERE, BUTTERFINGERS!', 'NO REFS, NO RULES!', 'YOU ARE ON THE MENU!',
+  'HIKE IT, I DARE YOU!', 'YOU ARE GETTING DUNKED!', 'NOBODY BEATS THE BATTER!'];
+const BLZ_TAUNTS = ['flex', 'point', 'beckon', 'clap', 'chest', 'dance', 'hop', 'wiggle', 'roar'];
 const BLZ_TEAM_ORDER = ['nugs', 'frygods', 'tots', 'ranch', 'bosses', 'rings', 'mustard', 'curly'];
 // [speed yd/s, strength, hands]
 const BLZ_BASE = {
@@ -229,7 +244,8 @@ const blitz = {
   parts: [], keys: {}, voice: true,
   touch: { on: false, L: null, A: false, B: false, T: false, roles: {} }, pad: { on: false },
   sfx: { ctx: null, master: null, crowd: null, crowdGain: null, muted: false, noise: null },
-  hit: { cards: [], extra: [], rcv: [] }, crowdCv: null, anims: [], saidShow: false, inputMode: '', charge: null, rcv: null,
+  hit: { cards: [], extra: [], rcv: [] }, crowdCv: null, anims: [], saidShow: false,
+  hype: [0, 0], heatSaid: [false, false], bubbles: [], cad: null, tauntNext: 0, tauntsDown: [0, 0], tauntCd: 0, halftime: false, inputMode: '', charge: null, rcv: null,
 };
 
 function blitzActive() { return storm.mode === 'blitz' && storm.running; }
@@ -302,7 +318,8 @@ function syncBlitz() {
     if (blitz.tierPick) { blitz.tierPick.close(); blitz.tierPick = null; }
     blitz.phase = 'idle';
     blzCrowdStop();
-    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) { }
+    blzBoothHush();
+    if (blzMus.ok && blitz.sfx.ctx) { blzMusMix('off'); blzMus.T = null; blzMus.key = ''; blzMus.pend = null; blzChant(false); }
   }
 }
 
@@ -393,20 +410,13 @@ function blzSfx(kind) {
   else if (kind === 'bad') { tone('square', 330, 0, 0.14, 0.1); tone('square', 220, 0, 0.35, 0.1, 0.14); }
   else if (kind === 'horn') { tone('sawtooth', 196, 0, 1.0, 0.14); tone('sawtooth', 247, 0, 1.0, 0.1); }
 }
-// the announcer: browser speech, throttled, interruptible only by bigger news
-function blzSay(text, prio) {
-  blitz.say = text;
-  if (!blitz.voice || blitz.sfx.muted || blitz.auto) return;
-  const S = window.speechSynthesis;
-  if (!S) return;
-  try {
-    if (S.speaking && !prio) return;
-    S.cancel();
-    const u = new SpeechSynthesisUtterance(text.toLowerCase());
-    u.rate = 1.12; u.pitch = 0.75; u.volume = 0.9;
-    S.speak(u);
-  } catch (e) { }
+// the announcer: one booth, two seats (js/blitzAudio.js queues every voice)
+function blzSay(text, prio) { blzSpeak(text, { who: 'pbp', prio: prio ? 2 : 1 }); }
+// the colour man chimes in (not every time — a booth that never shuts up is noise)
+function blzColor(pool, chance) {
+  if (Math.random() < (chance == null ? 0.5 : chance)) blzSpeak(blzPick(pool), { who: 'color', prio: 0, maxAge: 3.2 });
 }
+function blzPBP(pool, prio, maxAge) { blzSpeak(blzPick(pool), { who: 'pbp', prio: prio || 1, maxAge: maxAge || 2.2 }); }
 const BLZ_CALLS = {
   td: ['TOUCHDOWN!', 'HE TAKES IT ALL THE WAY!', 'SIX POINTS!'],
   sack: ['SACKED!', 'THE QUARTERBACK GOES DOWN!', 'HE GOT CRUNCHED!'],
@@ -423,6 +433,38 @@ const BLZ_CALLS = {
   hurdle: ['HE JUMPS OVER HIM!'],
   bomb: ['DA BOMB!', 'WAY DOWNFIELD!'],
   pressure: ['THROW THE BALL!', 'GET RID OF IT!'],
+  heat: ["HE'S HEATING UP!", 'HE IS HEATING UP!', 'GETTING WARM!'],
+  dheat: ['THIS DEFENSE IS HEATING UP!', 'THE DEFENSE IS GETTING WARM!'],
+};
+// the colour man's lines (the second voice in the booth)
+const BLZ_COLOR = {
+  hit: ['THAT IS GONNA LEAVE A CRUMB!', 'SOMEBODY CHECK ON HIM!', 'HE FELT THAT ONE IN THE BATTER!', 'HE GOT DEEP FRIED!', 'I FELT THAT ONE UP HERE!', 'OH, HIS MOTHER FELT THAT!'],
+  late: ['NO FLAGS IN THIS LEAGUE!', 'THE WHISTLE IS JUST A SUGGESTION!', 'THAT ONE WAS PERSONAL!', 'NO MERCY, BABY!'],
+  td: ['EXTRA CRISPY!', 'GOLDEN BROWN AND DELICIOUS!', 'ORDER UP!', 'SERVE IT UP!', 'THAT IS A TEN PIECE!'],
+  sack: ['HE NEVER SAW IT COMING!', 'THAT QUARTERBACK IS TOAST!', 'WELCOME TO THE N F N!', 'RIGHT IN THE BREADING!'],
+  int: ['HE THREW IT RIGHT TO HIM!', 'WHAT WAS HE THINKING?', 'THAT ONE IS GOING ON THE BLOOPER REEL!'],
+  drop: ['BUTTERFINGERS!', 'HE HAD IT AND HE DROPPED IT!', 'HANDS OF STONE!', 'TOO GREASY!'],
+  grab: ['WHAT A GRAB!', 'HE SNAGGED IT!', 'WHAT HANDS!', 'STICKY FINGERS!'],
+  dive: ['HE LAID OUT FOR IT!', 'WHAT A DIVE!', 'FULL EXTENSION!'],
+  taunt: ['OH, HE IS TALKING NOW!', 'A LITTLE TRASH TALK AT THE LINE!', 'SOMEBODY IS CONFIDENT!', 'THESE TWO DO NOT LIKE EACH OTHER!', 'OH, THEY ARE JAWING!'],
+  showboat: ['LOOK AT HIM SHOWBOAT!', 'HE IS TAUNTING THEM!', 'SOMEBODY STOP THIS MAN!', 'OH, THE DISRESPECT!'],
+  stuff: ['STUFFED!', 'NOWHERE TO GO!', 'HE RAN INTO A WALL!', 'NOTHING THERE!'],
+  big: ['HE IS LOOSE!', 'LOOK AT HIM GO!', 'BREAKAWAY!', 'SEE YOU LATER!'],
+  fire: ['SOMEBODY GET A FIRE EXTINGUISHER!', 'TOO HOT TO HANDLE!', 'THE FRYER IS ON!'],
+  oops: ['OOF.', 'THAT IS GONNA MAKE THE BLOOPER REEL.', 'YIKES.'],
+};
+// the play-by-play's situational calls
+const BLZ_PBP = {
+  third: ['THIRD DOWN!', 'BIG THIRD DOWN HERE!', 'THIRD DOWN. THIS IS IT.'],
+  thirdLong: ['THIRD AND LONG!', 'THIRD AND A MILE!', 'THIRD AND FOREVER!'],
+  fourth: ['FOURTH DOWN! THEY ARE GOING FOR IT!', 'FOURTH DOWN. NO PUNTING!', 'GUTS TIME. FOURTH DOWN.'],
+  red: ['RED ZONE!', 'KNOCKING ON THE DOOR!', 'THEY CAN SMELL IT!'],
+  goal: ['GOAL TO GO!', 'FIRST AND GOAL!'],
+  late: ['UNDER A MINUTE TO GO!', 'THE CLOCK IS TICKING!', 'CRUNCH TIME!'],
+  incomplete: ['INCOMPLETE!', 'FALLS INCOMPLETE!', 'NO CATCH!'],
+  kick: ['HERE IS THE KICK!', 'AND WE ARE UNDERWAY!', 'THE BOOT IS AWAY!'],
+  ret: ['A NICE RETURN!', 'HE BRINGS IT BACK!', 'GOOD FIELD POSITION!'],
+  pick6: ['PICK SIX!', 'HE IS GONE THE OTHER WAY!'],
 };
 
 // ---- the game: setup ------------------------------------------------------------------------
@@ -480,6 +522,7 @@ function blzBeginMatchup(mine) {
   blitz.paused = false; blitz.banner = null; blitz.dead = null; blitz.carrier = null; blitz.ball = null;
   blitz.fire = [{ on: false, n: 0, last: null, stops: 0 }, { on: false, n: 0, last: null, stops: 0 }];
   blitz.turbo = [1, 1];
+  blitz.hype = [0, 0]; blitz.heatSaid = [false, false]; blitz.bubbles = []; blitz.halftime = false;
   blitz.codes = {}; blitz.codeIn = [0, 0, 0]; blitz.codeMsg = null;
   blitz.players = [];
   blitz.phase = 'vs'; blitz.vsT = 0;
@@ -488,9 +531,11 @@ function blzBeginMatchup(mine) {
 // leave the VS screen: codes are locked in, the coin is flipped
 function blzStartGame() {
   if (blitz.phase !== 'vs') return;
-  if (blitz.codes.fire) { blitz.fire[0].on = true; blitz.fire[0].n = 3; }
+  if (blitz.codes.fire) { blitz.fire[0].on = true; blitz.fire[0].n = 3; blitz.hype[0] = 1; }
   blitz.openKicker = Math.random() < 0.5 ? 0 : 1;
   blzSfx('horn'); blzRoar(0.7, 2);
+  blzBuildExtras();
+  blitz.rec = []; blitz.playsSinceReplay = 3; blitz.fw = []; blitz.bulbs = []; blitz.wave = null; blitz.waveQ = 0;
   const recv = 1 - blitz.openKicker;
   blzBanner(blzTeam(recv).name + ' RECEIVE', '#ffd23a', blzTeam(0).city + ' vs ' + blzTeam(1).city, 1.6);
   blzSetupKickoff(blitz.openKicker, false);
@@ -519,7 +564,8 @@ function blzClearPlay() {
   blitz.carrier = null; blitz.target = null; blitz.returner = null; blitz.thrown = false; blitz.pocket = false;
   blitz.handed = false; blitz.ezCatch = false; blitz.fg = null; blitz.punt = null; blitz.dead = null;
   blitz.playT = 0; blitz.kickT = 0; blitz.camFlipT = 0;
-  blitz.anims = []; blitz.saidShow = false;
+  blitz.anims = []; blitz.saidShow = false; blitz.bubbles = []; blitz.cad = null; blitz.countdown = 0; blitz.showHype = 0;
+  blitz.rec = []; blitz.replayWant = null; blitz.celebDone = true;
 }
 
 // ---- kickoffs ---------------------------------------------------------------------------------
@@ -558,6 +604,8 @@ function blzSetupKickoff(k, free) {
   // the human kicker waits for the button: PASS kicks deep, TURBO+PASS goes onside.
   // The CPU goes onside when it's late and it's behind.
   blitz.kickWait = blzHuman(k) && !free;
+  blitz.halftime = false;
+  blzSting('roll');
   blitz.onside = !blzHuman(k) && !free && blitz.q >= 4 && !blitz.ot && blitz.clock < 40 &&
     blitz.score[k] < blitz.score[r] && blitz.score[r] - blitz.score[k] <= 16;
 }
@@ -616,8 +664,10 @@ function blzToCall() {
     }
     if (blzHuman(1 - off)) blitz.callFor = 'def';
     else { blzRunCalls(blitz.cpuOff, blzCpuDefCall()); return; }
+    blzPreCall();
   }
   blitz.phase = 'call'; blitz.callT = 0; blitz.callSel = 4; blitz.flip = false;
+  blzPreCall();
 }
 
 function blzCpuOffCall(team) {
@@ -677,8 +727,10 @@ function blzRunCalls(offN, defN) {
   const dp = typeof defN === 'object' ? defN : BLZ_DEF_PLAYS[defN];
   blzLineUp(op, dp, op.fake ? false : flip);
   blitz.phase = 'pre';
-  blitz.snapAt = blzHuman(blitz.poss) ? 9 : blzRnd(0.9, 1.7);
+  // the CPU takes its time at the line now — long enough for a cadence and some words
+  blitz.snapAt = blzHuman(blitz.poss) ? 9 : blzRnd(1.9, 2.9);
   blitz.playT = 0;
+  blzPreStart();
 }
 
 // Put fourteen nuggets on their marks for a scrimmage play.
@@ -698,6 +750,7 @@ function blzLineUp(play, dplay, flip) {
     const rt = play.routes && play.routes[pos];
     if (rt) p.route = rt.map((w) => [p.x + w[0] * fl * d, p.z + w[1] * d]);
     if (pos === 'RB' && play.kind === 'run') p.route = play.rb.map((w) => [p.x + w[0] * fl * d, p.z + w[1] * d]);
+    p.rs = [p.x, p.z]; p.route0 = p.route; p.hotKind = '';
     p.block = !p.route && pos !== 'QB';
     if (pos === 'C' || pos === 'LG' || pos === 'RG') p.block = true;
     // run plays: the wideouts run a few yards and turn into blockers
@@ -741,6 +794,431 @@ function blzLineUp(play, dplay, flip) {
   blitz.target = play.kind === 'pass' ? offP(play.primary) : null;
 }
 
+// ---- 🎉 THE SIDELINE: benches, the coach, the dip squad, SIR NUGSALOT -----------------------------
+// "it just feels kind of empty." A real stadium is full: both benches on their
+// feet when their side does something, a coach losing it on the sideline, the
+// cheer squad, and the home team's mascot — a giant nugget — running the
+// sideline with the play, cartwheeling on touchdowns and faceplanting on theirs.
+function blzBuildExtras() {
+  const E = [];
+  const handheld = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || false;
+  if (!handheld) {
+    for (const t of [0, 1]) {
+      const sx = t === 0 ? -3.6 : BLZ_WID + 3.6, face = t === 0 ? 1 : -1;
+      ['QB', 'WR1', 'RB', 'LB', 'CB1', 'S', 'DT', 'WR2'].forEach((ps, i) => {
+        const p = blzMake(t, ps);
+        p.extra = 'bench'; p.x = sx + (blzHash(i * 3 + t) - 0.5) * 0.5; p.z = 38 + i * 6 + blzHash(i * 7 + t) * 2;
+        p.fx = face; p.fz = 0; p.anim = Math.random() * 6;
+        E.push(p);
+      });
+      const c = blzMake(t, 'QB'); c.extra = 'coach'; c.x = sx + face * 0.6; c.z = 57; c.fx = face; c.fz = 0; c.taunt = { kind: 'cross', t: 0, T: 1e9 };
+      E.push(c);
+      for (let i = 0; i < 3; i++) {
+        const q = blzMake(t, 'CB1'); q.extra = 'cheer'; q.x = sx + face * 0.2; q.z = (t === 0 ? 20 : 100) + (i - 1) * 2.4;
+        q.fx = face; q.fz = 0; q.num = i * 5 + t; q.taunt = { kind: 'jacks', t: 0, T: 1e9 };
+        E.push(q);
+      }
+    }
+    const m = blzMake(0, 'DT'); m.extra = 'mascot'; m.x = -2.9; m.z = 60; m.fx = 0; m.fz = 1; m.mstate = 'walk'; m.mT = 0;
+    E.push(m);
+  }
+  blitz.extras = E;
+}
+// their side did something: the bench jumps, the other bench sags
+function blzCheer(team, secs) {
+  for (const e of blitz.extras || []) {
+    if (e.extra === 'mascot') continue;
+    const mine = e.team === team;
+    if (e.extra === 'coach') e.taunt = { kind: mine ? 'pump' : 'palm', t: 0, T: secs || 2.2 };
+    else if (e.extra === 'cheer') e.taunt = { kind: mine ? 'hop' : 'jacks', t: 0, T: mine ? secs || 2.2 : 1e9 };
+    else e.taunt = { kind: mine ? blzPick(['hop', 'pump', 'flex', 'dance']) : 'slump', t: 0, T: (secs || 2.2) + Math.random() * 0.6 };
+  }
+  blitz.crowdJump = Math.max(blitz.crowdJump || 0, team === 0 && !blitz.auto ? 1.6 : 0.6);
+  // SIR NUGSALOT saves himself for touchdowns
+  const M = (blitz.extras || []).find((e) => e.extra === 'mascot');
+  if (M && (secs || 0) >= 3) { M.mstate = team === 0 ? 'cartwheel' : 'faceplant'; M.mT = 0; M.taunt = null; }
+}
+function blzExtrasStep(dt) {
+  const E = blitz.extras;
+  if (!E || !E.length) return;
+  for (const e of E) {
+    if (e.taunt && e.taunt.T < 1e8 && (e.taunt.t += dt) > e.taunt.T) {
+      e.taunt = e.extra === 'coach' ? { kind: 'cross', t: 0, T: 1e9 } : e.extra === 'cheer' ? { kind: 'jacks', t: 0, T: 1e9 } : null;
+    } else if (e.taunt && e.taunt.T >= 1e8) e.taunt.t += dt;
+    e.anim += dt * 0.3;
+    if (e.extra !== 'mascot') continue;
+    // SIR NUGSALOT follows the ball up and down the home sideline
+    e.mT += dt;
+    if (e.mstate === 'cartwheel') {
+      const u = Math.min(1, e.mT / 1.1);
+      e.scr = { pitch: 0, roll: u * Math.PI * 2, drop: Math.sin(u * Math.PI) * -0.3, arms: 'spread', legs: 'split' };
+      e.z += dt * 3.5;
+      if (u >= 1) { e.scr = null; e.mstate = 'dance'; e.mT = 0; e.taunt = { kind: 'dance', t: 0, T: 1.6 }; }
+      continue;
+    }
+    if (e.mstate === 'faceplant') {
+      const u = Math.min(1, e.mT / 0.45);
+      e.scr = { pitch: 1.5 * u, roll: 0, drop: 0.55 * u, arms: 'spread', legs: null };
+      if (e.mT > 1.8) { e.scr = null; e.mstate = 'walk'; e.mT = 0; }
+      continue;
+    }
+    if (e.mstate === 'dance' && e.mT > 1.6) e.mstate = 'walk';
+    const focus = blitz.carrier ? blitz.carrier.z : blitz.ball ? blitz.ball.z : blitz.los;
+    const tz = blzClamp(focus, 14, 106), dz = tz - e.z;
+    const sp = Math.abs(dz) > 1.2 ? Math.min(5.5, Math.abs(dz) * 1.4) : 0;
+    e.vz = Math.sign(dz) * sp; e.vx = 0; e.z += e.vz * dt;
+    if (sp > 0.6) { e.fx = 0; e.fz = Math.sign(dz); e.anim += sp * dt * 1.5; }
+    else { e.fx = 1; e.fz = 0; if (!e.taunt && Math.random() < dt * 0.4) e.taunt = { kind: blzPick(['wiggle', 'beckon', 'dance', 'flex']), t: 0, T: 1.4 }; }
+  }
+  if (blitz.crowdJump > 0) blitz.crowdJump -= dt * 0.6;
+}
+
+// fireworks over the end zone + the flashbulbs + the wave
+function blzFireworks(team, endZ) {
+  const T = blzTeam(team), cols = [T.c1, T.c2, '#ffffff', '#ffd23a'];
+  const fw = blitz.fw || (blitz.fw = []);
+  for (let i = 0; i < 7; i++) {
+    fw.push({ k: 'rocket', x: blzRnd(4, BLZ_WID - 4), y: 2, z: endZ, vy: blzRnd(20, 27), fuse: blzRnd(0.75, 1.2), t: -i * 0.18, col: blzPick(cols) });
+  }
+  blzSfx('kick');
+}
+function blzCrowdFxStep(dt) {
+  const fw = blitz.fw;
+  if (fw && fw.length) {
+    for (const f of fw) {
+      f.t += dt;
+      if (f.t < 0) continue;
+      if (f.k === 'rocket') {
+        f.y += f.vy * dt; f.vy -= 6 * dt;
+        if (f.t > f.fuse) {
+          f.dead = true;
+          for (let i = 0; i < 42; i++) {
+            const a = Math.random() * Math.PI * 2, b = Math.acos(2 * Math.random() - 1), sp = blzRnd(6, 11);
+            fw.push({ k: 'spark', x: f.x, y: f.y, z: f.z, vx: Math.sin(b) * Math.cos(a) * sp, vy: Math.cos(b) * sp, vz: Math.sin(b) * Math.sin(a) * sp, t: 0, T: blzRnd(1.0, 1.6), col: f.col });
+          }
+        }
+      } else {
+        f.x += f.vx * dt; f.y += f.vy * dt; f.z += f.vz * dt; f.vy -= 7 * dt; f.vx *= 1 - dt * 0.9; f.vz *= 1 - dt * 0.9;
+        if (f.t > f.T) f.dead = true;
+      }
+    }
+    blitz.fw = fw.filter((f) => !f.dead);
+  }
+  // flashbulbs pop in the stands while something's happening
+  if (blitz.flashT > 0) {
+    const fl = blitz.bulbs || (blitz.bulbs = []);
+    const c = blitz.cam, n = Math.random() < dt * 40 * Math.min(1, blitz.flashT) ? 2 : 0;
+    for (let i = 0; i < n; i++) {
+      const side = Math.random() < 0.5 ? -1 : 1, u = blzRnd(0.05, 0.95);
+      const x = side < 0 ? -4.6 - (0.4 + 16.1 * u) : BLZ_WID + 4.6 + (0.4 + 16.1 * u);
+      fl.push({ x, y: 1.6 + 10.8 * u, z: c.z + c.cyw * blzRnd(8, 85) + c.syw * blzRnd(-10, 10), t: 0 });
+    }
+  }
+  if (blitz.bulbs && blitz.bulbs.length) { for (const b of blitz.bulbs) b.t += dt; blitz.bulbs = blitz.bulbs.filter((b) => b.t < 0.14); }
+  // the wave: one lap of the stands
+  if (blitz.wave) { blitz.wave.z += dt * 24; if (blitz.wave.z > 132) blitz.wave = null; }
+}
+function blzDrawCrowdFx(g, W, H) {
+  if (blitz.bulbs) for (const b of blitz.bulbs) {
+    const P = blzProj(b.x, b.y, b.z);
+    if (!P) continue;
+    const a = 1 - b.t / 0.14, r = Math.max(1.5, Math.min(5, P.k * 0.5));
+    g.globalAlpha = a; g.fillStyle = '#ffffff';
+    g.fillRect(P.x - r * 1.6, P.y - 0.6, r * 3.2, 1.2); g.fillRect(P.x - 0.6, P.y - r * 1.6, 1.2, r * 3.2);
+    g.beginPath(); g.arc(P.x, P.y, r * 0.6, 0, 7); g.fill();
+  }
+  if (blitz.fw) {
+    g.save(); g.globalCompositeOperation = 'lighter';
+    for (const f of blitz.fw) {
+      if (f.t < 0) continue;
+      const P = blzProj(f.x, f.y, f.z);
+      if (!P) continue;
+      if (f.k === 'rocket') { g.globalAlpha = 0.9; g.fillStyle = '#fff2c0'; g.beginPath(); g.arc(P.x, P.y, Math.max(2, P.k * 0.4), 0, 7); g.fill(); continue; }
+      const a = Math.max(0, 1 - f.t / f.T), r = Math.max(2.2, P.k * 0.55) * (0.6 + a * 0.6);
+      g.globalAlpha = a * 0.5; g.fillStyle = f.col; g.beginPath(); g.arc(P.x, P.y, r * 2.2, 0, 7); g.fill();
+      g.globalAlpha = a; g.beginPath(); g.arc(P.x, P.y, r, 0, 7); g.fill();
+    }
+    g.restore();
+  }
+  g.globalAlpha = 1;
+}
+
+// ---- 📺 INSTANT REPLAY + THE CELEBRATIONS ---------------------------------------------------------
+// The booth rolls the tape on touchdowns and the biggest hits: the last few
+// seconds again, from a low sideline camera, slow through the moment, with the
+// TV chrome. Any button skips it. (Recorded at 30 Hz: a shallow copy of every
+// field the renderer reads, so a replay frame draws exactly like a live one.)
+const BLZ_REC_KEYS = ['x', 'y', 'z', 'fx', 'fz', 'vx', 'vz', 'anim', 'downT', 'diveT', 'jumpT', 'air', 'flipA', 'lieBack', 'celebT', 'celebKind',
+  'throwT', 'secureT', 'catchT', 'reachOne', 'turboOn', 'spinT', 'stiffT', 'showboat', 'team', 'pos', 'num', 'name', 'taunt', 'role'];
+function blzRec() {
+  if (blitz.auto || blitz.noReplay) return;
+  const ph = blitz.phase;
+  if (ph !== 'live' && ph !== 'dead') return;
+  blitz.recOdd = !blitz.recOdd;
+  if (blitz.recOdd) return;
+  const players = blitz.players;
+  const P = players.map((p) => {
+    const o = {};
+    for (const k of BLZ_REC_KEYS) o[k] = p[k];
+    o.eng = !!p.eng; o.scr = p.scr ? Object.assign({}, p.scr) : null; o.reach = p.reach ? p.reach.slice() : null;
+    if (p.taunt) o.taunt = Object.assign({}, p.taunt);
+    return o;
+  });
+  const B = blitz.ball ? Object.assign({}, blitz.ball) : null;
+  if (B && B.from) B.from = P[players.indexOf(B.from)] || null;
+  const rec = blitz.rec || (blitz.rec = []);
+  rec.push({ P, ci: players.indexOf(blitz.carrier), B, phase: ph, pocket: blitz.pocket, kind: blitz.kind, t: blitz.t });
+  if (rec.length > 240) rec.shift();
+}
+function blzWantReplay() {
+  const W = blitz.replayWant;
+  return !!(W && !blitz.auto && !blitz.noReplay && blitz.rec && blitz.rec.length > 30);
+}
+function blzStartReplay(then) {
+  const W = blitz.replayWant, F = blitz.rec.slice();
+  blitz.replayWant = null; blitz.playsSinceReplay = 0;
+  let mt = F.length - 1, bd = 1e9;
+  F.forEach((f, i) => { const d = Math.abs(f.t - W.t); if (d < bd) { bd = d; mt = i; } });
+  const i0 = Math.max(0, mt - 90), i1 = Math.min(F.length - 1, mt + (W.why === 'td' ? 50 : 36));
+  const at = F[mt], C = at.ci >= 0 ? at.P[at.ci] : null, team = C ? C.team : blitz.poss;
+  blitz.replay = { F, i: i0, i0, i1, mt, why: W.why, then, side: blzDir(team) > 0 ? -1 : 1, fx: 0, fz: 0, init: false, T: 0 };
+  blitz.phase = 'replay';
+  blzSfx('select');
+}
+function blzReplayStep(dt) {
+  const R = blitz.replay;
+  R.T += dt;
+  const near = Math.abs(R.i - R.mt) < 16;
+  R.i += dt * 30 * (near ? 0.38 : 1.0);
+  const f = R.F[Math.min(R.i1, Math.floor(R.i))];
+  const C = f.ci >= 0 ? f.P[f.ci] : null, B = f.B;
+  const tx = C ? C.x : B ? B.x : BLZ_MID, tz = C ? C.z : B ? B.z : blitz.los;
+  if (!R.init) { R.fx = tx; R.fz = tz; R.init = true; }
+  R.fx += (tx - R.fx) * Math.min(1, dt * 4); R.fz += (tz - R.fz) * Math.min(1, dt * 4);
+  if (R.i >= R.i1) blzEndReplay();
+}
+function blzEndReplay() {
+  const R = blitz.replay;
+  if (!R) return;
+  blitz.replay = null;
+  blitz.phase = 'dead';
+  if (R.then) R.then();
+}
+function blzDrawReplay(g, W, H) {
+  const R = blitz.replay, f = R.F[Math.min(R.i1, Math.max(0, Math.floor(R.i)))];
+  const keep = { players: blitz.players, carrier: blitz.carrier, ball: blitz.ball, phase: blitz.phase, pocket: blitz.pocket, kind: blitz.kind,
+    ctl: blitz.ctl, t: blitz.t, parts: blitz.parts, rcv: blitz.rcv, bubbles: blitz.bubbles, cam: Object.assign({}, blitz.cam) };
+  blitz.players = f.P; blitz.carrier = f.ci >= 0 ? f.P[f.ci] : null; blitz.ball = f.B;
+  blitz.phase = f.phase; blitz.pocket = f.pocket; blitz.kind = f.kind; blitz.ctl = null; blitz.t = f.t;
+  blitz.parts = []; blitz.rcv = null; blitz.bubbles = [];
+  // a low camera on the sideline, the play running left to right, drifting as it goes
+  const c = blitz.cam, u = (R.i - R.i0) / Math.max(1, R.i1 - R.i0);
+  c.yaw = R.side * Math.PI / 2 + (u - 0.5) * 0.5 * -R.side; c.h = 3.4; c.pitch = 0.15; c.back = 13; blzCamTrig(c);
+  c.x = R.fx - c.syw * c.back; c.z = R.fz - c.cyw * c.back;
+  if (blitz.gl && blzGLRender(0, 0)) g.clearRect(0, 0, W, H);
+  else blzDrawWorld(g, W, H);
+  Object.assign(blitz, { players: keep.players, carrier: keep.carrier, ball: keep.ball, phase: keep.phase, pocket: keep.pocket, kind: keep.kind,
+    ctl: keep.ctl, t: keep.t, parts: keep.parts, rcv: keep.rcv, bubbles: keep.bubbles });
+  Object.assign(blitz.cam, keep.cam);
+  // the TV chrome
+  const bar = Math.round(H * 0.08);
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, bar); g.fillRect(0, H - bar, W, bar);
+  g.fillStyle = 'rgba(0,0,0,0.12)'; for (let y = bar; y < H - bar; y += 3) g.fillRect(0, y, W, 1);
+  const near = Math.abs(R.i - R.mt) < 16;
+  blzChrome(g, 14, bar + 10, 132, 24, 0, 'rgba(160,20,20,0.9)');
+  blzText(g, '● INSTANT REPLAY', 22, bar + 23, 12, ((blitz.t * 2) | 0) % 2 ? '#ffffff' : '#ffd0d0');
+  const lab = { td: 'TOUCHDOWN', hit: 'MONSTER HIT', spinebuster: 'SPINEBUSTER', suplex: 'GERMAN SUPLEX', clothesline: 'CLOTHESLINE', spear: 'SPEARED', fling: 'SPUN AND FLUNG' }[R.why] || '';
+  if (lab) blzText(g, lab + (near ? '  · SLO-MO' : ''), W - 18, bar + 23, 12, '#ffe23a', 'right');
+  blzTextC(g, 'ANY BUTTON TO SKIP', W / 2, H - bar / 2, 9, '#8a92b0');
+}
+
+// the scorer's moment: X SPIKE · A DANCE · B BACKFLIP · Y FLEX (the CPU picks its own)
+function blzCelebrate(p, kind) {
+  if (!p || blitz.celebDone) return;
+  blitz.celebDone = true;
+  blzEv('celeb');
+  const B = blitz.ball;
+  if (kind === 'spike') {
+    if (B && B.st === 'held' && blitz.carrier === p) {
+      B.st = 'spike'; B.x = p.x + p.fx * 0.5; B.z = p.z + p.fz * 0.5; B.y = 1.4; B.vx = p.fx * 2; B.vz = p.fz * 2; B.vy = -19;
+    }
+    p.throwT = 0.4; blzSfx('hit'); blzFeed('SPIKE!', '#ffe23a');
+  } else if (kind === 'dance') {
+    p.celebT = 2.6; p.celebKind = ((p.celebKind == null ? -1 : p.celebKind) + 1) % 3; blzFeed('DANCE!', '#ffe23a');
+  } else if (kind === 'flip') {
+    p.air = true; p.backflip = true; p.vy = 9.5; p.y = 0.05; p.flipA = 0; p.flipV = -Math.PI * 2 / 0.79; p.vx = 0; p.vz = 0; p.downT = 0;
+    blzFeed('BACKFLIP!', '#ffe23a');
+  } else {
+    p.taunt = { kind: blzPick(['flex', 'roar', 'chest']), t: 0, T: 2.2 }; blzFeed('FLEX!', '#ffe23a');
+  }
+  blzRoar(1, 1.6); blzCrowdSay('yeah');
+  if (Math.random() < 0.4) blzSpeak(blzPick(['LOOK AT THIS!', 'OH, HE IS FEELING IT!', 'CELEBRATION TIME!', 'GET A PICTURE OF THIS!']), { who: 'color', prio: 0, maxAge: 2 });
+}
+
+// ---- 🗣️ THE LINE: the snap count, the taunts, the trash talk ----------------------------------
+// "Add taunting during the hiking. Add flavor there." — Chris. The QB barks his
+// cadence (every team has its own word), both sides talk trash in comic
+// bubbles with the whole body selling it, TURBO before the snap is YOUR taunt
+// (it feeds the HYPE meter — twice a down — and the crowd eats it up), and the
+// home crowd chants DE-FENSE when the other side has the ball.
+function blzBubble(p, text, o) {
+  o = o || {};
+  blitz.bubbles = blitz.bubbles.filter((b) => b.p !== p);
+  if (blitz.bubbles.length >= 3) blitz.bubbles.shift();
+  blitz.bubbles.push({ p, text, t: 0, T: o.T || 1.5, col: o.col || '#ffffff', big: !!o.big });
+}
+function blzTauntAnim(p, kind, T) { p.taunt = { kind: kind || blzPick(BLZ_TAUNTS), t: 0, T: T || 1.3 }; }
+function blzFlavor(team) { return BLZ_FLAVOR[blitz.teams[team]] || BLZ_FLAVOR.nugs; }
+function blzTrashLine(team) { return Math.random() < 0.55 ? blzPick(blzFlavor(team).lines) : blzPick(BLZ_TRASH); }
+function blzPreStart() {
+  const off = blitz.poss;
+  blitz.cad = { word: blzFlavor(off).cad, num: 10 + ((Math.random() * 89) | 0), i: 0, next: 0.3 };
+  blitz.tauntNext = blzRnd(0.45, 0.8);
+  blitz.tauntsDown = [0, 0];
+  blitz.chargeSaid = false; blitz.answer = null;
+  blitz.hot = null;
+}
+function blzTauntHype(team) {
+  const human = blzHuman(team);
+  if (blitz.tauntsDown[team] >= (human ? 2 : 1)) return;
+  blitz.tauntsDown[team]++;
+  blzHype(team, human ? 0.035 : 0.01, null, 'taunt');
+}
+function blzPreStep(dt) {
+  const off = blitz.poss, t = blitz.playT, qb = blzByPos(off, 'QB'), C = blitz.cad;
+  // the cadence (a fake has a punter back there — he calls it all the same)
+  if (C && qb && t >= C.next && blitz.kind !== 'kick') {
+    const set = C.i % 3 === 2, line = set ? 'SET!' : C.word + ' ' + C.num + '!';
+    blzBubble(qb, line, { T: set ? 0.8 : 0.75, col: '#fff3c0' });
+    blzSpeak(line.replace('!', ''), { who: 'qb', prio: 1, maxAge: 0.7 });
+    C.i++;
+    C.next = t + (C.i % 3 === 0 ? 1.5 : 0.65);
+  }
+  // somebody answers your taunt
+  if (blitz.answer && t >= blitz.answer.at) {
+    const o = blitz.answer.p; blitz.answer = null;
+    if (o && o.downT <= 0) { blzTauntAnim(o); blzBubble(o, blzTrashLine(o.team), { T: 1.4 }); blzTauntHype(o.team); }
+  }
+  // trash talk from both sides
+  if (t >= blitz.tauntNext) {
+    blitz.tauntNext = t + blzRnd(0.55, 1.05);
+    const pool = blitz.players.filter((p) => p !== blitz.ctl && p.pos !== 'QB' && p.downT <= 0 && !p.scr && !p.taunt);
+    if (pool.length) {
+      const p = blzPick(pool);
+      if (!/^(C|LG|RG|DE1|DT|DE2)$/.test(p.pos)) blzTauntAnim(p);
+      const line = blzTrashLine(p.team);
+      blzBubble(p, line, { T: 1.4 });
+      if (Math.random() < 0.18) blzSpeak(line, { who: 'player', prio: 0, maxAge: 0.8 });
+      if (!blzHuman(p.team)) blzTauntHype(p.team);
+      blzEv('trash');
+    }
+  }
+  // the stadium: CHARGE! for the home defense on a big down
+  if (!blitz.chargeSaid && blzHuman(1 - off) && blitz.down >= 3 && t > 0.25 && !blitz.auto) { blitz.chargeSaid = true; blzSting('charge'); }
+}
+// TURBO before the snap: your man taunts
+function blzHumanTaunt() {
+  const me = blitz.ctl;
+  if (!me || blitz.tauntCd > 0 || me.downT > 0 || me.scr) return;
+  blitz.tauntCd = 0.75;
+  const kind = me.pos === 'QB' && me.team === blitz.poss ? blzPick(['point', 'beckon', 'flex']) : blzPick(BLZ_TAUNTS);
+  blzTauntAnim(me, kind, 1.2);
+  const line = blzTrashLine(me.team);
+  blzBubble(me, line, { T: 1.6, col: '#ffe23a', big: true });
+  blzSpeak(line, { who: 'player', prio: 1, maxAge: 1.2 });
+  blzRoar(0.45, 0.8);
+  blzCrowdSay(Math.random() < 0.5 ? 'yeah' : 'oooh');
+  blzTauntHype(me.team);
+  blzEv('taunt');
+  if (Math.random() < 0.35) blzColor(BLZ_COLOR.taunt, 1);
+  // and they talk back
+  const opp = blitz.players.filter((p) => p.team !== me.team && p.pos !== 'QB' && !/^(C|LG|RG)$/.test(p.pos));
+  if (opp.length && Math.random() < 0.75) blitz.answer = { p: blzPick(opp), at: blitz.playT + 0.55 };
+}
+// the call screen gets the booth talking about the situation
+function blzPreCall() {
+  if (blitz.pat2 || blitz.kind === 'kick') return;
+  const off = blitz.poss, togo = Math.abs(blitz.firstAt - blitz.los), toGoal = Math.abs(blzGoal(off) - blitz.los);
+  if (blitz.q >= 4 && blitz.clock < BLZ_QLEN * 0.5 && !blitz.lateSaid) { blitz.lateSaid = true; blzPBP(BLZ_PBP.late, 1, 5); return; }
+  if (blitz.down === 4) { blzPBP(BLZ_PBP.fourth, 1, 5); return; }
+  if (blitz.down === 3) { blzPBP(togo > 15 ? BLZ_PBP.thirdLong : BLZ_PBP.third, 0, 5); return; }
+  if (blitz.firstAt === blzGoal(off) && blitz.down === 1) { blzPBP(BLZ_PBP.goal, 0, 5); return; }
+  if (toGoal < 20 && Math.random() < 0.5) blzPBP(BLZ_PBP.red, 0, 5);
+}
+// ---- 🏈 PLAY ART + HOT ROUTES (Madden) ---------------------------------------------------------
+// Your routes are painted on the turf before the snap, in each receiver's
+// button colour. Y (I on a keyboard), his button, then a direction re-routes
+// him: ↑ GO · ↓ CURL · toward the ball SLANT · toward the sideline OUT. On a
+// touchscreen, tapping a receiver's icon before the snap cycles his route.
+const BLZ_HOT = { go: 'GO', curl: 'CURL', slant: 'SLANT', out: 'OUT' };
+function blzHotRoute(r, kind) {
+  const d = blzDir(r.team), x0 = r.rs ? r.rs[0] : r.x, z0 = r.rs ? r.rs[1] : r.z;
+  const mid = Math.sign(blitz.ballX - x0) || 1, side = -mid;
+  const P = (dx, dz) => [blzClamp(x0 + dx, 1.5, BLZ_WID - 1.5), z0 + dz * d];
+  let pts = null;
+  if (kind === 'go') pts = [P(side * 0.6, 6), P(side * 1.2, 46)];
+  else if (kind === 'curl') pts = [P(0, 12.5), P(mid * 1.3, 9.8)];
+  else if (kind === 'slant') pts = [P(0, 2.5), P(mid * 8, 10), P(mid * 17, 19)];
+  else if (kind === 'out') pts = [P(0, 7), P(side * 10, 7.6)];
+  if (!pts) { r.route = r.route0; r.hotKind = ''; }
+  else { r.route = pts; r.hotKind = BLZ_HOT[kind]; }
+  r.ri = 0; r.block = !r.route; r.runBlock = false;
+  blzBubble(r, (r.hotKind || 'AS CALLED') + '!', { T: 1.0, col: '#fff3c0' });
+  blzSfx('select');
+  blzEv('hot');
+  blitz.artKey = '';
+}
+function blzHotDir(dir) {
+  const H = blitz.hot;
+  if (!H || H.stage !== 'dir' || !H.r) return false;
+  const r = H.r;
+  if (dir === 'U') blzHotRoute(r, 'go');
+  else if (dir === 'D') blzHotRoute(r, 'curl');
+  else {
+    // screen right is +x when the camera looks down +z
+    const scr = (dir === 'R' ? 1 : -1) * blitz.cam.dir, mid = Math.sign(blitz.ballX - (r.rs ? r.rs[0] : r.x)) || 1;
+    blzHotRoute(r, scr === mid ? 'slant' : 'out');
+  }
+  blitz.hot = null;
+  return true;
+}
+const BLZ_HOT_CYCLE = ['go', 'slant', 'out', 'curl', ''];
+function blzHotCycle(r) {
+  const cur = Object.keys(BLZ_HOT).find((k) => BLZ_HOT[k] === r.hotKind) || '';
+  const i = BLZ_HOT_CYCLE.indexOf(cur);
+  blzHotRoute(r, BLZ_HOT_CYCLE[(i + 1) % BLZ_HOT_CYCLE.length]);
+}
+// the ribbons: [{ col, pts }] for whatever the human offense is about to run
+function blzRouteArt() {
+  const ph = blitz.phase, off = blitz.poss;
+  if (!blzHuman(off) || !blitz.rcv || (blitz.kind !== 'pass' && blitz.kind !== 'run')) return null;
+  const fresh = ph === 'live' && blitz.pocket && blitz.playT < 0.7;
+  if (ph !== 'pre' && !fresh) return null;
+  const out = [];
+  for (const btn of ['X', 'A', 'B']) {
+    const r = blitz.rcv[btn];
+    if (!r || !r.route || !r.route.length) continue;
+    const pts = [r.rs ? r.rs.slice() : [r.x, r.z]];
+    for (const w of r.route) pts.push([w[0], w[1]]);
+    const a = pts[pts.length - 2], b = pts[pts.length - 1];
+    const dx = b[0] - a[0], dz = b[1] - a[1], m = Math.hypot(dx, dz) || 1;
+    // a curl stops where it stops; everything else keeps going
+    if ((dz * blzDir(off)) > -0.5) pts.push([blzClamp(b[0] + dx / m * 5, 0.5, BLZ_WID - 0.5), b[1] + dz / m * 5]);
+    out.push({ col: blitz.kind === 'run' && r.pos === 'RB' ? '#ff9a3a' : BLZ_BTN_COL[btn], pts, a: fresh ? 1 - blitz.playT / 0.7 : 1 });
+  }
+  return out;
+}
+
+// is somebody about to hit him (hurdle) or is it open field (showboat)?
+function blzThreatAhead(C, r) {
+  for (const q of blitz.players) {
+    if (q.team === C.team || q.downT > 0) continue;
+    const dx = q.x - C.x, dz = q.z - C.z, d = Math.hypot(dx, dz);
+    if (d < r && (dx * C.fx + dz * C.fz) / (d || 1) > -0.3) return true;
+  }
+  return false;
+}
+
 // THE RECEIVER BUTTONS (Madden-style): every eligible man gets a button by where
 // he lines up — the outside man on the LEFT is X, on the RIGHT is B, whoever is
 // in between (the back, the slot) is A. On a keyboard the IJKL cluster is the
@@ -763,6 +1241,9 @@ function blzBtnLabel(btn) { return blitz.inputMode === 'pad' || blitz.inputMode 
 
 function blzSnap() {
   const off = blitz.poss;
+  blitz.hot = null;
+  blitz.playsSinceReplay = (blitz.playsSinceReplay || 0) + 1;
+  for (const t of [0, 1]) if (!blzOnFire(t)) blitz.hype[t] = Math.max(0, blitz.hype[t] - 0.055);
   blitz.phase = 'live';
   blitz.playT = 0; blitz.thrown = false; blitz.handed = false;
   blitz.startZ = blitz.los;
@@ -772,6 +1253,10 @@ function blzSnap() {
   blitz.qbPatience = blzRnd(0.75, 1.45);
   blitz.saidPress = false;
   blitz.nextRead = 0.85;
+  for (const p of blitz.players) p.taunt = null;
+  blitz.bubbles = blitz.bubbles.filter((b) => b.p === qb);
+  if (qb) blzBubble(qb, 'HUT!', { T: 0.6, col: '#fff3c0', big: true });
+  blzSpeak('hut!', { who: 'qb', prio: 2, maxAge: 0.5 });
   if (blitz.play && blitz.play.fake) {
     blzBanner(blitz.play.name + '!', '#ff8a3a', '', 1.2);
     blzSay(blitz.play.fake === 'punt' ? 'fake punt!' : 'it\'s a fake!', true);
@@ -905,16 +1390,30 @@ function blzPressPass() {
 function blzBtnDown(btn, src) {
   if (src) blitz.inputMode = src;
   const ph = blitz.phase;
+  if (ph === 'replay') { blzEndReplay(); return; }
   if (ph === 'vs') { if (btn === 'SP' || btn === 'A') blzCodeTap(2); else if (btn === 'Y') blzCodeTap(1); return; }
   if (ph === 'teams' || ph === 'call' || ph === 'pat' || ph === 'final') { if (btn === 'SP' || btn === 'A') blzPressPass(); return; }
   if (ph === 'pre') {
     const off = blitz.poss;
-    if (blzHuman(off) && (btn === 'SP' || btn === 'A')) blzSnap();
-    else if (blzHuman(1 - off) && (btn === 'SP' || btn === 'B')) blzSwitchDefender();
+    if (blzHuman(off)) {
+      const H = blitz.hot, recv = btn === 'X' || btn === 'A' || btn === 'B';
+      // touch: tapping a receiver's icon cycles his route
+      if ((src === 'touch' || src === 'mouse') && recv && blitz.rcv && blitz.rcv[btn]) { blzHotCycle(blitz.rcv[btn]); return; }
+      if (btn === 'Y' && (blitz.kind === 'pass' || blitz.kind === 'run')) { blitz.hot = H ? null : { stage: 'pick' }; blzSfx('select'); return; }
+      if (H && H.stage === 'pick' && recv && blitz.rcv && blitz.rcv[btn]) {
+        blitz.hot = { stage: 'dir', r: blitz.rcv[btn] }; blzBubble(blitz.rcv[btn], 'WHICH WAY?', { T: 2.5, col: '#fff3c0' }); blzSfx('select'); return;
+      }
+      if (H) { if (btn === 'SP') { blitz.hot = null; blzSnap(); } return; }
+      if (btn === 'SP' || btn === 'A') blzSnap();
+    } else if (blzHuman(1 - off) && (btn === 'SP' || btn === 'B')) blzSwitchDefender();
     return;
   }
   if (ph === 'dead' || ph === 'wait') {
-    const me = blitz.ctl;
+    const me = blitz.ctl, D = blitz.dead;
+    if (ph === 'dead' && D && D.type === 'td' && D.who && blzHuman(D.who.team) && !blitz.celebDone) {
+      const k = { X: 'spike', A: 'dance', B: 'flip', Y: 'flex', SP: 'dance' }[btn];
+      if (k) { blzCelebrate(D.who, k); return; }
+    }
     if (me) { if (btn === 'Y') blzElbowDrop(me); else blzLateHit(me); }
     return;
   }
@@ -927,7 +1426,17 @@ function blzBtnDown(btn, src) {
   if (!me) return;
   if (btn === 'SP') { blzPressPass(); return; }
   const pocketQB = me === C && blitz.pocket && me.pos === 'QB' && blitz.kind === 'pass' && !blitz.thrown;
-  if (btn === 'Y') { if (pocketQB) blzPumpFake(me); else blzPressJump(); return; }
+  if (btn === 'Y') {
+    if (pocketQB) { blzPumpFake(me); return; }
+    // with the ball in the open field, Y is SHOWBOAT (NFL Street's style button): slower,
+    // fumble-prone, and it pours HYPE in; with a man in your face it's still the hurdle
+    if (me === C && C.downT <= 0 && !C.air && !blzThreatAhead(C, 4.5)) {
+      C.showboatH = !C.showboatH;
+      if (C.showboatH) { blzFeed('SHOWBOATING!', '#ffcf8a'); blzRoar(0.6, 1); if (Math.random() < 0.6) blzColor(BLZ_COLOR.showboat, 1); }
+      return;
+    }
+    blzPressJump(); return;
+  }
   if (pocketQB) {
     const r = blitz.rcv && blitz.rcv[btn];
     if (!r || r.downT > 0) return;
@@ -1176,6 +1685,12 @@ function blzFumble(C, by) {
 function blzBallUpdate(dt) {
   const B = blitz.ball;
   if (!B) return;
+  if (B.st === 'spike') {
+    B.vy -= 22 * dt; B.y += B.vy * dt;
+    if (B.y < 0.15) { B.y = 0.15; B.vy = Math.abs(B.vy) * 0.7; B.vx *= 0.75; B.vz *= 0.75; if (B.vy > 3) blzSfx('kick'); }
+    B.x += B.vx * dt; B.z += B.vz * dt;
+    return;
+  }
   if (B.st === 'held') {
     const C = blitz.carrier;
     if (C) { B.x = C.x + C.fx * 0.35; B.z = C.z + C.fz * 0.35; B.y = 1.2 + C.y; }
@@ -1224,12 +1739,15 @@ function blzGiveBall(p, how) {
   const B = blitz.ball, prev = B.lastTeam;
   B.st = 'held'; B.kind = '';
   p.secureT = 0.35; p.reach = null;
+  // a new carrier far from paydirt arms the breakaway countdown
+  blitz.countdown = (blzGoal(p.team) - p.z) * blzDir(p.team) > 34 ? 99 : 0;
   blitz.carrier = p; blitz.pocket = false; blitz.target = null;
   if (blzHuman(p.team)) blitz.ctl = p;
   else if (blitz.ctl && blzHuman(1 - p.team)) blitz.ctl = blzNearestTo(1 - p.team, p, (q) => q.downT <= 0) || blitz.ctl;
   if (how === 'recover' && prev != null && prev !== p.team) {
     blzFeed(blzTeam(p.team).name + ' RECOVER!', '#ffd23a');
     if (blzHuman(p.team)) blzEarn(8, 'FUMBLE RECOVERY');
+    blzHype(p.team, 0.15, null, 'recover');
   }
   // a ball caught behind your own goal line can be downed for a touchback
   blitz.ezCatch = (p.z - blzOwnGoal(p.team)) * blzDir(p.team) < 0;
@@ -1256,7 +1774,11 @@ function blzCatchResolve() {
   }
   if (off) dO = Math.hypot(off.x - B.x, off.z - B.z);
   const oIn = !!off && dO <= reachO(off), dIn = !!def && dD <= reachD(def);
-  const done = (txt) => { blzFeed(txt, '#bfc6ff'); blzWhistle('inc', {}); };
+  const done = (txt) => {
+    blzFeed(txt, '#bfc6ff'); blzWhistle('inc', {});
+    if (txt === 'DROPPED') blzColor(BLZ_COLOR.drop, 0.7); else if (Math.random() < 0.35) blzPBP(BLZ_PBP.incomplete, 0, 1.5);
+    if (blzHuman(team)) blzCrowdSay('aww');
+  };
   if (!oIn && !dIn) { done('INCOMPLETE'); return; }
   const fire = blzOnFire(team);
   if (dIn && (!oIn || dD + 0.35 < dO)) {
@@ -1309,9 +1831,14 @@ function blzCaught(r) {
   blzEv('comp' + r.team);
   blzGiveBall(r, 'catch');
   const team = r.team, F = blitz.fire[team];
-  if (F.last === r.pos) F.n++; else { F.last = r.pos; F.n = 1; }
-  if (!F.on && F.n >= 3) blzIgnite(team, r);
+  const same = F.last === r.pos;
+  if (same) F.n++; else { F.last = r.pos; F.n = 1; }
+  // the same man three times running still sets him alight, like the cart
+  blzHype(team, 0.04 + (same ? 0.11 : 0) + (r.diveT > 0 ? 0.06 : 0), r, 'catch');
   blitz.fire[1 - team].stops = 0;
+  const B = blitz.ball, far = B && B.x0 != null ? Math.hypot(B.x0 - r.x, B.z0 - r.z) : 0;
+  if (r.diveT > 0) blzColor(BLZ_COLOR.dive, 0.7);
+  else if (far > 18) { blzColor(BLZ_COLOR.grab, 0.55); if (Math.random() < 0.4) blzSpeak(r.name.split(' ').slice(-1)[0] + '!', { who: 'pbp', prio: 1, maxAge: 1 }); }
 }
 function blzPick6(def) {
   blzEv('int' + def.team);
@@ -1322,22 +1849,50 @@ function blzPick6(def) {
   blzRoar(1, 2);
   if (blzHuman(def.team)) blzEarn(10, 'INTERCEPTION');
   blitz.fire[1 - def.team].n = 0;
+  blzHype(def.team, 0.25, null, 'int');
+  blzSting('int'); blzColor(BLZ_COLOR.int, 0.6);
+  blzCheer(def.team, 2.2);
+  blzCrowdSay(blzHuman(def.team) ? 'yeah' : 'aww');
 }
 
+// HYPE (NBA Jam's heating-up, NFL Street's style points, Blitz: The League's
+// unleash): every big play, hit, stop, taunt and showboat fills it; full = ON
+// FIRE. The other side scoring empties it. A fumble while showboating empties it too.
+function blzHype(team, amt, who, src) {
+  if (!amt || blitz.phase === 'final' || !blitz.stats) return;
+  if (blzOnFire(team) && amt > 0) return;
+  if (src) { const H = blitz.stats.hy || (blitz.stats.hy = {}); H[src] = (H[src] || 0) + amt; }
+  const h0 = blitz.hype[team];
+  const h = blitz.hype[team] = blzClamp(h0 + amt, 0, 1);
+  if (h < 0.4) blitz.heatSaid[team] = false;
+  if (h0 < 0.6 && h >= 0.6 && h < 1 && !blitz.heatSaid[team]) {
+    blitz.heatSaid[team] = true;
+    const off = who && BLZ_ELIG[who.pos];
+    blzPBP(off ? BLZ_CALLS.heat : BLZ_CALLS.dheat, 1);
+    blzSting('heat');
+    if (blzHuman(team)) blzFeed((off ? who.name.split(' ').slice(-1)[0] + ' IS' : 'D IS') + ' HEATING UP', '#ff9a3a');
+  }
+  if (h >= 1 && !blzOnFire(team)) blzIgnite(team, who);
+}
 function blzIgnite(team, who) {
   const F = blitz.fire[team];
   F.on = true; F.plays = 0;
+  blitz.hype[team] = 1;
+  blzEv('fire' + team);
   blitz.stats && blzHuman(team) && blitz.stats.fires++;
   const off = who && BLZ_ELIG[who.pos];
   blzBanner(off ? "HE'S ON FIRE!" : 'DEFENSE ON FIRE!', '#ff6a1a', off ? who.name : 'UNLIMITED TURBO', 1.8);
   blzSay(off ? BLZ_CALLS.fire[0] : BLZ_CALLS.dfire[0], true);
-  blzSfx('fire'); blzRoar(1, 2.5);
+  blzColor(BLZ_COLOR.fire, 0.6);
+  blzSfx('fire'); blzSting('fire'); blzRoar(1, 2.5);
+  blitz.flashT = Math.max(blitz.flashT, 1.5);
   if (blzHuman(team)) blzEarn(12, 'ON FIRE');
 }
 function blzDouse(team) {
   const F = blitz.fire[team];
   if (F.on) blzFeed(blzTeam(team).name + ' COOLED OFF', '#9aa4c8');
   F.on = false; F.n = 0; F.stops = 0; F.last = null;
+  blitz.hype[team] = 0; blitz.heatSaid[team] = false;
 }
 
 // a kick or punt comes down
@@ -1379,6 +1934,13 @@ function blzThink(p, dt) {
   const B = blitz.ball, C = blitz.carrier, ph = blitz.phase;
   if (ph === 'dead' || ph === 'wait') {
     p.wx *= 0.9; p.wz *= 0.9;
+    const Dt = blitz.dead;
+    if (Dt && Dt.type === 'td' && Dt.who && p.team === Dt.team && p !== Dt.who && ph === 'dead') {
+      const d = blzDist(p, Dt.who);
+      if (d > 1.7) { blzSeek(p, Dt.who.x, Dt.who.z, 1); p.wt = true; }
+      else if (!p.bumped) { p.bumped = true; p.jumpT = 0.62; p.celebT = 1.2; if (Dt.who.jumpT <= 0 && !Dt.who.air) Dt.who.jumpT = 0.62; }
+      return;
+    }
     // the CPU knows the whistle is just a noise
     // (one per whistle, and not every whistle — it's a spice, not the meal)
     const D = blitz.dead;
@@ -1773,9 +2335,9 @@ function blzMove(p, dt) {
     p.vy -= 24 * dt; p.y += p.vy * dt; p.flipA += p.flipV * dt;
     p.x += p.vx * dt; p.z += p.vz * dt;
     if (p.y <= 0) {
-      p.y = 0; p.air = false; p.downT = Math.max(p.downT, 1.05); p.vx *= 0.3; p.vz *= 0.3;
-      blzBurst(p.x, p.z, 0.2, 8, '#d8c8a0');
-      blzSfx('hit');
+      p.y = 0; p.air = false; p.vx *= 0.3; p.vz *= 0.3;
+      if (p.backflip) { p.backflip = false; p.flipA = 0; p.downT = 0; p.celebT = Math.max(p.celebT, 0.9); blzRoar(0.8, 1); }
+      else { p.downT = Math.max(p.downT, 1.05); blzBurst(p.x, p.z, 0.2, 8, '#d8c8a0'); blzSfx('hit'); }
     }
     return;
   }
@@ -1812,7 +2374,7 @@ function blzMove(p, dt) {
   if (p.stunT > 0) { p.stunT -= dt; sp *= 0.45; }
   if (p.spinT > 0) { p.spinT -= dt; sp *= 0.85; }
   if (p.stiffT > 0) p.stiffT -= dt;
-  if (p === blitz.carrier) sp *= p.showboat ? 0.92 : 0.95;
+  if (p === blitz.carrier) sp *= p.showboat ? 0.88 : 0.95;
   if (blitz.phase === 'dead' || blitz.phase === 'wait') sp *= human ? 0.8 : 0.4;
   // the rubber band (Blitz always had one): the CPU finds a gear when it's losing
   if (!blitz.codes.noassist && p.team === 1 && !blitz.auto) {
@@ -1952,9 +2514,11 @@ function blzTackle(C, q, big) {
   C.downT = 1.4;
   // hit from the front, he goes down on his back; from behind, on his face
   C.lieBack = (q.vx * C.fx + q.vz * C.fz) / qs < 0;
-  // fumbles happen on big hits (and the occasional blindside) — and they stay live
-  const fumP = big ? (sack ? 0.07 : 0.035) : 0.006;
+  // fumbles happen on big hits (and the occasional blindside) — and they stay live.
+  // Showboating quadruples it (and a showboat fumble costs you every bit of hype).
+  const fumP = (big ? (sack ? 0.07 : 0.035) : 0.006) * (C.showboat ? 4 : 1);
   const fumble = Math.random() < fumP && !blzOnFire(C.team);
+  if (fumble && C.showboat) { blitz.hype[C.team] = 0; blzFeed('SHOWBOATED IT AWAY!', '#ff8a3a'); blzColor(BLZ_COLOR.oops, 1); }
   const kind = fumble ? 'launch' : blzPickMove(C, q, big, sack && behind);
   if (kind === 'launch') {
     // MONSTER HIT: airborne, flipping, landing wherever physics says
@@ -1967,6 +2531,11 @@ function blzTackle(C, q, big) {
     blzBurst(C.x, C.z, 1.4, 14, '#fff6a8');
     if (blitz.stats && blzHuman(q.team)) { blitz.stats.hits++; blzEarn(2, 'MONSTER HIT'); }
     if (Math.random() < 0.5) blzSay(blzPick(BLZ_CALLS.hit));
+    blzColor(BLZ_COLOR.hit, 0.5); blzCrowdSay('oooh');
+    blzHype(q.team, 0.06, null, 'launch');
+    blitz.flashT = Math.max(blitz.flashT, 1.2);
+    blitz.slowT = 0.32;              // the hit cam: a beat of slow motion
+    if (blitz.playsSinceReplay >= 2 && Math.random() < 0.5) blitz.replayWant = { why: 'hit', t: blitz.t };
     if (q.diveT <= 0) q.stunT = 0.3;
   } else {
     // a wrestling move: both men come off the sim and the move runs the show
@@ -2223,6 +2792,12 @@ function blzMoveImpact(M) {
   if (D.banner && (!M.quiet)) blzBanner(D.banner, late ? '#ff5a3a' : '#ff8a3a', late ? 'NO FLAG' : '', 1.0);
   else if (D.feed) blzFeed(D.feed, '#ffcf8a');
   if (D.say.length && Math.random() < 0.7) blzSay(blzPick(D.say), big);
+  if (late) blzColor(BLZ_COLOR.late, 0.45); else if (big) blzColor(BLZ_COLOR.hit, 0.5);
+  if (big || late) blzCrowdSay('oooh');
+  if (big && Math.random() < 0.5) blzSting('big');
+  if (big && !late) { blzCheer(M.a.team, 1.6); if (blitz.playsSinceReplay >= 2 && Math.random() < 0.55 && /spinebuster|suplex|clothesline|spear|fling/.test(M.kind)) blitz.replayWant = { why: M.kind, t: blitz.t }; }
+  blzHype(M.a.team, late ? 0.03 : big ? 0.05 : 0, null, 'move');
+  if (big) blitz.flashT = Math.max(blitz.flashT, 1.2);
   if (v.scr && late) { v.y = 0.2; }
   if (late && blitz.stats && blzHuman(M.a.team)) { blitz.stats.late++; blzEarn(M.kind === 'stomp' ? 1 : 2, M.kind === 'stomp' ? 'STOMP' : D.banner.replace('!', '')); }
   if (!late && big && blitz.stats && blzHuman(M.a.team)) { blitz.stats.hits++; blzEarn(2, D.banner.replace('!', '')); }
@@ -2319,6 +2894,8 @@ function blzLateHit(me) {
   blzBurst(v.x, v.z, 1.2, 10, '#ffb0a0');
   blzBanner('LATE HIT!', '#ff5a3a', 'NO FLAG', 0.9);
   blzSay(blzPick(BLZ_CALLS.late));
+  blzColor(BLZ_COLOR.late, 0.4); blzCrowdSay('oooh');
+  blzHype(me.team, 0.02, null, 'late');
   if (blitz.stats && blzHuman(me.team)) { blitz.stats.late++; blzEarn(1, 'LATE HIT'); }
 }
 
@@ -2353,16 +2930,19 @@ function blzWhistle(type, info) {
       blzRoar(0.8, 1.4);
       const dteam = 1 - team;
       if (blzHuman(dteam)) { blitz.stats.sacks++; blzEarn(4, 'SACK'); }
-      blzDefStop(dteam);
+      blzDefStop(dteam, 0.2);
+      blzSting('sack'); blzColor(BLZ_COLOR.sack, 0.6);
+      blzCheer(dteam, 2);
+      if (!blzHuman(dteam)) blzCrowdSay('aww'); else blzCrowdSay('yeah');
     }
   }
   // a tackle for loss counts as a stop too
-  if (type === 'tackle' && !info.sack && C && C.team === blitz.poss && (blitz.dead.z - blitz.los) * blzDir(C.team) < 0 && blitz.kind === 'run') blzDefStop(1 - C.team);
+  if (type === 'tackle' && !info.sack && C && C.team === blitz.poss && (blitz.dead.z - blitz.los) * blzDir(C.team) < 0 && blitz.kind === 'run') { blzDefStop(1 - C.team, 0.08); blzColor(BLZ_COLOR.stuff, 0.5); }
 }
-function blzDefStop(team) {
+function blzDefStop(team, amt) {
   const F = blitz.fire[team];
   F.stops++;
-  if (!F.on && F.stops >= 3) blzIgnite(team, null);
+  blzHype(team, amt == null ? 0.2 : amt, null, 'stop');
   blitz.fire[1 - team].n = 0;
 }
 
@@ -2376,6 +2956,19 @@ function blzTouchdown(C) {
   blitz.score[team] += 6;
   blzBanner('TOUCHDOWN!', '#ffd23a', C.name, 2.2);
   blzSay(blzPick(BLZ_CALLS.td), true);
+  blzColor(C.showboat ? BLZ_COLOR.showboat : BLZ_COLOR.td, 0.75);
+  blzSting('td');
+  blzCrowdSay(blzHuman(team) ? 'yeah' : 'boo');
+  blitz.flashT = 3.5;
+  blzHype(team, 0.1 + (C.showboat ? 0.2 : 0), C, 'td');
+  blzCheer(team, 3);
+  blzFireworks(team, team === 0 ? BLZ_LEN + 9 : -9);
+  if (team === 0 && !blitz.auto && blitz.waveQ !== blitz.q && Math.random() < 0.6) { blitz.waveQ = blitz.q; blitz.wave = { z: -8 }; }
+  // the replay booth wants this one, and the scorer gets to celebrate
+  blitz.replayWant = { why: 'td', t: blitz.t };
+  blitz.celebDone = false;
+  blitz.celebAt = blzHuman(team) ? 0 : blitz.t + 0.4;
+  if (blitz.stats && C.showboat) blzEv('sbtd');
   const gain = Math.round((C.z - blitz.startZ) * blzDir(team));
   blitz.stats.log.push([team, blitz.kind, gain, Math.round(blitz.startZ), blitz.ball && blitz.ball.lastTeam != null ? 'L' + blitz.ball.lastTeam : '']);
   if (blzHuman(team)) { blitz.stats.tds++; blzEarn(25, 'TOUCHDOWN'); if (gain > blitz.stats.long) blitz.stats.long = gain; }
@@ -2388,7 +2981,7 @@ function blzAfterDead() {
   const D = blitz.dead || { type: 'inc' };
   const off = blitz.poss, d = blzDir(off);
   const fireTick = () => {
-    for (const t of [0, 1]) { const F = blitz.fire[t]; if (F.on && ++F.plays > 9) blzDouse(t); }
+    for (const t of [0, 1]) { const F = blitz.fire[t]; if (F.on && ++F.plays > 7) { blzDouse(t); blitz.hype[t] = 0.2; } }
   };
   fireTick();
   if (D.type === 'td') {
@@ -2452,6 +3045,9 @@ function blzAfterDead() {
     if (gain > blitz.stats.long) blitz.stats.long = gain;
     if (gain >= 25) blzEarn(4, gain + ' YD PLAY');
   }
+  // the call: big gains get a number, losses get a wince, the rest mostly get the crowd
+  if (gain >= 15) { blzSpeak(blzPick(['HE PICKS UP ' + gain + '!', gain + ' YARDS ON THE PLAY!', 'A GAIN OF ' + gain + '!']), { who: 'pbp', prio: 1, maxAge: 2 }); blzHype(off, 0.06, D.who, 'gain'); blzCheer(off, 1.6); blitz.flashT = Math.max(blitz.flashT, 1); }
+  else if (gain <= -2) blzSpeak(blzPick(['LOSS OF ' + (-gain) + '!', 'HE GOES BACKWARDS!', 'DROPPED FOR A LOSS!']), { who: 'pbp', prio: 1, maxAge: 2 });
   blzNextDown(spot);
 }
 
@@ -2462,7 +3058,9 @@ function blzNextDown(spot) {
     blitz.firstAt = blzFirstAt(off, spot);
     blzBanner('FIRST DOWN', '#ffd23a', '', 1.0);
     if (Math.random() < 0.7) blzSay(blzPick(BLZ_CALLS.first));
-    if (blzHuman(off)) blzEarn(2, '');
+    if (blzHuman(off)) { blzEarn(2, ''); blzSting('first'); blzCrowdSay('clap'); }
+    blzHype(off, 0.04, null, 'first');
+    blzHype(1 - off, -0.06, null, 'oppfirst');
     blitz.fire[1 - off].stops = 0;
     blzNext({ call: true });
     return;
@@ -2471,7 +3069,8 @@ function blzNextDown(spot) {
   blitz.down++;
   if (blitz.down > 4) {
     blzBanner('TURNOVER ON DOWNS', '#ff8a3a', '', 1.3);
-    blzDefStop(1 - off);
+    blzDefStop(1 - off, 0.15);
+    if (!blzHuman(off)) { blzSting('trombone'); blzColor(BLZ_COLOR.oops, 0.6); }
     blzChange(1 - off, spot);
   }
   blzNext({ call: true });
@@ -2505,9 +3104,11 @@ function blzEndQuarter(what) {
   const q = blitz.q;
   blzSfx('horn');
   if (q === 2) {
-    blzBanner('HALFTIME', '#bfe8ff', blzTeam(0).abbr + ' ' + blitz.score[0] + '  ' + blzTeam(1).abbr + ' ' + blitz.score[1], 2);
+    blzBanner('HALFTIME', '#bfe8ff', blzTeam(0).abbr + ' ' + blitz.score[0] + '  ' + blzTeam(1).abbr + ' ' + blitz.score[1], 3.6);
     blitz.q = 3; blitz.clock = BLZ_QLEN;
-    blzAfter(1.8, () => blzSetupKickoff(1 - blitz.openKicker, false));
+    blitz.halftime = true;            // the marching band gets the field for a few bars
+    blzSpeak(blzPick(['THAT IS HALFTIME!', 'HALFTIME HERE AT THE FRYER!']), { who: 'pbp', prio: 1 });
+    blzAfter(3.8, () => blzSetupKickoff(1 - blitz.openKicker, false));
     return;
   }
   if (q >= 4) {
@@ -2574,7 +3175,10 @@ function blzFGResult() {
   if (!F || F.done) return;
   F.done = true;
   if (F.good) { blzBanner("IT'S GOOD!", '#ffd23a', '', 1.2); blzSay(BLZ_CALLS.good[0], true); blzSfx('good'); blzRoar(0.8, 1.5); }
-  else { blzBanner('NO GOOD!', '#ff8a7a', '', 1.2); blzSay(BLZ_CALLS.nogood[0], true); blzSfx('bad'); }
+  else {
+    blzBanner('NO GOOD!', '#ff8a7a', '', 1.2); blzSay(BLZ_CALLS.nogood[0], true); blzSfx('bad');
+    if (!blzHuman(blitz.poss)) { blzSting('trombone'); blzColor(BLZ_COLOR.oops, 0.6); } else blzCrowdSay('aww');
+  }
   blitz.phase = 'live';
   blzWhistle(F.good ? 'fgGood' : 'fgMiss', { pat: blitz.kind === 'pat' });
   blitz.deadT = 1.4;
@@ -2583,6 +3187,11 @@ function blzFGResult() {
 // ---- the main update ---------------------------------------------------------------------------
 function blitzUpdate(dt) {
   blitz.t += dt;
+  if (blitz.tauntCd > 0) blitz.tauntCd -= dt;
+  for (const p of blitz.players) if (p.taunt && (p.taunt.t += dt) > p.taunt.T) p.taunt = null;
+  if (blitz.phase !== 'replay') { blzExtrasStep(dt); blzCrowdFxStep(dt); }
+  for (const b of blitz.bubbles) b.t += dt;
+  if (blitz.bubbles.length) blitz.bubbles = blitz.bubbles.filter((b) => b.t < b.T);
   if (blitz.hitStop > 0) { blitz.hitStop -= dt; return; }
   if (blitz.shakeT > 0) blitz.shakeT -= dt;
   if (blitz.flashT > 0) blitz.flashT -= dt;
@@ -2591,6 +3200,7 @@ function blitzUpdate(dt) {
   blitz.feed = blitz.feed.filter((f) => f.t > 0);
   blzParts(dt);
   const ph = blitz.phase;
+  if (ph === 'replay') { blzReplayStep(dt); return; }
   if (ph === 'teams') { blitz.vsT += dt; return; }
   if (ph === 'vs') { blitz.vsT += dt; if (blitz.codeMsg) { blitz.codeMsg.t -= dt; if (blitz.codeMsg.t <= 0) blitz.codeMsg = null; } return; }
   if (ph === 'final') { blitz.finalT += dt; blzSim(dt); return; }
@@ -2609,14 +3219,18 @@ function blitzUpdate(dt) {
   }
   if (ph === 'pre') {
     blitz.playT += dt;
+    blzPreStep(dt);
     blzSim(dt);
     if (blitz.playT >= blitz.snapAt) blzSnap();
     return;
   }
   if (ph === 'dead') {
     blitz.deadT -= dt;
+    if (blitz.celebAt && !blitz.celebDone && blitz.t >= blitz.celebAt && blitz.dead && blitz.dead.who) {
+      blitz.celebAt = 0; blzCelebrate(blitz.dead.who, blzPick(['spike', 'dance', 'flip', 'flex']));
+    }
     blzSim(dt);
-    if (blitz.deadT <= 0) blzAfterDead();
+    if (blitz.deadT <= 0) { if (blzWantReplay()) blzStartReplay(blzAfterDead); else blzAfterDead(); }
     return;
   }
   if (ph === 'live') blzLive(dt);
@@ -2635,6 +3249,7 @@ function blzSim(dt) {
   blzSeparate(dt);
   blzBallUpdate(dt);
   blzCam(dt);
+  blzRec();
 }
 
 function blzLive(dt) {
@@ -2704,9 +3319,18 @@ function blzLive(dt) {
     const g = (blzGoal(C2.team) - C2.z) * blzDir(C2.team);
     let near = 99;
     for (const q of blitz.players) if (q.team !== C2.team && q.downT <= 0) near = Math.min(near, blzDist(q, C2));
-    const sb = g > 0 && g < 20 && near > 7;
-    if (sb && !C2.showboat && !blitz.saidShow) { blitz.saidShow = true; blzEv('showboat'); blzFeed('SHOWBOATING!', '#ffcf8a'); if (Math.random() < 0.7) blzSay(blzPick(['look at him showboat!', 'he\'s dancing in!'])); }
+    // yours showboats when YOU say so (Y in the open field); theirs does it on their own
+    const mine = blzHuman(C2.team) && C2 === blitz.ctl;
+    const sb = mine ? !!C2.showboatH : g > 0 && g < 20 && near > 7;
+    if (sb && !C2.showboat && !blitz.saidShow) { blitz.saidShow = true; blzEv('showboat'); if (!mine) { blzFeed('SHOWBOATING!', '#ffcf8a'); if (Math.random() < 0.7) blzSay(blzPick(['look at him showboat!', 'he\'s dancing in!'])); } }
     C2.showboat = sb;
+    if (sb && blitz.showHype < 0.35) { const a = Math.min(0.35 - blitz.showHype, 0.16 * dt); blitz.showHype += a; blzHype(C2.team, a, C2, 'showboat'); }
+    // the countdown call on a breakaway: the thirty… the twenty… the ten…
+    if (blitz.countdown && g > 0) {
+      const mark = g <= 10 ? 10 : g <= 20 ? 20 : g <= 30 ? 30 : 99;
+      if (mark < blitz.countdown && near > 4) { blzSpeak({ 30: 'THE THIRTY!', 20: 'THE TWENTY!', 10: 'THE TEN!' }[mark], { who: 'pbp', prio: 1, maxAge: 0.6 }); }
+      if (mark < blitz.countdown) blitz.countdown = mark;
+    }
   }
   if (C2 && C2.downT <= 0) {
     const d = blzDir(C2.team);
@@ -2782,6 +3406,7 @@ function blzCam(dt) {
   }
   // where the lens wants to be: behind the team the camera follows, or the kickoff shot
   let yawT = c.dir > 0 ? 0 : Math.PI, backT = BLZ_CAM.back, hT = BLZ_CAM.h, pitchT = BLZ_CAM.pitch;
+  if (ph === 'pre') { const u = Math.min(1, blitz.playT / 3); backT -= u * 1.4; hT -= u * 0.6; }
   const kickCam = blitz.gl && blitz.kind === 'kick' && B && (B.st === 'tee' || (B.st === 'air' && B.kind === 'kick'));
   if (kickCam) { yawT += BLZ_KICKCAM.yaw * c.dir; backT = BLZ_KICKCAM.back; hT = BLZ_KICKCAM.h; pitchT = BLZ_KICKCAM.pitch; }
   if (blitz.gl) {
@@ -2859,8 +3484,26 @@ function stepBlitz(dt, w, h) {
   if (Math.abs(blitz.cv.width - Math.round(Math.max(240, Math.min(1000, w * BLZ_RES / h)))) > 2) blitzLayout();
   blzPollPad();
   dt = Math.min(dt, 0.05);
+  // the hit cam: a beat of slow motion on the biggest collisions
+  if (blitz.slowT > 0) { blitz.slowT -= dt; dt *= 0.32; }
   if (!blitz.freeze && !blitz.paused && blitz.phase !== 'tier') blitzUpdate(dt);
+  blzMusicFrame();
   blzDraw();
+}
+// which song, which stems, and the chant
+function blzMusicFrame() {
+  if (!blitz.sfx.ctx) return;
+  const ph = blitz.phase;
+  let want = 'theme';
+  if (ph === 'final') want = blitz.result && blitz.result.won ? 'win' : blitz.result && blitz.result.tie ? 'theme' : 'lose';
+  else if (ph !== 'teams' && ph !== 'vs' && ph !== 'tier' && ph !== 'idle' && blitz.stats) {
+    want = blitz.halftime ? 'half' : blitz.q >= 4 ? 'q4' : blitz.q === 3 ? 'q3' : blitz.q === 2 ? 'q2' : 'q1';
+  }
+  blzMusPlay(want);
+  blzMusMix(blitz.paused ? 'low' : ph === 'live' ? 'live' : ph === 'pre' ? 'snap' : ph === 'replay' ? 'low' : 'full');
+  blzChant(!blitz.auto && !blitz.paused && blitz.stats && blzHuman(1 - blitz.poss) && (ph === 'pre' || ph === 'call') && blitz.kind !== 'kick');
+  blzMusTick();
+  blzBoothTick();
 }
 
 // ---- the VS screen codes ------------------------------------------------------------------------
@@ -2946,6 +3589,7 @@ function blzDraw() {
   if (ph === 'tier' || ph === 'idle') { blzDrawIdle(g, W, H); return; }
   if (ph === 'vs') { blzDrawVS(g, W, H); return; }
   if (ph === 'teams') { blzDrawTeams(g, W, H); return; }
+  if (ph === 'replay' && blitz.replay) { blzDrawReplay(g, W, H); return; }
   let sx = 0, sy = 0;
   if (blitz.shakeT > 0) { sx = (Math.random() - 0.5) * blitz.shakeMag; sy = (Math.random() - 0.5) * blitz.shakeMag; }
   if (blitz.gl && blzGLRender(sx, sy)) {
@@ -2962,6 +3606,7 @@ function blzDraw() {
     g.fillStyle = 'rgba(255,255,255,' + (u * 0.9).toFixed(3) + ')';
     g.fillRect(0, 0, W, H);
   }
+  blzDrawBubbles(g, W, H);
   blzDrawHud(g, W, H);
   // a banner left over from the last whistle sits UNDER the menus, not on them
   const callMenu = ph === 'call' || ph === 'pat';
@@ -3302,6 +3947,16 @@ function blzDrawWorld(g, W, H) {
     blzGround(g, 0, BLZ_WID, blitz.los - 0.2, blitz.los + 0.2, 'rgba(70,130,255,0.85)', 0.01);
     if (blitz.kind !== 'kick' && blitz.firstAt !== blzGoal(blitz.poss)) blzGround(g, 0, BLZ_WID, blitz.firstAt - 0.2, blitz.firstAt + 0.2, 'rgba(255,225,40,0.9)', 0.01);
   }
+  blzDrawCrowdFx(g, W, H);
+  // the play art (the canvas renderer's version: lines on the turf)
+  const art = blzRouteArt();
+  if (art) for (const a of art) {
+    g.globalAlpha = 0.8 * a.a; g.strokeStyle = a.col; g.lineCap = 'round'; g.lineJoin = 'round';
+    let first = true, k = 2;
+    g.beginPath();
+    for (const q of a.pts) { const P = blzProj(q[0], 0.02, q[1]); if (!P) { first = true; continue; } k = Math.max(1.5, P.k * 0.45); if (first) g.moveTo(P.x, P.y); else g.lineTo(P.x, P.y); first = false; }
+    g.lineWidth = k; g.stroke(); g.globalAlpha = 1;
+  }
   // back to front: posts, pylons, people, ball, sparks
   const items = [];
   for (const p of blitz.players) {
@@ -3416,7 +4071,7 @@ function blzPose(p) {
   const scrim = blitz.kind === 'pass' || blitz.kind === 'run';
   // the spine: pelvis height and how far forward the trunk leans
   let pel = 1.0, tilt = 0.08, sway = 0, stance = '';
-  if (pre && !moving && scrim && !S) {
+  if (pre && !moving && scrim && !S && !p.extra) {
     if (lineman) { stance = '3pt'; pel = 0.6; tilt = 1.05; }
     else if (p.pos === 'QB' && p.team === blitz.poss && !(blitz.play && blitz.play.fake)) { stance = 'uc'; pel = 0.82; tilt = 0.55; }
     else { stance = 'ready'; pel = 0.88; tilt = 0.32; }
@@ -3424,8 +4079,21 @@ function blzPose(p) {
   if (p.eng && !S) { pel = 0.84; tilt = 0.75; }
   if (moving) pel += Math.abs(Math.sin(ph)) * 0.06 - 0.03;
   else if (!stance && p.downT <= 0) pel += Math.sin(t * 2.2 + p.num) * 0.008;      // breathing
-  const celeb = p.celebT > 0 ? (p.num % 3) : -1;
+  const celeb = p.celebT > 0 ? (p.celebKind != null ? p.celebKind : p.num % 3) : -1;
   if (celeb === 2) { sway = Math.sin(t * 9) * 0.12; pel = 0.95 + Math.abs(Math.sin(t * 9)) * 0.05; }
+  // TAUNTS at the line (the whole body sells it; linemen in a stance just yell)
+  const tk = !S && p.taunt && stance !== '3pt' ? p.taunt.kind : '';
+  if (tk) {
+    stance = '';
+    if (tk === 'hop') pel = 1.0 + Math.abs(Math.sin(t * 9)) * 0.17;
+    else if (tk === 'wiggle') { sway = Math.sin(t * 10) * 0.13; pel = 0.92; tilt = 0.05; }
+    else if (tk === 'dance') { sway = Math.sin(t * 4.5) * 0.11; pel = 0.94 + Math.abs(Math.sin(t * 9)) * 0.05; tilt = 0.02; }
+    else if (tk === 'roar') { tilt = 0.5 + Math.sin(t * 22) * 0.03; pel = 0.86; }
+    else if (tk === 'chest') { tilt = -0.08; }
+    else if (tk === 'slump') { tilt = 0.6; pel = 0.92; }
+    else if (tk === 'jacks') { pel = 1.0 + Math.abs(Math.sin(t * 7.5 + p.num)) * 0.14; tilt = 0.02; }
+    else { pel = 1.0; tilt = 0.06; }
+  }
   const ct = Math.cos(tilt), st = Math.sin(tilt);
   const spine = (d) => [sway, pel + d * ct, d * st];
   J.pel = [sway, pel, 0];
@@ -3443,6 +4111,10 @@ function blzPose(p) {
     if (p.eng) { th = sg < 0 ? 0.65 : -0.15; bend = 0.75; }
     if (jumpT) { th = sg < 0 ? 0.8 : 0.35; bend = 1.4; }
     if (celeb === 1) { th = 0.15; bend = 0.3; }
+    if (tk === 'hop') { th = 0.55; bend = 1.05; }
+    else if (tk === 'wiggle') { th = Math.sin(t * 10 + (sg > 0 ? 0 : Math.PI)) * 0.22; bend = 0.32; }
+    else if (tk === 'dance') { const u = Math.max(0, Math.sin(t * 9 + (sg > 0 ? 0 : Math.PI))); th = u * 0.95; bend = u * 1.2; }
+    else if (tk === 'roar') { th = sg < 0 ? 0.45 : -0.1; bend = 0.5; }
     // the high-step into the end zone
     if (!S && moving && p.showboat && p === C) { th = 0.25 + Math.sin(phs) * 1.15; bend = th > 0.4 ? th * 0.9 + 0.45 : 0.2; }
     if (S && S.legs && S.legs !== 'run') {
@@ -3452,7 +4124,7 @@ function blzPose(p) {
       else if (S.legs === 'sit') { th = 1.5; bend = 0.05; }
       else if (S.legs === 'stomp') { th = sg > 0 ? 1.15 : 0.05; bend = sg > 0 ? 1.7 : 0.1; }
     }
-    const hx = sg * 0.15 + sway;
+    const hx = sg * (0.15 + (tk === 'jacks' ? 0.13 * Math.abs(Math.sin(t * 7.5 + p.num)) : 0)) + sway;
     const hip = [hx, pel, 0];
     const knee = [hx + sg * 0.02, pel - 0.47 * Math.cos(th), 0.47 * Math.sin(th)];
     const foot = [hx + sg * 0.02, knee[1] - 0.47 * Math.cos(th - bend), knee[2] + 0.47 * Math.sin(th - bend)];
@@ -3478,6 +4150,23 @@ function blzPose(p) {
     if (sg > 0 && p.throwT > 0) { if (p.throwT > 0.18) at(0.1, 0.22, -0.18, 0.0, 0.5, -0.32); else at(0.06, 0.05, 0.25, -0.06, -0.15, 0.55); }
     if (sg > 0 && p === C && !(blitz.pocket && p.pos === 'QB') && p.downT <= 0 && !p.air) at(-0.04, -0.3, 0.02, -0.2, -0.16, 0.24);
     if (sg < 0 && p.stiffT > 0) at(0.0, 0.0, 0.32, -0.02, 0.02, 0.6);
+    if (tk) {
+      const w = t * 7;
+      if (tk === 'flex') at(0.16, 0.02, 0, 0.1, 0.32, 0.02);
+      else if (tk === 'point') { if (sg > 0) at(0.02, 0.1, 0.3, -0.02, 0.2, 0.6); else at(0.14, -0.22, -0.04, 0.02, -0.12, 0.12); }
+      else if (tk === 'beckon') { if (sg > 0) { const u = Math.sin(w * 1.3); at(0.04, 0.0, 0.32, -0.02, 0.06 + u * 0.16, 0.45 - u * 0.12); } else at(0.14, -0.22, -0.04, 0.02, -0.12, 0.12); }
+      else if (tk === 'clap') { const u = (Math.sin(w * 1.6) + 1) / 2; at(0.06, -0.1, 0.22, -0.2 + u * 0.22, -0.02, 0.4); }
+      else if (tk === 'chest') { const u = Math.sin(w * 1.4 + (sg > 0 ? 0 : Math.PI)) > 0; at(0.08, -0.12, 0.2, u ? -0.32 : -0.1, -0.02, u ? 0.14 : 0.32); }
+      else if (tk === 'dance') { const u = Math.sin(t * 9 + (sg > 0 ? 0 : Math.PI)); at(0.12, u > 0 ? 0.26 : -0.18, 0.05, 0.1, u > 0 ? 0.58 : -0.4, 0.14); }
+      else if (tk === 'hop') at(0.1, 0.26, 0.04, 0.02, 0.58, 0.08);
+      else if (tk === 'wiggle') at(0.28, 0.02, 0.02, 0.56, 0.04 + Math.sin(t * 10) * 0.08, 0.02);
+      else if (tk === 'roar') at(0.3, 0.06, 0.12, 0.56, 0.18, 0.18);
+      else if (tk === 'cross') at(0.06, -0.24, 0.18, -0.36, -0.1, 0.22);
+      else if (tk === 'slump') at(0.04, -0.3, 0.06, 0.04, -0.56, 0.16);
+      else if (tk === 'palm') { if (sg > 0) at(0.02, 0.06, 0.24, -0.16, 0.34, 0.26); else at(0.14, -0.22, -0.04, 0.02, -0.12, 0.12); }
+      else if (tk === 'pump') { if (sg > 0) { const u = Math.sin(t * 9) > 0; at(0.08, u ? 0.3 : 0.1, 0.05, 0.05, u ? 0.6 : 0.28, 0.08); } else at(0.14, -0.22, -0.04, 0.02, -0.12, 0.12); }
+      else if (tk === 'jacks') { const u = Math.abs(Math.sin(t * 7.5 + p.num)); at(0.2 + u * 0.08, -0.2 + u * 0.48, 0.02, 0.24 + u * 0.12, -0.48 + u * 1.05, 0.04); }
+    }
     // just caught it: both hands on the ball at his chest, then the tuck
     if (!S && p.secureT > 0 && p === C) at(-0.04, -0.28, 0.12, -0.3, -0.14, 0.3);
     if (!S && moving && p.showboat && p === C && sg > 0) at(0.05, 0.3, 0.05, 0.0, 0.62, 0.12);   // ball up, showing it to the crowd
@@ -3734,6 +4423,14 @@ function blzDrawBall(g, B, P) {
 
 function blzDrawPart(g, q, P) {
   const a = 1 - q.t / q.T;
+  if (q.k === 'fire') {
+    const r = Math.max(1.5, Math.min(7, P.k * 0.2 * (0.5 + a)));
+    g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = Math.max(0, a) * 0.85;
+    g.fillStyle = a > 0.6 ? '#ffe08a' : a > 0.3 ? '#ff8a1e' : '#c83a10';
+    g.beginPath(); g.arc(P.x, P.y, r, 0, Math.PI * 2); g.fill();
+    g.restore();
+    return;
+  }
   g.globalAlpha = Math.max(0, a);
   g.fillStyle = q.k === 'fire' ? (a > 0.6 ? '#ffe08a' : a > 0.3 ? '#ff8a1e' : '#c83a10') : q.c;
   const s = Math.max(1, P.k * (q.k === 'fire' ? 0.35 * (0.5 + a) : q.k === 'conf' ? 0.18 : 0.14));
@@ -3761,9 +4458,10 @@ const BLZ_GL_VS = [
   'attribute vec3 aPos; attribute vec3 aNor; attribute vec3 aCol; attribute vec2 aUV;',
   'uniform mat4 uVP; uniform mat4 uM; uniform vec3 uLight; uniform float uAmb; uniform float uLit;',
   'uniform vec3 uTint; uniform vec4 uUVX;',
-  'varying vec3 vCol; varying vec2 vUV; varying float vFog;',
+  'varying vec3 vCol; varying vec2 vUV; varying float vFog; varying vec3 vW;',
   'void main() {',
   '  vec4 wp = uM * vec4(aPos, 1.0);',
+  '  vW = wp.xyz;',
   '  vec3 n = normalize((uM * vec4(aNor, 0.0)).xyz);',
   '  float d = max(dot(n, uLight), 0.0);',
   '  float sky = 0.12 * max(n.y, 0.0);',
@@ -3775,13 +4473,16 @@ const BLZ_GL_VS = [
   '}'].join('\n');
 const BLZ_GL_FS = [
   'precision mediump float;',
-  'uniform sampler2D uTex; uniform float uUseTex; uniform vec3 uFog; uniform float uAlpha;',
-  'varying vec3 vCol; varying vec2 vUV; varying float vFog;',
+  'uniform sampler2D uTex; uniform float uUseTex; uniform vec3 uFog; uniform float uAlpha; uniform vec4 uWave;',
+  'varying vec3 vCol; varying vec2 vUV; varying float vFog; varying vec3 vW;',
   'void main() {',
   '  vec4 t = vec4(1.0);',
   '  if (uUseTex > 0.5) t = texture2D(uTex, vUV);',
   '  if (t.a * uAlpha < 0.01) discard;',
-  '  vec3 c = mix(vCol * t.rgb, uFog, vFog);',
+  '  vec3 base = vCol * t.rgb;',
+  // the wave: a band of standing, brighter fans sweeping down the stands
+  '  if (uWave.w > 0.5) { float k = clamp(1.0 - abs(vW.z - uWave.x) / uWave.y, 0.0, 1.0); base *= 1.0 + uWave.z * k * k; }',
+  '  vec3 c = mix(base, uFog, vFog);',
   '  gl_FragColor = vec4(c, t.a * uAlpha);',
   '}'].join('\n');
 
@@ -3825,7 +4526,7 @@ function blzGLProgram(gl, vs, fs) {
   if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { console.warn('blitz link:', gl.getProgramInfoLog(p)); return null; }
   const P = { p, a: {}, u: {} };
   for (const k of ['aPos', 'aNor', 'aCol', 'aUV']) P.a[k] = gl.getAttribLocation(p, k);
-  for (const k of ['uVP', 'uM', 'uLight', 'uAmb', 'uLit', 'uTint', 'uUVX', 'uTex', 'uUseTex', 'uFog', 'uAlpha']) P.u[k] = gl.getUniformLocation(p, k);
+  for (const k of ['uVP', 'uM', 'uLight', 'uAmb', 'uLit', 'uTint', 'uUVX', 'uTex', 'uUseTex', 'uFog', 'uAlpha', 'uWave']) P.u[k] = gl.getUniformLocation(p, k);
   return P;
 }
 
@@ -3969,9 +4670,10 @@ function blzPot(src, w, h) { const c = blzCanvas(w, h); c.getContext('2d').drawI
 
 // ---- textures ---------------------------------------------------------------------------------------
 function blzPaintJerseys() {
-  // one 128px cell per player: team × all fourteen positions (offense then defense)
+  // one 128px cell per player: team × all fourteen positions (offense then defense);
+  // cell 14 of each team's row is a blank jersey (the coach, the dip squad)
   const c = blzCanvas(1024, 512), g = c.getContext('2d');
-  const all = BLZ_OFF_POS.concat(BLZ_DEF_POS);
+  const all = BLZ_OFF_POS.concat(BLZ_DEF_POS).concat(['blank']);
   for (let t = 0; t < 2; t++) {
     const T = blzTeam(t), R = BLZ_ROSTER[blitz.teams[t]] || {};
     all.forEach((pos, i) => {
@@ -4028,6 +4730,33 @@ function blzPaintHelmet(T) {
   const gl = g.createRadialGradient(w * 0.88, h * 0.18, 0, w * 0.88, h * 0.18, 26);
   gl.addColorStop(0, 'rgba(255,255,255,0.65)'); gl.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = gl; g.fillRect(0, 0, w, h);
+  return c;
+}
+function blzPaintNugFace(big) {
+  // a breaded face, equirect (the face sits on the u = 0 seam, wrapped like the helmets)
+  const w = 256, h = 128, c = blzCanvas(w, h), g = c.getContext('2d');
+  g.fillStyle = BLZ_CRUST; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 260; i++) {
+    g.fillStyle = blzHash(i * 3.3) > 0.5 ? BLZ_CRUST_D : BLZ_CRUST_L;
+    const r = 1 + blzHash(i * 7.1) * 3;
+    g.beginPath(); g.arc(blzHash(i * 1.7) * w, blzHash(i * 5.3) * h, r, 0, 7); g.fill();
+  }
+  for (const ox of [0, w]) {
+    const ey = h * (big ? 0.38 : 0.45), es = big ? 13 : 8;
+    for (const ex of [-1, 1]) {
+      g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(ox + ex * es * 1.4, ey, es, es * 1.2, 0, 0, 7); g.fill();
+      g.fillStyle = '#141418'; g.beginPath(); g.arc(ox + ex * es * 1.4 + ex * 2, ey + 2, es * 0.5, 0, 7); g.fill();
+      g.fillStyle = '#ffffff'; g.beginPath(); g.arc(ox + ex * es * 1.4 + ex * 2 - 2, ey - 1, es * 0.16, 0, 7); g.fill();
+      g.strokeStyle = '#5a3008'; g.lineWidth = big ? 5 : 3;
+      g.beginPath(); g.moveTo(ox + ex * es * 0.6, ey - es * 1.5); g.lineTo(ox + ex * es * 2.2, ey - es * 1.9); g.stroke();
+    }
+    // the grin
+    g.fillStyle = '#5a1a0a';
+    g.beginPath(); g.ellipse(ox, h * (big ? 0.62 : 0.66), big ? 22 : 12, big ? 13 : 7, 0, 0, Math.PI); g.fill();
+    g.fillStyle = '#ffffff'; g.fillRect(ox - (big ? 16 : 9), h * (big ? 0.62 : 0.66), big ? 32 : 18, big ? 4 : 3);
+    g.fillStyle = 'rgba(255,90,90,0.35)';
+    for (const ex of [-1, 1]) { g.beginPath(); g.arc(ox + ex * (big ? 30 : 17), h * (big ? 0.56 : 0.6), big ? 8 : 5, 0, 7); g.fill(); }
+  }
   return c;
 }
 function blzPaintCrowdGL() {
@@ -4140,8 +4869,18 @@ function blzGLShared() {
   m = blzMesh();
   blzMQuad(m, [[0, 0, -0.5], [1, 0, -0.5], [1, 0, 0.5], [0, 0, 0.5]], [0, 1, 0], [1, 1, 1]);
   sh.line = blzGLUpload(m);
+  // a bare nugget head, a pom-pom, a ball cap and the mascot's whole body
+  m = blzMesh(); blzMEllip(m, 0, 0, 0.01, 0.17, 0.19, 0.18, 8, 12, null); sh.head = blzGLUpload(m);
+  m = blzMesh(); blzMEllip(m, 0, 0, 0, 0.14, 0.14, 0.14, 5, 8, (x, y, z) => [0.92 + 0.08 * Math.sin(x * 9 + y * 7), 0.92 + 0.08 * Math.cos(z * 11), 0.95]); sh.pom = blzGLUpload(m);
+  m = blzMesh();
+  blzMEllip(m, 0, 0.06, 0, 0.18, 0.11, 0.19, 5, 10, null);
+  blzMBox(m, 0, 0.03, 0.2, 0.15, 0.012, 0.09, [0.85, 0.85, 0.85]);
+  sh.cap = blzGLUpload(m);
+  m = blzMesh(); blzMEllip(m, 0, 0, 0.02, 0.5, 0.62, 0.42, 10, 16, null); sh.mbody = blzGLUpload(m);
   G.sh = sh;
   G.tex.blob = blzGLTex(blzPaintBlob());
+  G.tex.face = blzGLTex(blzPaintNugFace(false));
+  G.tex.mface = blzGLTex(blzPaintNugFace(true));
   G.tex.ring = blzGLTex(blzPaintRing());
 }
 function blzGLTeamMeshes(t) {
@@ -4272,6 +5011,25 @@ function blzGLBuild(key) {
   G.key = key;
 }
 
+function blzGLArtMesh(art) {
+  const m = blzMesh(), y = 0.025;
+  for (const a of art) {
+    const col = blzRGB(a.col), pts = a.pts;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x0, z0] = pts[i], [x1, z1] = pts[i + 1];
+      const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz) || 1, nx = -dz / L * 0.24, nz = dx / L * 0.24;
+      blzMQuad(m, [[x0 - nx, y, z0 - nz], [x1 - nx, y, z1 - nz], [x1 + nx, y, z1 + nz], [x0 + nx, y, z0 + nz]], [0, 1, 0], col);
+      if (i === pts.length - 2) {
+        // the arrowhead
+        const ux = dx / L, uz = dz / L, h = 1.3, w = 0.75;
+        const tip = [x1 + ux * h, y, z1 + uz * h], l = [x1 - uz * w, y, z1 + ux * w], r = [x1 + uz * w, y, z1 - ux * w];
+        const a0 = blzV(m, l[0], l[1], l[2], 0, 1, 0, col), a1 = blzV(m, r[0], r[1], r[2], 0, 1, 0, col), a2 = blzV(m, tip[0], tip[1], tip[2], 0, 1, 0, col);
+        m.i.push(a0, a1, a2);
+      }
+    }
+  }
+  return blzGLUpload(m);
+}
 // the camera, as a clip-space matrix: blzProj line for line
 function blzGLMatrix(sx, sy) {
   const c = blitz.cam, W = blitz.W, H = blitz.H, F = blitz.F, m = blitz.glr.vp;
@@ -4322,6 +5080,8 @@ function blzGLDraw1(mesh, M, tex, o) {
   const uv = (o && o.uvx) || BLZ_UV1;
   gl.uniform4f(U.uUVX, uv[0], uv[1], uv[2], uv[3]);
   gl.uniform1f(U.uAlpha, o && o.alpha != null ? o.alpha : 1);
+  const wv = o && o.wave;
+  gl.uniform4f(U.uWave, wv ? wv[0] : 0, wv ? wv[1] : 1, wv ? wv[2] : 0, wv ? 1 : 0);
   if (tex) { gl.uniform1f(U.uUseTex, 1); gl.bindTexture(gl.TEXTURE_2D, tex); }
   else gl.uniform1f(U.uUseTex, 0);
   gl.drawElements(gl.TRIANGLES, mesh.n, gl.UNSIGNED_SHORT, 0);
@@ -4359,7 +5119,7 @@ function blzGLPlayer(p, out) {
   const fwd = Dv(J.fwd), up = Dv(J.up);
   const P = {};
   for (const k in J) if (k !== 'fwd' && k !== 'up') P[k] = Wp(J[k]);
-  const put = (mesh, O, F, s, sy, tex, uvx) => out.push({ mesh, m: blzGLBasis(O, F[0], F[1], F[2], s, sy, s), tex: tex || null, uvx: uvx || null });
+  const put = (mesh, O, F, s, sy, tex, uvx, tint) => out.push({ mesh, m: blzGLBasis(O, F[0], F[1], F[2], s, sy, s), tex: tex || null, uvx: uvx || null, tint: tint || null });
   const bone = (a, b, mesh, L0, ref, alt) => {
     const A = P[a], B = P[b];
     const d = [B[0] - A[0], B[1] - A[1], B[2] - A[2]], len = Math.hypot(d[0], d[1], d[2]) || 1e-3;
@@ -4367,7 +5127,21 @@ function blzGLPlayer(p, out) {
     put(mesh, A, blzFrame(Y, ref, alt), sz, len / L0);
   };
   const tF = blzFrame(blzN([P.neck[0] - P.pel[0], P.neck[1] - P.pel[1], P.neck[2] - P.pel[2]]), fwd, up);
-  const idx = p.team * 16 + (BLZ_OFF_POS.indexOf(p.pos) >= 0 ? BLZ_OFF_POS.indexOf(p.pos) : 7 + BLZ_DEF_POS.indexOf(p.pos));
+  if (p.extra === 'mascot') {
+    // SIR NUGSALOT: one enormous nugget with a face, little arms and legs
+    const mid = [(P.pel[0] + P.neck[0]) / 2, (P.pel[1] + P.neck[1]) / 2, (P.pel[2] + P.neck[2]) / 2];
+    put(G.sh.mbody, mid, tF, sz * 1.25, sz * 1.25, G.tex.mface);
+    for (const sg of [-1, 1]) {
+      bone('sh' + sg, 'el' + sg, G.sh.fore, 0.27, fwd, up);
+      bone('el' + sg, 'hd' + sg, G.sh.fore, 0.27, fwd, up);
+      bone('hip' + sg, 'knee' + sg, G.sh.fore, 0.27, fwd, up);
+      bone('knee' + sg, 'foot' + sg, G.sh.fore, 0.27, fwd, up);
+      bone('foot' + sg, 'toe' + sg, G.sh.cleat, 0.2, up, fwd);
+    }
+    return;
+  }
+  const bare = p.extra === 'cheer' || p.extra === 'coach';
+  const idx = p.team * 16 + (bare ? 14 : BLZ_OFF_POS.indexOf(p.pos) >= 0 ? BLZ_OFF_POS.indexOf(p.pos) : 7 + BLZ_DEF_POS.indexOf(p.pos));
   const cell = G.cells[idx] || (G.cells[idx] = [1 / 8, 1 / 4, (idx % 8) / 8, ((idx / 8) | 0) / 4]);
   put(big ? TM.torsoW : TM.torso, P.pel, tF, sz, sz, G.tex.num, cell);
   put(big ? TM.padsW : TM.pads, P.pel, tF, sz, sz);
@@ -4375,8 +5149,17 @@ function blzGLPlayer(p, out) {
   bone('neck', 'head', G.sh.neck, 0.21, fwd, up);
   const hF = blzFrame(blzN([P.head[0] - P.neck[0], P.head[1] - P.neck[1], P.head[2] - P.neck[2]]), fwd, up);
   const hs = sz * (blitz.codes.huge ? 2.6 : blitz.codes.big ? 1.8 : 1);
-  put(G.sh.helmet, P.head, hF, hs, hs, p.team ? G.tex.helm1 : G.tex.helm0);
-  put(TM.mask, P.head, hF, hs, hs);
+  if (bare) {
+    put(G.sh.head, P.head, hF, hs, hs, G.tex.face);
+    if (p.extra === 'coach') put(G.sh.cap, [P.head[0] + hF[1][0] * 0.1 * hs, P.head[1] + hF[1][1] * 0.1 * hs, P.head[2] + hF[1][2] * 0.1 * hs], hF, hs, hs, null, null, blzRGB(blzTeam(p.team).helm));
+    if (p.extra === 'cheer') {
+      const T = blzTeam(p.team), c2 = blzRGB(T.c2), c1 = blzRGB(T.c1);
+      for (const sg of [-1, 1]) put(G.sh.pom, P['hd' + sg], hF, sz * (1 + 0.12 * Math.sin(blitz.t * 20 + sg)), sz, null, null, sg > 0 ? c2 : c1);
+    }
+  } else {
+    put(G.sh.helmet, P.head, hF, hs, hs, p.team ? G.tex.helm1 : G.tex.helm0);
+    put(TM.mask, P.head, hF, hs, hs);
+  }
   for (const sg of [-1, 1]) {
     bone('sh' + sg, 'el' + sg, TM.upper, 0.3, fwd, up);
     bone('el' + sg, 'hd' + sg, G.sh.fore, 0.27, fwd, up);
@@ -4419,7 +5202,9 @@ function blzGLRender(sx, sy) {
   // the stadium
   blzGLDraw1(S.turf, I, null, { lit: 0 });
   blzGLDraw1(S.field, I, G.tex.field, { lit: 0 });
-  blzGLDraw1(S.crowd, I, G.tex.crowd, { lit: 0, tint: night ? [0.62, 0.62, 0.7] : null });
+  const bounce = Math.sin(blitz.t * 15) * 0.0045 * Math.min(1, blitz.crowdJump || 0);
+  const W8 = blitz.wave ? [blitz.wave.z, 7, 0.6] : null;
+  blzGLDraw1(S.crowd, I, G.tex.crowd, { lit: 0, tint: night ? [0.62, 0.62, 0.7] : null, uvx: [1, 1, 0, bounce], wave: W8 });
   blzGLDraw1(S.walls, I, G.tex.ads, { lit: 0 });
   blzGLDraw1(S.suites, I, G.tex.suites, { lit: 0 });
   blzGLDraw1(S.props, I, null, {});
@@ -4431,6 +5216,15 @@ function blzGLRender(sx, sy) {
     blzGLDraw1(G.sh.line, blzGLBasis([0, 0.01, blitz.los], [BLZ_WID, 0, 0], [0, 1, 0], [0, 0, 0.42], 1, 1, 1), null, { lit: 0, tint: [0.25, 0.5, 1] });
     if (blitz.kind !== 'kick' && blitz.firstAt !== blzGoal(blitz.poss))
       blzGLDraw1(G.sh.line, blzGLBasis([0, 0.01, blitz.firstAt], [BLZ_WID, 0, 0], [0, 1, 0], [0, 0, 0.42], 1, 1, 1), null, { lit: 0, tint: [1, 0.86, 0.15] });
+  }
+  // the play art: your routes on the turf before the snap
+  const art = blzRouteArt();
+  if (art && art.length) {
+    const key = art.map((a) => a.col + a.pts.map((q) => q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(';')).join('|');
+    if (G.artKey !== key) { if (G.artMesh) blzGLFree({ m: G.artMesh }); G.artMesh = blzGLArtMesh(art); G.artKey = key; }
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+    blzGLDraw1(G.artMesh, I, null, { lit: 0, alpha: 0.82 * art[0].a });
+    gl.depthMask(true); gl.disable(gl.BLEND);
   }
   // blob shadows + the human's ring (blended, no depth writes)
   gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
@@ -4450,8 +5244,17 @@ function blzGLRender(sx, sy) {
   // the players, grouped by mesh so each buffer binds once
   const out = G.draws; out.length = 0;
   for (const p of blitz.players) blzGLPlayer(p, out);
+  // the sideline: only what's near enough to read
+  if (blitz.extras && blitz.phase !== 'replay') {
+    const c = blitz.cam;
+    for (const e of blitz.extras) {
+      const dz = (e.z - c.z) * c.cyw + (e.x - c.x) * c.syw;
+      if (dz < 2 || dz > 95) continue;
+      blzGLPlayer(e, out);
+    }
+  }
   out.sort((a, b) => a.mesh.id - b.mesh.id);
-  for (const dr of out) blzGLDraw1(dr.mesh, dr.m, dr.tex, dr.uvx ? { uvx: dr.uvx } : null);
+  for (const dr of out) blzGLDraw1(dr.mesh, dr.m, dr.tex, dr.uvx || dr.tint ? { uvx: dr.uvx, tint: dr.tint } : null);
   // the ball, when nobody has it
   if (B && !(B.st === 'held' && blitz.carrier)) {
     let Y = [0, 0, 1], spin = 0;
@@ -4515,6 +5318,7 @@ function blzDrawRcvIcons(g, W, H) {
 
 // the bits the polygons don't draw: sparks, the "1" arrow + name, the receiver icons, the fire glow
 function blzDrawOverlay3D(g, W, H) {
+  blzDrawCrowdFx(g, W, H);
   const items = [];
   for (const q of blitz.parts) { const P = blzProj(q.x, q.y, q.z); if (P) items.push({ P, q }); }
   items.sort((a, b) => b.P.zc - a.P.zc);
@@ -4582,6 +5386,10 @@ function blzDrawHud(g, W, H) {
     blzText(g, String(blitz.score[i]), bx + bw - 8 * ui, y, 14 * ui, col, 'right');
     if (i === blitz.poss && blitz.kind !== 'kick') { g.fillStyle = '#a85a2a'; g.beginPath(); g.ellipse(bx + 55 * ui, y, 3.4 * ui, 2 * ui, 0.4, 0, 7); g.fill(); }
     if (blzOnFire(i)) blzText(g, '🔥', bx + bw + 8, y, 10 * ui, '#fff', 'center', false);
+    // their HYPE, a thin flame under the name
+    const hv = blitz.hype[i] || 0, hx = bx + 62 * ui, hwid = bw - 70 * ui, hy = y + 6 * ui;
+    g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(hx, hy, hwid, 2.2 * ui);
+    if (hv > 0) { g.fillStyle = blzOnFire(i) ? (((blitz.t * 10) | 0) % 2 ? '#ffd23a' : '#ff5a1a') : hv >= 0.6 ? '#ff8a1e' : '#c8641e'; g.fillRect(hx, hy, hwid * hv, 2.2 * ui); }
   }
   const ph = blitz.phase;
   // TURBO, bottom left: the bar IS the meter
@@ -4599,6 +5407,22 @@ function blzDrawHud(g, W, H) {
     g.save(); g.translate(tx + tw / 2, ty + th / 2 + 1); g.transform(1, 0, -0.25, 1, 0, 0);
     blzText(g, 'TURBO', 0, 0, 15 * ui, '#e8eeff', 'center');
     g.restore();
+    // HYPE: big plays, hits, taunts and showboating fill it; full = ON FIRE
+    const hw = tw * 0.82, hh = 11 * ui, hx = tx + 6, hy = ty - hh - 5;
+    const hv = blitz.hype[0] || 0, burning = blzOnFire(0);
+    const hp = blzChrome(g, hx, hy, hw, hh, 4, 'rgba(6,12,30,0.86)');
+    g.save(); hp(); g.clip();
+    if (hv > 0) {
+      const hg = g.createLinearGradient(hx, 0, hx + hw, 0);
+      hg.addColorStop(0, '#a8240a'); hg.addColorStop(0.6, '#ff6a1a'); hg.addColorStop(1, '#ffd23a');
+      g.fillStyle = hg; g.fillRect(hx - 6, hy, (hw + 12) * (burning ? 1 : hv), hh);
+      if (hv >= 0.6 || burning) {
+        // the meter itself flickers once you're heating up
+        for (let i = 0; i < 6; i++) { const fxp = hx + (i + 0.5) / 6 * hw * (burning ? 1 : hv); g.fillStyle = 'rgba(255,230,120,' + (0.25 + 0.25 * Math.sin(blitz.t * 18 + i * 2)).toFixed(2) + ')'; g.beginPath(); g.ellipse(fxp, hy + hh * 0.3, 3 * ui, hh * 0.45, 0, 0, 7); g.fill(); }
+      }
+    }
+    g.restore();
+    blzText(g, burning ? 'ON FIRE!' : hv >= 0.6 ? 'HEATING UP' : 'HYPE', hx + hw / 2, hy + hh / 2 + 1, 9 * ui, burning ? '#fff2a8' : '#ffd8b0', 'center');
   }
   // down & distance, bottom right (where the cart says PRESS START)
   if (ph !== 'final') {
@@ -4627,12 +5451,63 @@ function blzDrawHud(g, W, H) {
   }
   g.globalAlpha = 1;
   const pad = blitz.inputMode === 'pad', tch = blitz.inputMode === 'touch';
+  const TAUNT = pad ? 'RT' : tch ? 'TURBO' : 'SHIFT';
+  // (on a portrait phone the touch buttons own the bottom: the hints ride higher)
+  const hy1 = portrait ? H * 0.66 : H * 0.78, hy2 = portrait ? H * 0.7 : H * 0.83;
   if (ph === 'pre' && blzHuman(blitz.poss)) {
-    if (((blitz.t * 2) | 0) % 2 === 0) blzTextC(g, pad ? 'A TO HIKE' : tch ? 'PASS TO HIKE' : 'SPACE TO HIKE', W / 2, H * 0.78, 14 * ui, '#ffffff');
-    if (blitz.kind === 'pass') blzTextC(g, (tch ? 'TAP A RECEIVER\'S ICON TO THROW' : (pad ? 'X · A · B' : 'J · K · L') + ' THROWS TO THAT RECEIVER') + ' — TAP = LOB · HOLD = BULLET', W / 2, H * 0.83, 9 * ui, '#c8dcff');
+    if (blitz.hot) {
+      blzTextC(g, blitz.hot.stage === 'pick' ? 'HOT ROUTE: PICK A RECEIVER (' + (pad ? 'X · A · B' : 'J · K · L') + ')' : 'HOT ROUTE: ↑ GO · ↓ CURL · TO THE MIDDLE SLANT · TO THE SIDELINE OUT', W / 2, hy1, 11 * ui, '#ffe23a');
+      blzTextC(g, (pad ? 'Y' : 'I') + ' AGAIN TO CANCEL', W / 2, hy2, 9 * ui, '#c8dcff');
+    } else {
+      if (((blitz.t * 2) | 0) % 2 === 0) blzTextC(g, pad ? 'A TO HIKE' : tch ? 'PASS TO HIKE' : 'SPACE TO HIKE', W / 2, hy1, 14 * ui, '#ffffff');
+      const hr = blitz.kind === 'pass' && !tch ? ' · ' + (pad ? 'Y' : 'I') + ' HOT ROUTE' : '';
+      blzTextC(g, TAUNT + ' TAUNT' + hr + (blitz.kind === 'pass' ? ' · ' + (tch ? 'TAP AN ICON: ROUTE / THROW' : (pad ? 'X A B' : 'J K L') + ' THROW: TAP = LOB, HOLD = BULLET') : ''), W / 2, hy2, 9 * ui, '#c8dcff');
+    }
   }
   if (ph === 'pre' && blzHuman(1 - blitz.poss))
-    blzTextC(g, pad ? 'B = SWITCH DEFENDER' : tch ? 'PASS = SWITCH DEFENDER' : 'SPACE / L = SWITCH DEFENDER', W / 2, H * 0.84, 10 * ui, '#c8dcff');
+    blzTextC(g, (pad ? 'B' : tch ? 'PASS' : 'SPACE / L') + ' SWITCH DEFENDER · ' + TAUNT + ' TAUNT', W / 2, hy2, 10 * ui, '#c8dcff');
+  // your ball carrier in the open: offer the showboat
+  const C = blitz.carrier;
+  if (ph === 'live' && C && C === blitz.ctl && blzHuman(C.team) && !blitz.pocket && !C.showboat && !blzThreatAhead(C, 7) && ((blitz.t * 3) | 0) % 2 === 0)
+    blzTextC(g, (pad ? 'Y' : tch ? 'JUMP' : 'I') + ' = SHOWBOAT (RISKY!)', W / 2, H * 0.86, 10 * ui, '#ffcf8a');
+  if (ph === 'dead' && blitz.dead && blitz.dead.type === 'td' && blitz.dead.who && blzHuman(blitz.dead.who.team) && !blitz.celebDone)
+    blzTextC(g, 'CELEBRATE: ' + (pad ? 'X SPIKE · A DANCE · B BACKFLIP · Y FLEX' : tch ? 'TAP PASS / JUMP' : 'J SPIKE · K DANCE · L BACKFLIP · I FLEX'), W / 2, H * 0.84, 10 * ui, '#ffe23a');
+}
+
+// the trash talk: comic bubbles over their helmets
+function blzDrawBubbles(g, W, H) {
+  const placed = [];
+  const order = blitz.bubbles.slice().sort((a, b) => (b.p.z - a.p.z) * blitz.cam.dir);
+  for (const b of order) {
+    const p = b.p, P = blzProj(p.x, p.y + 3.25, p.z);
+    if (!P) continue;
+    const u = b.t / b.T, pop = b.t < 0.12 ? 0.6 + b.t / 0.12 * 0.4 : 1, a = u > 0.82 ? (1 - u) / 0.18 : 1;
+    const size = blzClamp(P.k * (b.big ? 0.62 : 0.5), 8, b.big ? 15 : 12) * pop * blitz.ui;
+    g.font = '900 italic ' + Math.round(size) + 'px Impact, "Arial Black", sans-serif';
+    const tw = g.measureText(b.text).width, pw = tw + size * 0.9, ph2 = size * 1.5;
+    let x = blzClamp(P.x, pw / 2 + 4, W - pw / 2 - 4), y = Math.max(ph2 + 4, P.y - ph2 * 0.6);
+    // nudge up past anything already drawn there
+    for (let k = 0; k < 4; k++) {
+      const hit = placed.find((q) => Math.abs(q.x - x) < (q.w + pw) / 2 && Math.abs(q.y - y) < (q.h + ph2) / 2 + 2);
+      if (!hit) break;
+      y = hit.y - (hit.h + ph2) / 2 - 3;
+    }
+    placed.push({ x, y, w: pw, h: ph2 });
+    g.save(); g.globalAlpha = Math.max(0, a);
+    g.fillStyle = b.col; g.strokeStyle = '#111'; g.lineWidth = 2;
+    const r = ph2 * 0.42, x0 = x - pw / 2, y0 = y - ph2 / 2;
+    g.beginPath();
+    g.moveTo(x0 + r, y0); g.lineTo(x0 + pw - r, y0); g.quadraticCurveTo(x0 + pw, y0, x0 + pw, y0 + r);
+    g.lineTo(x0 + pw, y0 + ph2 - r); g.quadraticCurveTo(x0 + pw, y0 + ph2, x0 + pw - r, y0 + ph2);
+    const tx = blzClamp(P.x, x0 + r + 4, x0 + pw - r - 4);
+    g.lineTo(tx + 5, y0 + ph2); g.lineTo(tx, y0 + ph2 + 7); g.lineTo(tx - 3, y0 + ph2);
+    g.lineTo(x0 + r, y0 + ph2); g.quadraticCurveTo(x0, y0 + ph2, x0, y0 + ph2 - r);
+    g.lineTo(x0, y0 + r); g.quadraticCurveTo(x0, y0, x0 + r, y0);
+    g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = '#141414'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(b.text, x, y + 1);
+    g.restore();
+  }
 }
 
 // ---- TEAM SELECT -----------------------------------------------------------------------------------
@@ -4940,7 +5815,7 @@ window.addEventListener('keydown', (e) => {
   if (e.target && e.target.tagName === 'INPUT') return;
   if (blitz.phase === 'tier' || blzMenuOpen()) return;
   blzAudio();
-  const claimed = /^(Key[WASDIJKLMQRFPGVUH]|Arrow(Up|Down|Left|Right)|Space|Enter|ShiftLeft|ShiftRight|Escape|Digit[1-9]|Numpad[1-9])$/.test(e.code);
+  const claimed = /^(Key[WASDIJKLMNQRFPGVUH]|Arrow(Up|Down|Left|Right)|Space|Enter|ShiftLeft|ShiftRight|Escape|Digit[1-9]|Numpad[1-9])$/.test(e.code);
   if (claimed) e.preventDefault();
   if (e.code === 'Escape') { if (!e.repeat && blitz.phase !== 'final' && blitz.phase !== 'vs' && blitz.phase !== 'teams') blitz.paused = !blitz.paused; return; }
   if (e.code === 'KeyM' && !e.repeat) {
@@ -4983,7 +5858,13 @@ window.addEventListener('keydown', (e) => {
   blitz.keys[e.code] = true;
   if (e.repeat) return;
   blitz.inputMode = 'kb';
+  if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && blitz.phase === 'pre') { blzHumanTaunt(); return; }
+  if (e.code === 'KeyN') { const on = blzMusToggle(); blzFeed(on ? 'MUSIC ON' : 'MUSIC OFF', '#6a7290'); return; }
   if (blzCallKey(e.code)) return;
+  if (blitz.phase === 'pre' && blitz.hot && blitz.hot.stage === 'dir') {
+    const dk = { ArrowUp: 'U', KeyW: 'U', ArrowDown: 'D', KeyS: 'D', ArrowLeft: 'L', KeyA: 'L', ArrowRight: 'R', KeyD: 'R' }[e.code];
+    if (dk && blzHotDir(dk)) return;
+  }
   const b = BLZ_KEYBTN[e.code];
   if (b) blzBtnDown(b, 'kb');
 });
@@ -5022,7 +5903,8 @@ function blzPointerDown(e) {
   if (blzTapUI(p.x, p.y)) return;
   if (blitz.phase === 'vs' || blitz.phase === 'teams') return;
   const ic = blzIconAt(p.x, p.y);
-  if (ic) { blitz.mouseBtn = ic; blzBtnDown(ic, 'kb'); return; }
+  if (ic) { blitz.mouseBtn = ic; blzBtnDown(ic, 'mouse'); return; }
+  if (blitz.phase === 'replay') { blzEndReplay(); return; }
   if (e.button === 2) blzBtnDown('Y', 'kb'); else blzBtnDown('SP', 'kb');
 }
 function blzIconAt(x, y) {
@@ -5041,6 +5923,7 @@ blitzWorld.addEventListener('touchstart', (e) => {
   for (const t of e.changedTouches) {
     const x = t.clientX, y = t.clientY;
     if (blitz.paused) { blitz.paused = false; continue; }
+    if (blitz.phase === 'replay') { blzEndReplay(); continue; }
     const wp = blzWorldXY(x, y);
     if ((blitz.phase === 'call' || blitz.phase === 'pat' || blitz.phase === 'teams') && blzTapUI(wp.x, wp.y)) continue;
     if (blitz.phase === 'teams') continue;
@@ -5052,6 +5935,7 @@ blitzWorld.addEventListener('touchstart', (e) => {
     if (hit) {
       T.roles[t.identifier] = hit.k; T[hit.k] = true;
       if (blitz.phase === 'vs') blzCodeTap(hit.k === 'T' ? 0 : hit.k === 'B' ? 1 : 2);
+      else if (hit.k === 'T' && blitz.phase === 'pre') blzHumanTaunt();
       else if (hit.k === 'A') blzBtnDown('SP', 'touch'); else if (hit.k === 'B') blzBtnDown('Y', 'touch');
       continue;
     }
@@ -5106,11 +5990,13 @@ function blzPollPad() {
     else if (blitz.phase === 'teams') blzTeamMove({ R: 1, L: -1, U: -4, D: 4 }[nav]);
     else if (blitz.phase === 'call') blzCallKey({ R: 'ArrowRight', L: 'ArrowLeft', U: 'ArrowUp', D: 'ArrowDown' }[nav]);
     else if (blitz.phase === 'pat' && (nav === 'L' || nav === 'R')) blitz.callSel ^= 1;
+    else if (blitz.phase === 'pre' && blitz.hot && blitz.hot.stage === 'dir') blzHotDir(nav);
   }
   P._nav = nav;
   const edge = (now, was, k) => { if (now && !was) blzBtnDown(k, 'pad'); else if (!now && was) blzBtnUp(k); };
   edge(a, P._a, 'A'); edge(b, P._b, 'B'); edge(x, P._x, 'X'); edge(y, P._y, 'Y'); edge(lb, P._lb, 'SP');
   if (tu && !P._t && blitz.phase === 'vs') blzCodeTap(0);
+  if (tu && !P._t && blitz.phase === 'pre') blzHumanTaunt();
   if (st && !P._st) { if (blitz.phase === 'teams') blzTeamPick(); else if (blitz.phase === 'vs') blzStartGame(); else if (blitz.phase !== 'final') blitz.paused = !blitz.paused; }
   P._a = a; P._b = b; P._x = x; P._y = y; P._lb = lb; P._t = tu; P._st = st;
 }

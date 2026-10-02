@@ -51,7 +51,7 @@ const MODE_HINTS = {
   drain:   'dive the pipes under Nuggetown — ← → steer · HOLD space/↑ to kick · 🫧 is life · thread THE CLOGS · listen for what passes',
   croft:   'beneath Fort Nugget — WASD/←→↑↓ move · X/click slash · clear the room, take ONE relic · mind your lantern · find THE DOOR',
   fortune: 'the house wheel — HOLD space (or the wheel) and release to SPIN · pick a letter (type / tap) · vowels pay half · solve the phrase · mind the 💀',
-  blitz:   'NUGGET BLITZ — 1-9 pick a play · arrows/WASD move · SHIFT turbo · SPACE hike / switch / lateral · J K L throw to THAT receiver (tap = lob, hold = bullet) · I jump / pump fake · with the ball: L spin, K stiff arm, J dive, I hurdle · defense: L switch, J dive, K big hit · pad: X A B Y + RT',
+  blitz:   'NUGGET BLITZ — 1-9 play · WASD/arrows move · SHIFT turbo (before the snap: TAUNT) · SPACE hike · J K L throw to THAT receiver (tap lob / hold bullet) · I hot route (pre-snap) / pump fake · with the ball: I showboat (open field) or hurdle, L spin, K stiff arm, J dive · D: L switch, J dive, K big hit · TD: J spike K dance L backflip I flex · N music · M sound · V announcer',
   bowl:    'NUGMO BOWL — pick 1 of 4 plays (they guess one — so do you) · arrows move · A = SPACE/J throw · dive · MASH to break tackles · B = SHIFT/K next receiver · switch defender',
   bots:    'CLUCKED METAL — WASD drive (hold where you want to GO) · mouse aims · click fires · SPACE special · SHIFT nitro · grab sauces off the pads · last bot rolling',
 };
