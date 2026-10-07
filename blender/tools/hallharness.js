@@ -244,6 +244,10 @@ async function openHall(opts = {}) {
     H.introT = 99; H.doorsOpen = 1; H.state = 'walk';
     H.msaaAuto = false;
   });
+  // 🧠 AND PIN THE NEIGHBOURHOOD. Since js/hallBrains.js the regulars WALK, so an
+  // unpinned run photographs them wherever their brains took them. Every table in
+  // this kit was shot with them on their marks; keep it that way unless asked.
+  if (!opts.brains) await page.evaluate(() => { NuggetArcade._H.brains = false; });
 
   // §4: the storm layer is DOM ON TOP of the canvas. It covers the thing under
   // test and it costs enough to make an fps reading meaningless (a run once

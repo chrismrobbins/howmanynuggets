@@ -205,3 +205,8 @@ html.rg-open, html.rg-open body { overflow: hidden; }
   .rg-layer, .rg-bubble { transition: none; }
   .rg-ld-rain, .rg-ld-sign, .rg-ld-bar::after { animation: none; }
 }
+
+/* 🧠 THE NEIGHBOURHOOD (js/hallBrains.js): the same bubbles, over the hall's
+   street canvas. Under the hall's prompt and dialogue chrome, over the scene. */
+.hb-bubbles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 3; }
+.hb-bubbles .rg-bubble { font-size: 13px; max-width: 220px; }

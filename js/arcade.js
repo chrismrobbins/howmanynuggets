@@ -4644,9 +4644,12 @@ void main() {
 
     // prompts, collision, and a soft head-glow so they read from across the street
     for (const npc of NPCS) {
-      H.glows.push({ p: [npc.x, npc.yBase + npc.h + 0.14, npc.z], c: [1, 0.85, 0.5], s: 0.3, a: 0.09, k: 'neon' });
-      H.propBoxes.push({ min: [npc.x - 0.28, 0, npc.z - 0.28], max: [npc.x + 0.28, npc.yBase + npc.h, npc.z + 0.28] });
-      H.hotspots.push({
+      // 🧠 THE NEIGHBOURHOOD: these three move with their owner now (syncNpcRefs)
+      npc.glowRef = { p: [npc.x, npc.yBase + npc.h + 0.14, npc.z], c: [1, 0.85, 0.5], s: 0.3, a: 0.09, k: 'neon' };
+      H.glows.push(npc.glowRef);
+      npc.box = { min: [npc.x - 0.28, 0, npc.z - 0.28], max: [npc.x + 0.28, npc.yBase + npc.h, npc.z + 0.28] };
+      H.propBoxes.push(npc.box);
+      H.hotspots.push(npc.hot = {
         kind: 'npc',
         x: npc.x, z: npc.z, r: 2.3,
         min: [npc.x - 0.38, 0, npc.z - 0.38], max: [npc.x + 0.38, npc.yBase + npc.h + 0.1, npc.z + 0.38],
@@ -6480,6 +6483,7 @@ void main() {
       mMul(mRotY(-H.cam.yaw), mTrans(-H.cam.x, -H.cam.y, -H.cam.z))
     );
     const basis = camBasis(aspect);
+    H.vp = mMul(proj, view);   // HallBrains projects its bubbles through this
 
     // 0) the sky UNDER the floor, painted before anything else. The mirror
     //    pass and the translucent floor then leave 13% of it showing, which is
@@ -6602,7 +6606,7 @@ void main() {
         H.failLevel = f;   // harness seam: blender/tools/motion.js reads this
       }
       else if (L.k === 'thump') f = 0.55 + 0.6 * Math.pow(Math.max(0, Math.sin(H.t * 5.6 + i)), 3);
-      else if (L.k === 'swirl') f = 0.7 + 0.3 * Math.sin(H.t * 2.2 + i * 1.9);
+      else if (L.k === 'swirl') f = (0.7 + 0.3 * Math.sin(H.t * 2.2 + i * 1.9)) * (L.p[0] < 22 ? 1 + (H.passK || 0) * 6 : 1);
       else if (L.k === 'across') f = 0.9 + 0.1 * Math.sin(H.t * 0.7 + i * 3.1);
       if (L.k === 'marq' || L.k === 'crt') f *= TUNE.cabLight;
       lp.set(L.p, slot * 3);
@@ -6640,10 +6644,18 @@ void main() {
     const npcBody = (n) => {
       const sh = (n.shift || 0) * (n.shiftScale == null ? 1 : n.shiftScale);
       const b = n.breath || 0;
+      // 🧠 the gait (hallBrains.js moves them now): a pickle with no legs HOPS,
+      // a robe glides with barely a sway, a bouncer rolls side to side
+      const w = n.walk || 0, ph = n.walkPh || 0;
+      const hopK = n.id === 'dill' ? 0.05 : n.id === 'hood' ? 0.006 : n.id === 'hen' ? 0.02 : 0.022;
+      const rollK = n.id === 'hood' ? 0.025 : n.id === 'gravy' ? 0 : 0.07;
+      const flap = n.bFlap ? Math.abs(Math.sin(H.t * 30)) * 0.04 : 0;
+      const stoop = (n.bStoop || 0) * 0.3 + (n.bSleep ? 0.07 : 0) + w * 0.05;
       return mMul(
-        mTrans(sh * 0.030, -Math.abs(sh) * 0.008, 0),   // drops onto the loaded leg
-        mMul(mRotZ(-sh * 0.026),
-          mScale(1 - b * 0.5, 1 + b, 1 - b * 0.5))      // volume-ish preserving
+        mTrans(sh * 0.030, -Math.abs(sh) * 0.008 + Math.abs(Math.sin(ph)) * hopK * w + flap, 0),
+        mMul(mRotX(stoop),
+          mMul(mRotZ(-sh * 0.026 + Math.sin(ph) * rollK * w),
+            mScale(1 - b * 0.5, 1 + b, 1 - b * 0.5)))   // volume-ish preserving
       );
     };
 
@@ -6679,7 +6691,9 @@ void main() {
         // planted feet: the loaded one takes the weight and spreads a little
         for (const [k, sx] of [['footL', -1], ['footR', 1]]) {
           const load = Math.max(0, (n.shift || 0) * sx);
-          out[k] = mScale(1 + load * 0.05, 1 - load * 0.085, 1 + load * 0.05);
+          const w = n.walk || 0, st = Math.sin((n.walkPh || 0) + (sx < 0 ? 0 : Math.PI));
+          out[k] = mMul(mTrans(0, Math.max(0, st) * 0.07 * w, st * 0.10 * w),
+            mScale(1 + load * 0.05, 1 - load * 0.085, 1 + load * 0.05));
         }
         return out;
       },
@@ -6775,7 +6789,7 @@ void main() {
       useTex(H.texStreet);
       for (const n of NPCS) {
         const set = H.bufsStreet.npcs[n.id];
-        if (!set) continue;
+        if (!set || n.hidden) continue;
         const root = pre ? mMul(pre, npcRoot(n)) : npcRoot(n);
         if (set.parts && POSE[n.id]) {
           const pose = POSE[n.id](n);
@@ -6898,7 +6912,7 @@ void main() {
         const ang = H.t * 1.1 + gsp.ph;
         gx += Math.cos(ang) * gsp.r;
         gz += Math.sin(ang) * gsp.r * 0.45;
-        a = gsp.a * (0.7 + 0.3 * Math.sin(H.t * 3 + gsp.ph));
+        a = gsp.a * (0.7 + 0.3 * Math.sin(H.t * 3 + gsp.ph)) * (gsp.p[0] < 22 ? 1 + (H.passK || 0) * 5 : 1);
       } else if (gsp.k === 'hazard') {
         // the double-parked compact: hazards blink like they mean it
         a = gsp.a * (Math.floor(H.t * 1.5) % 2 === 0 ? 1 : 0.05);
@@ -7091,6 +7105,61 @@ void main() {
     }
   }
 
+  // 🧠 THE NEIGHBOURHOOD — wiring for js/hallBrains.js. The brains need the
+  // street's landmarks, its prop boxes, and a way to draw speech bubbles over
+  // a WebGL canvas; arcade.js gives them those and keeps the bodies.
+  function attachBrains() {
+    H.brainsOn = true;
+    const find = (s) => H.hotspots.find((h) => h.label && h.label.indexOf(s) >= 0);
+    const drain = find('STORM DRAIN'), board = find('CASE BOARD');
+    const gravy = NPCS.find((n) => n.id === 'gravy'), hood = NPCS.find((n) => n.id === 'hood');
+    const root = H.prompt && H.prompt.parentNode;
+    if (root) {
+      H.brainBox = document.createElement('div');
+      H.brainBox.className = 'hb-bubbles';
+      root.appendChild(H.brainBox);
+    }
+    HallBrains.attach(NPCS, {
+      bounds: { x0: -20.6, x1: 20.6, z0: 0.5, z1: 13.1 },
+      boxes: () => H.propBoxes,
+      pois: {
+        drain: drain ? { x: drain.x, z: drain.z } : null,
+        board: board ? { x: board.x, z: board.z } : null,
+        roost: gravy ? { x: gravy.x + 0.62, z: gravy.z, y: gravy.yBase } : null,
+        lurk: [hood ? { x: hood.x, z: hood.z } : { x: -13.6, z: 1.35 }, { x: -20, z: 1.8 }, { x: 19.6, z: 2.2 }],
+        // he leaves by the archway at the east end, toward the pier
+        exit: { door: { x: 20.4, z: 10.9 }, out: { x: 24.5, z: 10.9 } },
+      },
+      overlay: H.brainBox,
+      project: brainProject,
+      flag: (fn) => typeof window[fn] === 'function' && window[fn](),
+    });
+  }
+  function brainProject(x, y, z) {
+    const m = H.vp; if (!m || !H.canvas) return null;
+    const cx = m[0] * x + m[4] * y + m[8] * z + m[12], cy = m[1] * x + m[5] * y + m[9] * z + m[13];
+    const cw = m[3] * x + m[7] * y + m[11] * z + m[15];
+    if (cw <= 0.05) return null;
+    const nx = cx / cw, ny = cy / cw;
+    if (nx < -1.1 || nx > 1.1 || ny < -1.2 || ny > 1.2) return null;
+    const w = H.canvas.clientWidth, h = H.canvas.clientHeight;
+    return { x: (nx * 0.5 + 0.5) * w, y: (0.5 - ny * 0.5) * h };
+  }
+  function syncNpcRefs(n) {
+    const gone = !!n.hidden;
+    if (n.hot) {
+      n.hot.x = gone ? 9999 : n.x; n.hot.z = n.z;
+      n.hot.min = [n.x - 0.38, n.yBase || 0, n.z - 0.38];
+      n.hot.max = [n.x + 0.38, (n.yBase || 0) + n.h + 0.1, n.z + 0.38];
+      n.hot.stand = [n.x + n.sdx, EYE, n.z + n.sdz];
+    }
+    if (n.glowRef) n.glowRef.p = [n.x, gone ? -50 : (n.yBase || 0) + n.h + 0.14, n.z];
+    if (n.box) {
+      n.box.min = gone ? [9998, 0, 9998] : [n.x - 0.28, 0, n.z - 0.28];
+      n.box.max = gone ? [9999, 0, 9999] : [n.x + 0.28, (n.yBase || 0) + n.h, n.z + 0.28];
+    }
+  }
+
   function frame(ts) {
     if (!H.active || H.suspended) return;
     if (!H.last) H.last = ts;
@@ -7212,6 +7281,17 @@ void main() {
     // three things — shifting weight from one foot to the other, rolling a
     // little into that shift, and looking around when nobody is talking to
     // them. All three fit in the matrix that is already there.
+    // 🧠 THE NEIGHBOURHOOD (js/hallBrains.js): the minds move the bodies first.
+    if (H.brains !== false && typeof HallBrains !== 'undefined') {
+      if (!H.brainsOn && H.bufsStreet) attachBrains();
+      if (H.brainsOn) {
+        const outside = H.cam.z > 0.2;
+        HallBrains.step(dt, H.t, { px: H.cam.x, pz: H.cam.z, dialogNpc: H.dialog && H.dialog.npc, outside: outside });
+        H.passK = HallBrains.passingK || 0;
+        if (H.brainBox) H.brainBox.style.display = outside && H.state !== 'zoom' ? '' : 'none';
+      }
+    }
+    for (const n of NPCS) syncNpcRefs(n);
     for (const n of NPCS) {
       const talking = H.dialog && H.dialog.npc === n;
       // the weight shift: slower than the breath and out of phase with it, so
@@ -7225,16 +7305,19 @@ void main() {
       // piece of secondary motion in the cast (Crumb's arms, Dill's hat).
       n.armLag += (n.shift - (n.armLag || 0)) * Math.min(1, dt * 4.2);
       // gestures ramp in when you start talking and back out when you stop
-      const g = talking ? 1 : 0;
+      const g = talking ? 1 : Math.max((n.bTalk || 0) * 0.7, n.bShoo || 0, n.id === 'dill' ? (n.bWrite || 0) : 0);
       n.gesture = (n.gesture || 0) + (g - (n.gesture || 0)) * Math.min(1, dt * 3.4);
 
       // and a glance, but only when nobody is talking to them — being looked
       // at is the one time a person's head stops wandering
       const glance = talking ? 0
         : Math.sin(H.t * 0.31 + n.phase) * 0.16 + Math.sin(H.t * 0.11 + n.phase * 2.3) * 0.10;
+      // walking → face where you're going; doing something → face it; else idle
+      const walking = (n.walk || 0) > 0.15;
       const want = talking
         ? Math.atan2(H.cam.x - n.x, H.cam.z - n.z)
-        : n.baseYaw + glance;
+        : walking ? n.heading
+          : n.brainYaw != null ? n.brainYaw + glance * 0.4 : n.baseYaw + glance;
       const wrap = (a) => {
         while (a > Math.PI) a -= Math.PI * 2;
         while (a < -Math.PI) a += Math.PI * 2;
@@ -7248,7 +7331,8 @@ void main() {
         // head: every regular pivoted robe-and-all like a chess piece.
         let d = wrap(want - n.curYaw);
         const over = Math.abs(d) > n.headMax ? Math.sign(d) * (Math.abs(d) - n.headMax) : 0;
-        n.curYaw += over * Math.min(1, dt * (talking ? 3.2 : 0.9));
+        n.curYaw += over * Math.min(1, dt * (talking ? 3.2 : walking ? 5 : 0.9));
+        if (walking) n.curYaw += wrap(want - n.curYaw) * Math.min(1, dt * 4);
         d = wrap(want - n.curYaw);
         let hy = Math.max(-n.headMax, Math.min(n.headMax, d));
         if (n.id === 'hen') {
@@ -7269,26 +7353,31 @@ void main() {
       } else {
         let dy2 = wrap(want - n.curYaw);
         // turning to a person is fast; drifting on a glance is not
-        n.curYaw += dy2 * Math.min(1, dt * (talking ? 5 : 1.4));
+        n.curYaw += dy2 * Math.min(1, dt * (talking ? 5 : walking ? 5 : 1.4));
       }
 
       // ---- behaviour, one piece each. The only actual BEHAVIOUR in the game.
       if (n.id === 'hen') {
         // THE PECK, once every ~7s. She is a chicken standing on a pavement;
         // this is the single most characterful thing anyone in the cast does.
-        const pk = (H.t * 0.142 + n.phase * 0.31) % 1;
-        const peck = pk < 0.15 ? Math.sin((pk / 0.15) * Math.PI) : 0;
-        n.headPitch = peck * 0.95 + (talking ? -0.10 : 0.04);
+        // pecking for real (the brain sent her to a crumb) is ~1/s, not 1/7s
+        const pk = n.bPeck ? (H.t * 0.95 + n.phase * 0.31) % 1 : (H.t * 0.142 + n.phase * 0.31) % 1;
+        const pw = n.bPeck ? 0.3 : 0.15;
+        const peck = pk < pw ? Math.sin((pk / pw) * Math.PI) : 0;
+        n.headPitch = peck * 0.95 + (talking ? -0.10 : 0.04)
+          + Math.sin((n.walkPh || 0) * 2) * 0.14 * (n.walk || 0) + (n.bSleep ? 0.45 : 0);
       } else if (n.id === 'hood') {
         // he inclines the cowl a little when addressed. Nothing else moves.
-        n.headPitch = -(n.gesture || 0) * 0.12;
+        n.headPitch = -(n.gesture || 0) * 0.12 + (n.bLean || 0) * 0.28
+          + (n.bNod ? Math.max(0, Math.sin(n.bNod * 2.4)) * 0.28 : 0);
       } else if (n.id === 'dill') {
         // tips the brim when you walk up, then works the notepad
         n.tip = (n.gesture || 0) * 0.13;
-        n.write = talking ? Math.sin(H.t * 7.3) * Math.max(0, Math.sin(H.t * 0.9)) : 0;
+        n.write = (talking || n.bWrite) ? Math.sin(H.t * 7.3) * Math.max(0, Math.sin(H.t * 0.9)) : 0;
       } else if (n.id === 'gravy') {
         // the lid lifts to talk and rocks faintly the rest of the time
-        n.lid = (n.gesture || 0) * 0.16 + Math.sin(H.t * 0.44 + n.phase) * 0.014;
+        n.lid = (n.gesture || 0) * 0.16 * (0.75 + 0.25 * Math.abs(Math.sin(H.t * 9)))
+          + (n.bSleep ? -0.01 : Math.sin(H.t * 0.44 + n.phase) * 0.014);
       }
     }
     updateAttracts();

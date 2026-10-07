@@ -2574,3 +2574,36 @@ total destruction." Thresholds are on the NUGGET COUNT (`MON_AT`, `FEAST_AT`).
   zero — a 20px plate was paying full price. Monster 36→61fps, feast 54fps on the
   Adreno X1 laptop; 61fps iPhone 13 emulation everywhere. Monster stage caps DPR
   at 1.5. `NugHero.debug.renderer()/scene()` exposed for this kind of profiling.
+
+## 🧠 THE NEIGHBOURHOOD — the street regulars get brains (js/hallBrains.js), 2026-10-07
+
+The After Hours brains, moved onto the REAL street outside the hall. The five
+regulars used to stand on marks with a breath, a weight shift and a glance; now
+they walk Nuggetown. **hallBrains.js owns only the minds** — it writes on each
+`NPCS` record (`x z yBase hidden walk walkPh heading brainYaw` + flags
+`bWrite bStoop bPeck bSleep bLean bNod bTalk bShoo bFlap`) and arcade.js turns
+those into poses (gait in `npcBody`, Crumb's stepping feet, Dill's notepad, the
+hen's real peck, the Hood's lean and nod, Gravy's talking lid).
+
+- **Things that follow a regular now**: its talk hotspot (`npc.hot`), its head
+  glow (`npc.glowRef`) and its collision box (`npc.box`) — `syncNpcRefs()` every
+  frame, parked at 9999 while the Hood is offstage. `drawNpcs` skips `n.hidden`.
+- **The player is part of the street.** Walk within 2.7m of a regular and it
+  stops what it's doing and looks at you (nobody walks off mid-approach); one
+  you're TALKING to is parked until you leave.
+- **Street brain**: Dill interviews (the Hood refuses half the time and leaves),
+  crosses the road to the real storm drain, works the N.P.D. CASE BOARD, tails
+  the Hood — who exits by the east ARCHWAY (toward the pier) and comes back
+  later. Crumb guards/patrols the doors and shoos the hen. Gravy does not get up.
+  Henrietta pecks, roosts on Gravy's bench, follows Dill.
+- **THE PASSING** every 70–130s (first ~30–45s in): `H.passK` multiplies the
+  street's `swirl` LIGHT (a real world light — the road turns gold) and the
+  drain's glows; everyone reacts in character.
+- Bubbles are the After Hours ones (`.rg-bubble`) in `.hb-bubbles`, projected
+  through `H.vp` (proj × view, stored per frame); hidden indoors, during zooms,
+  past 16m, and for whoever you're talking to.
+- **Harness**: `openHall()` pins `H.brains = false` unless `opts.brains` — every
+  table in blender/tools was shot with the regulars on their marks. Measured:
+  60fps brains on vs 60.4 off.
+- Seams: `H.brains = false`, `HallBrains.off`, `HallBrains.passing()`,
+  `HallBrains.state()`.
