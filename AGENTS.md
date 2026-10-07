@@ -2607,3 +2607,26 @@ hen's real peck, the Hood's lean and nod, Gravy's talking lid).
   60fps brains on vs 60.4 off.
 - Seams: `H.brains = false`, `HallBrains.off`, `HallBrains.passing()`,
   `HallBrains.state()`.
+
+## 🔬 THE CLOSE-UP — the hall's regulars get real surfaces (FS_LIT2), 2026-10-07
+
+After Hours gave the cast breading, pickle warts, cloth nap and feathers in
+three.js; in the hall they were still matte paint. Now the hall's own material
+shader does it — no three.js, no mesh-data change:
+
+- `drawNpcs` raises `uProc` and uploads `uProcR[5]`: the street-atlas UV rects of
+  the five regions the regulars are painted from (`nugSkin`, `pickle`,
+  `hoodCloth`, `cupGravy`, `henWhite`, built into `H.procR` next to
+  `buildStreet`). A fragment whose UV lands in a rect gets that region's recipe;
+  everything else on the street pays one uniform branch. That is how one part
+  buffer (Crumb's body: nugget + shades + bow tie) gets breading only on the nug.
+- Height lives in OBJECT space (`vObj = aPos`, new VS_LIT2 varying) so it sticks
+  to a regular as they walk, each octave fading by `fwidth`. Breading = the
+  hero nugget's 8-cell cellular crumbs + pale peaks; pickle = soft warts + brine
+  sheen (`pbr` raised so GGX/env light it); hen = stretched barbs + tone; robe and
+  paper = fine nap.
+- GLSL rule honoured: `dFdx/dFdy` are UNDEFINED inside per-pixel branches, so
+  height is computed in the per-region branches and the bump's derivatives are
+  taken after them, in uniform control flow.
+- Seam: `H.proc = false`. WebGL1 (`FS_LIT`) untouched; fallbacks.js: every path
+  draws a room, 60fps.

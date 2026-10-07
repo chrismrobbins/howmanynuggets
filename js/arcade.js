@@ -561,9 +561,11 @@ void main() {
 in vec3 aPos; in vec3 aNormal; in vec2 aUV; in vec2 aExtra;
 uniform mat4 uProj, uView, uModel;
 out vec3 vWorld, vNormal; out vec2 vUV, vExtra;
+out vec3 vObj;
 void main() {
   vec4 w = uModel * vec4(aPos, 1.0);
   vWorld = w.xyz;
+  vObj = aPos;
   vNormal = mat3(uModel) * aNormal;
   vUV = aUV; vExtra = aExtra;
   gl_Position = uProj * uView * w;
@@ -609,6 +611,32 @@ float zoneShadow(mat4 m, highp sampler2DShadow smp, vec3 world, float bias) {
   return sSum * 0.2;
 }
 
+// 🔬 THE CLOSE-UP (2026-10-07). The regulars got breading, pickle warts, cloth
+// nap and feathers in AFTER HOURS (three.js) and stayed matte paint in the hall.
+// Same recipes here, in this shader. Only while drawNpcs() raises uProc, and only
+// on fragments whose UV lands in one of the five regulars' atlas regions, so the
+// rest of the street pays one uniform branch. Height lives in OBJECT space (vObj)
+// so it sticks to a regular as they walk; each octave fades by pixel footprint.
+uniform float uProc;
+uniform vec4 uProcR[5];   // street-atlas rects: nugSkin, pickle, hoodCloth, cupGravy, henWhite
+in vec3 vObj;
+float hpH(vec3 p) { p = fract(p * 0.3183099 + vec3(0.1, 0.17, 0.13)); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float hpN(vec3 x) {
+  vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(hpH(i), hpH(i + vec3(1, 0, 0)), f.x), mix(hpH(i + vec3(0, 1, 0)), hpH(i + vec3(1, 1, 0)), f.x), f.y),
+             mix(mix(hpH(i + vec3(0, 0, 1)), hpH(i + vec3(1, 0, 1)), f.x), mix(hpH(i + vec3(0, 1, 1)), hpH(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+// 2x2x2 cellular: 8 cells not 27 (ANGLE's D3D compiler unrolls every loop — THE WAIT)
+float hpCell(vec3 x) {
+  vec3 i = floor(x - 0.5); float d = 8.0;
+  for (int a = 0; a <= 1; a++) for (int b = 0; b <= 1; b++) for (int c = 0; c <= 1; c++) {
+    vec3 o = i + vec3(float(a), float(b), float(c));
+    vec3 r = o + 0.15 + 0.7 * vec3(hpH(o), hpH(o + 31.0), hpH(o + 57.0)) - x;
+    d = min(d, dot(r, r));
+  }
+  return sqrt(d);
+}
+
 // A tangent basis with no tangent attribute: the classic cotangent frame.
 mat3 cotangent(vec3 N, vec3 p, vec2 uv) {
   vec3 dp1 = dFdx(p), dp2 = dFdy(p);
@@ -633,6 +661,54 @@ void main() {
     vec3 nm = texture(uNrm, vUV).rgb * 2.0 - 1.0;
     nm.xy *= uNrmScale * pbr;
     N = normalize(cotangent(Ng, vWorld, vUV) * nm);
+  }
+
+  // 🔬 THE CLOSE-UP — see the note above uProc.
+  if (uProc > 0.5) {
+    int m = -1;
+    for (int i = 0; i < 5; i++) {
+      vec4 r = uProcR[i];
+      if (vUV.x >= r.x && vUV.x <= r.z && vUV.y >= r.y && vUV.y <= r.w) m = i;
+    }
+    vec3 q = vObj;
+    float w = length(fwidth(q));      // uniform control flow: derivatives are legal here
+    float h = 0.0;
+    if (m == 0) {
+      // BREADING: raised, domain-warped cellular crumbs; pale peaks, browner crevices
+      vec3 qq = q + 0.07 * vec3(hpN(q * 6.0), hpN(q * 6.0 + 5.2), hpN(q * 6.0 + 9.7));
+      float g1 = smoothstep(0.55, 0.12, w * 26.0), g2 = smoothstep(0.55, 0.12, w * 60.0);
+      float c1 = g1 > 0.002 ? pow(max(0.0, 1.0 - hpCell(qq * 26.0)), 2.4) : 0.0;
+      float c2 = g2 > 0.002 ? pow(max(0.0, 1.0 - hpCell(qq * 60.0 + 7.0)), 2.0) : 0.0;
+      float crumb = g1 * c1;
+      float hn = 0.38 * hpN(q * 8.0) + 0.62 * crumb + 0.26 * g2 * c2;
+      h = hn * 0.022;
+      tex.rgb *= mix(vec3(1.0), vec3(1.2, 1.1, 0.92), crumb * 0.4);
+      tex.rgb *= mix(1.0, 0.8, (1.0 - smoothstep(0.15, 0.45, hn)) * 0.3);
+      rough = clamp(0.42 + crumb * 0.4 + hn * 0.1, 0.3, 0.92);
+      pbr = max(pbr, 0.55);
+    } else if (m == 1) {
+      // PICKLE: soft warts and a brine sheen
+      float g = smoothstep(0.6, 0.15, w * 22.0);
+      h = (smoothstep(0.42, 0.88, hpN(q * 22.0)) * 0.8 + 0.25 * hpN(q * 9.0)) * g * 0.006;
+      tex.rgb *= 0.88 + 0.24 * hpN(q * 4.0 + 2.0);
+      rough = 0.34; pbr = max(pbr, 0.85);
+    } else if (m == 4) {
+      // FEATHERS: stretched barbs
+      // (0.0022 first: invisible at hall distance; feathers read as layered TONE too)
+      h = (0.6 * hpN(q * vec3(16.0, 46.0, 16.0)) + 0.4 * hpN(q * 7.0)) * smoothstep(0.65, 0.15, w * 46.0) * 0.0065;
+      tex.rgb *= 0.74 + 0.34 * hpN(q * vec3(9.0, 26.0, 9.0));
+    } else if (m >= 2) {
+      // NAP: the Hood's robe, Gravy's waxed paper
+      float f = m == 2 ? 70.0 : 60.0;
+      h = (0.7 * hpN(q * f) + 0.3 * hpN(q * 6.0)) * smoothstep(0.6, 0.15, w * f) * (m == 2 ? 0.0012 : 0.0008);
+      tex.rgb *= 0.9 + 0.2 * hpN(q * 5.0 + 3.0);
+    }
+    // bump from the height field, derivatives taken OUTSIDE the per-region branches
+    vec3 sx = dFdx(vWorld), sy = dFdy(vWorld);
+    vec3 r1 = cross(sy, N), r2 = cross(N, sx);
+    float det = dot(sx, r1);
+    vec3 grad = sign(det) * (dFdx(h) * r1 + dFdy(h) * r2);
+    if (m >= 0) N = normalize(abs(det) * N - grad);
   }
 
   // IT IS RAINING OUT THERE. It has been raining out there since the street was
@@ -5283,7 +5359,7 @@ void main() {
       'uSkyAmb', 'uGndAmb', 'uSkyAmt', 'uSkyRefl', 'uSkyHorizon', 'uSkyZenith', 'uSkyGlow',
       'uSkyGround', 'uMoonDir', 'uSkyT',
       'uShadowH', 'uShadowS', 'uShadowMatH', 'uShadowMatS', 'uShadowAmt',
-      'uGlass', 'uGlassAmt'])
+      'uGlass', 'uGlassAmt', 'uProc', 'uProcR'])
       H.uni[name] = gl.getUniformLocation(H.progLit, name);
     H.uniS = {};
     for (const name of ['uProj', 'uView', 'uTex', 'uGlowGain'])
@@ -5378,6 +5454,11 @@ void main() {
     await stage(0.72);
     H.texStreet = makeTexture(gl, street.canvas);
     H.bufsStreet = buildStreet(gl, street.uv); // street geometry decode + upload
+    // 🔬 THE CLOSE-UP: the five atlas regions the regulars are painted from
+    H.procR = new Float32Array(20);
+    ['nugSkin', 'pickle', 'hoodCloth', 'cupGravy', 'henWhite'].forEach((k, i) => {
+      H.procR.set(street.uv[k] || [2, 2, 2, 2], i * 4);
+    });
     await stage(0.84);
     registerMaps(gl, H.texAtlas, atlas);       // normal + ORM page uploads
     registerMaps(gl, H.texStreet, street);
@@ -6787,6 +6868,8 @@ void main() {
 
     function drawNpcs(pre, opts) {
       useTex(H.texStreet);
+      const proc = H.pbr && H.procR && H.proc !== false;
+      if (proc) { gl.uniform1f(H.uni.uProc, 1); gl.uniform4fv(H.uni.uProcR, H.procR); }
       for (const n of NPCS) {
         const set = H.bufsStreet.npcs[n.id];
         if (!set || n.hidden) continue;
@@ -6804,6 +6887,7 @@ void main() {
           drawLit(set.whole, mMul(root, npcBody(n)), opts);
         }
       }
+      if (proc) gl.uniform1f(H.uni.uProc, 0);
       useTex(H.texAtlas);
     }
 
