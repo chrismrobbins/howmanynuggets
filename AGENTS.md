@@ -2422,3 +2422,36 @@ lines), `css/blitz.css`, the outer pair of uprights on the east island.
     0 missing keys, 264 prefetches 0 bad;
     music RMS 0.067 → booth 0.086 over the ducked music, field 0.076, peaks
     < 0.42; no page errors.
+
+## 🍗 THE HERO NUGGET (js/nugHero.js) — 2026-10-07, the first Spline session
+
+The converter's 56px `nugget.png` became a live three.js stage in the result
+panel. It hops when you type, the count builds a pile behind it (n−1 up to 16,
+then `15 + 14·log10(n/16)`, capped 72 / 40 handheld), and at a million nuggets the
+pile lifts into THE STORM — a funnel with the hero in the eye, golden at the edges
+as a literal fresnel rim (casefile fact 4). Over $10M it spins meaner.
+
+- **The four shapes are the real four** (bell, ball, boot, bone). Geometry is
+  GENERATED in the browser by `nhNugGeo` — the same generator that built them in
+  the Spline file — so the site ships zero mesh bytes and every pile nugget is
+  lumped differently. Breading is a shader, not a texture: domain-warped cellular
+  crumbs in OBJECT space, each octave faded by `fwidth` so a small canvas never
+  shimmers.
+- **Two winding traps, both caught by a test, not by eye.** The sweep's index
+  order was inside-out (we were looking at the inside of the bottom shell), and
+  two of the four hand-typed outlines ran clockwise, which turned the boot and the
+  bone inside out *again* (a hole in the top, curled shells in the pile). Outlines
+  are normalised by signed area now, and the boot shrinks about a point in its
+  heel (`ctr`) because its origin can't see its whole outline.
+- **Doorman rules hold**: nothing loads until `load` + idle; three.js
+  (`js/vendor/three.min.js`, r147 classic build — the last with examples/js) is
+  injected through `HallBoot.inject`, never in index.html; the loop sleeps when the
+  canvas is offscreen, the tab is hidden, or the hall/storm owns the screen. The
+  PNG stays in the DOM as poster and fallback. Measured: 60fps desktop and iPhone
+  13 emulation at idle, heap and storm; 12MB JS heap.
+- r147 is `ColorManagement.legacyMode` — colours go through `nhSrgb()`
+  (sRGB→linear) by hand. RoomEnvironment at full strength is a white room that
+  washes breading to cream: `envMapIntensity: 0.32`.
+- Seams: `localStorage.nugHero3d = '0'`; `NugHero.debug.clock` + `NugHero.render()`;
+  `NugHero.state()`; `NugHero.makeNuggetGeometry/makeBreadingMaterial` for
+  look-dev pages.

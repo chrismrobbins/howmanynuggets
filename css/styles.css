@@ -147,6 +147,30 @@ input[type=number] { -moz-appearance: textfield; }
   filter: drop-shadow(0 4px 10px rgba(245, 158, 11, 0.25));
 }
 
+/* 🍗 THE HERO NUGGET (js/nugHero.js). The canvas arrives at the PNG's own 56px
+   slot and GROWS into the stage once its first frame is up, so the reveal is a
+   move, not a layout jump. Until then (and forever, if WebGL2 isn't there) the
+   PNG is the hero. The canvas bleeds to the panel's edges so the heap has room. */
+.nug3d {
+  display: block;
+  width: calc(100% + 3rem);
+  height: 56px;
+  margin: -1rem -1.5rem 0.35rem;
+  opacity: 0;
+  /* feather the top and bottom so a nugget leaving the frame fades, never clips */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 8%, #000 86%, transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 8%, #000 86%, transparent 100%);
+  transition: height 0.7s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.6s ease 0.1s;
+}
+.result.has-nug3d .nug3d { height: 196px; opacity: 1; }
+.result.has-nug3d .nugget-hero { display: none; }
+@media (max-width: 480px) {
+  .result.has-nug3d .nug3d { height: 168px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nug3d { transition: opacity 0.3s ease; }
+}
+
 .count {
   font-size: 3rem;
   font-weight: 900;

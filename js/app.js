@@ -99,6 +99,7 @@ function update() {
     countEl.textContent = '0';
     breakdownEl.textContent = 'Enter an amount to see how many nuggets you can get.';
     renderNuggets(0);
+    if (window.NugHero) NugHero.setCount(0, 0);
     syncArcade(0, 0); // arcade stays up on the house storm
     bigMessageEl.classList.remove('active');
     return;
@@ -129,6 +130,7 @@ function update() {
   }
   breakdownEl.innerHTML = detail;
   renderNuggets(nuggets);
+  if (window.NugHero) NugHero.setCount(nuggets, dollars);
 
   syncArcade(nuggets, dollars);
 
@@ -174,6 +176,7 @@ function formatAmount() {
   input.setSelectionRange(pos, pos);
 
   update();
+  if (window.NugHero) NugHero.poke(); // it hops when you type
 }
 input.addEventListener('input', formatAmount);
 
