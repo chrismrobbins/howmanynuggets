@@ -2545,3 +2545,32 @@ Chrome's GPU program cache makes repeat opens ~0.4s. The hero nugget got the
 same `checkShaderErrors = false` + wait-then-reveal treatment.
 CSS trap: a `visibility` transition-delay on the loader's BASE rule also delayed
 the INHERITED change when the layer opened — the delay lives on `.gone` only.
+
+## 🦖 THE NUGGET MONSTER (100M+) and 🔥 THE FEAST (100B+) — js/nugHero.js, 2026-10-07
+
+Beau: "anything over 100 million should create a nugget monster out of these
+nuggets and anything over 100 billion should be the monster eating something in
+total destruction." Thresholds are on the NUGGET COUNT (`MON_AT`, `FEAST_AT`).
+
+- **The monster IS the storm's nuggets.** A jointed skeleton (hips/torso/head/jaw,
+  two-part arms, legs) carries a dark batter core (same breading program, darker
+  `color` — no new shader); ~250 "plates" (~180 handheld) are sampled over the
+  core (fibonacci points on ellipsoids, rings on capsules), each a nugget lying on
+  the surface normal. Plate k IS slot k: the nuggets you watched orbit fly in feet
+  first (`mt0` staggered by rest height) and lock on. The FACE and a chest window
+  are left unplated by normal-region filters — the first cut plated everything and
+  read as a lump. Glowing eyes (the storm, looking out), a dark maw, batter teeth,
+  the hero nugget becomes its heart. It roars every ~7s (jaw + head + shake).
+- **The feast** grows a ring of lit-window buildings (one InstancedMesh, front kept
+  clear so the feet read) under a burning-orange sky sprite; ~40% of the blocks
+  burn. It reaches down, takes a building (instance hidden, a held copy rides
+  `foreR` along the forearm axis so it points at the mouth), four bites with crumb
+  bursts, repeat; stomps shake the frame. When the city's gone it rebuilds.
+- **Perf, measured not guessed**: 250 plates first ran at 36fps. Front-to-back
+  instance sorting (tint carried with each nugget or colours swap every frame)
+  barely moved it; toggling showed the PLATES were the cost. Fix: pile geometry
+  res 0.5→0.4, and the breading shader now BRANCHES past cellular octaves that
+  have faded (`g1 > 0.002 ? … : 0.0`) instead of computing them to multiply by
+  zero — a 20px plate was paying full price. Monster 36→61fps, feast 54fps on the
+  Adreno X1 laptop; 61fps iPhone 13 emulation everywhere. Monster stage caps DPR
+  at 1.5. `NugHero.debug.renderer()/scene()` exposed for this kind of profiling.

@@ -158,8 +158,10 @@
     'float nhCrust(vec3 p, float w){',
     '  vec3 q = p + 0.07 * vec3(nhFbm(p * 6.0), nhFbm(p * 6.0 + 5.2), nhFbm(p * 6.0 + 9.7));',
     '  float g1 = smoothstep(0.55, 0.12, w * 26.0), g2 = smoothstep(0.55, 0.12, w * 60.0);',
-    '  float c1 = pow(max(0.0, 1.0 - nhCell(q * 26.0)), 2.4);',
-    '  float c2 = pow(max(0.0, 1.0 - nhCell(q * 60.0 + 7.0)), 2.0);',
+    // skip the cellular work outright once an octave has faded: a monster's
+    // plates are ~20px each and were paying full price to multiply it by zero
+    '  float c1 = g1 > 0.002 ? pow(max(0.0, 1.0 - nhCell(q * 26.0)), 2.4) : 0.0;',
+    '  float c2 = g2 > 0.002 ? pow(max(0.0, 1.0 - nhCell(q * 60.0 + 7.0)), 2.0) : 0.0;',
     '  nhCrumbs = g1 * c1;',
     '  return 0.38 * nhFbm(p * 8.0) + 0.62 * g1 * c1 + 0.26 * g2 * c2; }',
     'vec3 nhBump(vec3 surf_pos, vec3 surf_norm, float h, float faceDir){',
@@ -260,6 +262,7 @@
   // count → how many nuggets the plate shows besides the hero
   function nhExtras(n) {
     if (n <= 1) return 0;
+    if (n >= MON_AT && mon) return mon.plates.length;
     if (n >= 1000000) return STORM_CAP;
     if (n <= 16) return n - 1;
     return Math.min(CAP, Math.round(15 + 14 * Math.log10(n / 16)));
@@ -339,7 +342,7 @@
     // light: a warm key from the upper left, a cool rim from behind that matches
     // the card's navy, and an amber kick off the "plate" so the underside isn't dead
     scene.add(new T.HemisphereLight(nhSrgb(T, '#b9c8ff'), nhSrgb(T, '#3b2512'), 0.45));
-    var key = new T.DirectionalLight(nhSrgb(T, '#ffe1b5'), 2.3);
+    var key = keyL = new T.DirectionalLight(nhSrgb(T, '#ffe1b5'), 2.3);
     key.position.set(-2.4, 4.2, 3.0);
     key.castShadow = true;
     key.shadow.mapSize.set(hand ? 512 : 1024, hand ? 512 : 1024);
@@ -351,7 +354,7 @@
     var rim = new T.DirectionalLight(nhSrgb(T, '#a9c1ff'), 1.35);
     rim.position.set(2.6, 2.2, -3.4);
     scene.add(rim);
-    var kick = new T.PointLight(nhSrgb(T, '#ff9a3c'), 0.9, 6, 2);
+    var kick = kickL = new T.PointLight(nhSrgb(T, '#ff9a3c'), 0.9, 6, 2);
     kick.position.set(0.2, 0.35, 1.9);
     scene.add(kick);
 
@@ -372,17 +375,18 @@
     scene.add(glow);
 
     shared = { storm: { value: 0 }, time: { value: 0 } };
-    var mat = nhMaterial(T, shared);
+    var mat = mat0 = nhMaterial(T, shared);
 
     heroMesh = new T.Mesh(nhNugGeo(T, 'ball', 3.3, 1), mat);
     heroMesh.castShadow = true; heroMesh.receiveShadow = true;
     heroMesh.scale.setScalar(1.12);
     scene.add(heroMesh);
 
-    slots = nhSlots(Math.max(CAP, STORM_CAP));
+    mon = nhMonBuild(mat);
+    slots = nhSlots(Math.max(CAP, STORM_CAP, mon.plates.length));
     var per = Math.ceil(slots.length / 4);
     pile = NH_ORDER.map(function (shape, si) {
-      var im = new T.InstancedMesh(nhNugGeo(T, shape, 1.7 + si * 2.9, 0.5), mat, per);
+      var im = new T.InstancedMesh(nhNugGeo(T, shape, 1.7 + si * 2.9, 0.4), mat, per);
       im.castShadow = true; im.receiveShadow = true;
       im.count = 0;
       im.instanceMatrix.setUsage(T.DynamicDrawUsage);
@@ -392,6 +396,7 @@
         var t = rr();
         col.setRGB(1.0 - t * 0.10, 0.96 - t * 0.16, 0.92 - t * 0.24);
         im.setColorAt(q, col);
+        var sk = q * 4 + si; if (slots[sk]) slots[sk].col = col.clone();
       }
       scene.add(im);
       return { mesh: im, items: [] };
@@ -401,6 +406,7 @@
       var sl = slots[k];
       sl.on = false; sl.t0 = -1; sl.out = -1;
       sl.bucket = pile[k % 4]; sl.bi = Math.floor(k / 4);
+      sl.mb = 0; sl.mt0 = 0; sl.plate = mon.plates[k] || null; sl.M = new T.Matrix4(); sl.d = 0;
     }
 
     nhResize();
@@ -452,11 +458,13 @@
 
   // The storm needs more sky than the plate does: pull back and look up as it rises.
   var camBase = 7;
-  function nhAim(k) {
-    var dist = camBase * (1 + 0.38 * k);
-    var el = (24 - 10 * k) * Math.PI / 180;
-    cam.position.set(0, Math.sin(el) * dist + 0.35, Math.cos(el) * dist);
-    cam.lookAt(0, 0.42 + 0.72 * k, -0.3 + 0.3 * k);
+  function nhAim(k, m, f) {
+    m = m || 0; f = f || 0;
+    var dist = camBase * (1 + 0.38 * k) * (1 + 0.5 * m) * (1 + 0.32 * f);
+    var el = (24 - 10 * k + 2 * m - 1 * f) * Math.PI / 180;
+    var sx = shake ? (Math.random() - 0.5) * shake * dist * 0.05 : 0, sy = shake ? (Math.random() - 0.5) * shake * dist * 0.05 : 0;
+    cam.position.set(sx, Math.sin(el) * dist + 0.35 + sy, Math.cos(el) * dist);
+    cam.lookAt(sx * 0.5, 0.42 + 0.72 * k * (1 - m) + m * 2.9 - f * 0.2, -0.3 + 0.3 * k * (1 - m) - f * 0.8);
   }
 
   function nhApplyCount() {
@@ -469,6 +477,18 @@
     }
     stormWant = HERO.count >= 1000000 ? 1 : 0;
     stormMean = HERO.dollars > 10000000 ? 1 : 0;
+    var mw = HERO.count >= MON_AT ? 1 : 0;
+    if (mw && !monWant) {
+      // the plates rise feet first, head last, over about a second and a half
+      for (k = 0; k < slots.length; k++) {
+        var pl = slots[k].plate;
+        if (pl) slots[k].mt0 = now + 0.35 + (pl.y / 6.8) * 1.5 + Math.random() * 0.15;
+      }
+    }
+    monWant = mw;
+    feastWant = HERO.count >= FEAST_AT ? 1 : 0;
+    if (feastWant && mon && !mon.city) mon.city = nhCityBuild();
+    wrap.classList.toggle('nug-monster', !!monWant);
     nhKick();
   }
 
@@ -489,7 +509,7 @@
     t -= 2.625 / d; return 1 - (1 - (n * t * t + 0.984375)) * 0.25;
   }
 
-  var M4, Q, E, V3, S3;
+  var M4, Q, E, V3, S3, PW, PV, PQ, PS;
   function nhFrame(ts) {
     raf = 0;
     if (!HERO.ready) return;
@@ -498,13 +518,32 @@
     var dt = last ? Math.min(0.05, now - last) : 0.016;
     last = now; clock += dt;
     var rm = nhReduced();
-    if (!M4) { M4 = new T.Matrix4(); Q = new T.Quaternion(); E = new T.Euler(); V3 = new T.Vector3(); S3 = new T.Vector3(); }
+    if (!M4) { M4 = new T.Matrix4(); Q = new T.Quaternion(); E = new T.Euler(); V3 = new T.Vector3(); S3 = new T.Vector3(); PW = new T.Matrix4(); PV = new T.Vector3(); PQ = new T.Quaternion(); PS = new T.Vector3(); }
 
     // the storm fades in/out over about a second
     stormK += (stormWant - stormK) * Math.min(1, dt * 1.6);
     shared.storm.value = stormK * (0.65 + 0.35 * stormMean);
-    nhAim(stormK * stormK * (3 - 2 * stormK));
-    glow.material.opacity = stormK * (0.55 + 0.25 * stormMean) * (0.85 + 0.15 * Math.sin(now * 2.3));
+    monK += (monWant - monK) * Math.min(1, dt * 0.9);
+    feastK += (feastWant - feastK) * Math.min(1, dt * 0.7);
+    if (Math.abs(monK - monWant) < 0.002) monK = monWant;
+    var monE = monK * monK * (3 - 2 * monK), feastE = feastK * feastK * (3 - 2 * feastK);
+    if (monK > 0.001 || mon.g.visible) nhMonAnimate(now, dt, rm);
+    if (mon.city) nhCityTick(now, dt, feastK);
+    shake *= Math.pow(0.03, dt); if (shake < 0.002 || rm) shake = 0;
+    // a monster needs a much bigger shadow than a plate does
+    var big = monK > 0.5;
+    var wantDpr = Math.min(global.devicePixelRatio || 1, nhHandheld() ? 1.5 : (monWant ? 1.5 : 2));
+    if (R.getPixelRatio() !== wantDpr) { R.setPixelRatio(wantDpr); nhResize(); }
+    if (big !== !!keyL.userData.big) {
+      keyL.userData.big = big;
+      var b = big ? 9 : 3, sc0 = big ? 3.2 : 1;
+      keyL.shadow.camera.left = -b; keyL.shadow.camera.right = b; keyL.shadow.camera.top = b + (big ? 3 : 0); keyL.shadow.camera.bottom = -b;
+      keyL.shadow.camera.far = big ? 45 : 14; keyL.position.set(-2.4 * sc0, 4.2 * sc0, 3.0 * sc0);
+      keyL.shadow.camera.updateProjectionMatrix();
+    }
+    kickL.intensity = 0.9 + feastE * 2.5;
+    nhAim(stormK * stormK * (3 - 2 * stormK), monE, feastE);
+    glow.material.opacity = (1 - monE) * stormK * (0.55 + 0.25 * stormMean) * (0.85 + 0.15 * Math.sin(now * 2.3));
     glow.scale.setScalar(1.6 + stormK * 0.9 + stormMean * 0.5);
     shared.time.value = now;
 
@@ -520,9 +559,16 @@
     heroMesh.rotation.set(0.10 + stormK * 0.25, 0.35 + sway + hop.spin + stormK * now * (0.6 + stormMean * 0.8), 0);
     var sq = hop.squash * 0.22, br = rm ? 0 : Math.sin(now * 1.6 + 1) * 0.008;
     heroMesh.scale.set(1.12 * (1 + sq * 0.5 + br), 1.12 * (1 - sq - br), 1.12 * (1 + sq * 0.5 + br));
+    if (monE > 0.001) {
+      // the hero is the monster's heart: a golden nugget in its chest
+      var heart = mon.J.torso.localToWorld(new T.Vector3(0, 1.08, 1.12));
+      heroMesh.position.lerp(heart, monE);
+      heroMesh.rotation.set(1.35 * monE + heroMesh.rotation.x * (1 - monE), heroMesh.rotation.y + now * 0.4 * monE, 0);
+      heroMesh.scale.multiplyScalar(1 - 0.25 * monE * (1 - Math.abs(Math.sin(now * 2.6)) * 0.15));
+    }
 
     // ---- the pile / the storm ----
-    var counts = [0, 0, 0, 0], settled = true;
+    var draw = [[], [], [], []], settled = true;
     var spinMul = 1 + stormMean * 1.3;
     for (var k = 0; k < slots.length; k++) {
       var sl = slots[k], b = sl.bucket;
@@ -553,26 +599,333 @@
       }
       var sc = sl.s * (sl.on ? Math.min(1, 0.2 + tt * 3) : (1 - out)) * (1 - 0.42 * stormK);
       Q.setFromEuler(E); V3.set(px, py, pz); S3.set(sc, sc, sc);
-      M4.compose(V3, Q, S3);
-      b.mesh.setMatrixAt(sl.bi, M4);
-      var bi = k % 4; if (sl.bi + 1 > counts[bi]) counts[bi] = sl.bi + 1;
-    }
-    for (var p = 0; p < 4; p++) {
-      // hidden slots below the high-water mark still need a matrix: zero them
-      var mesh = pile[p].mesh;
-      for (var q = 0; q < counts[p]; q++) {
-        var s2 = slots[q * 4 + p];
-        if (!s2 || (!s2.on && s2.out < 0)) { M4.makeScale(0, 0, 0); mesh.setMatrixAt(q, M4); }
+      if (sl.plate && (sl.mb > 0 || monWant)) {
+        // fly from wherever the storm had it to its plate on the monster
+        var tgt = (monWant && sl.on && now >= sl.mt0) ? 1 : 0;
+        sl.mb = Math.max(0, Math.min(1, sl.mb + (tgt ? dt * 1.1 : -dt * 1.6)));
+        var eb = sl.mb * sl.mb * (3 - 2 * sl.mb);
+        if (eb > 0) {
+          PW.multiplyMatrices(sl.plate.j.matrixWorld, sl.plate.m).decompose(PV, PQ, PS);
+          V3.lerp(PV, eb); V3.y += Math.sin(eb * Math.PI) * 1.4;
+          Q.slerp(PQ, eb); S3.lerp(PS, eb);
+          settled = false;
+        }
       }
-      mesh.count = counts[p];
+      sl.M.compose(V3, Q, S3);
+      sl.d = V3.distanceToSquared(cam.position);
+      draw[k % 4].push(sl);
+    }
+    // FRONT TO BACK. Instances draw in buffer order and the breading shader is
+    // heavy: 250 overlapping monster plates in slot order shaded most pixels 3-4
+    // times (36fps). Sorted nearest-first, early-z throws the hidden ones away.
+    // The tint rides with its nugget, or the colours would swap every frame.
+    for (var p = 0; p < 4; p++) {
+      var mesh = pile[p].mesh, L = draw[p];
+      L.sort(function (a, b) { return a.d - b.d; });
+      for (var q = 0; q < L.length; q++) { mesh.setMatrixAt(q, L[q].M); if (L[q].col) mesh.setColorAt(q, L[q].col); }
+      mesh.count = L.length;
       mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }
 
     R.render(scene, cam);
 
     // A settled, reduced-motion stage has nothing left to draw.
-    if (rm && settled && Math.abs(stormK - stormWant) < 0.002 && hop.y === 0) return;
+    if (rm && settled && !monWant && Math.abs(stormK - stormWant) < 0.002 && hop.y === 0) return;
     raf = requestAnimationFrame(nhFrame);
+  }
+
+  // ---- 🦖 THE NUGGET MONSTER (100M+) and 🔥 THE FEAST (100B+) ------------------------
+  // Beau, 2026-10-07: "anything over 100 million should create a nugget monster
+  // out of these nuggets and anything over 100 billion should be the monster
+  // eating something in total destruction."
+  //
+  // The monster is not a model with nuggets painted on — it IS the storm's
+  // nuggets. A jointed skeleton carries a dark batter core, and ~240 "plates"
+  // are sampled over the core's surfaces, each one a nugget lying flat on the
+  // surface normal. Plate k belongs to slot k, so the same nuggets you watched
+  // orbit fly in feet-first and lock into place. The hero becomes its heart.
+  // At 100B it stands in a little Nuggetown and eats it, one building at a time.
+  var MON_AT = 1e8, FEAST_AT = 1e11;
+  var mon = null, monK = 0, monWant = 0, feastK = 0, feastWant = 0, shake = 0, keyL, kickL, mat0 = null;
+
+  function nhMonBuild(mat) {
+    var hand = nhHandheld(), dens = hand ? 0.72 : 1;
+    var g = new T.Group(); scene.add(g);
+    var J = {};
+    function joint(name, parent, x, y, z) { var o = new T.Object3D(); o.position.set(x, y, z); parent.add(o); J[name] = o; return o; }
+    joint('root', g, 0, 0, 0);
+    joint('hips', J.root, 0, 2.42, 0);
+    joint('torso', J.hips, 0, 0.3, 0);
+    joint('head', J.torso, 0, 1.85, 0.3);
+    joint('jaw', J.head, 0, -0.15, 0.05);
+    [-1, 1].forEach(function (sx) {
+      var s = sx < 0 ? 'L' : 'R';
+      joint('arm' + s, J.torso, sx * 1.45, 1.1, 0.1);
+      joint('fore' + s, J['arm' + s], sx * 0.55, -1.0, 0.3);
+      joint('leg' + s, J.hips, sx * 0.7, -0.1, 0);
+    });
+    // the body: [joint, kind, ...] — ellipsoid: centre, radii, plates; capsule: a, b, r, plates
+    var B = [
+      // the chest leaves a window for the heart (the hero nugget, glowing)
+      ['torso', 'e', [0, 0.75, 0], [1.5, 1.55, 1.15], 66, function (n, p) { return n.z > 0.62 && Math.abs(n.x) < 0.45 && p.y > -0.05 && p.y < 0.85; }],
+      ['hips', 'e', [0, 0.05, 0.15], [1.22, 0.85, 0.86], 24],
+      // the FACE is bare batter — plates stop at the brow and the cheeks, so the
+      // eyes and the mouth read. (First cut plated over everything: a lump.)
+      ['head', 'e', [0, 0.15, 0.1], [0.95, 0.78, 0.9], 40, function (n) { return n.z > 0.5 && n.y < 0.5 && n.y > -0.75 && Math.abs(n.x) < 0.72; }],
+      ['jaw', 'e', [0, -0.25, 0.35], [0.8, 0.32, 0.72], 14],
+    ];
+    [-1, 1].forEach(function (sx) {
+      var s = sx < 0 ? 'L' : 'R';
+      B.push(['arm' + s, 'c', [0, 0, 0], [sx * 0.55, -1.0, 0.3], 0.45, 13]);
+      B.push(['fore' + s, 'c', [0, 0, 0], [sx * 0.1, -1.0, 0.45], 0.40, 11]);
+      B.push(['fore' + s, 'e', [sx * 0.1, -1.15, 0.5], [0.5, 0.45, 0.5], 8]);
+      B.push(['leg' + s, 'c', [0, 0, 0], [sx * 0.15, -1.85, 0.1], 0.58, 15]);
+      B.push(['leg' + s, 'e', [sx * 0.2, -2.0, 0.35], [0.62, 0.32, 0.8], 8]);
+    });
+    // a dark fried-batter core under the plates, so gaps read as body, not sky.
+    // Same breading program as every other nugget: no new shader to compile.
+    var core = nhMaterial(T, shared);
+    core.color = new T.Color(0.42, 0.3, 0.22);
+    var cores = [], plates = [], r = nhRng(777);
+    var up = new T.Vector3(0, 1, 0), nrm = new T.Vector3(), q = new T.Quaternion(), q2 = new T.Quaternion(), pos = new T.Vector3();
+    function mkPlate(j, c, p, n) {
+      // a nugget lying ON the surface: its thickness axis (+Y) along the normal,
+      // spun at random about it, pushed out a touch so it sits proud
+      q.setFromUnitVectors(up, n); q2.setFromAxisAngle(up, r() * Math.PI * 2); q.multiply(q2);
+      var at = new T.Vector3().fromArray(c).add(p).addScaledVector(n, 0.04);
+      var sc = 0.62 + r() * 0.2;
+      return { j: j, m: new T.Matrix4().compose(at, q.clone(), new T.Vector3(sc, sc, sc)), y: 0 };
+    }
+    B.forEach(function (b) {
+      var j = J[b[0]], mesh, n, i;
+      if (b[1] === 'e') {
+        mesh = new T.Mesh(new T.SphereGeometry(1, 28, 18), core);
+        mesh.position.fromArray(b[2]); mesh.scale.fromArray(b[3]).multiplyScalar(0.94);
+        n = Math.round(b[4] * dens);
+        for (i = 0; i < n; i++) { // fibonacci points over the ellipsoid
+          var yv = 1 - 2 * (i + 0.5) / n, rad = Math.sqrt(1 - yv * yv), th = i * 2.39996 + b[4];
+          var ux = Math.cos(th) * rad, uz = Math.sin(th) * rad;
+          pos.set(ux * b[3][0], yv * b[3][1], uz * b[3][2]);
+          nrm.set(ux / b[3][0], yv / b[3][1], uz / b[3][2]).normalize();
+          if (b[5] && b[5](nrm, pos)) continue;
+          plates.push(mkPlate(j, b[2], pos, nrm));
+        }
+      } else {
+        var a = new T.Vector3().fromArray(b[2]), e = new T.Vector3().fromArray(b[3]), ax = e.clone().sub(a), L = ax.length();
+        mesh = new T.Mesh(new T.CapsuleGeometry(b[4] * 0.94, L, 6, 18), core);
+        mesh.position.copy(a).addScaledVector(ax, 0.5);
+        mesh.quaternion.setFromUnitVectors(up, ax.clone().normalize());
+        n = Math.round(b[5] * dens);
+        var rings = Math.max(2, Math.round(n / 4)), per = Math.ceil(n / rings);
+        var dir = ax.clone().normalize();
+        var side = new T.Vector3().crossVectors(dir, Math.abs(dir.y) > 0.9 ? new T.Vector3(1, 0, 0) : up).normalize();
+        var side2 = new T.Vector3().crossVectors(dir, side);
+        for (var ri = 0; ri < rings; ri++) for (var pi = 0; pi < per; pi++) {
+          var t = (ri + 0.5) / rings, ang = (pi / per) * Math.PI * 2 + ri * 0.7;
+          nrm.copy(side).multiplyScalar(Math.cos(ang)).addScaledVector(side2, Math.sin(ang)).normalize();
+          pos.copy(a).addScaledVector(ax, t).addScaledVector(nrm, b[4]);
+          plates.push(mkPlate(j, [0, 0, 0], pos, nrm));
+        }
+      }
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      j.add(mesh); cores.push(mesh);
+    });
+    // eyes: the storm, looking out
+    var eyeM = new T.MeshBasicMaterial({ color: new T.Color(4.0, 2.4, 0.5), toneMapped: false });
+    // teeth: pale fried batter, jagged, top row on the head and bottom on the jaw
+    var tooth = nhMaterial(T, shared); tooth.color = new T.Color(1.35, 1.28, 1.1);
+    var tg = new T.ConeGeometry(0.1, 0.34, 7);
+    for (var ti = 0; ti < 8; ti++) {
+      var ta = (ti / 7 - 0.5) * 1.9, top = new T.Mesh(tg, tooth), bot = new T.Mesh(tg, tooth);
+      top.position.set(Math.sin(ta) * 0.62, -0.06, 0.22 + Math.cos(ta) * 0.62); top.rotation.set(Math.PI, 0, (r() - 0.5) * 0.3); top.scale.setScalar(0.8 + r() * 0.6);
+      bot.position.set(Math.sin(ta) * 0.58, -0.08, 0.28 + Math.cos(ta) * 0.6); bot.rotation.set(0, 0, (r() - 0.5) * 0.3); bot.scale.setScalar(0.7 + r() * 0.5);
+      J.head.add(top); J.jaw.add(bot);
+    }
+    var eyes = [-1, 1].map(function (sx) {
+      var ey = new T.Mesh(new T.SphereGeometry(0.15, 14, 10), eyeM);
+      ey.position.set(sx * 0.33, 0.33, 0.86); ey.scale.set(1.25, 0.8, 1); J.head.add(ey);
+      var gl = new T.Sprite(new T.SpriteMaterial({ map: glow.material.map, blending: T.AdditiveBlending, depthWrite: false, transparent: true, toneMapped: false, opacity: 0.9 }));
+      gl.scale.setScalar(0.9); ey.add(gl);
+      return ey;
+    });
+    var hg = new T.Sprite(new T.SpriteMaterial({ map: glow.material.map, blending: T.AdditiveBlending, depthWrite: false, transparent: true, toneMapped: false, opacity: 0.8 }));
+    hg.position.set(0, 1.08, 1.2); hg.scale.setScalar(1.6); J.torso.add(hg);
+    // the inside of the mouth is DARK, so an open jaw reads as a mouth
+    var maw = new T.Mesh(new T.SphereGeometry(0.62, 16, 12), new T.MeshBasicMaterial({ color: 0x120604 }));
+    maw.position.set(0, -0.12, 0.42); J.head.add(maw);
+    // plates rise feet first: remember each one's height at rest for the stagger
+    g.updateMatrixWorld(true);
+    var tmp = new T.Vector3(), mw = new T.Matrix4();
+    plates.forEach(function (p) { tmp.setFromMatrixPosition(mw.multiplyMatrices(p.j.matrixWorld, p.m)); p.y = tmp.y; });
+    g.visible = false;
+    return { g: g, J: J, plates: plates, cores: cores, eyes: eyes, city: null, roarT: 4, roar: 0, chomp: 0 };
+  }
+
+  // ---- THE FEAST: a little Nuggetown to eat (built the first time it's needed) ----
+  function nhCityBuild() {
+    var hand = nhHandheld();
+    var wc = doc.createElement('canvas'); wc.width = 64; wc.height = 128;
+    var wx = wc.getContext('2d'), wr = nhRng(5);
+    wx.fillStyle = '#0d0f16'; wx.fillRect(0, 0, 64, 128);
+    for (var yy = 4; yy < 124; yy += 10) for (var xx = 4; xx < 60; xx += 10) {
+      var lit = wr();
+      wx.fillStyle = lit < 0.5 ? '#ffcf7a' : lit < 0.62 ? '#8fd0ff' : '#1a1d27';
+      wx.fillRect(xx, yy, 6, 6);
+    }
+    var wt = new T.CanvasTexture(wc); wt.encoding = T.sRGBEncoding;
+    var bm = new T.MeshStandardMaterial({ map: wt, emissiveMap: wt, emissive: new T.Color(1.3, 1.1, 0.9), roughness: 0.8, metalness: 0.1 });
+    var N = hand ? 26 : 44, r = nhRng(42), list = [], i;
+    var geo = new T.BoxGeometry(1, 1, 1); geo.translate(0, 0.5, 0);
+    var im = new T.InstancedMesh(geo, bm, N); im.castShadow = true; im.receiveShadow = true;
+    im.instanceMatrix.setUsage(T.DynamicDrawUsage);
+    var col = new T.Color();
+    for (i = 0; i < N; i++) {
+      // a ring of blocks round the monster's feet: deep behind, thin in front
+      var a = Math.PI * (0.85 + 1.3 * r()), rad = 2.8 + r() * 4.6;
+      if (i % 5 === 0) { a = Math.PI * (r() < 0.5 ? 0.06 + 0.24 * r() : 0.70 + 0.24 * r()); rad = 3.4 + r() * 3.5; }
+      list.push({ x: Math.cos(a) * rad * 1.25, z: Math.sin(a) * rad * 0.85 - 0.4, w: 0.5 + r() * 0.6, d: 0.5 + r() * 0.6, h: 0.7 + r() * r() * 3.2, on: 1, burn: r() < 0.42, ph: r() * 6 });
+      col.setHSL(0.6 + r() * 0.08, 0.2, 0.3 + r() * 0.25); im.setColorAt(i, col);
+    }
+    im.visible = false; scene.add(im);
+    // the one in its hand
+    var held = new T.Mesh(geo, bm); held.visible = false; held.castShadow = true;
+    mon.J.foreR.add(held);
+    // flames over the burning ones
+    var fc = doc.createElement('canvas'); fc.width = fc.height = 64;
+    var fx = fc.getContext('2d'), fg = fx.createRadialGradient(32, 40, 0, 32, 36, 30);
+    fg.addColorStop(0, 'rgba(255,240,180,1)'); fg.addColorStop(0.35, 'rgba(255,140,30,0.8)'); fg.addColorStop(1, 'rgba(255,40,0,0)');
+    fx.fillStyle = fg; fx.fillRect(0, 0, 64, 64);
+    var ft = new T.CanvasTexture(fc);
+    var fires = list.filter(function (b) { return b.burn; }).map(function (b) {
+      var s = new T.Sprite(new T.SpriteMaterial({ map: ft, blending: T.AdditiveBlending, depthWrite: false, transparent: true, toneMapped: false }));
+      s.position.set(b.x, b.h + 0.3, b.z); s.userData.b = b; scene.add(s); return s;
+    });
+    var fireL = new T.PointLight(nhSrgb(T, '#ff6a1a'), 0, 18, 1.6); fireL.position.set(0, 2.5, -2.5); scene.add(fireL);
+    // the sky over Nuggetown, on fire: one big additive glow behind everything
+    var skc = doc.createElement('canvas'); skc.width = skc.height = 64;
+    var skx = skc.getContext('2d'), skg = skx.createRadialGradient(32, 44, 0, 32, 44, 34);
+    skg.addColorStop(0, 'rgba(255,120,30,0.95)'); skg.addColorStop(0.45, 'rgba(210,50,12,0.45)'); skg.addColorStop(1, 'rgba(120,10,0,0)');
+    skx.fillStyle = skg; skx.fillRect(0, 0, 64, 64);
+    var sky = new T.Sprite(new T.SpriteMaterial({ map: new T.CanvasTexture(skc), blending: T.AdditiveBlending, depthWrite: false, transparent: true, toneMapped: false, opacity: 0 }));
+    sky.position.set(0, 2.2, -9); sky.scale.set(26, 13, 1); sky.renderOrder = -1; scene.add(sky);
+    // crumbs: tiny nuggets, same breading program
+    var debris = new T.InstancedMesh(nhNugGeo(T, 'ball', 9.1, 0.35), mat0, 48);
+    debris.count = 0; debris.instanceMatrix.setUsage(T.DynamicDrawUsage); scene.add(debris);
+    var bits = []; for (i = 0; i < 48; i++) bits.push({ x: 0, y: -9, z: 0, vx: 0, vy: 0, vz: 0, s: 0, r: 0 });
+    return { im: im, sky: sky, list: list, held: held, fires: fires, fireL: fireL, debris: debris, bits: bits, bi: 0, phase: 'reach', pt: 0, target: -1, bites: 0, stompT: 3 };
+  }
+
+  function nhBurst(at, n, sp) {
+    var C = mon.city;
+    for (var i = 0; i < n; i++) {
+      var p = C.bits[C.bi++ % C.bits.length];
+      p.x = at.x; p.y = at.y; p.z = at.z;
+      p.vx = (Math.random() - 0.5) * sp; p.vy = Math.random() * sp; p.vz = Math.random() * sp * 0.6;
+      p.s = 0.12 + Math.random() * 0.12;
+    }
+  }
+
+  function nhCityTick(now, dt, k) {
+    var C = mon.city, J = mon.J; if (!C) return;
+    C.im.visible = k > 0.01;
+    C.fireL.intensity = k * (5 + Math.sin(now * 17) * 1.2 + Math.sin(now * 5.3) * 1.5);
+    C.sky.material.opacity = k * (0.55 + 0.08 * Math.sin(now * 3.1));
+    // the city grows up out of the ground as the feast arrives
+    var grow = k * k * (3 - 2 * k);
+    C.list.forEach(function (b, i) {
+      var h = b.on ? b.h * grow : 0;
+      M4.compose(V3.set(b.x, 0, b.z), Q.set(0, 0, 0, 1), S3.set(b.w, Math.max(0.0001, h), b.d));
+      C.im.setMatrixAt(i, M4);
+    });
+    C.im.instanceMatrix.needsUpdate = true;
+    C.fires.forEach(function (s) {
+      var b = s.userData.b, f = b.on ? grow * (0.9 + 0.3 * Math.sin(now * 13 + b.ph)) : 0;
+      s.position.y = b.h * grow + 0.45; s.scale.set(1.3 * f + 0.0001, 2.1 * f + 0.0001, 1);
+    });
+    if (k < 0.5) { C.held.visible = false; mon.chomp = 0; return; }
+    // THE EATING CYCLE: reach down, take a building, lift it, four bites, again
+    C.pt += dt;
+    var armR = J.armR, foreR = J.foreR;
+    if (C.phase === 'reach') {
+      if (C.target < 0) {
+        var live = [];
+        C.list.forEach(function (b, i) { if (b.on) live.push(i); });
+        if (!live.length) { C.list.forEach(function (b, i) { b.on = 1; live.push(i); }); } // the city rebuilds. it always does.
+        C.target = live[Math.floor(Math.random() * live.length)];
+      }
+      var e = Math.min(1, C.pt / 1.2);
+      armR.rotation.set(-1.0 * e, 0, -0.5 * e); foreR.rotation.set(-0.3 * e, 0, 0);
+      if (C.pt > 1.2) {
+        var tb = C.list[C.target]; tb.on = 0;
+        C.held.visible = true; C.held.scale.set(tb.w * 0.9, Math.max(1.2, tb.h) * 0.9, tb.d * 0.9);
+        // gripped in the fist, sticking OUT along the forearm (local -y), so once
+        // the arm comes up the building points at the mouth
+        C.held.position.set(0.05, -1.35, 0.55); C.held.rotation.set(Math.PI, 0, 0.2);
+        C.phase = 'lift'; C.pt = 0; C.bites = 0;
+        nhBurst(V3.set(tb.x, 0.2, tb.z), 10, 2.5);
+      }
+    } else if (C.phase === 'lift') {
+      var e2 = Math.min(1, C.pt / 1.0);
+      armR.rotation.set(-1.0 - e2 * 1.25, 0, -0.5 + e2 * 0.9); foreR.rotation.set(-0.3 - e2 * 1.3, 0, 0);
+      if (C.pt > 1.0) { C.phase = 'eat'; C.pt = 0; }
+    } else if (C.phase === 'eat') {
+      var bite = C.pt % 0.6;
+      mon.chomp = bite < 0.3 ? bite / 0.3 : 1 - (bite - 0.3) / 0.3;
+      var at = (C.bites + 1) * 0.6 - 0.3;
+      if (C.pt >= at && C.pt - dt < at) {
+        C.bites++; C.held.scale.y *= 0.68; shake = Math.max(shake, 0.05);
+        V3.setFromMatrixPosition(J.jaw.matrixWorld); V3.y -= 0.2; V3.z += 0.7;
+        nhBurst(V3, 7, 3);
+      }
+      if (C.bites >= 4) { C.held.visible = false; mon.chomp = 0; C.phase = 'reach'; C.pt = 0; C.target = -1; }
+    }
+    // a stomp now and then: the whole frame jumps
+    C.stompT -= dt;
+    var st = C.stompT < 0.5 && C.stompT > 0 ? Math.sin((0.5 - C.stompT) / 0.5 * Math.PI) : 0;
+    J.legL.rotation.x = -st * 0.45;
+    if (C.stompT <= 0) { C.stompT = 3 + Math.random() * 2; shake = Math.max(shake, 0.16); nhBurst(V3.set(-0.9, 0.1, 0.4), 8, 1.8); }
+    // crumbs in the air
+    var n = 0;
+    C.bits.forEach(function (p) {
+      if (p.s <= 0) return;
+      p.vy -= 9.8 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt; p.r += dt * 6;
+      if (p.y < 0.05) { p.y = 0.05; p.vy *= -0.3; p.vx *= 0.6; p.vz *= 0.6; p.s -= dt * 0.6; }
+      Q.setFromEuler(E.set(p.r, p.r * 0.7, 0));
+      M4.compose(V3.set(p.x, p.y, p.z), Q, S3.setScalar(Math.max(0.0001, p.s)));
+      C.debris.setMatrixAt(n++, M4);
+    });
+    C.debris.count = n; C.debris.instanceMatrix.needsUpdate = true;
+  }
+
+  // drive the skeleton (every frame while the monster is up)
+  function nhMonAnimate(now, dt, rm) {
+    var J = mon.J, e = monK * monK * (3 - 2 * monK);
+    mon.g.visible = monK > 0.01;
+    J.root.rotation.y = rm ? 0 : Math.sin(now * 0.33) * 0.18 * (1 - feastK * 0.6) - feastK * 0.12;
+    J.hips.position.y = 2.42 + (rm ? 0 : Math.sin(now * 1.3) * 0.05);
+    J.torso.rotation.x = 0.14 + (rm ? 0 : Math.sin(now * 1.3) * 0.03);
+    var br = 1 + (rm ? 0 : Math.sin(now * 1.3) * 0.025);
+    J.torso.scale.set(br, 1, br);
+    // THE ROAR: every few seconds the jaw drops, the head goes back, the frame shakes
+    mon.roarT -= dt;
+    if (mon.roarT <= 0 && feastK < 0.5 && !rm) { mon.roarT = 6 + Math.random() * 3; mon.roar = 1.6; }
+    var roar = 0;
+    if (mon.roar > 0) { mon.roar -= dt; roar = Math.sin(Math.min(1, (1.6 - mon.roar) / 1.6) * Math.PI); shake = Math.max(shake, roar * 0.07); }
+    var open = Math.max(roar, mon.chomp || 0);
+    J.jaw.rotation.x = open * 0.6;
+    J.head.rotation.set(-roar * 0.35, rm ? 0 : Math.sin(now * 0.5) * 0.28 * (1 - feastK), 0);
+    if (feastK < 0.5) {
+      J.armL.rotation.set(-0.15, 0, -0.25 + Math.sin(now * 1.1) * 0.08 - roar * 0.5);
+      J.armR.rotation.set(-0.15, 0, 0.25 - Math.sin(now * 1.1) * 0.08 + roar * 0.5);
+      J.foreL.rotation.set(-0.35, 0, 0); J.foreR.rotation.set(-0.35, 0, 0);
+      J.legL.rotation.x = 0;
+    } else {
+      J.armL.rotation.set(-0.3, 0, -0.35 + Math.sin(now * 2) * 0.1);
+    }
+    mon.eyes.forEach(function (ey) { ey.scale.setScalar(0.85 + 0.25 * e + open * 0.3); });
+    mon.cores.forEach(function (c) { c.visible = e > 0.35; });
+    mon.g.updateMatrixWorld(true);
   }
 
   // ---- public ---------------------------------------------------------------------
@@ -589,7 +942,7 @@
   HERO.state = function () {
     var shown = 0;
     for (var k = 0; k < slots.length; k++) if (slots[k].on) shown++;
-    return { ready: HERO.ready, failed: HERO.failed, count: HERO.count, extras: shown, storm: +stormK.toFixed(3) };
+    return { ready: HERO.ready, failed: HERO.failed, count: HERO.count, extras: shown, storm: +stormK.toFixed(3), monster: +monK.toFixed(3), feast: +feastK.toFixed(3), plates: mon ? mon.plates.length : 0, eating: mon && mon.city ? mon.city.phase : null };
   };
   // draw one frame now (tests pin HERO.debug.clock first)
   HERO.render = function () {
@@ -597,6 +950,8 @@
     if (raf) { cancelAnimationFrame(raf); raf = 0; }
     nhFrame(0);
   };
+  HERO.debug.renderer = function () { return R; };
+  HERO.debug.scene = function () { return scene; };
   HERO.makeNuggetGeometry = function (shape, seed, res) { return nhNugGeo(global.THREE, shape, seed, res || 1); };
   HERO.makeBreadingMaterial = function (shared) { return nhMaterial(global.THREE, shared || { storm: { value: 0 }, time: { value: 0 } }); };
 

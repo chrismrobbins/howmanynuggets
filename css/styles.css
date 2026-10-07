@@ -164,8 +164,11 @@ input[type=number] { -moz-appearance: textfield; }
 }
 .result.has-nug3d .nug3d { height: 196px; opacity: 1; }
 .result.has-nug3d .nugget-hero { display: none; }
+/* 🦖 the monster (100M+) and the feast (100B+) need a taller stage */
+.result.has-nug3d.nug-monster .nug3d { height: 340px; }
 @media (max-width: 480px) {
   .result.has-nug3d .nug3d { height: 168px; }
+  .result.has-nug3d.nug-monster .nug3d { height: 300px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .nug3d { transition: opacity 0.3s ease; }
