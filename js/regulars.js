@@ -114,7 +114,12 @@
       '<div class="rg-ticker" aria-live="polite"></div>' +
       '<div class="rg-hint">click a regular to talk · they notice your cursor</div>' +
       '<div class="rg-bubbles" aria-hidden="true"></div>' +
-      '<div class="rg-loading"><div class="rg-spin"></div><div>unlocking the street…</div></div>';
+      '<div class="rg-loading"><div class="rg-ld-rain" aria-hidden="true"></div>' +
+      '<div class="rg-ld-sign" aria-hidden="true">ARCADE</div>' +
+      '<div class="rg-ld-k">After Hours · Nuggetown</div>' +
+      '<div class="rg-ld-bar"><i></i></div>' +
+      '<div class="rg-ld-step">opening the street…</div>' +
+      '<div class="rg-ld-note">first visit takes a few seconds. the street remembers you after that.</div></div>';
     doc.body.appendChild(layer);
     canvas = layer.querySelector('.rg-canvas');
     blotter = layer.querySelector('.rg-blotter ol');
@@ -135,38 +140,57 @@
     'float rgN(vec3 x){ vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);',
     '  return mix(mix(mix(rgH(i), rgH(i + vec3(1,0,0)), f.x), mix(rgH(i + vec3(0,1,0)), rgH(i + vec3(1,1,0)), f.x), f.y),',
     '             mix(mix(rgH(i + vec3(0,0,1)), rgH(i + vec3(1,0,1)), f.x), mix(rgH(i + vec3(0,1,1)), rgH(i + vec3(1,1,1)), f.x), f.y), f.z); }',
-    'float rgCell(vec3 x){ vec3 i = floor(x); vec3 f = fract(x); float d = 8.0;',
-    '  for (int a = -1; a <= 1; a++) for (int b = -1; b <= 1; b++) for (int c = -1; c <= 1; c++){',
-    '    vec3 o = vec3(float(a), float(b), float(c)); vec3 r = o + vec3(rgH(i + o), rgH(i + o + 31.0), rgH(i + o + 57.0)) - f;',
-    '    d = min(d, dot(r, r)); }',
-    '  return sqrt(d); }',
     'vec3 rgBump(vec3 sp, vec3 n, float h, float fd){ vec3 sx = dFdx(sp), sy = dFdy(sp); vec3 r1 = cross(sy, n), r2 = cross(n, sx);',
     '  float det = dot(sx, r1) * fd; vec3 g = sign(det) * (dFdx(h) * r1 + dFdy(h) * r2); return normalize(abs(det) * n - g); }',
   ].join('\n');
 
+  // ONE program for every bumpy material. The first cut baked freq/amp/mode
+  // into the source, so each material compiled its own copy — and ANGLE's D3D
+  // compiler unrolls loops, so a dozen cellular-noise programs cost 13.8s of a
+  // frozen tab. Knobs are uniforms now, the noise is loop-free, and three.js
+  // shares the program across materials (per-material uniforms still apply).
+  // FOUR PROGRAMS, NOT FIFTEEN. Every MeshPhysicalMaterial feature that is merely
+  // ON (sheen > 0, clearcoat > 0, a map slot, double-siding) is a separate
+  // shader program, and on ANGLE/D3D each physical program costs ~300ms of
+  // GPU-process compile that the tab ends up waiting for. So every material
+  // here carries the SAME flags — a token clearcoat and sheen (sheenColor black
+  // = invisible) — and the street textures all fill the same three map slots.
+  function phys(T, params) {
+    params = params || {};
+    if (!(params.clearcoat > 0)) { params.clearcoat = 0.001; params.clearcoatRoughness = 1; }
+    if (!(params.sheen > 0)) { params.sheen = 0.001; params.sheenColor = new T.Color(0, 0, 0); }
+    return new T.MeshPhysicalMaterial(params);
+  }
+  var BUMP_MODE = { warts: 0, feather: 1, nap: 2 };
   function bumpy(T, params, opts) {
-    var m = new T.MeshPhysicalMaterial(params);
+    var m = phys(T, params);
     opts = opts || {};
-    var freq = (opts.freq || 40).toFixed(2), amp = (opts.amp || 0.004).toFixed(5), stretch = opts.stretch || [1, 1, 1];
-    var mode = opts.mode || 'warts';
-    m.onBeforeCompile = function (sh) {
-      sh.vertexShader = 'varying vec3 vRgObj;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvRgObj = position;');
-      var hExpr = mode === 'warts'
-        ? 'pow(max(0.0, 1.0 - rgCell(q * ' + freq + ')), 2.0) * 0.8 + 0.25 * rgN(q * 9.0)'
-        : mode === 'feather'
-          ? '0.6 * rgN(q * vec3(' + freq + ' * 0.35, ' + freq + ', ' + freq + ' * 0.35)) + 0.3 * rgN(q * 7.0)'
-          : '0.7 * rgN(q * ' + freq + ') + 0.3 * rgN(q * 6.0)';
-      sh.fragmentShader = BUMP_GLSL + '\n' + sh.fragmentShader
-        .replace('#include <color_fragment>', '#include <color_fragment>\nvec3 q = vRgObj * vec3(' + stretch.map(function (s) { return s.toFixed(2); }).join(',') + ');\nfloat rgW = length(fwidth(q));\nfloat rgHt = (' + hExpr + ') * smoothstep(0.6, 0.15, rgW * ' + freq + ');\ndiffuseColor.rgb *= 0.86 + 0.28 * rgN(q * 5.0 + 3.0);')
-        .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = rgBump(-vViewPosition, normal, rgHt * ' + amp + ', faceDirection);');
+    var u = {
+      uRgF: { value: opts.freq || 40 }, uRgA: { value: opts.amp || 0.004 },
+      uRgM: { value: BUMP_MODE[opts.mode || 'warts'] }, uRgS: { value: new T.Vector3().fromArray(opts.stretch || [1, 1, 1]) },
     };
-    m.customProgramCacheKey = function () { return 'rg-' + mode + freq + amp; };
+    m.onBeforeCompile = function (sh) {
+      for (var k in u) sh.uniforms[k] = u[k];
+      sh.vertexShader = 'varying vec3 vRgObj;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvRgObj = position;');
+      sh.fragmentShader = BUMP_GLSL + [
+        '',
+        'uniform float uRgF; uniform float uRgA; uniform float uRgM; uniform vec3 uRgS;',
+        'float rgHeight(vec3 q){',
+        '  if (uRgM < 0.5) return smoothstep(0.42, 0.88, rgN(q * uRgF)) * 0.8 + 0.25 * rgN(q * 9.0);',
+        '  if (uRgM < 1.5) return 0.6 * rgN(q * vec3(uRgF * 0.35, uRgF, uRgF * 0.35)) + 0.3 * rgN(q * 7.0);',
+        '  return 0.7 * rgN(q * uRgF) + 0.3 * rgN(q * 6.0); }',
+        '',
+      ].join('\n') + sh.fragmentShader
+        .replace('#include <color_fragment>', '#include <color_fragment>\nvec3 q = vRgObj * uRgS;\nfloat rgW = length(fwidth(q));\nfloat rgHt = rgHeight(q) * smoothstep(0.6, 0.15, rgW * uRgF);\ndiffuseColor.rgb *= 0.86 + 0.28 * rgN(q * 5.0 + 3.0);')
+        .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = rgBump(-vViewPosition, normal, rgHt * uRgA, faceDirection);');
+    };
+    m.customProgramCacheKey = function () { return 'rg-bump-2'; };
     return m;
   }
 
   var MATS = null;
   function makeMats(T) {
-    var nug = (global.NugHero && NugHero.makeBreadingMaterial) ? NugHero.makeBreadingMaterial() : new T.MeshPhysicalMaterial({ color: srgb(T, '#c88a3a'), roughness: 0.6 });
+    var nug = (global.NugHero && NugHero.makeBreadingMaterial) ? NugHero.makeBreadingMaterial() : phys(T, { color: srgb(T, '#c88a3a'), roughness: 0.6 });
     var nugDark = (global.NugHero && NugHero.makeBreadingMaterial) ? NugHero.makeBreadingMaterial() : nug.clone();
     nugDark.color = new T.Color(0.55, 0.42, 0.34);
     var glow = new T.MeshBasicMaterial({ color: new T.Color(3.2, 1.6, 0.25), toneMapped: false });
@@ -176,25 +200,23 @@
       pickleDk: bumpy(T, { color: srgb(T, '#365a17'), roughness: 0.4, clearcoat: 0.4 }, { freq: 30, amp: 0.006, mode: 'warts' }),
       felt: bumpy(T, { color: srgb(T, '#2b3243'), roughness: 0.92, sheen: 1.0, sheenColor: srgb(T, '#6a7799'), sheenRoughness: 0.45 }, { freq: 90, amp: 0.0012, mode: 'nap' }),
       feltDk: bumpy(T, { color: srgb(T, '#161a24'), roughness: 0.9, sheen: 0.8, sheenColor: srgb(T, '#3d4660'), sheenRoughness: 0.5 }, { freq: 90, amp: 0.001, mode: 'nap' }),
-      badge: new T.MeshPhysicalMaterial({ color: srgb(T, '#e8b450'), metalness: 1, roughness: 0.28, clearcoat: 0.6 }),
-      eyes: new T.MeshPhysicalMaterial({ color: srgb(T, '#060608'), roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.05 }),
-      shades: new T.MeshPhysicalMaterial({ color: srgb(T, '#050507'), roughness: 0.06, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.02 }),
-      satin: new T.MeshPhysicalMaterial({ color: srgb(T, '#b3241a'), roughness: 0.34, sheen: 1, sheenColor: srgb(T, '#ff7a66'), sheenRoughness: 0.3 }),
-      knot: new T.MeshPhysicalMaterial({ color: srgb(T, '#7b1a12'), roughness: 0.45, sheen: 0.6, sheenColor: srgb(T, '#ff7a66') }),
+      badge: phys(T, { color: srgb(T, '#e8b450'), metalness: 1, roughness: 0.28, clearcoat: 0.6 }),
+      eyes: phys(T, { color: srgb(T, '#060608'), roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.05 }),
+      shades: phys(T, { color: srgb(T, '#050507'), roughness: 0.06, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.02 }),
+      satin: phys(T, { color: srgb(T, '#b3241a'), roughness: 0.34, sheen: 1, sheenColor: srgb(T, '#ff7a66'), sheenRoughness: 0.3 }),
+      knot: phys(T, { color: srgb(T, '#7b1a12'), roughness: 0.45, sheen: 0.6, sheenColor: srgb(T, '#ff7a66') }),
       paper: bumpy(T, { color: srgb(T, '#ece5d2'), roughness: 0.95 }, { freq: 120, amp: 0.0006, mode: 'nap' }),
       cup: bumpy(T, { color: srgb(T, '#e7e0cf'), roughness: 0.62, clearcoat: 0.25, clearcoatRoughness: 0.5 }, { freq: 60, amp: 0.0008, mode: 'nap' }),
-      sauce: new T.MeshPhysicalMaterial({ color: srgb(T, '#9a3418'), roughness: 0.3, clearcoat: 0.8 }),
-      lid: new T.MeshPhysicalMaterial({ color: srgb(T, '#f1ede2'), roughness: 0.28, clearcoat: 0.7, clearcoatRoughness: 0.15 }),
+      sauce: phys(T, { color: srgb(T, '#9a3418'), roughness: 0.3, clearcoat: 0.8 }),
+      lid: phys(T, { color: srgb(T, '#f1ede2'), roughness: 0.28, clearcoat: 0.7, clearcoatRoughness: 0.15 }),
       cloth: bumpy(T, { color: srgb(T, '#161a26'), roughness: 0.96, sheen: 1, sheenColor: srgb(T, '#4a5677'), sheenRoughness: 0.5 }, { freq: 70, amp: 0.0012, mode: 'nap' }),
-      clothDk: new T.MeshPhysicalMaterial({ color: srgb(T, '#0b0c10'), roughness: 1, side: T.DoubleSide }),
+      clothDk: phys(T, { color: srgb(T, '#0b0c10'), roughness: 1 }),
       glow: glow,
       hen: bumpy(T, { color: srgb(T, '#efe8d8'), roughness: 0.82, sheen: 1, sheenColor: srgb(T, '#ffffff'), sheenRoughness: 0.6 }, { freq: 55, amp: 0.0022, mode: 'feather', stretch: [1, 1, 1] }),
       henDark: bumpy(T, { color: srgb(T, '#cbc1ad'), roughness: 0.85, sheen: 0.8, sheenColor: srgb(T, '#ffffff') }, { freq: 60, amp: 0.0024, mode: 'feather' }),
       comb: bumpy(T, { color: srgb(T, '#b52320'), roughness: 0.5, clearcoat: 0.3, sheen: 0.4, sheenColor: srgb(T, '#ff8a7a') }, { freq: 40, amp: 0.002, mode: 'nap' }),
-      beak: new T.MeshPhysicalMaterial({ color: srgb(T, '#de9628'), roughness: 0.42, clearcoat: 0.4 }),
+      beak: phys(T, { color: srgb(T, '#de9628'), roughness: 0.42, clearcoat: 0.4 }),
     };
-    // the hood's cowl is an open-fronted shell; let the lining show from inside
-    MATS.cloth.side = T.DoubleSide;
     return MATS;
   }
 
@@ -329,26 +351,28 @@
       var m = new T.Mesh(geo, mat); m.position.set(x || 0, y || 0, z || 0);
       m.castShadow = !!cast; m.receiveShadow = recv !== false; g.add(m); return m;
     }
-    var iron = new T.MeshPhysicalMaterial({ color: srgb(T, '#1b1e24'), roughness: 0.45, metalness: 0.7, clearcoat: 0.5, clearcoatRoughness: 0.3 });
-    var concrete = new T.MeshPhysicalMaterial({ color: srgb(T, '#6f7178'), roughness: 0.55, clearcoat: 0.35, clearcoatRoughness: 0.35 });
+    var iron = phys(T, { color: srgb(T, '#1b1e24'), roughness: 0.45, metalness: 0.7, clearcoat: 0.5, clearcoatRoughness: 0.3 });
+    var concrete = phys(T, { color: srgb(T, '#6f7178'), roughness: 0.55, clearcoat: 0.35, clearcoatRoughness: 0.35 });
 
     // pavement
-    var pave = new T.MeshPhysicalMaterial({ map: paveTex(T, 'color'), roughnessMap: paveTex(T, 'rough'), bumpMap: paveTex(T, 'bump'), bumpScale: 0.006, roughness: 1, clearcoat: 0.45, clearcoatRoughness: 0.2 });
+    var pave = phys(T, { map: paveTex(T, 'color'), roughnessMap: paveTex(T, 'rough'), bumpMap: paveTex(T, 'bump'), bumpScale: 0.006, roughness: 1, clearcoat: 0.45, clearcoatRoughness: 0.2 });
     pave.map.encoding = T.sRGBEncoding;
     var pv = mesh(new T.PlaneGeometry(9.6, ST.kerbZ - ST.wallZ + 0.2), pave, 0, 0, (ST.kerbZ + ST.wallZ) / 2 - 0.05);
     pv.rotation.x = -Math.PI / 2;
     // kerb
     mesh(new T.BoxGeometry(9.6, 0.16, 0.16), concrete, 0, -0.02, ST.kerbZ + 0.07, false);
     // road (wet, puddled)
-    var road = new T.MeshPhysicalMaterial({ map: roadTex(T, 'color'), roughnessMap: roadTex(T, 'rough'), roughness: 1, clearcoat: 0.8, clearcoatRoughness: 0.08 });
+    var roadR = roadTex(T, 'rough');
+    var road = phys(T, { map: roadTex(T, 'color'), roughnessMap: roadR, bumpMap: roadR, bumpScale: 0.002, roughness: 1, clearcoat: 0.8, clearcoatRoughness: 0.08 });
     road.map.encoding = T.sRGBEncoding;
     var rd = mesh(new T.PlaneGeometry(9.6, 3.2), road, 0, -0.14, ST.roadZ0 + 1.5);
     rd.rotation.x = -Math.PI / 2;
     // road paint: a stop line that's seen better days
-    var paint = new T.MeshPhysicalMaterial({ color: srgb(T, '#c9c3a8'), roughness: 0.6, clearcoat: 0.6 });
+    var paint = phys(T, { color: srgb(T, '#c9c3a8'), roughness: 0.6, clearcoat: 0.6 });
 
     // the wall: brick, with the arcade door cut into it
-    var brick = new T.MeshPhysicalMaterial({ map: brickTex(T, false), bumpMap: brickTex(T, true), bumpScale: 0.012, roughness: 0.88 });
+    var brickB = brickTex(T, true);
+    var brick = phys(T, { map: brickTex(T, false), bumpMap: brickB, roughnessMap: brickB, bumpScale: 0.012, roughness: 1.1 });
     brick.map.encoding = T.sRGBEncoding;
     var D = ST.door, wallH = 3.4, x0 = -3.05, x1 = 4.8;
     function wallSeg(xa, xb, ya, yb) {
@@ -366,7 +390,7 @@
     alleyWall.material = brick;
     var side = mesh(new T.PlaneGeometry(1.4, wallH), brick, x0, wallH / 2, ST.wallZ - 0.7); side.rotation.y = Math.PI / 2;
     // door: recess, frame, lit glass
-    var frameM = new T.MeshPhysicalMaterial({ color: srgb(T, '#2a1a12'), roughness: 0.5, clearcoat: 0.6 });
+    var frameM = phys(T, { color: srgb(T, '#2a1a12'), roughness: 0.5, clearcoat: 0.6 });
     mesh(new T.BoxGeometry(D.w + 0.28, 0.14, 0.3), frameM, D.x, D.h + 0.05, ST.wallZ - 0.02, true);
     mesh(new T.BoxGeometry(0.14, D.h + 0.1, 0.3), frameM, D.x - D.w / 2 - 0.07, (D.h + 0.1) / 2, ST.wallZ - 0.02, true);
     mesh(new T.BoxGeometry(0.14, D.h + 0.1, 0.3), frameM, D.x + D.w / 2 + 0.07, (D.h + 0.1) / 2, ST.wallZ - 0.02, true);
@@ -375,7 +399,7 @@
     mesh(new T.PlaneGeometry(D.w, D.h), glass, D.x, D.h / 2, ST.wallZ - 0.16, false, false);
     mesh(new T.BoxGeometry(0.05, D.h, 0.06), frameM, D.x, D.h / 2, ST.wallZ - 0.13, false); // the mullion
     // door mat
-    var matM = new T.MeshPhysicalMaterial({ color: srgb(T, '#3a1d22'), roughness: 1 });
+    var matM = phys(T, { color: srgb(T, '#3a1d22'), roughness: 1 });
     var dm = mesh(new T.PlaneGeometry(1.1, 0.6), matM, D.x, 0.006, ST.wallZ + 0.36); dm.rotation.x = -Math.PI / 2;
     // the neon
     var neon = new T.Mesh(new T.PlaneGeometry(1.9, 0.48), new T.MeshBasicMaterial({ map: neonTex(T), transparent: true, depthWrite: false, toneMapped: false, color: new T.Color(1.6, 1.6, 1.6) }));
@@ -383,7 +407,7 @@
     world.neon = neon;
 
     // bench
-    var wood = new T.MeshPhysicalMaterial({ color: srgb(T, '#5a3a22'), roughness: 0.6, clearcoat: 0.5, clearcoatRoughness: 0.3 });
+    var wood = phys(T, { color: srgb(T, '#5a3a22'), roughness: 0.6, clearcoat: 0.5, clearcoatRoughness: 0.3 });
     var B = ST.bench;
     for (var s = 0; s < 3; s++) mesh(new T.BoxGeometry(B.len, 0.04, 0.12), wood, B.x, B.seat - 0.02, B.z + 0.13 - s * 0.14, true);
     for (s = 0; s < 2; s++) { var bk = mesh(new T.BoxGeometry(B.len, 0.11, 0.035), wood, B.x, B.seat + 0.2 + s * 0.15, B.z - 0.23, true); bk.rotation.x = -0.12; }
@@ -413,14 +437,14 @@
     world.cone = cone;
 
     // newspaper box
-    var blue = new T.MeshPhysicalMaterial({ color: srgb(T, '#1e4f8f'), roughness: 0.4, clearcoat: 0.8, clearcoatRoughness: 0.2 });
+    var blue = phys(T, { color: srgb(T, '#1e4f8f'), roughness: 0.4, clearcoat: 0.8, clearcoatRoughness: 0.2 });
     var bx = ST.box;
     mesh(new T.BoxGeometry(0.5, 0.95, 0.42), blue, bx.x, 0.6, bx.z, true);
-    mesh(new T.BoxGeometry(0.34, 0.2, 0.02), new T.MeshPhysicalMaterial({ color: srgb(T, '#d9d4c2'), roughness: 0.9, emissive: srgb(T, '#2a2418') }), bx.x, 0.82, bx.z + 0.215, false);
+    mesh(new T.BoxGeometry(0.34, 0.2, 0.02), phys(T, { color: srgb(T, '#d9d4c2'), roughness: 0.9, emissive: srgb(T, '#2a2418') }), bx.x, 0.82, bx.z + 0.215, false);
     [-1, 1].forEach(function (sx) { mesh(new T.BoxGeometry(0.04, 0.14, 0.04), iron, bx.x + sx * 0.2, 0.07, bx.z, true); });
 
     // bollards
-    var band = new T.MeshPhysicalMaterial({ color: srgb(T, '#d9a520'), roughness: 0.5, clearcoat: 0.5 });
+    var band = phys(T, { color: srgb(T, '#d9a520'), roughness: 0.5, clearcoat: 0.5 });
     [[-3.05, 1.22], [3.05, 0.15]].forEach(function (p) {
       mesh(new T.CylinderGeometry(0.1, 0.12, 0.85, 18), iron, p[0], 0.425, p[1], true);
       mesh(new T.SphereGeometry(0.1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), iron, p[0], 0.85, p[1], true);
@@ -456,18 +480,18 @@
     var moon = new T.DirectionalLight(srgb(T, '#8aa6ff'), 0.5);
     moon.position.set(-3, 5, -4); scene.add(moon);
     // THE KEY: the sodium lamp. A spot, shadow-casting.
-    var lamp = new T.SpotLight(srgb(T, '#ffb35e'), 46, 10, 0.72, 0.7, 1.7);
+    var lamp = new T.SpotLight(srgb(T, '#ffb35e'), 46, 11, 0.86, 0.72, 1.65);
     lamp.position.copy(world.lampHead);
-    lamp.target.position.set(0.9, 0, 0.35);
+    lamp.target.position.set(0.8, 0, 0.75);
     lamp.castShadow = true;
     lamp.shadow.mapSize.set(hand ? 1024 : 2048, hand ? 1024 : 2048);
     lamp.shadow.bias = -0.0004; lamp.shadow.normalBias = 0.03; lamp.shadow.radius = 4;
     lamp.shadow.camera.near = 0.5; lamp.shadow.camera.far = 12;
     scene.add(lamp); scene.add(lamp.target);
     // a wide, dim, shadowless spill so the wet road catches the sodium too
-    var spill = new T.SpotLight(srgb(T, '#ff9f45'), 10, 9, 1.15, 0.9, 1.6);
-    spill.position.copy(world.lampHead); spill.target.position.set(0.6, -0.14, 2.6);
-    scene.add(spill); scene.add(spill.target);
+    // (the road used to get a second, shadowless spill spot — every light is
+    // unrolled into every lit program, so it cost ~0.5s of compile. The key's
+    // cone is widened toward the kerb instead.)
     world.lamp = lamp;
     // the door spills warm across the mat
     var door = new T.PointLight(srgb(T, '#ff9e57'), 5.5, 4.5, 2);
@@ -1031,40 +1055,102 @@
     cam.updateProjectionMatrix();
   }
 
-  function build() {
-    T = global.THREE; hand = handheld();
-    rngState = (RG.debug.seed != null ? RG.debug.seed : Date.now()) >>> 0;
-    R = new T.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
-    // desktop supersamples to 1.5x even on a 1x panel: procedural breading and
-    // pickle warts shimmer at one sample per pixel
-    R.setPixelRatio(hand ? Math.min(global.devicePixelRatio || 1, 1.5) : clamp(global.devicePixelRatio || 1, 1.5, 2));
-    R.outputEncoding = T.sRGBEncoding;
-    R.toneMapping = T.ACESFilmicToneMapping; R.toneMappingExposure = 0.95;
-    R.shadowMap.enabled = true; R.shadowMap.type = T.PCFShadowMap; // radius works here; PCFSoft ignores it and stair-steps
-    scene = new T.Scene();
-    scene.background = srgb(T, '#070b14');
-    scene.fog = new T.FogExp2(srgb(T, '#0a0f1d'), 0.075);
-    cam = new T.PerspectiveCamera(30, 1, 0.1, 60);
-    makeMats(T);
-    scene.environment = buildEnv();
-    buildSet(); buildLights(); buildRain();
-    ray = new T.Raycaster(); mouseNdc = new T.Vector2(); groundPlane = new T.Plane(new T.Vector3(0, 1, 0), 0); V3 = new T.Vector3();
-
-    makeAgent('crumb', ST.post.x, ST.post.z, 0.1, { speed: 0.55, radius: 0.36, h: 1.0 });
-    makeAgent('dill', 0.9, 0.35, -0.6, { speed: 0.75, radius: 0.24, h: 1.14 });
-    makeAgent('hood', ST.lurk[0].x, ST.lurk[0].z, 0.5, { speed: 0.6, radius: 0.28, h: 1.1 });
-    makeAgent('gravy', ST.gravySeat.x, ST.gravySeat.z, 0.25, { speed: 0, radius: 0.22, h: 0.68 });
-    makeAgent('hen', -0.9, 0.7, 0.8, { speed: 0.7, radius: 0.18, h: 0.78 });
-    agents.forEach(function (a) { a.acts = ACTS(a.name); a.yawWant = a.yaw; });
-    world.nextPassing = nowS() + rr(18, 26); // the first one comes early: it's the show
-
-    canvas.addEventListener('pointermove', onMove);
-    canvas.addEventListener('pointerleave', onLeave);
-    canvas.addEventListener('click', onClick);
-    global.addEventListener('resize', resize);
-    resize();
-    RG.ready = true;
+  // THE BUILD, staged. It used to be one synchronous slab that froze the tab for
+  // 13s on a laptop — the spinner couldn't even turn. Now every stage yields a
+  // frame, reports to the loading screen, and is timed (RG.debug.timings).
+  // Poll the GPU's parallel compile instead of blocking on it. Without the
+  // extension we just carry on (the first render will wait, as before).
+  function waitPrograms(Rr, onFrac, maxMs) {
+    var gl = Rr.getContext(), ext = gl.getExtension('KHR_parallel_shader_compile'), t0 = performance.now();
+    return new Promise(function (res) {
+      if (!ext) return res();
+      (function poll() {
+        var ps = (Rr.info && Rr.info.programs) || [], done = 0;
+        for (var i = 0; i < ps.length; i++) if (gl.getProgramParameter(ps[i].program, ext.COMPLETION_STATUS_KHR)) done++;
+        if (onFrac) onFrac(ps.length ? done / ps.length : 1);
+        if (done >= ps.length || performance.now() - t0 > (maxMs || 25000)) return res();
+        setTimeout(poll, 40);
+      }());
+    });
   }
+  function nextFrame() { return new Promise(function (r) { requestAnimationFrame(function () { setTimeout(r, 0); }); }); }
+  function build(progress) {
+    var stages = [
+      ['renderer', 'opening the street', function () {
+        T = global.THREE; hand = handheld();
+        rngState = (RG.debug.seed != null ? RG.debug.seed : Date.now()) >>> 0;
+        R = new T.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
+        // desktop supersamples to 1.5x even on a 1x panel: procedural breading and
+        // pickle warts shimmer at one sample per pixel
+        R.setPixelRatio(hand ? Math.min(global.devicePixelRatio || 1, 1.5) : clamp(global.devicePixelRatio || 1, 1.5, 2));
+        R.outputEncoding = T.sRGBEncoding;
+        R.toneMapping = T.ACESFilmicToneMapping; R.toneMappingExposure = 0.95;
+        R.shadowMap.enabled = true; R.shadowMap.type = T.PCFShadowMap; // radius works here; PCFSoft ignores it and stair-steps
+        // three.js reads every program's info log the instant it links, which
+        // makes the tab WAIT for each compile in turn: 25 programs, 7.7s frozen.
+        // Off — the compile stage polls KHR_parallel_shader_compile instead.
+        R.debug.checkShaderErrors = false;
+        scene = new T.Scene();
+        scene.background = srgb(T, '#070b14');
+        scene.fog = new T.FogExp2(srgb(T, '#0a0f1d'), 0.075);
+        cam = new T.PerspectiveCamera(30, 1, 0.1, 60);
+        makeMats(T);
+      }],
+      ['env', 'hanging the moon', function () { scene.environment = buildEnv(); }],
+      ['set', 'laying the pavement', function () { buildSet(); }],
+      ['lights', 'lighting the neon', function () { buildLights(); buildRain(); }],
+      ['crumb', 'Big Crumb takes the door', function () { makeAgent('crumb', ST.post.x, ST.post.z, 0.1, { speed: 0.55, radius: 0.36, h: 1.0 }); }],
+      ['dill', 'Det. Dill finds his notebook', function () { makeAgent('dill', 0.9, 0.35, -0.6, { speed: 0.75, radius: 0.24, h: 1.14 }); }],
+      ['hood', 'somebody in a hood', function () { makeAgent('hood', ST.lurk[0].x, ST.lurk[0].z, 0.5, { speed: 0.6, radius: 0.28, h: 1.1 }); }],
+      ['gravy', 'Gravy Jones, not getting up', function () { makeAgent('gravy', ST.gravySeat.x, ST.gravySeat.z, 0.25, { speed: 0, radius: 0.22, h: 0.68 }); }],
+      ['hen', 'bwok', function () { makeAgent('hen', -0.9, 0.7, 0.8, { speed: 0.7, radius: 0.18, h: 0.78 }); }],
+      ['brains', 'waking everyone up', function () {
+        ray = new T.Raycaster(); mouseNdc = new T.Vector2(); groundPlane = new T.Plane(new T.Vector3(0, 1, 0), 0); V3 = new T.Vector3();
+        agents.forEach(function (a) { a.acts = ACTS(a.name); a.yawWant = a.yaw; });
+        world.nextPassing = nowS() + rr(18, 26); // the first one comes early: it's the show
+        canvas.addEventListener('pointermove', onMove);
+        canvas.addEventListener('pointerleave', onLeave);
+        canvas.addEventListener('click', onClick);
+        global.addEventListener('resize', resize);
+        resize();
+      }],
+      // Shaders compile HERE, behind the loading screen, not on the first visible
+      // frame: one real render (shadow pass included) into the hidden canvas.
+      ['compile', 'warming up the lamp', function () { if (loadingEl) loadingEl.classList.add('rg-compiling'); R.compile(scene, cam); return waitPrograms(R, function (f) { if (progress) progress((stages.length - 2 + f) / stages.length, 'warming up the lamp'); }); }],
+      ['firstframe', 'turning the lights on', function () { R.render(scene, cam); }],
+    ];
+    return stages;
+  }
+  // Resumable: hovering the button runs the cheap stages; the click runs the
+  // rest (the GPU compile) behind the loading screen. Never both at once.
+  var BUILD = { stages: null, i: 0, run: null, progress: null };
+  function runStages(untilId) {
+    if (!BUILD.stages) { BUILD.stages = build(function (f, l) { if (BUILD.progress) BUILD.progress(f, l); }); RG.debug.timings = {}; }
+    var stages = BUILD.stages;
+    var prev = BUILD.run || Promise.resolve();
+    BUILD.run = prev.then(function () {
+      return new Promise(function (resolve, reject) {
+      (function step() {
+        var i = BUILD.i;
+        if (i >= stages.length) { RG.ready = true; return resolve(); }
+        var st = stages[i];
+        if (untilId && st[0] === untilId) return resolve();
+        if (BUILD.progress) BUILD.progress(i / stages.length, st[1]);
+        nextFrame().then(function () {
+          var t0 = performance.now();
+          var ret;
+          try { ret = st[2](); } catch (e) { return reject(e); }
+          Promise.resolve(ret).then(function () {
+            RG.debug.timings[st[0]] = Math.round(performance.now() - t0);
+            BUILD.i++; step();
+          }, reject);
+        });
+      }());
+      });
+    });
+    return BUILD.run;
+  }
+
 
   // ---- open / close ---------------------------------------------------------------------
   function loadDeps(cb) {
@@ -1086,14 +1172,22 @@
     doc.documentElement.classList.add('rg-open');
     global.addEventListener('keydown', onKey, true);
     if (RG.ready) { lastT = 0; resize(); if (!raf) raf = requestAnimationFrame(frame); return; }
+    var bar = loadingEl.querySelector('.rg-ld-bar i'), stepEl = loadingEl.querySelector('.rg-ld-step');
+    BUILD.progress = function (f, label) {
+      bar.style.transform = 'scaleX(' + Math.max(0.04, Math.min(1, f)).toFixed(3) + ')';
+      if (label) stepEl.textContent = label + '…';
+    };
     if (RG.loading) return;
     RG.loading = true;
     loadDeps(function (ok) {
-      RG.loading = false;
-      if (!ok) { loadingEl.innerHTML = '<div>the street didn\'t load. try again in a minute.</div>'; return; }
-      try { build(); } catch (e) { loadingEl.innerHTML = '<div>the street didn\'t load (' + (e && e.message) + ').</div>'; try { console.warn('regulars:', e); } catch (_) { } return; }
-      loadingEl.classList.add('gone');
-      if (RG.active && !raf) raf = requestAnimationFrame(frame);
+      if (!ok) { RG.loading = false; loadingEl.querySelector('.rg-ld-step').textContent = "the street didn't load. try again in a minute."; return; }
+      runStages(null).then(function () {
+        RG.loading = false;
+        bar.style.transform = 'scaleX(1)';
+        if (RG.active && !raf) raf = requestAnimationFrame(frame);
+        // reveal on the frame AFTER the first real one is up
+        requestAnimationFrame(function () { requestAnimationFrame(function () { loadingEl.classList.add('gone'); }); });
+      }, function (e) { RG.loading = false; stepEl.textContent = "the street didn't load (" + (e && e.message) + ")."; try { console.warn('regulars:', e); } catch (_) { } });
     });
   };
   RG.close = function () {
@@ -1112,6 +1206,7 @@
     };
   };
   RG.debug.passing = function () { if (RG.ready) passingStart(); };
+  RG.debug.renderer = function () { return R; };
   RG.debug.step = function (secs, fps) { // advance the sim deterministically (tests)
     fps = fps || 30; var n = Math.round(secs * fps), t0 = RG.debug.clock != null ? RG.debug.clock : nowS();
     for (var i = 0; i < n; i++) { RG.debug.clock = t0 + (i + 1) / fps; lastT = t0 + i / fps; var t = RG.debug.clock, dt = 1 / fps; tickPassing(dt); tickBrains(dt); agents.forEach(function (a) { animate(a, dt, t); }); }
@@ -1123,7 +1218,11 @@
     var btn = doc.getElementById('openRegulars');
     if (!btn) return;
     ['pointerenter', 'touchstart', 'focus'].forEach(function (ev) {
-      btn.addEventListener(ev, function () { if (!global.THREE || !global.RegularsCast) loadDeps(function () { }); }, { once: true, passive: true });
+      btn.addEventListener(ev, function () {
+        if (RG.ready || RG.loading) return;
+        if (!layer) buildDom();
+        loadDeps(function (ok) { if (ok && !RG.loading) runStages('compile').catch(function () { }); });
+      }, { once: true, passive: true });
     });
     btn.addEventListener('click', function () { btn.blur(); RG.open(); });
   }

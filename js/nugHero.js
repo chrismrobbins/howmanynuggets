@@ -141,9 +141,12 @@
     '             mix(mix(nhH(i + vec3(0,0,1)), nhH(i + vec3(1,0,1)), f.x), mix(nhH(i + vec3(0,1,1)), nhH(i + vec3(1,1,1)), f.x), f.y), f.z); }',
     'float nhFbm(vec3 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++){ s += a * nhN(p); p = p * 2.03 + vec3(1.7, 9.2, 3.1); a *= 0.5; } return s; }',
     // F1 cellular: a crumb is a grain, and value noise has no grains in it.
-    'float nhCell(vec3 x){ vec3 i = floor(x); vec3 f = fract(x); float d = 8.0;',
-    '  for (int a = -1; a <= 1; a++) for (int b = -1; b <= 1; b++) for (int c = -1; c <= 1; c++){',
-    '    vec3 o = vec3(float(a), float(b), float(c)); vec3 r = o + vec3(nhH(i + o), nhH(i + o + 31.0), nhH(i + o + 57.0)) - f;',
+    // 2x2x2 search (8 cells, not 27): ANGLE's D3D compiler unrolls every loop,
+    // and the 27-cell version cost seconds of frozen tab per program. Jitter is
+    // kept to [0.15, 0.85] so the nearest point is always in the 8 searched.
+    'float nhCell(vec3 x){ vec3 i = floor(x - 0.5); float d = 8.0;',
+    '  for (int a = 0; a <= 1; a++) for (int b = 0; b <= 1; b++) for (int c = 0; c <= 1; c++){',
+    '    vec3 o = i + vec3(float(a), float(b), float(c)); vec3 r = o + 0.15 + 0.7 * vec3(nhH(o), nhH(o + 31.0), nhH(o + 57.0)) - x;',
     '    d = min(d, dot(r, r)); }',
     '  return sqrt(d); }',
     // Height of the crust, with each octave faded by the pixel footprint `w` —
@@ -320,6 +323,9 @@
     R.shadowMap.enabled = true;
     R.shadowMap.type = T.PCFSoftShadowMap;
     R.setClearColor(0x000000, 0);
+    // no synchronous info-log reads: the breading program compiled on the main
+    // thread froze the converter for ~1-2s right after load (see AGENTS.md)
+    R.debug.checkShaderErrors = false;
 
     scene = new T.Scene();
     if (T.RoomEnvironment) {
@@ -408,13 +414,28 @@
     } else visible = true;
     doc.addEventListener('visibilitychange', nhKick);
 
-    HERO.ready = true;
-    nhApplyCount();
-    nhKick();
-    // crossfade from the poster once the first real frame is on screen
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () { wrap.classList.add('has-nug3d'); });
+    // Compile in the GPU's own time; the PNG stays up until it's done.
+    R.compile(scene, cam);
+    nhWaitPrograms(function () {
+      HERO.ready = true;
+      nhApplyCount();
+      nhKick();
+      // crossfade from the poster once the first real frame is on screen
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () { wrap.classList.add('has-nug3d'); });
+      });
     });
+  }
+
+  function nhWaitPrograms(cb) {
+    var gl = R.getContext(), ext = gl.getExtension('KHR_parallel_shader_compile'), t0 = performance.now();
+    if (!ext) return cb();
+    (function poll() {
+      var ps = (R.info && R.info.programs) || [], done = 0;
+      for (var i = 0; i < ps.length; i++) if (gl.getProgramParameter(ps[i].program, ext.COMPLETION_STATUS_KHR)) done++;
+      if (done >= ps.length || performance.now() - t0 > 20000) return cb();
+      setTimeout(poll, 50);
+    }());
   }
 
   function nhResize() {

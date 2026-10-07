@@ -2509,3 +2509,39 @@ poke-and-twist toys. Not a game; nothing to win.
   it's open. 60fps desktop + iPhone 13 emulation.
 - Seams: `RegularsLayer.debug.{seed, clock, noPassing, passing(), step(secs)}`,
   `RegularsLayer.state()`.
+
+### ⏳ THE WAIT (2026-10-07, later) — After Hours took 14s to open; the shaders, not the scene
+
+Beau: "clicking the after hours had a delay in loading." Measured: **14s from click
+to first frame, 13.2s of it one frozen task** — the spinner couldn't even turn.
+Staging the build with timings (`RegularsLayer.debug.timings`) showed every stage
+under 150ms except `compile`. A WebGL call profiler (wrap every
+`WebGL2RenderingContext.prototype` method, sum time per name) pinned it:
+**25 programs, each blocking in `getProgramInfoLog`** — three.js's
+`debug.checkShaderErrors` reads the log the instant a program links, so the tab
+waited on every compile in series. Lessons, in the order they paid:
+
+1. **Every MeshPhysicalMaterial feature that is merely ON is a new program.**
+   sheen>0, clearcoat>0, an extra map slot, DoubleSide — each forks a ~300ms
+   ANGLE/D3D compile. `phys()` gives everything a token clearcoat + sheen
+   (sheenColor black = invisible) and the street textures fill the same three map
+   slots: 15 physical programs → 4.
+2. **Baked constants fork programs too.** `bumpy()` baked freq/amp/mode into the
+   source; they're uniforms under one `customProgramCacheKey` now. three.js shares
+   the GL program and keeps per-material uniforms.
+3. **D3D unrolls loops.** 27-cell cellular noise → loop-free value noise for the
+   regulars, 8-cell (2×2×2, jitter clamped to [0.15,0.85]) for the breading.
+4. **A sync query waits behind the WHOLE queue.** With checkShaderErrors off,
+   `KHR_parallel_shader_compile` status queries blocked instead (the GPU process
+   compiles serially here). So the real fix was 1–3; what's left (~3.5s cold)
+   sits behind THE LOADING SCREEN, whose rain / neon flicker / bar shimmer are
+   transform+opacity animations the compositor runs while the main thread is busy.
+5. Every light is unrolled into every lit program: the road's second "spill"
+   spot was cut and the key cone widened instead.
+
+Hover/touch on the button pre-runs the cheap stages (`runStages('compile')`) but
+NEVER the compile — that would freeze the converter under the user's cursor.
+Chrome's GPU program cache makes repeat opens ~0.4s. The hero nugget got the
+same `checkShaderErrors = false` + wait-then-reveal treatment.
+CSS trap: a `visibility` transition-delay on the loader's BASE rule also delayed
+the INHERITED change when the layer opened — the delay lives on `.gone` only.
