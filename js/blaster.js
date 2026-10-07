@@ -327,6 +327,7 @@ function showBlasterBoons() {
   blaster.firing = false;
   blaster.boonPick = ArcadeKit.boonSelect({
     title: '📦 REQUISITION DROP',
+    theme: 'crate',
     note: 'one crate per drop · 1 · 2 · 3',
     boons: deal,
     onPick: (i, u) => {

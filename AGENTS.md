@@ -2455,3 +2455,19 @@ as a literal fresnel rim (casefile fact 4). Over $10M it spins meaner.
 - Seams: `localStorage.nugHero3d = '0'`; `NugHero.debug.clock` + `NugHero.render()`;
   `NugHero.state()`; `NugHero.makeNuggetGeometry/makeBreadingMaterial` for
   look-dev pages.
+
+## 🃏 THE DEAL — boon cards redesigned in Spline's Hana (2026-10-07)
+
+`ArcadeKit.boonSelect` / `tierSelect` cards are collectible cards now (metal rim,
+keycap number, lit art window, kicker label, condensed name) designed as one Hana
+frame ("Boon Cards — The Deal") then hand-ported to `css/arcadeKit.css`.
+`boonSelect({ theme })` re-lights the same card per game: `crate` (Blaster),
+`relic` (Undercroft), `gear` (Storm Drain), `pit` (BatteredBots); no theme = navy
+and brass. Contract kept: same class names, 1/2/3 + click/tap, `onPick` still
+fires synchronously — the overlay drops `.ak-tier` the moment you pick, so every
+game's menu guard sees it closed while the chosen-card beat plays out. Cards
+aren't clickable until dealt in (no blind picks); keys work from frame one.
+Reduced motion = no animation, instant removal. ≤600px wide = stacked rows. Fonts
+(Oswald / Cormorant Garamond / JetBrains Mono) are a Google Fonts sheet added
+1.2s after load with system fallbacks. Emoji now live in `.ak-tier-glyph` inside
+`.ak-tier-emoji`. 27/27 behaviour checks (scratchpad boontest.js).

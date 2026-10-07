@@ -547,6 +547,7 @@ function croftOfferBoon() {
   croft.choosing = true;
   croft.boonPick = ArcadeKit.boonSelect({
     title: '⛧ THE RELIQUARY — B' + croft.floor,
+    theme: 'relic',
     note: 'take ONE relic · the dark waits · 1 · 2 · 3',
     boons: deal,
     onPick: (i, u) => {

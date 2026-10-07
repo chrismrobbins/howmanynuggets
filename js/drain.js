@@ -603,6 +603,7 @@ function drainOfferGear(atM) {
   drain.kicking = false;
   drain.gearPick = ArcadeKit.boonSelect({
     title: '🧰 A DPW SUPPLY CACHE — ' + atM + 'm',
+    theme: 'gear',
     note: 'take ONE · the water waits · 1 · 2 · 3',
     boons: deal,
     onPick: (i, u) => {

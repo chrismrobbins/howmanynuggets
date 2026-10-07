@@ -1763,7 +1763,7 @@ function botsMaybePitstop() {
   const deal = m.pitstop.deals[bots.me]; if (!deal) return;
   const cards = deal.map((k) => BotsSim.BOONS.find((b) => b.key === k)).filter(Boolean);
   bots.boonPick = ArcadeKit.boonSelect({
-    title: '🔧 PIT STOP — pick one', note: 'it stacks for the match · the others are picking too', boons: cards, mount: botsWorld,
+    title: '🔧 PIT STOP — pick one', note: 'it stacks for the match · the others are picking too', boons: cards, mount: botsWorld, theme: 'pit',
     onPick: (idx) => { bots.boonPick = null; if (bots.online && window.BotsNet) BotsNet.pickBoon(deal[idx]); else BotsSim.pickBoon(m, bots.me, deal[idx]); botsSfx('pickup'); },
   });
 }

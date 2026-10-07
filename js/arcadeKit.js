@@ -171,9 +171,66 @@ const ArcadeKit = (() => {
     try { localStorage.setItem(storeKey + 'Last', tierKey); } catch (e) { /* ok */ }
   }
 
+  // ---- Card chrome (shared by tierSelect + boonSelect) ------------------------
+  // The look lives in css/arcadeKit.css. Themes re-light the same card for the
+  // room the deal happens in: 'crate' (Blaster), 'relic' (Undercroft), 'gear'
+  // (Storm Drain), 'pit' (BatteredBots). No theme = the Nuggetown default.
+  const THEMES = { crate: 1, relic: 1, gear: 1, pit: 1 };
+  const themeClass = (theme) => (theme && THEMES[theme] ? ' ak-theme-' + theme : '');
+  // The art window wraps the emoji in a glyph span so the glyph can scale and
+  // cast a shadow without dragging the window's frame along with it.
+  const cardArt = (emoji) => `<span class="ak-tier-emoji"><span class="ak-tier-glyph">${emoji || ''}</span></span>`;
+
+  // Display faces (Oswald / Cormorant Garamond / JetBrains Mono). Injected
+  // after load so it never sits on the boot path; offline it simply fails and
+  // the CSS falls back to system condensed/serif/mono stacks.
+  const FONTS_URL = 'https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700' +
+    '&family=Cormorant+Garamond:wght@600;700&family=JetBrains+Mono:wght@500;700&display=swap';
+  function warmFonts() {
+    if (warmFonts.done || !document.head) return;
+    warmFonts.done = true;
+    try {
+      const l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = FONTS_URL;
+      l.onload = () => {
+        try {
+          if (document.fonts && document.fonts.load) {
+            ['600 1em Oswald', '700 1em "Cormorant Garamond"', '700 1em "JetBrains Mono"']
+              .forEach((f) => document.fonts.load(f).catch(() => {}));
+          }
+        } catch (e) { /* ok */ }
+      };
+      document.head.appendChild(l);
+    } catch (e) { /* ok — system fonts it is */ }
+  }
+  if (document.readyState === 'complete') setTimeout(warmFonts, 1200);
+  else window.addEventListener('load', () => setTimeout(warmFonts, 1200));
+
+  // Put an overlay up. Any previous deal still playing its exit beat goes now,
+  // so a chained pick (league → chassis → floor) never stacks two veils.
+  function mountOverlay(ov, mount) {
+    warmFonts();
+    document.querySelectorAll('.ak-tier-out').forEach((o) => o.remove());
+    mount.appendChild(ov);
+  }
+  // Take an overlay down. With a chosen card (and motion allowed) it plays the
+  // "chosen" beat first — but the overlay drops the .ak-tier class at once and
+  // stops taking pointer events, so every game's `.ak-tier` menu guard sees the
+  // menu as closed on the same frame onPick fires. Nothing waits on the beat.
+  function dismiss(ov, chosen) {
+    if (!chosen || reduceMotion || !ov.isConnected) { ov.remove(); return; }
+    ov.classList.remove('ak-tier');
+    ov.classList.add('ak-tier-out');
+    chosen.classList.add('ak-chosen');
+    // gone when its own fade ends; the timer is only a backstop (hidden tab, no CSS)
+    ov.addEventListener('animationend', (e) => { if (e.target === ov) ov.remove(); });
+    setTimeout(() => ov.remove(), 900);
+  }
+
   // ---- Difficulty-select overlay ---------------------------------------------
   // cfg: { storeKey, tiers:[{key,emoji,name,mult,blurb,locked?,lockNote?}],
-  //        title?, note?, mount?, onPick(key,tier) }
+  //        title?, note?, theme?, mount?, onPick(key,tier) }
   // Renders cards, handles 1/2/3(/4) + click, remembers the pick, skips locked
   // tiers, then closes and calls onPick. Returns { close }.
   function tierSelect(cfg) {
@@ -183,7 +240,7 @@ const ArcadeKit = (() => {
     const last = lastTier(cfg.storeKey, firstOpen ? firstOpen.key : (tiers[0] && tiers[0].key));
     const rec = bests(cfg.storeKey);
     const ov = document.createElement('div');
-    ov.className = 'ak-tier';
+    ov.className = 'ak-tier' + themeClass(cfg.theme);
     ov.innerHTML =
       `<div class="ak-tier-panel">` +
       `<div class="ak-tier-title">${cfg.title || 'Choose your heat'}</div>` +
@@ -197,9 +254,10 @@ const ArcadeKit = (() => {
       card.type = 'button';
       card.dataset.key = t.key;
       card.className = 'ak-tier-card' + (t.locked ? ' ak-locked' : '') + (t.key === last ? ' ak-last' : '');
+      card.style.setProperty('--ak-i', String(i));
       card.innerHTML =
         `<span class="ak-tier-num">${i + 1}</span>` +
-        `<span class="ak-tier-emoji">${t.emoji || ''}</span>` +
+        cardArt(t.emoji) +
         `<span class="ak-tier-name">${t.name || t.key}</span>` +
         `<span class="ak-tier-blurb">${t.locked ? (t.lockNote || 'Locked') : (t.blurb || '')}</span>` +
         `<span class="ak-tier-mult">${t.locked ? '' : ('×' + (t.mult || 1) + ' score')}</span>` +
@@ -212,38 +270,49 @@ const ArcadeKit = (() => {
       if (done || !t || t.locked) return;
       done = true;
       setLastTier(cfg.storeKey, key);
-      close();
+      close(Array.from(cards.children).find((c) => c.dataset.key === key));
       if (cfg.onPick) cfg.onPick(key, t);
     }
     function onClick(e) {
       const c = e.target.closest('.ak-tier-card');
-      if (c) choose(c.dataset.key);
+      if (!c) return;
+      if (c.classList.contains('ak-locked') && !reduceMotion) { // a locked card shakes its head
+        c.classList.remove('ak-nope'); void c.offsetWidth; c.classList.add('ak-nope');
+      }
+      choose(c.dataset.key);
     }
     function onKey(e) {
       const idx = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3 }[e.code];
       if (idx != null && tiers[idx]) { choose(tiers[idx].key); e.preventDefault(); e.stopPropagation(); }
     }
-    function close() { window.removeEventListener('keydown', onKey, true); ov.remove(); }
+    // close(chosenCard?) — games call close() bare, which is always instant.
+    function close(chosen) {
+      window.removeEventListener('keydown', onKey, true);
+      dismiss(ov, chosen && chosen.nodeType === 1 ? chosen : null);
+    }
     ov.addEventListener('click', onClick);
     window.addEventListener('keydown', onKey, true);
-    mount.appendChild(ov);
-    return { close };
+    mountOverlay(ov, mount);
+    return { close: () => close() };
   }
 
   // ---- Boon-select overlay (the knight's pick-1-of-3, generalized) ------------
   // The between-wave "choose thy boon" card deal any game can put up at a wave
-  // break or checkpoint. cfg: { title?, note?, boons:[{emoji,name,desc}],
+  // break or checkpoint. cfg: { title?, note?, theme?, boons:[{emoji,name,desc}],
   // mount?, onPick(idx, boon) }. Deals exactly the cards it's given — the caller
   // filters its own pool by ok() and shuffles — handles 1/2/3 + click/tap, then
   // closes and calls onPick. Reuses the .ak-tier chrome on purpose: every game's
   // input guards already treat .ak-tier as menu, not gameplay, so a boon deal
-  // can't be slashed/fired/kicked through. Returns { close, choose } (choose(i)
-  // is for tests). Freeze your own sim while it's up — the kit doesn't.
+  // can't be slashed/fired/kicked through. theme ('crate' | 'relic' | 'gear' |
+  // 'pit') re-lights the cards for the game's room; omit it for the default.
+  // Returns { close, choose } (choose(i) is for tests). onPick fires the moment
+  // a card is taken (the exit beat is cosmetic). Freeze your own sim while it's
+  // up — the kit doesn't.
   function boonSelect(cfg) {
     const boons = cfg.boons || [];
     const mount = cfg.mount || document.body;
     const ov = document.createElement('div');
-    ov.className = 'ak-tier ak-boons';
+    ov.className = 'ak-tier ak-boons' + themeClass(cfg.theme);
     ov.innerHTML =
       `<div class="ak-tier-panel">` +
       `<div class="ak-tier-title">${cfg.title || 'Choose your boon'}</div>` +
@@ -256,9 +325,10 @@ const ArcadeKit = (() => {
       card.type = 'button';
       card.dataset.idx = String(i);
       card.className = 'ak-tier-card';
+      card.style.setProperty('--ak-i', String(i));
       card.innerHTML =
         `<span class="ak-tier-num">${i + 1}</span>` +
-        `<span class="ak-tier-emoji">${b.emoji || ''}</span>` +
+        cardArt(b.emoji) +
         `<span class="ak-tier-name">${b.name || ''}</span>` +
         `<span class="ak-tier-blurb">${b.desc || ''}</span>`;
       cards.appendChild(card);
@@ -268,7 +338,7 @@ const ArcadeKit = (() => {
       const b = boons[idx];
       if (done || !b) return;
       done = true;
-      close();
+      close(cards.children[idx]);
       if (cfg.onPick) cfg.onPick(idx, b);
     }
     function onClick(e) {
@@ -279,12 +349,16 @@ const ArcadeKit = (() => {
       const idx = { Digit1: 0, Digit2: 1, Digit3: 2 }[e.code];
       if (idx != null && boons[idx]) { choose(idx); e.preventDefault(); e.stopPropagation(); }
     }
-    function close() { window.removeEventListener('keydown', onKey, true); ov.remove(); }
+    // close(chosenCard?) — games call close() bare, which is always instant.
+    function close(chosen) {
+      window.removeEventListener('keydown', onKey, true);
+      dismiss(ov, chosen && chosen.nodeType === 1 ? chosen : null);
+    }
     ov.addEventListener('click', onClick);
     ov.addEventListener('mousedown', (e) => e.stopPropagation()); // no firing through the menu
     window.addEventListener('keydown', onKey, true);
-    mount.appendChild(ov);
-    return { close, choose };
+    mountOverlay(ov, mount);
+    return { close: () => close(), choose };
   }
 
   return {
