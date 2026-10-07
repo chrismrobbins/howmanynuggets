@@ -2471,3 +2471,41 @@ Reduced motion = no animation, instant removal. ≤600px wide = stacked rows. Fo
 (Oswald / Cormorant Garamond / JetBrains Mono) are a Google Fonts sheet added
 1.2s after load with system fallbacks. Emoji now live in `.ak-tier-glyph` inside
 `.ak-tier-emoji`. 27/27 behaviour checks (scratchpad boontest.js).
+
+## 🌙 AFTER HOURS: THE REGULARS (js/regulars.js + js/regularsCast.js) — 2026-10-07
+
+A full-screen street corner outside the arcade at night (converter button
+`#openRegulars`), where the five street regulars live with BRAINS — Beau's ask was
+figurines that "actually have motion and have a 'brain of their own'", not
+poke-and-twist toys. Not a game; nothing to win.
+
+- **The brain is utility AI.** Each regular has drifting NEEDS (energy, social,
+  curiosity, duty), a catalogue of ACTIVITIES that score themselves against the
+  needs and the street, and a +0.35 COMMITMENT bonus so nobody dithers. Activities
+  can ENGAGE another regular (Dill interviews, the Hood whispers), which parks the
+  target's brain in a conversation until released. Dill tails the Hood → the Hood's
+  `vanish` scores 1.4 and he walks off into the alley. Crumb shoos the hen off the
+  mat. Gravy NEVER gets up (canon). The hen flees your cursor and roosts on the bench.
+  THE BLOTTER (right panel) prints every brain's current activity live.
+- **THE PASSING** (casefile facts 4/7): every 55–95s (first at ~20s) the drain
+  glows gold and everyone reacts in character — Dill races over and scribbles, the
+  Hood nods like he called it, Crumb heard nothing, Gravy: "...again with the
+  drain." The hen leaves. Nothing is caught. Case open.
+- **The cast is GEOMETRY CODE**: `regularsCast.js` ports hallmesh.py's
+  `build_crumb/dill/gravy/hood/hen` (PCHIP profiles, blob/limb/brim/box) line for
+  line, emits part groups at the CAST pivots, and orients every mesh by SIGNED
+  VOLUME. The same generator, pasted into Spline's DSL, built the editable
+  figurines in the Spline file — so the site never waits on a GLB export click.
+  Collapsed rings become ONE vertex + fan (N coincident pole verts leave an
+  asterisk on every cap).
+- **Look**: sodium SpotLight is the key (PCFShadowMap 2048 — PCFSoft ignores
+  `radius` and stair-steps), pink neon and warm door spill as point lights, a
+  custom night PMREM env so wet surfaces mirror THIS street, additive fake
+  volumetric cone, rain + ripples. Desktop SUPERSAMPLES at ≥1.5 DPR: procedural
+  breading/warts shimmer at one sample per pixel.
+- **Portrait can't fit the 7m pavement** without standing 20m back in FogExp2
+  (first phone shot was black) — it frames ~4m and follows the cast's centroid.
+- Lazy: three.js + regularsCast.js inject on first hover/open. NugHero sleeps while
+  it's open. 60fps desktop + iPhone 13 emulation.
+- Seams: `RegularsLayer.debug.{seed, clock, noPassing, passing(), step(secs)}`,
+  `RegularsLayer.state()`.

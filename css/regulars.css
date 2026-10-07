@@ -1,0 +1,151 @@
+/* ---- 🌙 AFTER HOURS: THE REGULARS (js/regulars.js) --------------------------------
+   A full-screen street corner. Everything here is chrome AROUND a live scene —
+   keep it quiet, legible over a dark render, and out of the way of the people. */
+
+html.rg-open, html.rg-open body { overflow: hidden; }
+
+.rg-entry {
+  width: 100%;
+  margin: 0 0 0.5rem;
+  background:
+    linear-gradient(90deg, rgba(255, 79, 176, 0.10), rgba(56, 120, 255, 0.10)),
+    rgba(15, 23, 42, 0.6);
+  border-color: rgba(255, 120, 200, 0.35);
+}
+.rg-entry:hover { border-color: rgba(255, 140, 210, 0.7); }
+
+.rg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  background: #070b14;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.45s ease, visibility 0s linear 0.45s;
+  color: #e8ecf6;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  overscroll-behavior: contain;
+}
+.rg-layer.on { opacity: 1; visibility: visible; transition: opacity 0.45s ease; }
+.rg-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: none; }
+.rg-vignette {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(3, 5, 10, 0.55) 100%),
+    linear-gradient(to bottom, rgba(3, 5, 10, 0.55), transparent 22%, transparent 78%, rgba(3, 5, 10, 0.6));
+}
+
+.rg-head { position: absolute; top: clamp(14px, 3vh, 30px); left: clamp(16px, 3vw, 36px); pointer-events: none; }
+.rg-kicker {
+  font: 700 10px/1 ui-monospace, "JetBrains Mono", Consolas, monospace;
+  letter-spacing: 0.32em; text-transform: uppercase; color: #ff7cc4; opacity: 0.85;
+}
+.rg-title {
+  margin-top: 8px;
+  font: 800 clamp(26px, 3.6vw, 44px)/0.95 "Oswald", "Bahnschrift", "Arial Narrow", Impact, sans-serif;
+  letter-spacing: 0.02em; text-transform: uppercase;
+  text-shadow: 0 2px 18px rgba(255, 79, 176, 0.25), 0 1px 0 rgba(0, 0, 0, 0.6);
+}
+.rg-sub { margin-top: 6px; font-size: 13px; color: #9fb0d4; font-style: italic; }
+
+.rg-close {
+  position: absolute; top: clamp(14px, 3vh, 28px); right: clamp(14px, 3vw, 32px);
+  width: 42px; height: 42px; border-radius: 50%;
+  border: 1px solid rgba(160, 180, 230, 0.3);
+  background: rgba(10, 14, 26, 0.55); color: #dfe6f5; font-size: 16px; cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+.rg-close:hover { border-color: #ff7cc4; background: rgba(30, 14, 30, 0.7); transform: scale(1.05); }
+
+/* THE BLOTTER — the brains, written down. Det. Dill would approve. */
+.rg-blotter {
+  position: absolute; right: clamp(14px, 3vw, 32px); top: clamp(70px, 10vh, 96px);
+  width: 252px; padding: 12px 14px 8px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(14, 19, 34, 0.78), rgba(8, 11, 20, 0.78));
+  border: 1px solid rgba(150, 170, 220, 0.18);
+  box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+.rg-blotter-h {
+  font: 700 10px/1 ui-monospace, "JetBrains Mono", Consolas, monospace;
+  letter-spacing: 0.28em; text-transform: uppercase; color: #c9d4ee; margin-bottom: 10px;
+}
+.rg-blotter-h span { color: #ff7cc4; letter-spacing: 0.2em; }
+.rg-blotter ol { list-style: none; margin: 0; padding: 0; }
+.rg-blotter li {
+  display: grid; grid-template-columns: 22px 1fr; column-gap: 8px; row-gap: 1px;
+  padding: 7px 0; border-top: 1px dashed rgba(150, 170, 220, 0.14);
+}
+.rg-blotter li:first-child { border-top: 0; }
+.rg-bl-i { grid-row: span 2; font-size: 16px; line-height: 1.3; }
+.rg-bl-n { font-weight: 800; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: #f2f5fb; }
+.rg-bl-s { font-size: 12.5px; color: #a8b6d6; line-height: 1.3; }
+
+.rg-ticker {
+  position: absolute; left: 50%; bottom: clamp(44px, 7vh, 70px); transform: translateX(-50%);
+  max-width: min(680px, 86vw); text-align: center;
+  font-size: 14px; color: #dfe6f5; letter-spacing: 0.01em;
+  padding: 7px 14px; border-radius: 999px;
+  background: rgba(6, 9, 18, 0.55); backdrop-filter: blur(4px);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+.rg-hint {
+  position: absolute; left: 50%; bottom: clamp(16px, 3vh, 30px); transform: translateX(-50%);
+  font: 600 10px/1 ui-monospace, "JetBrains Mono", Consolas, monospace;
+  letter-spacing: 0.24em; text-transform: uppercase; color: #8191b7; opacity: 0.85;
+  pointer-events: none; transition: opacity 0.6s;
+}
+.rg-hint.rg-used { opacity: 0.35; }
+
+/* speech / thought bubbles, projected over each head */
+.rg-bubbles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.rg-bubble {
+  position: absolute; left: 0; top: 0;
+  display: flex; align-items: center; gap: 6px;
+  max-width: 240px; padding: 8px 12px;
+  border-radius: 14px;
+  background: rgba(250, 247, 240, 0.96); color: #1a1714;
+  font-size: 13.5px; font-weight: 600; line-height: 1.3;
+  box-shadow: 0 10px 26px -8px rgba(0, 0, 0, 0.7);
+  opacity: 0; margin-top: -10px;
+  transition: opacity 0.22s ease, margin-top 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+.rg-bubble::after {
+  content: ""; position: absolute; left: 50%; bottom: -6px; width: 12px; height: 12px;
+  background: inherit; transform: translateX(-50%) rotate(45deg); border-radius: 2px;
+}
+.rg-bubble.on { opacity: 1; margin-top: -16px; }
+.rg-bubble.rg-emoji-only { padding: 6px 9px; border-radius: 999px; }
+.rg-b-emo { font-size: 17px; line-height: 1; }
+.rg-bubble.rg-hood { background: rgba(28, 30, 42, 0.95); color: #ffd28a; }
+.rg-bubble.rg-hen { font-style: italic; }
+.rg-bubble.rg-dill { background: rgba(244, 238, 220, 0.97); font-family: "Courier New", ui-monospace, monospace; font-weight: 700; }
+
+.rg-loading {
+  position: absolute; inset: 0; display: flex; flex-direction: column; gap: 14px;
+  align-items: center; justify-content: center;
+  font: 600 11px/1 ui-monospace, "JetBrains Mono", Consolas, monospace; letter-spacing: 0.24em; text-transform: uppercase; color: #9fb0d4;
+  background: #070b14; transition: opacity 0.6s ease;
+}
+.rg-loading.gone { opacity: 0; pointer-events: none; }
+.rg-spin {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid rgba(255, 124, 196, 0.2); border-top-color: #ff7cc4;
+  animation: rgSpin 0.9s linear infinite;
+}
+@keyframes rgSpin { to { transform: rotate(360deg); } }
+
+@media (max-width: 760px) {
+  .rg-blotter { display: none; }
+  .rg-ticker { font-size: 13px; bottom: 54px; }
+  .rg-bubble { max-width: 170px; font-size: 12.5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rg-layer, .rg-bubble { transition: none; }
+  .rg-spin { animation: none; }
+}

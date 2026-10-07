@@ -201,7 +201,7 @@
             'nhAlb = mix(nhAlb, uNhToast, (1.0 - smoothstep(0.15, 0.45, nhHt)) * 0.30);',
             'float nhEdge = 1.0 - abs(normalize(vNhObjN).y);',
             'nhAlb = mix(nhAlb, uNhToast, nhEdge * nhEdge * 0.30);',
-            'nhAlb *= 0.84 + 0.30 * nhN(vNhObj * 75.0);',
+            'nhAlb *= 1.0 + (0.30 * nhN(vNhObj * 75.0) - 0.15) * smoothstep(0.5, 0.15, nhW * 75.0);',
             'diffuseColor.rgb *= nhAlb;',
           ].join('\n'))
           .replace('#include <roughnessmap_fragment>',
@@ -244,6 +244,7 @@
       if (doc.hidden) return true;
       if (typeof NuggetArcade !== 'undefined' && NuggetArcade.active) return true;
       if (typeof storm !== 'undefined' && storm.running) return true;
+      if (global.RegularsLayer && RegularsLayer.active) return true;
     } catch (e) { }
     return false;
   }
