@@ -256,7 +256,7 @@
 
   // ---- the stage ------------------------------------------------------------------
   var T, R, scene, cam, canvas, wrap, img, heroMesh, glow, pile = [], slots = [], shared;
-  var CAP = 72, STORM_CAP = 80, visible = false, raf = 0, last = 0, clock = 0;
+  var CAP = 72, STORM_CAP = 80, visible = true, raf = 0, last = 0, clock = 0;
   var hop = { y: 0, v: 0, squash: 0, spin: 0 }, stormK = 0, stormWant = 0, stormMean = 0;
 
   // count → how many nuggets the plate shows besides the hero
@@ -425,6 +425,8 @@
     nhWaitPrograms(function () {
       HERO.ready = true;
       nhApplyCount();
+      // the tray comes up after the hero, so their compiles never overlap
+      setTimeout(function () { if (global.NugTray) NugTray.boot(); }, 400);
       nhKick();
       // crossfade from the poster once the first real frame is on screen
       requestAnimationFrame(function () {
@@ -973,6 +975,189 @@
   }
   if (doc.readyState === 'complete') setTimeout(nhBoot, 400);
   else global.addEventListener('load', function () { setTimeout(nhBoot, 400); });
+
+  // ---- 🍱 THE TRAY: the converter's nugget grid, made of nugget -------------------
+  // Under the count, the converter used to draw up to 500 copies of nugget.png in
+  // a scrolling flex grid. Now it's a tray: every nugget you can afford (to a
+  // cap) lying on a paper liner, laid out in SIX-PIECE clusters so the picture
+  // agrees with the "≈ N six-piece boxes" line above it. Same four shapes and
+  // same breading as the hero, its own small renderer, and it only draws while
+  // something is moving — once the nuggets land, the loop stops.
+  var TRAY = { ready: false, cap: 300, count: 0 };
+  (function () {
+    var TT, RR, sc, cm, cv, wrapEl, gridEl, meshes = [], items = [], raf2 = 0, lastN = -1, sh2;
+    var M = null, Qt = null, Vt = null, St = null, Et = null;
+
+    function trayBuild() {
+      TT = global.THREE;
+      var hand = nhHandheld();
+      TRAY.cap = hand ? 120 : 300;
+      gridEl = doc.getElementById('nuggetGrid');
+      if (!gridEl) throw new Error('no grid');
+      wrapEl = doc.createElement('div'); wrapEl.className = 'nug-tray';
+      cv = doc.createElement('canvas'); cv.setAttribute('aria-hidden', 'true');
+      wrapEl.appendChild(cv);
+      gridEl.parentNode.insertBefore(wrapEl, gridEl);
+      RR = new TT.WebGLRenderer({ canvas: cv, alpha: true, antialias: true, powerPreference: 'low-power' });
+      RR.setPixelRatio(Math.min(global.devicePixelRatio || 1, hand ? 1.5 : 2));
+      RR.outputEncoding = TT.sRGBEncoding; RR.toneMapping = TT.ACESFilmicToneMapping; RR.toneMappingExposure = 0.9;
+      RR.shadowMap.enabled = true; RR.shadowMap.type = TT.PCFSoftShadowMap;
+      RR.setClearColor(0, 0); RR.debug.checkShaderErrors = false;
+      sc = new TT.Scene();
+      if (TT.RoomEnvironment) { var pm = new TT.PMREMGenerator(RR); sc.environment = pm.fromScene(new TT.RoomEnvironment(), 0.04).texture; pm.dispose(); }
+      cm = new TT.PerspectiveCamera(30, 2, 0.1, 200);
+      sc.add(new TT.HemisphereLight(nhSrgb(TT, '#c4cfff'), nhSrgb(TT, '#3b2512'), 0.35));
+      var key = new TT.DirectionalLight(nhSrgb(TT, '#ffe1b5'), 2.6);
+      key.castShadow = true; key.shadow.mapSize.set(hand ? 1024 : 2048, hand ? 1024 : 2048);
+      key.shadow.radius = 3; key.shadow.bias = -0.0006; key.shadow.normalBias = 0.02;
+      sc.add(key); sc.add(key.target); TRAY.key = key;
+      var rim = new TT.DirectionalLight(nhSrgb(TT, '#a9c1ff'), 0.9); rim.position.set(8, 6, -10); sc.add(rim);
+      // the liner: greaseproof paper, a printed border, a few honest grease spots
+      var lc = doc.createElement('canvas'); lc.width = lc.height = 512;
+      var lx = lc.getContext('2d'), lr = nhRng(12);
+      lx.fillStyle = '#d9c7a2'; lx.fillRect(0, 0, 512, 512);
+      for (var i = 0; i < 2600; i++) { lx.fillStyle = 'rgba(120,90,50,' + (lr() * 0.05).toFixed(3) + ')'; lx.fillRect(lr() * 512, lr() * 512, 1 + lr() * 2, 1 + lr() * 2); }
+      for (i = 0; i < 9; i++) {
+        var gx = lr() * 512, gy = lr() * 512, gr = 14 + lr() * 40, gg = lx.createRadialGradient(gx, gy, 0, gx, gy, gr);
+        gg.addColorStop(0, 'rgba(190,140,60,0.22)'); gg.addColorStop(1, 'rgba(190,140,60,0)');
+        lx.fillStyle = gg; lx.beginPath(); lx.ellipse(gx, gy, gr * 1.3, gr, lr() * 3, 0, Math.PI * 2); lx.fill();
+      }
+      lx.strokeStyle = 'rgba(196,58,40,0.55)'; lx.lineWidth = 6; lx.strokeRect(22, 22, 468, 468);
+      lx.lineWidth = 2; lx.strokeRect(34, 34, 444, 444);
+      var lt = new TT.CanvasTexture(lc); lt.encoding = TT.sRGBEncoding; lt.anisotropy = 8;
+      // envMapIntensity low: a white studio room reflected in white paper blew the liner out
+      TRAY.liner = new TT.Mesh(new TT.PlaneGeometry(1, 1), new TT.MeshStandardMaterial({ map: lt, roughness: 0.9, envMapIntensity: 0.25 }));
+      TRAY.liner.rotation.x = -Math.PI / 2; TRAY.liner.receiveShadow = true; sc.add(TRAY.liner);
+      // the tray itself: a dark rounded slab with a lip
+      var shape = function (w, d, r) {
+        var s = new TT.Shape(), x = -w / 2, y = -d / 2;
+        s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r); s.lineTo(x + w, y + d - r);
+        s.quadraticCurveTo(x + w, y + d, x + w - r, y + d); s.lineTo(x + r, y + d); s.quadraticCurveTo(x, y + d, x, y + d - r);
+        s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y); return s;
+      };
+      TRAY.shape = shape;
+      TRAY.slabMat = new TT.MeshStandardMaterial({ color: nhSrgb(TT, '#3a2a22'), roughness: 0.45, metalness: 0.05 });
+      sh2 = { storm: { value: 0 }, time: { value: 0 } };
+      var mat = nhMaterial(TT, sh2);
+      meshes = NH_ORDER.map(function (s, si) {
+        var im = new TT.InstancedMesh(nhNugGeo(TT, s, 2.3 + si * 3.7, 0.4), mat, Math.ceil(TRAY.cap / 4) + 1);
+        im.castShadow = true; im.receiveShadow = true; im.count = 0; im.instanceMatrix.setUsage(TT.DynamicDrawUsage);
+        sc.add(im); return im;
+      });
+      M = new TT.Matrix4(); Qt = new TT.Quaternion(); Vt = new TT.Vector3(); St = new TT.Vector3(); Et = new TT.Euler();
+      // Visible until told otherwise: the observer only ever PAUSES the tray. A run
+      // where it never fired at all left the tray blank forever (THE TRAY, AGENTS.md).
+      TRAY.vis = true;
+      if ('IntersectionObserver' in global) new IntersectionObserver(function (es) { TRAY.vis = es[0].isIntersecting; if (TRAY.vis) kick2(); }).observe(wrapEl);
+      global.addEventListener('resize', function () { layout(TRAY.count, true); });
+      TRAY.ready = true;
+      gridEl.classList.add('tray-on');
+      // re-run the converter so the grid goes through the tray path: the 500
+      // PNGs it drew before the tray existed go, and its note gets the tray's cap
+      if (typeof update === 'function') update(); else TRAY.setCount(HERO.count);
+    }
+
+    // six-piece clusters (3 x 2), clusters in rows, the whole thing fitted to
+    // the canvas: few nuggets = big nuggets, a thousand = a full tray
+    function layout(n, keep) {
+      var drawn = Math.min(n, TRAY.cap);
+      var W = Math.max(200, wrapEl.clientWidth || gridEl.clientWidth || 380);
+      var H = drawn ? Math.round(Math.max(150, Math.min(340, 112 + Math.sqrt(drawn) * 13.5))) : 0;
+      wrapEl.style.height = H + 'px';
+      if (!drawn) { TRAY.count = n; meshes.forEach(function (m) { m.count = 0; }); return; }
+      var K = Math.ceil(drawn / 6), cwU = 3.35, cdU = 2.25, gap = 0.55;
+      var A = (W / H) * 1.45;   // the camera's tilt shortens depth on screen
+      var cc = Math.max(1, Math.min(K, Math.round(Math.sqrt(K * A * (cdU + gap) / (cwU + gap)))));
+      var rows = Math.ceil(K / cc);
+      var tw = cc * cwU + (cc - 1) * gap, td = rows * cdU + (rows - 1) * gap;
+      var rng = nhRng(77), slots2 = [];
+      for (var i = 0; i < drawn; i++) {
+        var c = Math.floor(i / 6), j = i % 6, cr = Math.floor(c / cc), ccx = c % cc;
+        // the last row centres itself instead of hugging the left edge
+        var inRow = cr === rows - 1 ? K - cr * cc : cc;
+        var x0 = -tw / 2 + (ccx + (cc - inRow) / 2) * (cwU + gap);
+        var z0 = -td / 2 + cr * (cdU + gap);
+        slots2.push({
+          x: x0 + 0.55 + (j % 3) * 1.12 + (rng() - 0.5) * 0.12,
+          z: z0 + 0.55 + Math.floor(j / 3) * 1.14 + (rng() - 0.5) * 0.12,
+          ry: rng() * 6.28, rx: (rng() - 0.5) * 0.12, rz: (rng() - 0.5) * 0.12, s: 0.84 + rng() * 0.12,
+        });
+      }
+      // the tray grows to fit what's on it
+      var tW = tw + 1.3, tD = td + 1.3;
+      // the canvas is as tall as the TRAY needs, not a guess from the count —
+      // seen at 52° a tray's depth shows at about sin(52°) of its length
+      H = Math.round(Math.max(130, Math.min(360, 140 + 12 * Math.sqrt(drawn), W * (tD * 0.8 + 1.3) / (tW + 1.4))));
+      wrapEl.style.height = H + 'px';
+      if (TRAY.slab) { sc.remove(TRAY.slab); TRAY.slab.geometry.dispose(); }
+      var sg = new TT.ExtrudeGeometry(TRAY.shape(tW, tD, 0.45), { depth: 0.22, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.06, bevelSegments: 3, curveSegments: 8 });
+      TRAY.slab = new TT.Mesh(sg, TRAY.slabMat); TRAY.slab.rotation.x = -Math.PI / 2; TRAY.slab.position.y = -0.3;
+      TRAY.slab.receiveShadow = true; sc.add(TRAY.slab);
+      TRAY.liner.scale.set(tW - 0.45, tD - 0.45, 1); TRAY.liner.position.y = -0.01;
+      // camera: a three-quarter look down at the whole tray
+      RR.setSize(W, H, false); cm.aspect = W / H;
+      var el = 52 * Math.PI / 180, fov = cm.fov * Math.PI / 180;
+      var fitW = (tW / 2 + 0.3) / (Math.tan(fov / 2) * cm.aspect), fitD = (tD * Math.sin(el) / 2 + 0.8) / Math.tan(fov / 2);
+      var dist = Math.max(fitW * 1.2, fitD) * 1.0 + Math.cos(el) * tD * 0.08;   // the near edge projects WIDER
+      cm.position.set(0, Math.sin(el) * dist, Math.cos(el) * dist + 0.2);
+      cm.lookAt(0, 0, tD * 0.1); cm.updateProjectionMatrix();   // and LOWER: aim nearer to centre it
+      var k = TRAY.key, b = Math.max(tW, tD) * 0.7 + 1;
+      k.position.set(-1.1 * b, b * 1.25, 0.75 * b); k.target.position.set(0, 0, 0);
+      k.shadow.camera.left = -b; k.shadow.camera.right = b; k.shadow.camera.top = b; k.shadow.camera.bottom = -b;
+      k.shadow.camera.far = b * 8; k.shadow.camera.updateProjectionMatrix();
+      // items: the ones already lying there SLIDE to their new spot (the layout
+      // re-fits as the count changes); only the new ones drop in
+      var now = performance.now() / 1000, old = items;
+      items = [];
+      for (i = 0; i < drawn; i++) {
+        var it = old[i];
+        if (it) { it.fx = it.cx; it.fz = it.cz; it.mt0 = now; }
+        else it = { t0: now + Math.min(i - old.length, 60) * 0.014, fx: slots2[i].x, fz: slots2[i].z, mt0: -9 };
+        it.p = slots2[i]; it.shape = i % 4; items.push(it);
+      }
+      TRAY.count = n;
+      kick2();
+    }
+
+    function kick2() { if (!raf2 && TRAY.ready) raf2 = requestAnimationFrame(frame2); }
+    function frame2() {
+      raf2 = 0;
+      if (TRAY.vis === false || nhBusy()) return;
+      var now = performance.now() / 1000, moving = false, cnt = [0, 0, 0, 0];
+      var rm = nhReduced();
+      items.forEach(function (it) {
+        var tt = rm ? 1 : Math.max(0, Math.min(1, (now - it.t0) / 0.5));
+        if (tt < 1) moving = true;
+        var land = nhLand(tt), p = it.p;
+        var mv = Math.min(1, (now - it.mt0) / 0.35); if (mv < 1) moving = true;
+        mv = mv * mv * (3 - 2 * mv);
+        it.cx = it.fx + (p.x - it.fx) * mv; it.cz = it.fz + (p.z - it.fz) * mv;
+        Et.set(p.rx + (1 - tt) * 2.2, p.ry + (1 - tt) * 1.5, p.rz);
+        Qt.setFromEuler(Et); Vt.set(it.cx, (1 - land) * 3.2, it.cz);
+        var s = p.s * Math.min(1, 0.25 + tt * 3); St.set(s, s, s);
+        M.compose(Vt, Qt, St);
+        meshes[it.shape].setMatrixAt(cnt[it.shape]++, M);
+      });
+      meshes.forEach(function (m, i) { m.count = cnt[i]; m.instanceMatrix.needsUpdate = true; });
+      RR.render(sc, cm);
+      if (moving) raf2 = requestAnimationFrame(frame2);   // otherwise: settled, the loop stops
+    }
+
+    TRAY.setCount = function (n) {
+      n = Math.max(0, Math.floor(n || 0));
+      if (!TRAY.ready) { TRAY.count = n; return; }
+      var d = Math.min(n, TRAY.cap);
+      if (d === lastN) return;
+      // fewer than before: keep the survivors where they lie (no re-drop)
+      layout(n, true);
+      lastN = d;
+    };
+    TRAY.boot = function () {
+      if (TRAY.ready || TRAY.failed || !global.THREE) return;
+      try { trayBuild(); } catch (e) { TRAY.failed = true; try { console.warn('nugTray:', e); } catch (_) { } }
+    };
+  }());
+  global.NugTray = TRAY;
 
   global.NugHero = HERO;
 }(typeof window !== 'undefined' ? window : this));

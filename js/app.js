@@ -65,6 +65,18 @@ const MAX_NUGGETS_DRAWN = 500;
 
 function renderNuggets(count) {
   gridEl.innerHTML = '';
+  // 🍱 THE TRAY (js/nugHero.js) draws them in 3D once it's up; until then — and
+  // forever, without WebGL2 — the PNG grid below is the picture.
+  if (window.NugTray && NugTray.ready) {
+    NugTray.setCount(count);
+    if (count > NugTray.cap) {
+      const note = document.createElement('div');
+      note.className = 'more-note';
+      note.textContent = '+ ' + fmt.format(count - NugTray.cap) + ' more nuggets (not on the tray)';
+      gridEl.appendChild(note);
+    }
+    return;
+  }
   if (count <= 0) return;
   const drawn = Math.min(count, MAX_NUGGETS_DRAWN);
   const frag = document.createDocumentFragment();

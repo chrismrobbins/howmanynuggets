@@ -240,6 +240,12 @@ input[type=number] { -moz-appearance: textfield; }
   max-width: 100%;
   padding: 0.25rem;
 }
+/* 🍱 THE TRAY (js/nugHero.js): the grid, made of nugget. Height is set inline
+   from the count; the PNG grid hides once it's up. */
+.nug-tray { width: 100%; height: 0; transition: height 0.45s cubic-bezier(0.22, 1, 0.36, 1); margin: 0 0 0.5rem; }
+.nug-tray canvas { display: block; width: 100%; height: 100%; }
+.nugget-grid.tray-on img { display: none; }
+.nugget-grid.tray-on { max-height: none; overflow: visible; }
 .nugget-grid img {
   width: 34px;
   height: 34px;

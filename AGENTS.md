@@ -2630,3 +2630,27 @@ shader does it — no three.js, no mesh-data change:
   taken after them, in uniform control flow.
 - Seam: `H.proc = false`. WebGL1 (`FS_LIT`) untouched; fallbacks.js: every path
   draws a room, 60fps.
+
+## 🍱 THE TRAY — the converter's nugget grid, in 3D (js/nugHero.js `NugTray`), 2026-10-07
+
+The flex grid of up to 500 `nugget.png`s under the count is a tray now: every
+nugget you can afford (cap 300, 120 handheld) on a greaseproof liner, laid out in
+SIX-PIECE clusters (3×2) so the picture agrees with "≈ N six-piece boxes". Same
+four shapes and breading as the hero; its own small renderer, booted 400ms AFTER
+the hero is ready so the two shader compiles never overlap.
+
+- Canvas height comes from the tray's PROJECTED shape (≈ depth·sin 52° vs width)
+  capped by `140 + 12·√n` so six nuggets don't get a 270px stage; the camera fit
+  widens 1.2× because a tilted tray's NEAR edge projects wider (it clipped).
+- When the count changes, nuggets already lying there SLIDE to their re-fitted
+  spot; only new ones drop. Once everything lands the loop STOPS (measured: 0 draw
+  calls/s idle).
+- The liner's `envMapIntensity` is 0.25 — a white RoomEnvironment reflected in
+  white paper blew it out — and the key is LOW so each nugget casts a shadow.
+- 🐛 THE RACE: it rendered nothing if scrolled into view right after boot,
+  because it treated "the IntersectionObserver hasn't fired yet" as invisible and
+  in that run the observer never fired at all. Visible-by-default now; the
+  observer only PAUSES. (The hero got the same fix.)
+- On boot it calls `update()` so the grid re-runs through the tray path — the
+  PNGs drawn before the tray existed go, and the "+N more" note uses its cap.
+- No WebGL2 / `nugHero3d=0` / hero failed → no tray; the PNG grid stays.
