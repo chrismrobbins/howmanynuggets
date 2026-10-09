@@ -325,11 +325,13 @@ function syncBlitz() {
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     blitz.t = 0; blitz.earned = 0; blitz.paused = false; blitz.keys = {};
     blitzLayout();
+    if (blzIsPhone()) blzPadOn();
     blzDiscManifest();     // start downloading the soundtrack now, before the first click makes a sound
     blzOpenTier();
   } else {
     if (blitz.tierPick) { blitz.tierPick.close(); blitz.tierPick = null; }
     blitz.phase = 'idle';
+    if (blitz.padEl) { blitz.padEl.querySelector('.blzp-sheet').hidden = true; blitz.paused = false; }
     blzCrowdStop();
     blzBoothHush();
     if (blzMus.ok && blitz.sfx.ctx) { blzMusMix('off'); blzMus.T = null; blzMus.key = ''; blzMus.pend = null; blzChant(false); blzDiscStop(); }
@@ -343,7 +345,7 @@ function blzOpenTier() {
   blitz.tierPick = ArcadeKit.tierSelect({
     storeKey: 'blitz',
     title: '💥 NUGGET BLITZ — pick your opponent',
-    note: '7 on 7 · 30 yards for a first · no refs · press 1 · 2 · 3',
+    note: '7 on 7 · 30 yards for a first · no refs · tap a card · 1 · 2 · 3 · or stick + A',
     tiers, mount: blitzWorld,
     onPick: (key, t) => { blitz.tierPick = null; blzNewGame(t); },
   });
@@ -544,7 +546,7 @@ function blzBeginMatchup(mine) {
   blitz.hype = [0, 0]; blitz.heatSaid = [false, false]; blitz.bubbles = []; blitz.halftime = false;
   blitz.codes = {}; blitz.codeIn = [0, 0, 0]; blitz.codeMsg = null;
   blitz.players = [];
-  blitz.phase = 'vs'; blitz.vsT = 0;
+  blitz.phase = 'vs'; blitz.vsT = 0; blitz.codeAt = 0;
 }
 
 // leave the VS screen: codes are locked in, the coin is flipped
@@ -3222,7 +3224,15 @@ function blitzUpdate(dt) {
   const ph = blitz.phase;
   if (ph === 'replay') { blzReplayStep(dt); return; }
   if (ph === 'teams') { blitz.vsT += dt; return; }
-  if (ph === 'vs') { blitz.vsT += dt; if (blitz.codeMsg) { blitz.codeMsg.t -= dt; if (blitz.codeMsg.t <= 0) blitz.codeMsg = null; } return; }
+  if (ph === 'vs') {
+    blitz.vsT += dt;
+    if (blitz.codeMsg) { blitz.codeMsg.t -= dt; if (blitz.codeMsg.t <= 0) blitz.codeMsg = null; }
+    // the cart's VS screen timed out into the kickoff; here too. PASS/A types into the code boxes,
+    // so without this a player mashing PASS to continue was stuck ("the taps register as a pass in
+    // the counter, but doesn't enter the game" — Chris). Each code tap buys a few more seconds.
+    if (blitz.vsT >= blzVsGoAt()) blzStartGame();
+    return;
+  }
   if (ph === 'final') { blitz.finalT += dt; blzSim(dt); return; }
   if (ph === 'call' || ph === 'pat') {
     blitz.callT += dt;
@@ -3508,6 +3518,7 @@ function stepBlitz(dt, w, h) {
   if (blitz.slowT > 0) { blitz.slowT -= dt; dt *= 0.32; }
   if (!blitz.freeze && !blitz.paused && blitz.phase !== 'tier') blitzUpdate(dt);
   blzMusicFrame();
+  blzPadFrame();     // (not in the music frame: that waits for the sound to come on, the buttons can't)
   blzDraw();
 }
 // which song, which stems, and the chant
@@ -3530,13 +3541,17 @@ function blzMusicFrame() {
 }
 
 // ---- the VS screen codes ------------------------------------------------------------------------
+const BLZ_VS_SECS = 7;
+function blzVsGoAt() { return Math.max(BLZ_VS_SECS, (blitz.codeAt || 0) + 3.5); }
 function blzCodeTap(i) {
   if (blitz.phase !== 'vs') return;
+  blitz.codeAt = blitz.vsT;
   blitz.codeIn[i] = (blitz.codeIn[i] + 1) % 6;
   blzSfx('select');
 }
 function blzCodeDir(dirKey) {
   if (blitz.phase !== 'vs') return;
+  blitz.codeAt = blitz.vsT;
   const k = blitz.codeIn.join('') + dirKey;
   const code = BLZ_CODES.find((c) => c.k === k);
   if (code) {
@@ -5396,8 +5411,11 @@ function blzChrome(g, x, y, w, h, slant, fill) {
 
 function blzDrawHud(g, W, H) {
   const ui = blitz.ui, portrait = H > W * 1.2;
+  // on a phone the thumbs own the bottom corners: the meters and the down box ride up top
+  // (and the arcade's bar isn't there, so a portrait scorebox doesn't need to duck under it)
+  const mob = !!blitz.mobile, menuW = mob ? 58 * H / window.innerHeight : 0;
   // the scorebox: clock + quarter on the left, the two teams on the right
-  const top = portrait ? Math.round(H * 0.17) : 6;
+  const top = portrait && !mob ? Math.round(H * 0.17) : 6;
   const bx = 8, by = top, bw = 124 * ui, bh = 36 * ui;
   blzChrome(g, bx, by, bw, bh);
   blzText(g, blzClockTxt(), bx + 8 * ui, by + bh * 0.3, 15 * ui, blitz.clock < 10 ? '#ff7a6a' : '#ffffff');
@@ -5417,7 +5435,8 @@ function blzDrawHud(g, W, H) {
   const ph = blitz.phase;
   // TURBO, bottom left: the bar IS the meter
   if (ph !== 'final' && ph !== 'call') {
-    const tw = 150 * ui, th = 20 * ui, tx = 14, ty = H - th - 8;
+    const tw = (mob && portrait ? 96 : 150) * ui, th = 20 * ui;
+    const tx = mob ? (portrait ? bx : bx + bw + 14) : 14, ty = mob ? (portrait ? by + bh + 8 + 16 * ui : by + bh - th) : H - th - 8;
     const fire = blzOnFire(0) || blitz.codes.inf;
     const path = blzChrome(g, tx, ty, tw, th, 6, 'rgba(6,12,30,0.86)');
     const v = fire ? 1 : blitz.turbo[0];
@@ -5457,20 +5476,20 @@ function blzDrawHud(g, W, H) {
       dd = blzOrd(blitz.down) + ' & ' + (goal ? 'GOAL' : Math.max(1, Math.round(Math.abs(blitz.firstAt - blitz.los))));
       sub = blzYardTxt(blitz.los, blitz.poss);
     }
-    const tw = 132 * ui, th = 20 * ui, tx = W - tw - 14, ty = H - th - 8;
+    const tw = 132 * ui, th = 20 * ui, tx = W - tw - (mob && portrait ? 8 : 14 + menuW), ty = mob ? (portrait ? by + bh + 8 : 8) : H - th - 8;
     blzChrome(g, tx, ty, tw, th, 6);
     g.save(); g.translate(tx + tw / 2, ty + th / 2 + 1); g.transform(1, 0, -0.2, 1, 0, 0);
     blzText(g, dd, 0, 0, 14 * ui, '#ffffff', 'center');
     g.restore();
-    if (sub) blzText(g, sub, tx + tw - 4, ty - 8, 10 * ui, '#c8dcff', 'right');
+    if (sub) blzText(g, sub, tx + tw - 4, mob ? ty + th + 9 : ty - 8, 10 * ui, '#c8dcff', 'right');
   }
-  // the feed, right side above the box
-  let fy = H - 48 * ui;
+  // the feed, right side above the box (on a phone: under it, reading down)
+  let fy = mob ? (portrait ? by + bh + 8 + 20 * ui + 24 : 8 + 20 * ui + 24) : H - 48 * ui;
   for (let i = blitz.feed.length - 1; i >= 0; i--) {
     const f = blitz.feed[i];
     g.globalAlpha = Math.min(1, f.t * 2);
-    blzText(g, f.text, W - 14, fy, 10 * ui, f.color, 'right');
-    fy -= 13 * ui;
+    blzText(g, f.text, W - 14 - (mob ? menuW : 0), fy, 10 * ui, f.color, 'right');
+    fy += (mob ? 13 : -13) * ui;
   }
   g.globalAlpha = 1;
   const pad = blitz.inputMode === 'pad', tch = blitz.inputMode === 'touch';
@@ -5482,19 +5501,20 @@ function blzDrawHud(g, W, H) {
       blzTextC(g, blitz.hot.stage === 'pick' ? 'HOT ROUTE: PICK A RECEIVER (' + (pad ? 'X · A · B' : 'J · K · L') + ')' : 'HOT ROUTE: ↑ GO · ↓ CURL · TO THE MIDDLE SLANT · TO THE SIDELINE OUT', W / 2, hy1, 11 * ui, '#ffe23a');
       blzTextC(g, (pad ? 'Y' : 'I') + ' AGAIN TO CANCEL', W / 2, hy2, 9 * ui, '#c8dcff');
     } else {
-      if (((blitz.t * 2) | 0) % 2 === 0) blzTextC(g, pad ? 'A TO HIKE' : tch ? 'PASS TO HIKE' : 'SPACE TO HIKE', W / 2, hy1, 14 * ui, '#ffffff');
+      if (((blitz.t * 2) | 0) % 2 === 0) blzTextC(g, pad ? 'A TO HIKE' : blitz.mobile ? 'TAP SNAP' : tch ? 'PASS TO HIKE' : 'SPACE TO HIKE', W / 2, hy1, 14 * ui, '#ffffff');
       const hr = blitz.kind === 'pass' && !tch ? ' · ' + (pad ? 'Y' : 'I') + ' HOT ROUTE' : '';
-      blzTextC(g, TAUNT + ' TAUNT' + hr + (blitz.kind === 'pass' ? ' · ' + (tch ? 'TAP AN ICON: ROUTE / THROW' : (pad ? 'X A B' : 'J K L') + ' THROW: TAP = LOB, HOLD = BULLET') : ''), W / 2, hy2, 9 * ui, '#c8dcff');
+      if (blitz.mobile) blzTextC(g, blitz.kind === 'pass' ? 'AFTER THE SNAP: TAP A RECEIVER = LOB · HOLD = BULLET' : 'TAUNT BEFORE THE SNAP FOR HYPE', W / 2, hy2, 9 * ui, '#c8dcff');
+      else blzTextC(g, TAUNT + ' TAUNT' + hr + (blitz.kind === 'pass' ? ' · ' + (tch ? 'TAP AN ICON: ROUTE / THROW' : (pad ? 'X A B' : 'J K L') + ' THROW: TAP = LOB, HOLD = BULLET') : ''), W / 2, hy2, 9 * ui, '#c8dcff');
     }
   }
   if (ph === 'pre' && blzHuman(1 - blitz.poss))
-    blzTextC(g, (pad ? 'B' : tch ? 'PASS' : 'SPACE / L') + ' SWITCH DEFENDER · ' + TAUNT + ' TAUNT', W / 2, hy2, 10 * ui, '#c8dcff');
+    blzTextC(g, blitz.mobile ? 'TAP A DEFENDER (OR SWITCH) TO TAKE HIM · TAUNT FOR HYPE' : (pad ? 'B' : tch ? 'PASS' : 'SPACE / L') + ' SWITCH DEFENDER · ' + TAUNT + ' TAUNT', W / 2, hy2, 10 * ui, '#c8dcff');
   // your ball carrier in the open: offer the showboat
   const C = blitz.carrier;
   if (ph === 'live' && C && C === blitz.ctl && blzHuman(C.team) && !blitz.pocket && !C.showboat && !blzThreatAhead(C, 7) && ((blitz.t * 3) | 0) % 2 === 0)
-    blzTextC(g, (pad ? 'Y' : tch ? 'JUMP' : 'I') + ' = SHOWBOAT (RISKY!)', W / 2, H * 0.86, 10 * ui, '#ffcf8a');
+    blzTextC(g, blitz.mobile ? 'SHOWBOAT = RISKY HYPE · SWIPE TO SPIN / HURDLE' : (pad ? 'Y' : tch ? 'JUMP' : 'I') + ' = SHOWBOAT (RISKY!)', W / 2, blitz.mobile ? H * 0.62 : H * 0.86, 10 * ui, '#ffcf8a');
   if (ph === 'dead' && blitz.dead && blitz.dead.type === 'td' && blitz.dead.who && blzHuman(blitz.dead.who.team) && !blitz.celebDone)
-    blzTextC(g, 'CELEBRATE: ' + (pad ? 'X SPIKE · A DANCE · B BACKFLIP · Y FLEX' : tch ? 'TAP PASS / JUMP' : 'J SPIKE · K DANCE · L BACKFLIP · I FLEX'), W / 2, H * 0.84, 10 * ui, '#ffe23a');
+    blzTextC(g, 'CELEBRATE: ' + (pad ? 'X SPIKE · A DANCE · B BACKFLIP · Y FLEX' : blitz.mobile ? 'PICK ONE →' : tch ? 'TAP PASS / JUMP' : 'J SPIKE · K DANCE · L BACKFLIP · I FLEX'), W / 2, blitz.mobile ? H * 0.62 : H * 0.84, 10 * ui, '#ffe23a');
 }
 
 // the trash talk: comic bubbles over their helmets
@@ -5756,7 +5776,8 @@ function blzDrawVS(g, W, H) {
   const on = BLZ_CODES.filter((c) => blitz.codes[c.id]).map((c) => c.name);
   if (on.length) blzTextC(g, on.join(' · '), W / 2, y + 66, 9, '#39ff7a');
   blzTextC(g, 'TAP TURBO · JUMP · PASS' + (blitz.inputMode === 'pad' ? ' (RT · Y · A)' : blitz.inputMode === 'touch' ? '' : ' (SHIFT · I · SPACE)') + ', THEN PUSH A DIRECTION', W / 2, H * 0.86, 9, '#ffffff');
-  if (((t * 2) | 0) % 2 === 0) blzTextC(g, 'PRESS ENTER (OR TAP HERE) TO KICK OFF', W / 2, H * 0.93, 13, '#ffd23a');
+  const left = Math.max(1, Math.ceil(blzVsGoAt() - t)), md = blitz.inputMode;
+  blzTextC(g, 'KICKOFF IN ' + left + ' · ' + (md === 'pad' ? 'START' : md === 'touch' ? 'TAP HERE' : 'ENTER') + ' TO GO NOW', W / 2, H * 0.93, 13, ((t * 2) | 0) % 2 === 0 ? '#ffd23a' : '#ffffff');
   blitz.hit.cards = [{ x: 0, y: H * 0.86, w: W, h: H * 0.14, n: 'go' }];
 }
 
@@ -5777,7 +5798,7 @@ function blzDrawFinal(g, W, H) {
 
 function blzDrawTouch(g, W, H) {
   const T = blitz.touch;
-  if (!T.on) return;
+  if (!T.on || blitz.mobile) return;
   const s = BLZ_RES / window.innerHeight;
   g.globalAlpha = 0.45;
   if (T.L) {
@@ -5900,7 +5921,10 @@ window.addEventListener('keyup', (e) => {
 window.addEventListener('blur', () => { blitz.keys = {}; });
 window.addEventListener('resize', () => { if (blitz.on) blitzLayout(); });
 
-function blzWorldXY(cx, cy) { const s = BLZ_RES / window.innerHeight; return { x: cx * s, y: cy * s }; }
+// css px → canvas units. x and y scale SEPARATELY: on a tall phone the canvas width is clamped (240)
+// and stretched, so one scale for both put every portrait tap in the wrong place — the team cards and
+// the kickoff button couldn't be hit ("it just keeps getting stuck when I tap the screen" — Chris)
+function blzWorldXY(cx, cy) { return { x: cx / window.innerWidth * blitz.W, y: cy / window.innerHeight * blitz.H }; }
 function blzTapUI(x, y) {
   const ph = blitz.phase;
   for (const c of blitz.hit.cards) if (x >= c.x && x < c.x + c.w && y >= c.y && y < c.y + c.h) {
@@ -5941,6 +5965,7 @@ blitzWorld.addEventListener('touchstart', (e) => {
   if (!blitzActive() || blitz.phase === 'tier') return;
   if (e.target.closest('.storm-hud, .ak-tier, .modal-overlay')) return;
   blzAudio();
+  blzPadOn();
   const T = blitz.touch; T.on = true;
   blitz.inputMode = 'touch';
   for (const t of e.changedTouches) {
@@ -5954,7 +5979,7 @@ blitzWorld.addEventListener('touchstart', (e) => {
     const ic = blitz.phase === 'live' || blitz.phase === 'pre' ? blzIconAt(wp.x, wp.y) : null;
     if (ic) { T.roles[t.identifier] = 'R' + ic; blzBtnDown(ic, 'touch'); continue; }
     let hit = null;
-    for (const b of blzTouchBtns()) if (Math.hypot(x - b.x, y - b.y) <= b.r + 10) { hit = b; break; }
+    if (!blitz.mobile) for (const b of blzTouchBtns()) if (Math.hypot(x - b.x, y - b.y) <= b.r + 10) { hit = b; break; }
     if (hit) {
       T.roles[t.identifier] = hit.k; T[hit.k] = true;
       if (blitz.phase === 'vs') blzCodeTap(hit.k === 'T' ? 0 : hit.k === 'B' ? 1 : 2);
@@ -5964,7 +5989,8 @@ blitzWorld.addEventListener('touchstart', (e) => {
     }
     if (blitz.phase === 'vs' && blzTapUI(wp.x, wp.y)) continue;
     if (blitz.phase === 'final') { blzPressPass(); continue; }
-    if (x < window.innerWidth * 0.55 && !T.L) { T.L = { id: t.identifier, x0: x, y0: y, dx: 0, dy: 0 }; T.roles[t.identifier] = 'L'; }
+    if (x < window.innerWidth * (blitz.mobile ? 0.45 : 0.55) && !T.L) { T.L = { id: t.identifier, x0: x, y0: y, dx: 0, dy: 0 }; T.roles[t.identifier] = 'L'; }
+    else if (blitz.mobile) { T.roles[t.identifier] = 'G'; (T.G || (T.G = {}))[t.identifier] = { x0: x, y0: y, t0: performance.now() }; }
   }
   e.preventDefault();
 }, { passive: false });
@@ -5973,6 +5999,14 @@ blitzWorld.addEventListener('touchmove', (e) => {
   const T = blitz.touch;
   for (const t of e.changedTouches) {
     if (T.roles[t.identifier] !== 'L' || !T.L) continue;
+    if (blitz.mobile) {
+      // a round stick with a dead zone; past the ring = TURBO (the left thumb sprints)
+      const rx = (t.clientX - T.L.x0) / BLZ_STICK_R, ry = (t.clientY - T.L.y0) / BLZ_STICK_R, m = Math.hypot(rx, ry);
+      const k = m < 0.12 ? 0 : m > 1 ? 1 / m : 1;
+      T.L.dx = rx * k; T.L.dy = ry * k;
+      T.L.turbo = m > 1.3; T.T = T.L.turbo;
+      continue;
+    }
     T.L.dx = blzClamp((t.clientX - T.L.x0) / 40, -1, 1); T.L.dy = blzClamp((t.clientY - T.L.y0) / 40, -1, 1);
   }
   e.preventDefault();
@@ -5988,12 +6022,290 @@ const blzTouchEnd = (e) => {
         if (Math.max(Math.abs(dx), Math.abs(dy)) > 0.5) blzCodeDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'R' : 'L') : (dy > 0 ? 'D' : 'U'));
       }
       T.L = null;
+      if (blitz.mobile) T.T = false;
+    } else if (role === 'G') {
+      const g = T.G && T.G[t.identifier];
+      if (g) { delete T.G[t.identifier]; blzPadGesture(g, t.clientX, t.clientY); }
     } else if (role && role[0] === 'R' && role.length === 2) blzBtnUp(role[1]);
     else if (role) T[role] = false;
   }
 };
 window.addEventListener('touchend', blzTouchEnd); window.addEventListener('touchcancel', blzTouchEnd);
 
+// ---- 📱 THE PHONE ---------------------------------------------------------------------------
+// "make a mobile friendly version … study the way other american football games have worked on
+// mobile and mirror that" — Chris. What the mobile football games share, and what this copies:
+//   • LANDSCAPE, a FLOATING STICK under the left thumb (it appears where the thumb lands; a fixed
+//     stick misfires when the thumb lands off-centre — Axis Football's "too small" complaint).
+//     Push PAST the ring to burn TURBO, so the left thumb sprints and the right thumb stays free.
+//   • A few BIG context buttons under the right thumb whose labels change with the moment (Madden
+//     Mobile's skill buttons): SNAP / HOT ROUTE / TAUNT before the snap; SPIN / STIFF ARM / HURDLE /
+//     DIVE with the ball; DIVE / HIT STICK / SWITCH / JUMP on defense; the celebrations after a TD.
+//   • PASS BY RECEIVER: the icons over the receivers are tappable (Madden, Tecmo, Football Heroes),
+//     and the same three are mirrored as buttons in screen order — tap = lob, hold = bullet.
+//   • SWIPES on open turf for the ball carrier (Madden/Retro Bowl): up hurdle, sideways spin, down
+//     dive. TAP A DEFENDER to take him over (Madden, Tecmo).
+//   • A pause button with the switches the keyboard had (music, sound, announcer, quit) — the
+//     arcade's top bar is hidden on a phone, so Quit lives here.
+// It turns on for a coarse pointer with touch (a phone or tablet), or the first time anyone touches.
+const BLZ_STICK_R = 54;      // css px: full deflection
+function blzIsPhone() {
+  try { return matchMedia('(pointer: coarse)').matches && (navigator.maxTouchPoints || 0) > 0; } catch (e) { return false; }
+}
+function blzPadOn() {
+  if (blitz.mobile) return;
+  blitz.mobile = true;
+  blitz.inputMode = 'touch';
+  blitz.touch.on = true;
+  document.body.classList.add('blz-touch');
+  blzPadBuild();
+}
+function blzPadBuild() {
+  if (blitz.padEl) return;
+  const el = document.createElement('div');
+  el.className = 'blzp';
+  el.innerHTML =
+    '<div class="blzp-stick"><div class="blzp-knob"></div></div>' +
+    ['P0', 'P1', 'P2', 'P3', 'R0', 'R1', 'R2'].map((k) => '<button type="button" class="blzp-b" data-slot="' + k + '" hidden><span class="blzp-l"></span><span class="blzp-s"></span></button>').join('') +
+    '<button type="button" class="blzp-menu" aria-label="Pause">❚❚</button>' +
+    '<div class="blzp-sheet" hidden><div class="blzp-card"><div class="blzp-kick">NUGGET BLITZ</div><div class="blzp-h">PAUSED</div>' +
+    '<button type="button" data-m="resume" class="blzp-go">RESUME</button>' +
+    '<button type="button" data-m="music"></button><button type="button" data-m="sound"></button><button type="button" data-m="voice"></button>' +
+    '<button type="button" data-m="quit" class="blzp-quit">QUIT TO THE ARCADE</button></div></div>' +
+    '<div class="blzp-rotate" hidden><div class="blzp-card"><div class="blzp-phone">📱</div><div class="blzp-h">TURN IT SIDEWAYS</div>' +
+    '<p>Nugget Blitz plays best in landscape: the whole field, both thumbs.</p><button type="button" data-m="portrait">PLAY TALL ANYWAY</button></div></div>';
+  blitzWorld.appendChild(el);
+  blitz.padEl = el;
+  blitz.padBtns = {};
+  el.querySelectorAll('.blzp-b').forEach((b) => { blitz.padBtns[b.dataset.slot] = { el: b, key: '' }; });
+  blitz.padHeld = {};
+  // the buttons: every touch remembers which action it started, so a label changing under a held
+  // thumb can't strand a hold (the bullet pass is a hold)
+  el.addEventListener('touchstart', (e) => {
+    const b = e.target.closest('.blzp-b, .blzp-menu, .blzp-sheet button, .blzp-rotate button');
+    // the sheets swallow every touch, buttons or not (a stray tap mustn't reach the field behind)
+    if (!b) { if (e.target.closest('.blzp-sheet, .blzp-rotate')) { e.preventDefault(); e.stopPropagation(); } return; }
+    e.preventDefault(); e.stopPropagation();
+    blzAudio();
+    if (b.classList.contains('blzp-menu')) { blzPadMenu(true); return; }
+    if (b.dataset.m) { blzPadMenuAct(b.dataset.m); return; }
+    const it = blitz.padSpec && blitz.padSpec[b.dataset.slot];
+    if (!it) return;
+    for (const t of e.changedTouches) blitz.padHeld[t.identifier] = { it, el: b };
+    b.classList.add('on');
+    if (navigator.vibrate) try { navigator.vibrate(8); } catch (err) { }
+    it.down();
+  }, { passive: false });
+  const end = (e) => {
+    for (const t of e.changedTouches) {
+      const h = blitz.padHeld[t.identifier];
+      if (!h) continue;
+      delete blitz.padHeld[t.identifier];
+      h.el.classList.remove('on');
+      if (h.it.up) h.it.up();
+    }
+  };
+  el.addEventListener('touchend', end); el.addEventListener('touchcancel', end);
+  // (a mouse on a touch laptop still works the sheet)
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest('.blzp-menu, .blzp-sheet button, .blzp-rotate button');
+    if (!b) return;
+    if (b.classList.contains('blzp-menu')) blzPadMenu(true); else blzPadMenuAct(b.dataset.m);
+  });
+  blzPadMenuLabels();
+}
+function blzPadMenu(open) {
+  const sh = blitz.padEl.querySelector('.blzp-sheet');
+  sh.hidden = !open;
+  if (open && blitz.phase !== 'final' && blitz.phase !== 'tier') blitz.paused = true;
+  if (!open) blitz.paused = false;
+  blzPadMenuLabels();
+}
+function blzPadMenuLabels() {
+  const q = (m) => blitz.padEl.querySelector('[data-m="' + m + '"]');
+  q('music').textContent = 'MUSIC: ' + (blzMus.on ? 'ON' : 'OFF');
+  q('sound').textContent = 'SOUND: ' + (blitz.sfx.muted ? 'OFF' : 'ON');
+  q('voice').textContent = 'ANNOUNCER: ' + (blitz.voice ? 'ON' : 'OFF');
+}
+function blzPadMenuAct(m) {
+  const S = blitz.sfx;
+  if (m === 'resume') blzPadMenu(false);
+  else if (m === 'music') blzMusToggle();
+  else if (m === 'sound') { S.muted = !S.muted; if (S.master) S.master.gain.value = S.muted ? 0 : 0.34; if (S.muted) blzBoothHush(); }
+  else if (m === 'voice') { blitz.voice = !blitz.voice; if (!blitz.voice) blzBoothHush(); }
+  else if (m === 'quit') { blzPadMenu(false); if (typeof stopStorm === 'function') stopStorm(); return; }
+  else if (m === 'portrait') { blitz.tall = true; try { sessionStorage.setItem('blzTall', '1'); } catch (e) { } }
+  blzPadMenuLabels();
+}
+
+// what each slot does right now. P0 is the big button; P1-P3 sit around it; R0-R2 are the receivers.
+function blzPadAct(btn, label, col, extra) {
+  return Object.assign({ label, col: col || '#c8321f', down: () => { blzBtnDown(btn, 'touchpad'); blitz.inputMode = 'touch'; }, up: () => blzBtnUp(btn) }, extra || {});
+}
+function blzPadFn(label, col, fn, extra) { return Object.assign({ label, col: col || '#c8321f', down: fn }, extra || {}); }
+function blzPadReceivers(spec, verb) {
+  // the three receivers, in the order they stand on screen, coloured like their icons
+  const icons = (blitz.hit.rcv || []).slice().sort((a, b) => a.x - b.x);
+  icons.forEach((h, i) => {
+    const r = blitz.rcv && blitz.rcv[h.btn];
+    if (i > 2 || !r) return;
+    spec['R' + i] = blzPadAct(h.btn, blzCallName(r).split(' ')[0], BLZ_BTN_COL[h.btn], { sub: verb, icon: h.btn });
+  });
+}
+function blzPadSpec() {
+  const S = {}, ph = blitz.phase, off = blitz.poss, me = blitz.ctl, C = blitz.carrier, B = blitz.ball;
+  if (blitz.paused || ph === 'tier' || ph === 'idle' || ph === 'teams' || ph === 'call' || ph === 'pat') return S;
+  const red = '#c8321f', blue = '#1f6fc8', gold = '#c8961f', green = '#2a9a3a', grey = '#5a6478';
+  if (ph === 'final') { if (blitz.finalT > 1) { S.P0 = blzPadAct('SP', 'REMATCH', green); S.P1 = blzPadFn('NEW TEAM', grey, () => blzOpenTier()); } return S; }
+  if (ph === 'vs') {
+    // the code boxes: TURBO / JUMP / PASS taps, then push the stick
+    S.P0 = blzPadFn('PASS', red, () => blzCodeTap(2)); S.P1 = blzPadFn('JUMP', blue, () => blzCodeTap(1)); S.P2 = blzPadFn('TURBO', gold, () => blzCodeTap(0));
+    S.P3 = blzPadFn('PLAY!', green, () => blzStartGame());
+    return S;
+  }
+  if (ph === 'replay') { S.P0 = blzPadFn('SKIP', grey, () => blzEndReplay()); return S; }
+  if (ph === 'pre') {
+    if (blzHuman(off)) {
+      const H = blitz.hot;
+      if (H && H.stage === 'pick') { blzPadReceivers(S, 'HOT ROUTE'); S.P3 = blzPadAct('Y', 'CANCEL', grey); }
+      else if (H && H.stage === 'dir') {
+        const dir = (d) => () => { blzHotDir(d); };
+        S.P0 = blzPadFn('↑ GO', red, dir('U')); S.P1 = blzPadFn('↓ CURL', blue, dir('D'));
+        S.P2 = blzPadFn('◀', gold, dir('L')); S.P3 = blzPadFn('▶', gold, dir('R'));
+      } else {
+        S.P0 = blzPadAct('SP', 'SNAP', red);
+        if (blitz.kind === 'pass' || blitz.kind === 'run') S.P1 = blzPadAct('Y', 'HOT ROUTE', blue);
+        S.P2 = blzPadFn('TAUNT', gold, () => blzHumanTaunt());
+      }
+    } else if (blzHuman(1 - off)) {
+      S.P0 = blzPadAct('SP', 'SWITCH', blue);
+      S.P2 = blzPadFn('TAUNT', gold, () => blzHumanTaunt());
+    }
+    return S;
+  }
+  if (ph === 'dead' || ph === 'wait') {
+    const D = blitz.dead;
+    if (ph === 'dead' && D && D.type === 'td' && D.who && blzHuman(D.who.team) && !blitz.celebDone) {
+      S.P0 = blzPadAct('A', 'DANCE', green); S.P1 = blzPadAct('X', 'SPIKE', blue); S.P2 = blzPadAct('B', 'BACKFLIP', red); S.P3 = blzPadAct('Y', 'FLEX', gold);
+    } else if (me && blzHuman(me.team)) { S.P0 = blzPadAct('SP', 'SHOVE', grey); S.P1 = blzPadAct('Y', 'ELBOW', grey); }
+    return S;
+  }
+  if (ph !== 'live') return S;
+  if (blitz.kind === 'kick' && B && B.st === 'tee' && blitz.kickWait) {
+    if (blzHuman(off)) {
+      S.P0 = blzPadAct('SP', 'KICK', red);
+      S.P1 = blzPadFn('ONSIDE', gold, () => { blitz.touch.T = true; blzBtnDown('SP', 'touchpad'); blitz.touch.T = false; blitz.inputMode = 'touch'; });
+    }
+    return S;
+  }
+  if (!me || !blzHuman(me.team)) return S;
+  const pocketQB = me === C && blitz.pocket && me.pos === 'QB' && blitz.kind === 'pass' && !blitz.thrown && (C.z - blitz.los) * blzDir(C.team) <= 0.4;
+  if (pocketQB) {
+    blzPadReceivers(S, '');
+    S.P3 = blzPadAct('Y', 'PUMP', grey);
+    return S;
+  }
+  if (me === C) {
+    S.P0 = blzPadAct('B', 'SPIN', red); S.P1 = blzPadAct('A', 'STIFF ARM', blue);
+    S.P2 = blzPadAct('Y', C.downT <= 0 && !C.air && !blzThreatAhead(C, 4.5) ? 'SHOWBOAT' : 'HURDLE', gold);
+    S.P3 = blzPadAct('X', 'DIVE', grey);
+    return S;
+  }
+  if (!C && B && B.st === 'air' && B.kind === 'pass' && B.from && B.from.team === me.team) {
+    S.P0 = blzPadAct('X', 'DIVE', red); S.P1 = blzPadAct('Y', 'JUMP', blue);
+    return S;
+  }
+  // defense
+  S.P0 = blzPadAct('X', 'DIVE', red); S.P1 = blzPadAct('A', 'HIT STICK', gold);
+  S.P2 = blzPadAct('B', 'SWITCH', blue); S.P3 = blzPadAct('Y', 'JUMP', grey);
+  return S;
+}
+// every frame: relabel only what changed (the DOM is slow; the game isn't)
+function blzPadFrame() {
+  if (!blitz.mobile || !blitz.padEl) return;
+  const el = blitz.padEl;
+  const tall = window.innerHeight > window.innerWidth * 1.1;
+  const rot = el.querySelector('.blzp-rotate');
+  if (blitz.tall == null) { try { blitz.tall = sessionStorage.getItem('blzTall') === '1'; } catch (e) { blitz.tall = false; } }
+  const wantRot = tall && !blitz.tall && blitz.phase !== 'tier' && blitz.phase !== 'idle';
+  if (rot.hidden === wantRot) rot.hidden = !wantRot;
+  // the card holds the game still (the kickoff countdown included) until the phone turns
+  if (wantRot && !blitz.paused) { blitz.paused = true; blitz.rotPaused = true; }
+  else if (!wantRot && blitz.rotPaused) { blitz.rotPaused = false; if (blitz.padEl.querySelector('.blzp-sheet').hidden) blitz.paused = false; }
+  el.classList.toggle('tall', tall);
+  const spec = blzPadSpec();
+  blitz.padSpec = spec;
+  for (const k in blitz.padBtns) {
+    const B = blitz.padBtns[k], it = spec[k];
+    const key = it ? it.label + '|' + (it.sub || '') + '|' + it.col : '';
+    if (key === B.key) continue;
+    B.key = key;
+    B.el.hidden = !it;
+    if (!it) continue;
+    B.el.querySelector('.blzp-l').textContent = it.label;
+    B.el.querySelector('.blzp-s').textContent = it.sub || '';
+    B.el.style.setProperty('--c', it.col);
+    B.el.classList.toggle('rcv', !!it.icon);
+    B.el.dataset.icon = it.icon || '';
+  }
+  // the stick: resting ghost bottom-left, or wherever the thumb is
+  const st = el.querySelector('.blzp-stick'), kn = st.firstChild, L = blitz.touch.L;
+  const showStick = !(blitz.phase === 'call' || blitz.phase === 'teams' || blitz.phase === 'pat' || blitz.phase === 'tier' || blitz.phase === 'final' || blitz.paused);
+  st.hidden = !showStick;
+  if (L) {
+    st.classList.add('live'); st.classList.toggle('turbo', !!L.turbo);
+    st.style.left = L.x0 + 'px'; st.style.top = L.y0 + 'px'; st.style.bottom = 'auto';
+    kn.style.transform = 'translate(' + (L.dx * BLZ_STICK_R) + 'px,' + (L.dy * BLZ_STICK_R) + 'px)';
+  } else if (st.classList.contains('live')) {
+    st.classList.remove('live', 'turbo'); st.style.left = ''; st.style.top = ''; st.style.bottom = '';
+    kn.style.transform = '';
+  }
+  el.querySelector('.blzp-menu').hidden = blitz.phase === 'tier' || blitz.phase === 'idle';
+}
+// open turf under the right thumb: a swipe is a move, a tap takes over a defender
+function blzPadGesture(g, x, y) {
+  const dx = x - g.x0, dy = y - g.y0, d = Math.hypot(dx, dy), dt = performance.now() - g.t0;
+  const me = blitz.ctl, C = blitz.carrier;
+  if (blitz.phase !== 'live' || !me || !blzHuman(me.team)) return;
+  if (d > 36 && dt < 450) {
+    if (me !== C) return;
+    const btn = Math.abs(dy) > Math.abs(dx) ? (dy < 0 ? 'Y' : 'X') : 'B';
+    blzBtnDown(btn, 'touchpad'); blzBtnUp(btn); blitz.inputMode = 'touch';
+    return;
+  }
+  if (d < 14 && C && C.team !== me.team) {
+    // the defender nearest the tap (on screen), if the tap was near one
+    const w = blzWorldXY(x, y), wx = w.x, wy = w.y;
+    let best = null, bd = 75 * BLZ_RES / window.innerHeight;
+    for (const p of blitz.players) {
+      if (p.team !== me.team || p.downT > 0) continue;
+      const P = blzProj(p.x, 1, p.z);
+      if (!P) continue;
+      const dd = Math.hypot(P.x - wx, P.y - wy);
+      if (dd < bd) { bd = dd; best = p; }
+    }
+    if (best && best !== me) { blitz.ctl = best; blzSfx('select'); }
+  }
+}
+
+// a controller on the opponent screen: the stick walks a highlight over the cards ("similar issues
+// when using a controller" — Chris: the cards only answered clicks, taps and 1·2·3)
+function blzTierCards() { return Array.from(blitzWorld.querySelectorAll('.ak-tier-card:not(.ak-locked)')); }   // (a locked card is a dead end)
+function blzTierPadMove(nav) {
+  const cs = blzTierCards();
+  if (!cs.length) return;
+  let i = cs.findIndex((c) => c.classList.contains('blz-padsel'));
+  if (i < 0) i = Math.max(0, cs.findIndex((c) => c.classList.contains('ak-last')));
+  else if (nav === 'L' || nav === 'U') i = (i + cs.length - 1) % cs.length;
+  else i = (i + 1) % cs.length;
+  cs.forEach((c, j) => c.classList.toggle('blz-padsel', j === i));
+  blzSfx('select');
+}
+function blzTierPadPick() {
+  const cs = blzTierCards();
+  const c = cs.find((c) => c.classList.contains('blz-padsel')) || cs.find((c) => c.classList.contains('ak-last')) || cs[0];
+  if (c) c.click();
+}
 function blzPollPad() {
   const P = blitz.pad;
   if (!navigator.getGamepads) return;
@@ -6009,13 +6321,16 @@ function blzPollPad() {
   P.turbo = tu;
   const nav = Math.abs(P.lx) > 0.6 ? (P.lx > 0 ? 'R' : 'L') : Math.abs(P.ly) > 0.6 ? (P.ly > 0 ? 'D' : 'U') : '';
   if (nav && nav !== P._nav) {
-    if (blitz.phase === 'vs') blzCodeDir(nav);
+    if (blitz.phase === 'tier') blzTierPadMove(nav);
+    else if (blitz.phase === 'vs') blzCodeDir(nav);
     else if (blitz.phase === 'teams') blzTeamMove({ R: 1, L: -1, U: -4, D: 4 }[nav]);
     else if (blitz.phase === 'call') blzCallKey({ R: 'ArrowRight', L: 'ArrowLeft', U: 'ArrowUp', D: 'ArrowDown' }[nav]);
     else if (blitz.phase === 'pat' && (nav === 'L' || nav === 'R')) blitz.callSel ^= 1;
     else if (blitz.phase === 'pre' && blitz.hot && blitz.hot.stage === 'dir') blzHotDir(nav);
   }
   P._nav = nav;
+  // the opponent cards are DOM (ArcadeKit): A or START takes the highlighted one
+  if (blitz.phase === 'tier') { if ((a && !P._a) || (st && !P._st)) blzTierPadPick(); P._a = a; P._st = st; P._b = b; P._x = x; P._y = y; P._lb = lb; P._t = tu; return; }
   const edge = (now, was, k) => { if (now && !was) blzBtnDown(k, 'pad'); else if (!now && was) blzBtnUp(k); };
   edge(a, P._a, 'A'); edge(b, P._b, 'B'); edge(x, P._x, 'X'); edge(y, P._y, 'Y'); edge(lb, P._lb, 'SP');
   if (tu && !P._t && blitz.phase === 'vs') blzCodeTap(0);

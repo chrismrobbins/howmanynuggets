@@ -566,6 +566,75 @@ Chris's Mac.
   first frame; music blocked → synth at once; a slow connection → quiet, then
   synth at 6 s, then the recording crossfades in when it lands.
 
+## 📱 NUGGET BLITZ: THE PHONE — mobile controls + "it gets stuck" (2026-10-09)
+
+Chris: "make a mobile friendly version … study the way other american football
+games have worked on mobile and mirror that", then "entering the game on mobile
+is hard, it just keeps getting stuck when I tap … the taps register as a pass in
+the counter, but doesn't enter the game. similar issues when using a controller".
+- **Research** (Madden NFL Mobile, Retro Bowl, Tecmo Bowl Throwback, Football
+  Heroes, Axis Football, NFL Rivals). The shared conventions: tap a receiver's
+  icon to throw (tap = lob, hold = bullet, as in Madden), a FLOATING stick
+  (Axis's fixed "too small" stick was the complaint), a few big
+  context-labelled buttons instead of many fixed ones, swipes for
+  ball-carrier moves, tap a defender to take him over, landscape. There was
+  never an official NFL Blitz phone port.
+- **What shipped** (`js/blitz.js` "📱 THE PHONE", `css/blitz.css` `.blzp*`):
+  DOM buttons over the canvas, on for `(pointer: coarse)` + touch, or on the
+  first touch anywhere (`blzPadOn`).
+  - The stick floats in the left 45%. Pushing past the ring (1.3× radius)
+    burns TURBO (`T.L.turbo` → `touch.T`), so the right thumb never has to
+    hold turbo. Every turbo combo got its own button (SPIN, DIVE, ONSIDE;
+    hold a receiver = bullet).
+  - `blzPadSpec()` is the one table of what each slot does per moment:
+    P0 is the big button, P1–P3 sit around it, and R0–R2 are the receivers
+    in screen order, coloured and lettered like their icons.
+    - before the snap: SNAP · HOT ROUTE · TAUNT. The hot route is the pick
+      → GO/CURL/◀/▶ flow.
+    - on defense: SWITCH · TAUNT.
+    - pocket: the receivers + PUMP.
+    - with the ball: SPIN · STIFF ARM · HURDLE/SHOWBOAT · DIVE.
+    - defending: DIVE · HIT STICK · SWITCH · JUMP.
+    - kickoff: KICK · ONSIDE. After a TD: the four celebrations.
+      Otherwise after the whistle: SHOVE · ELBOW.
+    - VS screen: TURBO/JUMP/PASS + PLAY!. REPLAY: SKIP. FINAL: REMATCH /
+      NEW TEAM.
+  - Each touch remembers the action it started, so a relabel under a held
+    thumb can't strand a bullet pass.
+  - Open turf on the right: a swipe on the carrier (up hurdle, sideways spin,
+    down dive). A tap on defense takes the nearest defender
+    (`blzPadGesture`).
+  - The pause button (top right) opens a sheet with music / sound /
+    announcer / QUIT. The arcade's top bar is hidden on a phone, so Quit lives
+    there.
+  - In portrait, a "TURN IT SIDEWAYS" card holds the game (`rotPaused`) until
+    the phone turns or "PLAY TALL ANYWAY" (sessionStorage).
+  - The HUD's bottom corners belong to the thumbs on a phone: TURBO/HYPE and
+    the down box move to the top (`blzDrawHud` `mob`).
+- **The stuck entry, three bugs:**
+  1. The VS screen never left on its own. PASS/A types into the code boxes,
+     so mashing PASS ticked the counter forever. Now it counts down to the
+     kickoff like the cart (`BLZ_VS_SECS` 7; each code input buys 3.5 s;
+     "KICKOFF IN n").
+  2. Portrait taps used one scale for x and y, but a tall phone stretches
+     the clamped 240-wide canvas, so every tap missed horizontally.
+     `blzWorldXY` scales x and y separately.
+  3. A controller couldn't pick an opponent at all: the ArcadeKit cards only
+     answered clicks, taps and 1·2·3. The stick walks a highlight
+     (`.blz-padsel`, skipping locked cards) and A/START takes it.
+  - Also: a rotated full-width emoji's box covered the "PLAY TALL" button,
+    and the pad's frame hook lived in the music frame, which doesn't run
+    until the sound comes on. It's in the main loop now.
+- Verified with puppeteer touch emulation (iPhone 844×390 / 390×844), using
+  real `touchscreen` taps, never debug shortcuts:
+  - tier → team → VS → kickoff in both orientations;
+  - the stick (half = 0.56, past the ring = turbo + glow, release = stop);
+  - tap receiver = lob, hold = bullet;
+  - swipe = spin; tap defender = switch;
+  - a fake gamepad: d-pad highlight → A → A → mashing A on VS → auto kickoff.
+  - 60fps, ~3 pad DOM writes/s. The desktop is unchanged (no pad, top bar
+    shown, 60fps).
+
 **Direct game links (2026-10-09):** `howmanynuggets.com/?play=<mode>` (e.g.
 `?play=blitz`) skips the converter and the hall and starts that game on a house
 storm. Any key of `MODE_HINTS` works; anything else is ignored (js/app.js, end).

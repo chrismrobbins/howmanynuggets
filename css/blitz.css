@@ -26,3 +26,76 @@ body.blitz-mode #blitzWorld { display: block; }
 
 /* the polygon world sits under the 2D overlay (HUD, menus, labels) and never takes input */
 #blitzWorld canvas.blz-gl { pointer-events: none; }
+
+/* ---- 📱 THE PHONE (js/blitz.js "THE PHONE") -------------------------------------------------
+   Real buttons over the canvas: a floating stick on the left, a thumb arc of context buttons on
+   the right (P0 the big one, P1–P3 around it, R0–R2 the receivers in screen order). Sizes are
+   thumb-sized (66–88px; Apple's 44pt is a floor, not a target), clear of the screen's corner
+   gesture zones via the safe-area insets. The arcade's top bar is hidden on a phone: Quit is in
+   the pause sheet. */
+body.blitz-mode.blz-touch .storm-hud { display: none !important; }
+body.blz-touch #blitzWorld { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.blzp { position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  --safeR: env(safe-area-inset-right, 0px); --safeL: env(safe-area-inset-left, 0px); --safeB: env(safe-area-inset-bottom, 0px);
+  font-family: Impact, "Arial Black", sans-serif; }
+.blzp button { font-family: inherit; -webkit-tap-highlight-color: transparent; touch-action: none; }
+.blzp-b { position: absolute; pointer-events: auto; border-radius: 50%; border: 3px solid rgba(255,255,255,0.75);
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--c, #c8321f) 70%, white), var(--c, #c8321f) 55%, color-mix(in srgb, var(--c, #c8321f) 70%, black));
+  color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0;
+  box-shadow: 0 4px 0 rgba(0,0,0,0.45), 0 0 0 2px rgba(0,0,0,0.35); opacity: 0.86;
+  font-style: italic; letter-spacing: 0.02em; text-shadow: 0 2px 0 rgba(0,0,0,0.55); transition: transform 0.06s, opacity 0.06s; }
+.blzp-b.on { transform: translateY(3px) scale(0.94); box-shadow: 0 1px 0 rgba(0,0,0,0.45); opacity: 1; }
+.blzp-l { font-size: 15px; line-height: 1; max-width: 92%; text-align: center; }
+.blzp-s { font-size: 8px; line-height: 1; font-family: system-ui, sans-serif; font-weight: 800; font-style: normal; opacity: 0.85; }
+.blzp-s:empty { display: none; }
+.blzp-b[data-slot="P0"] { width: 88px; height: 88px; right: calc(26px + var(--safeR)); bottom: calc(22px + var(--safeB)); }
+.blzp-b[data-slot="P0"] .blzp-l { font-size: 19px; }
+.blzp-b[data-slot="P1"] { width: 68px; height: 68px; right: calc(128px + var(--safeR)); bottom: calc(16px + var(--safeB)); }
+.blzp-b[data-slot="P2"] { width: 66px; height: 66px; right: calc(112px + var(--safeR)); bottom: calc(100px + var(--safeB)); }
+.blzp-b[data-slot="P3"] { width: 66px; height: 66px; right: calc(34px + var(--safeR)); bottom: calc(122px + var(--safeB)); }
+/* the receivers: a row in screen order, the icon's letter on each */
+.blzp-b.rcv { width: 74px; height: 74px; }
+.blzp-b[data-slot="R2"] { right: calc(22px + var(--safeR)); bottom: calc(22px + var(--safeB)); }
+.blzp-b[data-slot="R1"] { right: calc(106px + var(--safeR)); bottom: calc(22px + var(--safeB)); }
+.blzp-b[data-slot="R0"] { right: calc(190px + var(--safeR)); bottom: calc(22px + var(--safeB)); }
+.blzp-b.rcv::before { content: attr(data-icon); font-size: 22px; line-height: 0.9; }
+.blzp-b.rcv .blzp-l { font-size: 10px; font-family: system-ui, sans-serif; font-weight: 900; font-style: normal; }
+/* the stick: a resting ghost, then wherever the thumb lands */
+.blzp-stick { position: absolute; left: calc(34px + var(--safeL)); bottom: calc(26px + var(--safeB)); width: 108px; height: 108px;
+  border-radius: 50%; border: 3px solid rgba(255,255,255,0.35); background: rgba(10,16,34,0.28);
+  opacity: 0.55; transition: opacity 0.15s, border-color 0.1s, box-shadow 0.1s; }
+/* live: centred on the thumb (js sets left/top to the touch point) */
+.blzp-stick.live { transform: translate(-50%, -50%); opacity: 0.9; }
+.blzp-stick.turbo { border-color: #ffd23a; box-shadow: 0 0 18px rgba(255,190,40,0.85), inset 0 0 14px rgba(255,190,40,0.5); }
+.blzp-knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #c9d2e8 60%, #8a94b0); box-shadow: 0 3px 0 rgba(0,0,0,0.4); }
+.blzp-stick.turbo .blzp-knob { background: radial-gradient(circle at 35% 30%, #fff8d0, #ffd23a 60%, #c88a10); }
+.blzp-stick::after { content: 'MOVE · PUSH PAST THE RING = TURBO'; position: absolute; left: 0; bottom: 100%; margin-bottom: 6px;
+  white-space: nowrap; font: 800 9px system-ui, sans-serif; color: rgba(255,255,255,0.75); text-shadow: 0 1px 2px #000; }
+.blzp-stick.live::after { content: none; }
+.blzp-menu { position: absolute; pointer-events: auto; top: calc(8px + env(safe-area-inset-top, 0px)); right: calc(10px + var(--safeR));
+  width: 44px; height: 44px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.6); background: rgba(8,14,32,0.72); color: #fff; font-size: 16px; }
+/* the sheets: pause, and "turn it sideways" */
+.blzp-sheet, .blzp-rotate { position: absolute; inset: 0; pointer-events: auto; display: flex; align-items: center; justify-content: center;
+  background: rgba(4,6,14,0.78); backdrop-filter: blur(4px); padding: 16px; }
+.blzp-sheet[hidden], .blzp-rotate[hidden], .blzp-b[hidden], .blzp-stick[hidden], .blzp-menu[hidden] { display: none; }
+.blzp-card { display: flex; flex-direction: column; gap: 8px; width: min(320px, 100%); max-height: 100%; overflow: auto; text-align: center; color: #fff; }
+.blzp-kick { font: 800 10px system-ui, sans-serif; letter-spacing: 0.2em; color: #ffd23a; }
+.blzp-h { font-size: 30px; font-style: italic; line-height: 1; margin-bottom: 4px; }
+.blzp-card p { font: 600 13px/1.4 system-ui, sans-serif; color: #c8d0e8; margin: 0 0 6px; }
+.blzp-phone { font-size: 44px; line-height: 1; align-self: center; width: fit-content; pointer-events: none; animation: blzp-turn 1.6s ease-in-out infinite; }
+@keyframes blzp-turn { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+@media (prefers-reduced-motion: reduce) { .blzp-phone { animation: none; } }
+.blzp-card button { min-height: 46px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.25); background: #1a2340; color: #fff;
+  font-size: 16px; font-style: italic; letter-spacing: 0.03em; }
+.blzp-card .blzp-go { background: #c8321f; border-color: #ff8a6a; font-size: 20px; }
+.blzp-card .blzp-quit { background: transparent; color: #ff9a8a; border-color: rgba(255,120,100,0.5); }
+/* standing up: the arc shrinks a touch and sits higher off the home bar */
+.blzp.tall .blzp-b[data-slot="P0"] { width: 80px; height: 80px; bottom: calc(34px + var(--safeB)); }
+.blzp.tall .blzp-b.rcv { width: 66px; height: 66px; bottom: calc(34px + var(--safeB)); }
+.blzp.tall .blzp-b[data-slot="R1"] { right: calc(96px + var(--safeR)); }
+.blzp.tall .blzp-b[data-slot="R0"] { right: calc(170px + var(--safeR)); }
+.blzp.tall .blzp-b[data-slot="P1"] { right: calc(116px + var(--safeR)); bottom: calc(28px + var(--safeB)); }
+.blzp.tall .blzp-stick { left: calc(22px + var(--safeL)); bottom: calc(40px + var(--safeB)); }
+/* a controller's highlight on the opponent cards (blzTierPadMove) */
+#blitzWorld .ak-tier-card.blz-padsel { outline: 3px solid #ffd23a; outline-offset: 4px; transform: translateY(-4px) scale(1.03); }
