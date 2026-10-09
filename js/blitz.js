@@ -331,7 +331,7 @@ function syncBlitz() {
     blitz.phase = 'idle';
     blzCrowdStop();
     blzBoothHush();
-    if (blzMus.ok && blitz.sfx.ctx) { blzMusMix('off'); blzMus.T = null; blzMus.key = ''; blzMus.pend = null; blzChant(false); }
+    if (blzMus.ok && blitz.sfx.ctx) { blzMusMix('off'); blzMus.T = null; blzMus.key = ''; blzMus.pend = null; blzChant(false); blzDiscStop(); }
   }
 }
 
@@ -367,13 +367,15 @@ function blzCrowdStart() {
   const src = S.ctx.createBufferSource(); src.buffer = S.noise; src.loop = true;
   const bp = S.ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 650; bp.Q.value = 0.5;
   const g = S.ctx.createGain(); g.gain.value = 0.06;
-  src.connect(bp); bp.connect(g); g.connect(S.master);
+  const ng = S.ctx.createGain(); ng.gain.value = 1;     // the noise's own level: it bows out when the recorded stands load
+  src.connect(bp); bp.connect(ng); ng.connect(g); g.connect(S.master);
   src.start();
-  S.crowd = src; S.crowdGain = g;
+  S.crowd = src; S.crowdGain = g; S.crowdNoise = ng; S.bedSrc = null;
 }
 function blzCrowdStop() {
   const S = blitz.sfx;
   if (S.crowd) { try { S.crowd.stop(); } catch (e) { } S.crowd = null; S.crowdGain = null; }
+  if (S.bedSrc) { try { S.bedSrc.stop(); } catch (e) { } S.bedSrc = null; }
 }
 function blzRoar(level, secs) {
   const S = blitz.sfx;
@@ -384,6 +386,7 @@ function blzRoar(level, secs) {
   g.linearRampToValueAtTime(0.06 + level * 0.32, t + 0.12);
   g.linearRampToValueAtTime(0.06, t + 0.12 + (secs || 1.5));
 }
+const BLZ_SX = { crunch: 1.2, hit: 0.9, whistle: 0.5 };   // recorded hit/whistle levels against the synth ones
 function blzSfx(kind) {
   const S = blitz.sfx, ctx = S.ctx;
   if (!ctx || S.muted) return;
@@ -402,6 +405,9 @@ function blzSfx(kind) {
     g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
     src.connect(f); f.connect(g); g.connect(S.master); src.start(t0, Math.random()); src.stop(t0 + dur + 0.02);
   };
+  // the recorded ones (js/blitzAudio.js THE RECORDS), when they've loaded
+  if ((kind === 'crunch' || kind === 'hit') && blzDiscShot('sx-hit', S.master, { gain: kind === 'crunch' ? BLZ_SX.crunch : BLZ_SX.hit, vary: 0.08 })) return;
+  if (kind === 'whistle' && blzDiscShot('sx-whistle', S.master, { gain: BLZ_SX.whistle })) return;
   if (kind === 'whistle') { tone('sine', 2900, 0, 0.36, 0.12); tone('sine', 3200, 0, 0.36, 0.08); }
   else if (kind === 'hut') { noise(800, 1.2, 0.08, 0.5); noise(800, 1.2, 0.08, 0.5, 0.2); }
   else if (kind === 'hit') { noise(240, 0.8, 0.22, 0.9, 0, 'lowpass'); tone('sine', 120, 45, 0.2, 0.55); }
@@ -2971,7 +2977,7 @@ function blzTouchdown(C) {
   blzSay(blzPick(BLZ_CALLS.td), true);
   blzColor(C.showboat ? BLZ_COLOR.showboat : BLZ_COLOR.td, 0.75);
   blzSting('td');
-  blzCrowdSay(blzHuman(team) ? 'yeah' : 'boo');
+  blzCrowdSay(blzHuman(team) ? 'roar' : 'boo');
   blitz.flashT = 3.5;
   blzHype(team, 0.1 + (C.showboat ? 0.2 : 0), C, 'td');
   blzCheer(team, 3);
@@ -3517,6 +3523,9 @@ function blzMusicFrame() {
   blzChant(!blitz.auto && !blitz.paused && blitz.stats && blzHuman(1 - blitz.poss) && (ph === 'pre' || ph === 'call') && blitz.kind !== 'kick');
   blzMusTick();
   blzBoothTick();
+  // the recorded stands take over from the noise bed once they've loaded
+  const S = blitz.sfx;
+  if (S.crowd && !S.bedSrc && S.crowdGain && (S.bedSrc = blzDiscBed(S.crowdGain))) S.crowdNoise.gain.setTargetAtTime(0, S.ctx.currentTime, 0.8);
 }
 
 // ---- the VS screen codes ------------------------------------------------------------------------

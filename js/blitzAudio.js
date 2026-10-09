@@ -5,6 +5,9 @@
 // theme…), with an announcer who never shut up and a stadium that answered
 // every hit. So this file is a small band, a crowd and a booth:
 //
+//   • THE RECORDS (2026-10-09) — the soundtrack, stingers and crowd are now
+//     recorded funk-rock from ElevenLabs (see 📀 THE RECORDS below); the band
+//     described next is the fallback that plays until a recording has loaded.
 //   • THE BAND — a step sequencer (16ths, lookahead-scheduled off the game
 //     loop) driving synthesized drums, a distorted power-chord guitar, bass,
 //     a lead, organ, clav and brass. Seven original tracks: the menu THEME,
@@ -237,6 +240,7 @@ function blzMusInit() {
     const csend = ctx.createGain(); csend.gain.value = 0.6; M.crowdIn.connect(csend); csend.connect(M.revIn);
     M.ok = true;
   } catch (e) { blzMus.ok = false; }
+  if (blzMus.ok) blzDiscInit();
   return blzMus.ok;
 }
 
@@ -264,6 +268,7 @@ function blzMusMix(name) {
   M.mix = name;
   const L = BLZ_MIXES[name] || BLZ_MIXES.full, t = blitz.sfx.ctx.currentTime;
   for (const k of BLZ_STEMS) M.stem[k].gain.setTargetAtTime(L[k], t, name === 'live' ? 0.12 : 0.25);
+  blzDiscMix(name);
 }
 // duck the whole band for a stinger
 function blzMusDuck(depth, secs) {
@@ -279,6 +284,7 @@ function blzMusDuck(depth, secs) {
 // the scheduler: called every frame; schedules every step inside the lookahead
 function blzMusTick() {
   const M = blzMus, S = blitz.sfx, ctx = S.ctx;
+  blzDiscFrame();
   if (!M.ok || !M.T || !ctx || S.muted) return;
   const now = ctx.currentTime;
   if (M.nextT < now - 0.25) M.nextT = now + 0.03;      // we were asleep (a background tab): don't burst
@@ -293,7 +299,7 @@ function blzMusTick() {
     const bar = T.bars[M.bar % T.bars.length];
     let t = M.nextT;
     if (T.swing && M.step % 2 === 1) t += T.swing * sd;
-    if (M.on) blzMusStep(T, bar, M.step, t, sd);
+    if (M.on && !blzDisc.cur) blzMusStep(T, bar, M.step, t, sd);
     if (M.chant && M.step === 0) blzChantBar(t, sd);
     M.nextT += sd;
     M.step++;
@@ -519,6 +525,7 @@ function blzOrgan(t, notes, dur, vel, out) {
 function blzSting(kind) {
   const S = blitz.sfx, ctx = S.ctx;
   if (!ctx || S.muted || !blzMusInit() || !blzMus.on) return;   // (music off = stingers off; the crowd stays)
+  if (blzDiscShot('st-' + kind, blzMus.bus, { duck: BLZ_DISC_DUCK[kind] })) return;
   const M = blzMus, t = ctx.currentTime + 0.02;
   const out = M.bus;
   const seq = (notes, step, fn) => notes.forEach((n, i) => { if (n) fn(t + i * step, blzHz(n), i); });
@@ -625,6 +632,9 @@ function blzVox(t, dur, f1, f2, gain, pitch) {
 function blzCrowdSay(kind) {
   const ctx = blitz.sfx.ctx;
   if (!ctx) return;
+  if (blitz.sfx.muted || !blzMusInit()) return;
+  if (blzDiscShot('cr-' + kind, blzMus.crowdIn, { vary: 0.05 })) return;
+  if (kind === 'roar') kind = 'yeah';
   const t = ctx.currentTime + 0.02;
   if (kind === 'oooh') blzVox(t, 1.0, [340, 300], [820, 700], 1.0, 200);
   else if (kind === 'aww') blzVox(t, 1.0, [720, 620], [1150, 1000], 0.9, 210);
@@ -647,6 +657,7 @@ function blzChantBar(t, sd) {
   const C = blzMus.chant;
   C.n++;
   if (C.n % 2 === 1) return;      // every other bar, so it breathes
+  if (blzDiscShot('cr-defense', blzMus.crowdIn, { at: t, vary: 0.03 })) return;
   const beat = sd * 4;
   blzVox(t, beat * 0.8, [290, 300], [2250, 2300], 0.95, 215);              // DEE
   blzVox(t + beat, beat * 0.9, [560, 520], [1820, 1750], 0.95, 200);       // FENSE
@@ -655,6 +666,137 @@ function blzChantBar(t, sd) {
   s.connect(f); f.connect(blzEnv(t + beat * 1.75, 0.01, 0.12, 0.12, M.crowdIn));
   blzCrowdClap(t + beat * 2); blzCrowdClap(t + beat * 3);
 }
+
+// ---- 📀 THE RECORDS --------------------------------------------------------------------------------
+// "can we use elevenlabs to make the background music better?" — Chris picked funk-rock from a tryout
+// page. The soundtrack, the stingers and the crowd are now recordings (ElevenLabs music + sound effects,
+// made ONCE by tools/blitz-vo/make_music.py and shipped as files; playing costs nothing), in
+// audio/blitz/music/ with index.json (loop points cut on the beat by build_music.py).
+//   • a loop plays through the band's bus (so N, the stinger ducks and the booth duck all still work);
+//     the game moment that used to drop stems now closes a lowpass and lowers the level (BLZ_DISC_MIX)
+//   • changing song crossfades on arrival; until a song has loaded, the old one keeps playing — and if
+//     no record has loaded yet at all, the synth band above plays, so the game is never silent
+//   • decoded music is big (40 s stereo ≈ 14 MB), so only a few loops stay decoded; the MP3 bytes stay
+const BLZ_DISC_BASE = 'audio/blitz/music/';
+const BLZ_DISC_V = 1;    // bump with the files (Pages caches for 10 minutes)
+const blzDisc = { man: null, asked: false, bytes: new Map(), loading: new Map(), bufs: new Map(), lru: [], cur: null, want: '', filt: null, gain: null };
+const BLZ_DISC_MIX = { full: [18000, 1], live: [2400, 0.62], snap: [950, 0.55], low: [1500, 0.45], off: [18000, 0] };
+const BLZ_DISC_DUCK = { td: [0.25, 2.1], charge: [0.3, 1.6], sack: [0.4, 0.9], trombone: [0.35, 1.8], fire: [0.45, 1.2], int: [0.35, 1.0] };
+const BLZ_DISC_LEVEL = 1.7;     // a record against the synth band's level (measured on the master: same RMS)
+// per-sound trims so each recording lands where the synth one did (measured on the master, 2026-10-09)
+const BLZ_DISC_GAIN = { 'st-td': 1.8, 'st-first': 0.5, 'st-big': 0.7, 'cr-oooh': 0.6, 'cr-aww': 0.75, 'cr-boo': 0.65, 'cr-yeah': 0.7, 'cr-roar': 0.9, 'cr-clap': 0.7, 'cr-defense': 0.7 };
+function blzDiscInit() {
+  const R = blzDisc, ctx = blitz.sfx.ctx, M = blzMus;
+  if (R.asked || !ctx || !M.bus) return;
+  R.asked = true;
+  R.filt = ctx.createBiquadFilter(); R.filt.type = 'lowpass'; R.filt.frequency.value = 18000; R.filt.Q.value = 0.5;
+  R.gain = ctx.createGain(); R.gain.gain.value = BLZ_DISC_LEVEL;
+  R.filt.connect(R.gain); R.gain.connect(M.bus);
+  fetch(BLZ_DISC_BASE + 'index.json?v=' + BLZ_DISC_V).then((r) => (r.ok ? r.json() : null)).then((m) => {
+    if (!m) return;
+    R.man = m;
+    // the menu song and every short sound first, then the rest of the season one at a time
+    const first = [m.loops.theme && m.loops.theme.file, m.loops.q1 && m.loops.q1.file].filter(Boolean)
+      .concat(Object.values(m.shots).filter((x) => !/^(win|lose)\./.test(x.file)).map((x) => x.file));
+    const later = ['q2', 'q3', 'q4', 'half', 'bed'].map((k) => m.loops[k] && m.loops[k].file).concat(['win', 'lose'].map((k) => m.shots[k] && m.shots[k].file)).filter(Boolean);
+    let i = 0;
+    const next = () => { if (i < later.length) blzDiscFetch(later[i++]).then(next); };
+    Promise.all(first.map(blzDiscFetch)).then(next);
+    for (const f of first.slice(0, 2)) blzDiscBuf(f);
+  }).catch(() => {});
+}
+function blzDiscFetch(file) {
+  const R = blzDisc;
+  if (R.bytes.has(file)) return Promise.resolve(R.bytes.get(file));
+  if (R.loading.has(file)) return R.loading.get(file);
+  const pr = fetch(BLZ_DISC_BASE + file + '?v=' + BLZ_DISC_V).then((r) => (r.ok ? r.arrayBuffer() : null))
+    .then((ab) => { R.loading.delete(file); if (ab) R.bytes.set(file, ab); return ab; })
+    .catch(() => { R.loading.delete(file); return null; });
+  R.loading.set(file, pr);
+  return pr;
+}
+// decoded audio, with only a few long ones kept (the short sounds are cheap: keep them all)
+function blzDiscBuf(file) {
+  const R = blzDisc, ctx = blitz.sfx.ctx;
+  if (R.bufs.has(file)) { const b = R.bufs.get(file); if (b.then) return b; R.lru.splice(R.lru.indexOf(file), 1); R.lru.push(file); return Promise.resolve(b); }
+  const pr = blzDiscFetch(file).then((ab) => (ab && ctx ? new Promise((res) => ctx.decodeAudioData(ab.slice(0), res, () => res(null))) : null))
+    .then((buf) => {
+      if (!buf) { R.bufs.delete(file); return null; }
+      R.bufs.set(file, buf); R.lru.push(file);
+      const long = R.lru.filter((f) => R.bufs.get(f) && R.bufs.get(f).duration > 12);
+      while (long.length > 3) { const f = long.shift(); if (!R.cur || R.cur.file !== f) { R.bufs.delete(f); R.lru.splice(R.lru.indexOf(f), 1); } }
+      return buf;
+    });
+  R.bufs.set(file, pr);
+  return pr;
+}
+function blzDiscReady(file) { const b = blzDisc.bufs.get(file); return b && !b.then ? b : null; }
+// every frame (from blzMusTick): is the song that should be playing the one that is?
+function blzDiscFrame() {
+  const R = blzDisc, M = blzMus, ctx = blitz.sfx.ctx;
+  if (!R.man || !ctx) return;
+  const key = M.pend || M.key;
+  if (!key) return;
+  const loop = R.man.loops[key], shot = R.man.shots[key];
+  const ent = loop || shot;
+  if (!ent) return;
+  if (R.cur && R.cur.key === key) return;
+  const buf = blzDiscReady(ent.file);
+  if (!buf) { blzDiscBuf(ent.file); return; }
+  // swap: fade the old record out, the new one in
+  const t = ctx.currentTime, old = R.cur;
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1, t + (old ? 1.2 : 0.4));
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  if (loop) { src.loop = true; src.loopStart = loop.start; src.loopEnd = loop.end; }
+  src.connect(g); g.connect(R.filt);
+  src.start(t, loop ? loop.start : 0);
+  R.cur = { key, file: ent.file, src, g };
+  if (old) { old.g.gain.setTargetAtTime(0.0001, t, 0.35); try { old.src.stop(t + 1.8); } catch (e) { } }
+  // and the next song in the season starts downloading
+  const nxt = { theme: 'q1', q1: 'q2', q2: 'half', half: 'q3', q3: 'q4', q4: 'win' }[key];
+  const ne = nxt && (R.man.loops[nxt] || R.man.shots[nxt]);
+  if (ne) blzDiscFetch(ne.file);
+}
+function blzDiscMix(name) {
+  const R = blzDisc, ctx = blitz.sfx.ctx;
+  if (!R.filt || !ctx) return;
+  const [f, lvl] = BLZ_DISC_MIX[name] || BLZ_DISC_MIX.full, t = ctx.currentTime;
+  R.filt.frequency.setTargetAtTime(f, t, name === 'live' ? 0.1 : 0.25);
+  R.gain.gain.setTargetAtTime(BLZ_DISC_LEVEL * lvl, t, 0.2);
+}
+function blzDiscStop() {
+  const R = blzDisc;
+  if (R.cur) { try { R.cur.src.stop(); } catch (e) { } R.cur = null; }
+}
+// a one-shot recording (stinger, crowd, hit): false if it isn't here, so the caller synthesizes instead
+function blzDiscShot(key, out, o) {
+  const R = blzDisc, ctx = blitz.sfx.ctx;
+  o = o || {};
+  if (!R.man || !ctx || !out) return false;
+  const ent = R.man.shots[key];
+  if (!ent) return false;
+  const buf = blzDiscReady(ent.file);
+  if (!buf) { blzDiscBuf(ent.file); return false; }
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  if (o.vary) src.playbackRate.value = 1 - o.vary + Math.random() * o.vary * 2;
+  const g = ctx.createGain(); g.gain.value = (o.gain == null ? 1 : o.gain) * (BLZ_DISC_GAIN[key] || 1);
+  src.connect(g); g.connect(out);
+  src.start(o.at || ctx.currentTime + 0.01);
+  if (o.duck) blzMusDuck(o.duck[0], Math.min(o.duck[1], buf.duration));
+  return true;
+}
+// the stands between plays: the recorded murmur under the crowd's gain (blzRoar still swells it)
+function blzDiscBed(into) {
+  const R = blzDisc, ctx = blitz.sfx.ctx;
+  if (!R.man || !R.man.loops.bed || !ctx || !into) return null;
+  const buf = blzDiscReady(R.man.loops.bed.file);
+  if (!buf) { blzDiscBuf(R.man.loops.bed.file); return null; }
+  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+  const g = ctx.createGain(); g.gain.value = 0.0001; g.gain.setTargetAtTime(BLZ_DISC_BED, ctx.currentTime, 0.8);
+  src.connect(g); g.connect(into); src.start();
+  return src;
+}
+const BLZ_DISC_BED = 3.2;   // the bed rides the old noise bed's gain node (base 0.06), so it's scaled up to match
 
 // ---- 🎙️ THE BOOTH, VOICED -----------------------------------------------------------------------
 // "the voices are far too robotic … make them more human like" — Chris. The

@@ -1,0 +1,270 @@
+{
+ "cap": 10000,
+ "spent": 5205.0,
+ "calls": [
+  {
+   "t": "2026-10-09 15:34",
+   "kind": "music",
+   "what": "probe: 90s arcade football rock",
+   "secs": 10,
+   "credits": 125,
+   "file": "probe.mp3"
+  },
+  {
+   "t": "2026-10-09 15:34",
+   "kind": "sfx",
+   "what": "probe: stadium crowd roar",
+   "secs": 2,
+   "credits": 20,
+   "file": "sfx.mp3"
+  },
+  {
+   "t": "2026-10-09 15:34",
+   "kind": "music",
+   "what": "Instrumental late-90s arcade sports video game theme. Crunchy distorted power-chord electric guitars, driving rock drums",
+   "secs": 20,
+   "credits": 250.0,
+   "file": "music-rock.mp3"
+  },
+  {
+   "t": "2026-10-09 15:34",
+   "kind": "music",
+   "what": "Instrumental late-90s nu-metal / rap-rock sports anthem. Heavy drop-D guitar riffs, turntable scratches, hard-hitting hi",
+   "secs": 20,
+   "credits": 250.0,
+   "file": "music-numetal.mp3"
+  },
+  {
+   "t": "2026-10-09 15:34",
+   "kind": "music",
+   "what": "Instrumental 90s funk-rock sports theme. Slap bass, wah guitar, tight funky drums, a punchy brass horn section with stab",
+   "secs": 20,
+   "credits": 250.0,
+   "file": "music-funk.mp3"
+  },
+  {
+   "t": "2026-10-09 15:34",
+   "kind": "sfx",
+   "what": "Massive American football stadium crowd erupting in a roar after a touchdown, cheering and air horns",
+   "secs": 3,
+   "credits": 30.0,
+   "file": "sfx-td.mp3"
+  },
+  {
+   "t": "2026-10-09 15:34",
+   "kind": "sfx",
+   "what": "Huge football stadium crowd chanting DE-FENSE, DE-FENSE with rhythmic stomping and claps",
+   "secs": 3,
+   "credits": 30.0,
+   "file": "sfx-defense.mp3"
+  },
+  {
+   "t": "2026-10-09 15:34",
+   "kind": "sfx",
+   "what": "Brutal American football tackle, helmets and shoulder pads cracking together, heavy body thud on turf",
+   "secs": 3,
+   "credits": 30.0,
+   "file": "sfx-hit.mp3"
+  },
+  {
+   "t": "2026-10-09 15:34",
+   "kind": "sfx",
+   "what": "Stadium crowd reacting with a loud sympathetic OOOOH after a painful hit",
+   "secs": 3,
+   "credits": 30.0,
+   "file": "sfx-ooh.mp3"
+  },
+  {
+   "t": "2026-10-09 15:34",
+   "kind": "sfx",
+   "what": "Referee blowing a sharp whistle twice in a loud football stadium",
+   "secs": 3,
+   "credits": 30.0,
+   "file": "sfx-whistle.mp3"
+  },
+  {
+   "t": "2026-10-09 15:39",
+   "kind": "music",
+   "what": "90s funk-rock for an arcade football video game. Slap bass, wah guitar, tight funky drums, a punchy brass horn section w",
+   "secs": 45,
+   "credits": 562.5,
+   "file": "theme.mp3"
+  },
+  {
+   "t": "2026-10-09 15:39",
+   "kind": "music",
+   "what": "90s funk-rock for an arcade football video game. Slap bass, wah guitar, tight funky drums, a punchy brass horn section w",
+   "secs": 45,
+   "credits": 562.5,
+   "file": "q1.mp3"
+  },
+  {
+   "t": "2026-10-09 15:39",
+   "kind": "music",
+   "what": "90s funk-rock for an arcade football video game. Slap bass, wah guitar, tight funky drums, a punchy brass horn section w",
+   "secs": 45,
+   "credits": 562.5,
+   "file": "q3.mp3"
+  },
+  {
+   "t": "2026-10-09 15:39",
+   "kind": "music",
+   "what": "90s funk-rock for an arcade football video game. Slap bass, wah guitar, tight funky drums, a punchy brass horn section w",
+   "secs": 45,
+   "credits": 562.5,
+   "file": "q2.mp3"
+  },
+  {
+   "t": "2026-10-09 15:39",
+   "kind": "music",
+   "what": "Funky marching band halftime show for an arcade football video game: drumline, sousaphone bass, a big brass section play",
+   "secs": 40,
+   "credits": 500.0,
+   "file": "half.mp3"
+  },
+  {
+   "t": "2026-10-09 15:39",
+   "kind": "music",
+   "what": "90s funk-rock for an arcade football video game. Slap bass, wah guitar, tight funky drums, a punchy brass horn section w",
+   "secs": 45,
+   "credits": 562.5,
+   "file": "q4.mp3"
+  },
+  {
+   "t": "2026-10-09 15:39",
+   "kind": "music",
+   "what": "90s funk-rock for an arcade football video game. Slap bass, wah guitar, tight funky drums, a punchy brass horn section w",
+   "secs": 15,
+   "credits": 187.5,
+   "file": "win.mp3"
+  },
+  {
+   "t": "2026-10-09 15:39",
+   "kind": "sfx",
+   "what": "Funky brass horn section fanfare, triumphant ta-da, with a drum fill and a cymbal crash",
+   "secs": 3,
+   "credits": 30.0,
+   "file": "st-td.mp3"
+  },
+  {
+   "t": "2026-10-09 15:39",
+   "kind": "music",
+   "what": "90s funk-rock for an arcade football video game. Slap bass, wah guitar, tight funky drums, a punchy brass horn section w",
+   "secs": 12,
+   "credits": 150.0,
+   "file": "lose.mp3"
+  },
+  {
+   "t": "2026-10-09 15:39",
+   "kind": "sfx",
+   "what": "Short upbeat funky brass horn stab, two quick notes",
+   "secs": 2,
+   "credits": 20.0,
+   "file": "st-first.mp3"
+  },
+  {
+   "t": "2026-10-09 15:39",
+   "kind": "sfx",
+   "what": "Descending electric guitar dive bomb with a wah, ending on a cymbal crash",
+   "secs": 2,
+   "credits": 20.0,
+   "file": "st-sack.mp3"
+  },
+  {
+   "t": "2026-10-09 15:39",
+   "kind": "sfx",
+   "what": "Dramatic brass hit of surprise, dun-dunnn",
+   "secs": 2,
+   "credits": 20.0,
+   "file": "st-int.mp3"
+  },
+  {
+   "t": "2026-10-09 15:40",
+   "kind": "sfx",
+   "what": "Screaming funk wah guitar lick with a rising brass swell, on fire",
+   "secs": 3,
+   "credits": 30.0,
+   "file": "st-fire.mp3"
+  },
+  {
+   "t": "2026-10-09 15:40",
+   "kind": "sfx",
+   "what": "Stadium organ playing the classic six-note charge bugle call, crowd shouts CHARGE at the end",
+   "secs": 3,
+   "credits": 30.0,
+   "file": "st-charge.mp3"
+  },
+  {
+   "t": "2026-10-09 15:40",
+   "kind": "sfx",
+   "what": "Sad trombone, wah wah wah waaah",
+   "secs": 3,
+   "credits": 30.0,
+   "file": "st-trombone.mp3"
+  },
+  {
+   "t": "2026-10-09 15:40",
+   "kind": "sfx",
+   "what": "Dramatic brass and timpani hit, dun dunnn",
+   "secs": 2,
+   "credits": 20.0,
+   "file": "st-big.mp3"
+  },
+  {
+   "t": "2026-10-09 15:40",
+   "kind": "sfx",
+   "what": "Fast funky organ trill rising in pitch",
+   "secs": 2,
+   "credits": 20.0,
+   "file": "st-heat.mp3"
+  },
+  {
+   "t": "2026-10-09 15:40",
+   "kind": "sfx",
+   "what": "Marching snare drum roll building up into a cymbal crash",
+   "secs": 2,
+   "credits": 20.0,
+   "file": "st-roll.mp3"
+  },
+  {
+   "t": "2026-10-09 15:40",
+   "kind": "sfx",
+   "what": "Big stadium crowd groaning AWWW in disappointment",
+   "secs": 3,
+   "credits": 30.0,
+   "file": "cr-aww.mp3"
+  },
+  {
+   "t": "2026-10-09 15:40",
+   "kind": "sfx",
+   "what": "Big stadium crowd booing loudly",
+   "secs": 3,
+   "credits": 30.0,
+   "file": "cr-boo.mp3"
+  },
+  {
+   "t": "2026-10-09 15:40",
+   "kind": "sfx",
+   "what": "Big stadium crowd cheering YEAH and clapping after a good play",
+   "secs": 3,
+   "credits": 30.0,
+   "file": "cr-yeah.mp3"
+  },
+  {
+   "t": "2026-10-09 15:40",
+   "kind": "sfx",
+   "what": "Stadium crowd clapping together in rhythm",
+   "secs": 3,
+   "credits": 30.0,
+   "file": "cr-clap.mp3"
+  },
+  {
+   "t": "2026-10-09 15:40",
+   "kind": "sfx",
+   "what": "Steady ambient murmur of a huge football stadium crowd between plays, chatter and distant shouts, constant level",
+   "secs": 15,
+   "credits": 150.0,
+   "file": "cr-bed.mp3"
+  }
+ ]
+}

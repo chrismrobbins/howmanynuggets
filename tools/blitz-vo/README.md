@@ -56,3 +56,16 @@ Rendering needs a paid (commercial) ElevenLabs plan. Chris has one.
    wording in `script()`. A bare "Set!" comes out "Sit!", and Austin's drawl
    turns "Hike!" into "Hank!". Last pass: 436 takes, mean word error 3.9%.
 5. Bump the `?v=` on `js/blitzVO.js` in index.html.
+
+## Music and sound effects (`el_audio.py`, `make_music.py`, `build_music.py`)
+
+The soundtrack, stingers and crowd are ElevenLabs recordings too. **Every
+music/sfx call goes through `el_audio.py`**: it logs to `el_ledger.json` and
+refuses anything past `CAP` (10,000 credits for music + sfx, agreed with
+Chris). Ask him before a new batch.
+1. Edit the prompts in `make_music.py` and delete the old file in
+   `music_src/` for anything to redo. `python3 make_music.py` makes only
+   what's missing and prints the estimated cost first.
+2. Build the game's files (no credits) in a venv with `librosa soundfile`:
+   `python build_music.py`. It writes `audio/blitz/music/` + `index.json`.
+3. Bump `BLZ_DISC_V` in js/blitzAudio.js (the files are fetched with it).

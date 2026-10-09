@@ -1,0 +1,137 @@
+{
+ "loops": {
+  "theme": {
+   "file": "theme.mp3",
+   "start": 0.25,
+   "end": 39.5382,
+   "bpm": 112.3,
+   "bars": 18
+  },
+  "q1": {
+   "file": "q1.mp3",
+   "start": 0.25,
+   "end": 37.8431,
+   "bpm": 112.3,
+   "bars": 18
+  },
+  "q2": {
+   "file": "q2.mp3",
+   "start": 0.25,
+   "end": 37.1929,
+   "bpm": 103.4,
+   "bars": 16
+  },
+  "q3": {
+   "file": "q3.mp3",
+   "start": 0.25,
+   "end": 36.241,
+   "bpm": 117.5,
+   "bars": 18
+  },
+  "q4": {
+   "file": "q4.mp3",
+   "start": 0.25,
+   "end": 40.3741,
+   "bpm": 129.2,
+   "bars": 22
+  },
+  "half": {
+   "file": "half.mp3",
+   "start": 0.25,
+   "end": 31.7363,
+   "bpm": 80.7,
+   "bars": 10
+  },
+  "bed": {
+   "file": "cr-bed.mp3",
+   "start": 0,
+   "end": 13.0
+  }
+ },
+ "shots": {
+  "win": {
+   "file": "win.mp3",
+   "dur": 12.28
+  },
+  "lose": {
+   "file": "lose.mp3",
+   "dur": 8.72
+  },
+  "st-td": {
+   "file": "st-td.mp3",
+   "dur": 2.09
+  },
+  "st-first": {
+   "file": "st-first.mp3",
+   "dur": 1.47
+  },
+  "st-sack": {
+   "file": "st-sack.mp3",
+   "dur": 1.93
+  },
+  "st-int": {
+   "file": "st-int.mp3",
+   "dur": 1.14
+  },
+  "st-fire": {
+   "file": "st-fire.mp3",
+   "dur": 2.28
+  },
+  "st-charge": {
+   "file": "st-charge.mp3",
+   "dur": 2.7
+  },
+  "st-trombone": {
+   "file": "st-trombone.mp3",
+   "dur": 2.87
+  },
+  "st-big": {
+   "file": "st-big.mp3",
+   "dur": 1.29
+  },
+  "st-heat": {
+   "file": "st-heat.mp3",
+   "dur": 1.86
+  },
+  "st-roll": {
+   "file": "st-roll.mp3",
+   "dur": 1.77
+  },
+  "cr-aww": {
+   "file": "cr-aww.mp3",
+   "dur": 2.95
+  },
+  "cr-boo": {
+   "file": "cr-boo.mp3",
+   "dur": 3.0
+  },
+  "cr-yeah": {
+   "file": "cr-yeah.mp3",
+   "dur": 3.0
+  },
+  "cr-clap": {
+   "file": "cr-clap.mp3",
+   "dur": 3.0
+  },
+  "cr-roar": {
+   "file": "cr-roar.mp3",
+   "dur": 3.0
+  },
+  "cr-oooh": {
+   "file": "cr-oooh.mp3",
+   "dur": 3.0
+  },
+  "cr-defense": {
+   "file": "cr-defense.mp3",
+   "dur": 3.0
+  },
+  "sx-hit": {
+   "file": "sx-hit.mp3",
+   "dur": 1.82
+  },
+  "sx-whistle": {
+   "file": "sx-whistle.mp3",
+   "dur": 3.0
+  }
+ }
+}

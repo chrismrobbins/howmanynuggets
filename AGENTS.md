@@ -515,6 +515,48 @@ changed, the API worker. Verify with `gh run list` / `gh run watch`.
 The worker only allows the production origin — leaderboard fetches from
 localhost fail CORS by design (the hall scoreboard shows its OFFLINE state).
 
+## 📀 NUGGET BLITZ: THE RECORDS — a recorded funk-rock soundtrack (2026-10-09)
+
+Chris: "can we use elevenlabs to make the background music better?" … "we need
+to be cautious on consumption". The synth band (THE SHOW) sounded like a
+chiptune. The soundtrack, stingers and crowd are now ElevenLabs recordings
+(Eleven Music + sound effects), made ONCE and shipped as files: **playing costs
+no credits**, the game never calls ElevenLabs, and the key never leaves
+Chris's Mac.
+- **Picked by ear** from a tryout page: funk-rock (over arcade rock and
+  nu-metal), plus all five sounds (TD roar, big hit, whistle, ooooh, DE-FENSE).
+- **Budget discipline:** `tools/blitz-vo/el_audio.py` is the only way to call
+  music/sfx. It logs every call to `el_ledger.json` and refuses to pass `CAP`
+  (10,000 credits, agreed with Chris). Measured prices: sound effects 10
+  credits/s (from the `character-cost` header); music about 12.5 credits/s
+  (10 s = 125, read off the dashboard, since the music endpoint doesn't
+  report it). The whole set cost ~5,200 including tryouts. Ask Chris before
+  any new batch.
+- **Files:** `make_music.py` (prompts → `music_src/`, gitignored raw
+  downloads) → `build_music.py` (librosa: loops cut on the beat grid, a whole
+  number of bars, before each track's own ending; seam crossfaded, and the
+  loop's start copied past its end so MP3 padding can't click; one-shots
+  trimmed and loudness-matched) → `audio/blitz/music/*.mp3` + `index.json`
+  (loop points). 6 loops (theme, q1–q4, half: 31–40 s each), win/lose,
+  10 stingers, 9 crowd/hit sounds, a 13 s crowd bed. 4.1 MB.
+- **Runtime** (`blitzAudio.js`, `blzDisc*`; the name `blzRec` was taken by
+  the instant replay, and the duplicate `const` killed the whole file): a
+  loop plays through the band's bus, so N, the stinger ducks and the booth
+  duck all still apply. Game moments map to a lowpass + level instead of
+  stems (`BLZ_DISC_MIX`). Song changes crossfade when the new one has loaded,
+  and the old one keeps playing meanwhile. With no recording loaded yet, the
+  synth band plays. Stingers (`blzSting`), crowd (`blzCrowdSay`, now with a
+  `roar` for home TDs), the DE-FENSE chant, hit/crunch/whistle (`blzSfx`) and
+  the stands bed (`blzDiscBed`) each use the recording if it's decoded, else
+  the synth. Only 3 long buffers stay decoded (40 s stereo ≈ 14 MB); the MP3
+  bytes stay. Prefetch: theme + q1 + all short sounds first, then the rest one
+  at a time.
+- Levels matched to the synth on the master (`BLZ_DISC_LEVEL`,
+  `BLZ_DISC_GAIN`, `BLZ_SX`). Season test: menu theme → Q1 → Q2 → halftime →
+  Q3 → Q4 → win all switch, 29 files 0 bad, no page errors. Seams: the beat
+  holds within 4%, and the junction step is below the music's own 99.9th
+  percentile step.
+
 **Direct game links (2026-10-09):** `howmanynuggets.com/?play=<mode>` (e.g.
 `?play=blitz`) skips the converter and the hall and starts that game on a house
 storm. Any key of `MODE_HINTS` works; anything else is ignored (js/app.js, end).
