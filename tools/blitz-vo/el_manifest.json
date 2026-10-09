@@ -1,0 +1,3490 @@
+{
+ "pbp|TOUCHDOWN": {
+  "file": "el-pbp-e2bf306f.mp3",
+  "dur": 1.02,
+  "key": "pbp|TOUCHDOWN",
+  "said": "[shouting] TOUCHDOWN!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|TOUCHDOWN#1": {
+  "file": "el-pbp-6404db74.mp3",
+  "dur": 1.7,
+  "key": "pbp|TOUCHDOWN",
+  "said": "[shouting] TOUCHDOWN!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|HE TAKES IT ALL THE WAY": {
+  "file": "el-pbp-e64c57d1.mp3",
+  "dur": 1.98,
+  "key": "pbp|HE TAKES IT ALL THE WAY",
+  "said": "[shouting] He takes it all the way!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|HE TAKES IT ALL THE WAY#1": {
+  "file": "el-pbp-e460fb56.mp3",
+  "dur": 1.73,
+  "key": "pbp|HE TAKES IT ALL THE WAY",
+  "said": "[shouting] He takes it all the way!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|SIX POINTS": {
+  "file": "el-pbp-8290702c.mp3",
+  "dur": 1.42,
+  "key": "pbp|SIX POINTS",
+  "said": "[shouting] SIX POINTS!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|SIX POINTS#1": {
+  "file": "el-pbp-0f039d0d.mp3",
+  "dur": 1.28,
+  "key": "pbp|SIX POINTS",
+  "said": "[shouting] SIX POINTS!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|SACKED": {
+  "file": "el-pbp-76137b39.mp3",
+  "dur": 0.82,
+  "key": "pbp|SACKED",
+  "said": "[shouting] SACKED!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE QUARTERBACK GOES DOWN": {
+  "file": "el-pbp-1b40c896.mp3",
+  "dur": 1.84,
+  "key": "pbp|THE QUARTERBACK GOES DOWN",
+  "said": "[shouting] The quarterback goes down!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|HE GOT CRUNCHED": {
+  "file": "el-pbp-08624a28.mp3",
+  "dur": 1.68,
+  "key": "pbp|HE GOT CRUNCHED",
+  "said": "[shouting] He got crunched!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|MONSTER HIT": {
+  "file": "el-pbp-2a7820c4.mp3",
+  "dur": 1.52,
+  "key": "pbp|MONSTER HIT",
+  "said": "[shouting] MONSTER HIT!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|MONSTER HIT#1": {
+  "file": "el-pbp-48aa2d50.mp3",
+  "dur": 1.76,
+  "key": "pbp|MONSTER HIT",
+  "said": "[shouting] MONSTER HIT!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|OH DID YOU SEE THAT": {
+  "file": "el-pbp-bb614989.mp3",
+  "dur": 1.74,
+  "key": "pbp|OH DID YOU SEE THAT",
+  "said": "[shouting] Oh! Did you see that?",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|OH DID YOU SEE THAT#1": {
+  "file": "el-pbp-0acabb7c.mp3",
+  "dur": 1.53,
+  "key": "pbp|OH DID YOU SEE THAT",
+  "said": "[shouting] Oh! Did you see that?",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|HE GOT BREADED": {
+  "file": "el-pbp-b8589407.mp3",
+  "dur": 1.42,
+  "key": "pbp|HE GOT BREADED",
+  "said": "[shouting] He got breaded!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|HE GOT BREADED#1": {
+  "file": "el-pbp-fc743008.mp3",
+  "dur": 1.18,
+  "key": "pbp|HE GOT BREADED",
+  "said": "[shouting] He got breaded!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|HE WILL FEEL THAT ONE TOMORROW": {
+  "file": "el-pbp-1f88e88a.mp3",
+  "dur": 1.96,
+  "key": "pbp|HE WILL FEEL THAT ONE TOMORROW",
+  "said": "[shouting] He will feel that one tomorrow!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|HE WILL FEEL THAT ONE TOMORROW#1": {
+  "file": "el-pbp-09896c08.mp3",
+  "dur": 1.7,
+  "key": "pbp|HE WILL FEEL THAT ONE TOMORROW",
+  "said": "[shouting] He will feel that one tomorrow!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|LATE HIT": {
+  "file": "el-pbp-5110669b.mp3",
+  "dur": 0.97,
+  "key": "pbp|LATE HIT",
+  "said": "[shouting] LATE HIT!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|AFTER THE WHISTLE": {
+  "file": "el-pbp-0b86eb99.mp3",
+  "dur": 1.41,
+  "key": "pbp|AFTER THE WHISTLE",
+  "said": "[shouting] After the whistle!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|NO MERCY": {
+  "file": "el-pbp-70eaa71b.mp3",
+  "dur": 1.98,
+  "key": "pbp|NO MERCY",
+  "said": "[shouting] NO MERCY!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|INTERCEPTED": {
+  "file": "el-pbp-01f38619.mp3",
+  "dur": 1.33,
+  "key": "pbp|INTERCEPTED",
+  "said": "[shouting] INTERCEPTED!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|PICKED OFF": {
+  "file": "el-pbp-f93fcdef.mp3",
+  "dur": 0.9,
+  "key": "pbp|PICKED OFF",
+  "said": "[shouting] PICKED OFF!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|FUMBLE": {
+  "file": "el-pbp-28701e1f.mp3",
+  "dur": 1.46,
+  "key": "pbp|FUMBLE",
+  "said": "[shouting] FUMBLE!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|HE COUGHS IT UP": {
+  "file": "el-pbp-06d9e68c.mp3",
+  "dur": 1.28,
+  "key": "pbp|HE COUGHS IT UP",
+  "said": "[shouting] He coughs it up!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|FIRST DOWN": {
+  "file": "el-pbp-7e95e315.mp3",
+  "dur": 1.57,
+  "key": "pbp|FIRST DOWN",
+  "said": "[excited] First down!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|FIRST DOWN#1": {
+  "file": "el-pbp-bc4c866a.mp3",
+  "dur": 1.1,
+  "key": "pbp|FIRST DOWN",
+  "said": "[excited] First down!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|MOVE THE CHAINS": {
+  "file": "el-pbp-2852df14.mp3",
+  "dur": 2.01,
+  "key": "pbp|MOVE THE CHAINS",
+  "said": "[excited] Move the chains!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|MOVE THE CHAINS#1": {
+  "file": "el-pbp-e6f680fd.mp3",
+  "dur": 1.6,
+  "key": "pbp|MOVE THE CHAINS",
+  "said": "[excited] Move the chains!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|HE S ON FIRE": {
+  "file": "el-pbp-8c24fedb.mp3",
+  "dur": 1.87,
+  "key": "pbp|HE S ON FIRE",
+  "said": "[shouting] He's on fire!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE DEFENSE IS ON FIRE": {
+  "file": "el-pbp-a065880f.mp3",
+  "dur": 1.67,
+  "key": "pbp|THE DEFENSE IS ON FIRE",
+  "said": "[shouting] The defense is on fire!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|IT S GOOD": {
+  "file": "el-pbp-19c9fbe6.mp3",
+  "dur": 1.25,
+  "key": "pbp|IT S GOOD",
+  "said": "[excited] It's good!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|NO GOOD": {
+  "file": "el-pbp-953d1ce8.mp3",
+  "dur": 1.17,
+  "key": "pbp|NO GOOD",
+  "said": "[disappointed] No good!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|WHAT A MOVE": {
+  "file": "el-pbp-269054d7.mp3",
+  "dur": 1.21,
+  "key": "pbp|WHAT A MOVE",
+  "said": "[excited] What a move!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|SPIN CYCLE": {
+  "file": "el-pbp-5923a522.mp3",
+  "dur": 1.41,
+  "key": "pbp|SPIN CYCLE",
+  "said": "[excited] Spin cycle!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|STIFF ARM": {
+  "file": "el-pbp-c5b0e464.mp3",
+  "dur": 1.1,
+  "key": "pbp|STIFF ARM",
+  "said": "[excited] Stiff arm!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|GET OFF ME": {
+  "file": "el-pbp-59f23877.mp3",
+  "dur": 1.11,
+  "key": "pbp|GET OFF ME",
+  "said": "[excited] Get off me!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|HE JUMPS OVER HIM": {
+  "file": "el-pbp-ce808e6b.mp3",
+  "dur": 1.34,
+  "key": "pbp|HE JUMPS OVER HIM",
+  "said": "[excited] He jumps over him!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|DA BOMB": {
+  "file": "el-pbp-45790fd3.mp3",
+  "dur": 1.73,
+  "key": "pbp|DA BOMB",
+  "said": "[shouting] DA BOMB!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|WAY DOWNFIELD": {
+  "file": "el-pbp-9c38ab0c.mp3",
+  "dur": 1.77,
+  "key": "pbp|WAY DOWNFIELD",
+  "said": "[shouting] WAY DOWNFIELD!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THROW THE BALL": {
+  "file": "el-pbp-494d2960.mp3",
+  "dur": 1.6,
+  "key": "pbp|THROW THE BALL",
+  "said": "[excited] Throw the ball!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|GET RID OF IT": {
+  "file": "el-pbp-e3f13816.mp3",
+  "dur": 1.01,
+  "key": "pbp|GET RID OF IT",
+  "said": "[excited] Get rid of it!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|HE S HEATING UP": {
+  "file": "el-pbp-b25f8018.mp3",
+  "dur": 1.25,
+  "key": "pbp|HE S HEATING UP",
+  "said": "[excited] He's heating up!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|HE IS HEATING UP": {
+  "file": "el-pbp-3b919eb2.mp3",
+  "dur": 1.54,
+  "key": "pbp|HE IS HEATING UP",
+  "said": "[excited] He is heating up!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|GETTING WARM": {
+  "file": "el-pbp-c4ddb92d.mp3",
+  "dur": 1.12,
+  "key": "pbp|GETTING WARM",
+  "said": "[excited] Getting warm!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|THIS DEFENSE IS HEATING UP": {
+  "file": "el-pbp-fbf7d4a6.mp3",
+  "dur": 1.76,
+  "key": "pbp|THIS DEFENSE IS HEATING UP",
+  "said": "[excited] This defense is heating up!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|THE DEFENSE IS GETTING WARM": {
+  "file": "el-pbp-d27a883e.mp3",
+  "dur": 1.53,
+  "key": "pbp|THE DEFENSE IS GETTING WARM",
+  "said": "[excited] The defense is getting warm!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|THIRD DOWN": {
+  "file": "el-pbp-4536506f.mp3",
+  "dur": 1.03,
+  "key": "pbp|THIRD DOWN",
+  "said": "Third down!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|BIG THIRD DOWN HERE": {
+  "file": "el-pbp-ad867436.mp3",
+  "dur": 1.49,
+  "key": "pbp|BIG THIRD DOWN HERE",
+  "said": "Big third down here!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|THIRD DOWN THIS IS IT": {
+  "file": "el-pbp-80e361e4.mp3",
+  "dur": 1.43,
+  "key": "pbp|THIRD DOWN THIS IS IT",
+  "said": "Third down. This is it.",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|THIRD AND LONG": {
+  "file": "el-pbp-56314b22.mp3",
+  "dur": 1.05,
+  "key": "pbp|THIRD AND LONG",
+  "said": "Third and long!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|THIRD AND A MILE": {
+  "file": "el-pbp-ede75a58.mp3",
+  "dur": 1.04,
+  "key": "pbp|THIRD AND A MILE",
+  "said": "Third and a mile!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|THIRD AND FOREVER": {
+  "file": "el-pbp-1b6b2b63.mp3",
+  "dur": 1.39,
+  "key": "pbp|THIRD AND FOREVER",
+  "said": "Third and forever!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|FOURTH DOWN THEY ARE GOING FOR IT": {
+  "file": "el-pbp-87aa9fa2.mp3",
+  "dur": 2.56,
+  "key": "pbp|FOURTH DOWN THEY ARE GOING FOR IT",
+  "said": "[excited] Fourth down! They are going for it!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|FOURTH DOWN NO PUNTING": {
+  "file": "el-pbp-bbd189f5.mp3",
+  "dur": 1.93,
+  "key": "pbp|FOURTH DOWN NO PUNTING",
+  "said": "[excited] Fourth down. No punting!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|GUTS TIME FOURTH DOWN": {
+  "file": "el-pbp-22917b45.mp3",
+  "dur": 1.9,
+  "key": "pbp|GUTS TIME FOURTH DOWN",
+  "said": "[excited] Guts time. Fourth down.",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|RED ZONE": {
+  "file": "el-pbp-ef52fc01.mp3",
+  "dur": 0.86,
+  "key": "pbp|RED ZONE",
+  "said": "[excited] Red zone!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|KNOCKING ON THE DOOR": {
+  "file": "el-pbp-6e9db67f.mp3",
+  "dur": 1.43,
+  "key": "pbp|KNOCKING ON THE DOOR",
+  "said": "[excited] Knocking on the door!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|THEY CAN SMELL IT": {
+  "file": "el-pbp-38253270.mp3",
+  "dur": 1.16,
+  "key": "pbp|THEY CAN SMELL IT",
+  "said": "[excited] They can smell it!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|GOAL TO GO": {
+  "file": "el-pbp-651f53e1.mp3",
+  "dur": 1.62,
+  "key": "pbp|GOAL TO GO",
+  "said": "[excited] Goal to go!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|FIRST AND GOAL": {
+  "file": "el-pbp-067ea605.mp3",
+  "dur": 1.55,
+  "key": "pbp|FIRST AND GOAL",
+  "said": "[excited] First and goal!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|UNDER A MINUTE TO GO": {
+  "file": "el-pbp-cf751002.mp3",
+  "dur": 1.51,
+  "key": "pbp|UNDER A MINUTE TO GO",
+  "said": "[excited] Under a minute to go!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|THE CLOCK IS TICKING": {
+  "file": "el-pbp-ea502977.mp3",
+  "dur": 1.68,
+  "key": "pbp|THE CLOCK IS TICKING",
+  "said": "[excited] The clock is ticking!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|CRUNCH TIME": {
+  "file": "el-pbp-f72a0e94.mp3",
+  "dur": 0.96,
+  "key": "pbp|CRUNCH TIME",
+  "said": "[excited] Crunch time!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|INCOMPLETE": {
+  "file": "el-pbp-c897229e.mp3",
+  "dur": 1.0,
+  "key": "pbp|INCOMPLETE",
+  "said": "[disappointed] Incomplete!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|INCOMPLETE#1": {
+  "file": "el-pbp-2e874301.mp3",
+  "dur": 1.27,
+  "key": "pbp|INCOMPLETE",
+  "said": "[disappointed] Incomplete!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|FALLS INCOMPLETE": {
+  "file": "el-pbp-4b1b90d1.mp3",
+  "dur": 1.79,
+  "key": "pbp|FALLS INCOMPLETE",
+  "said": "[disappointed] Falls incomplete!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|FALLS INCOMPLETE#1": {
+  "file": "el-pbp-14cdbc17.mp3",
+  "dur": 1.63,
+  "key": "pbp|FALLS INCOMPLETE",
+  "said": "[disappointed] Falls incomplete!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|NO CATCH": {
+  "file": "el-pbp-2e79e0e2.mp3",
+  "dur": 1.03,
+  "key": "pbp|NO CATCH",
+  "said": "[disappointed] No catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|NO CATCH#1": {
+  "file": "el-pbp-1e69326e.mp3",
+  "dur": 1.14,
+  "key": "pbp|NO CATCH",
+  "said": "[disappointed] No catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|HERE IS THE KICK": {
+  "file": "el-pbp-c73b6a7a.mp3",
+  "dur": 1.32,
+  "key": "pbp|HERE IS THE KICK",
+  "said": "[excited] Here is the kick!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|AND WE ARE UNDERWAY": {
+  "file": "el-pbp-6ea5575c.mp3",
+  "dur": 1.78,
+  "key": "pbp|AND WE ARE UNDERWAY",
+  "said": "[excited] And we are underway!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|THE BOOT IS AWAY": {
+  "file": "el-pbp-e1ee28ff.mp3",
+  "dur": 1.95,
+  "key": "pbp|THE BOOT IS AWAY",
+  "said": "[excited] The boot is away!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|A NICE RETURN": {
+  "file": "el-pbp-cd5ba5d4.mp3",
+  "dur": 1.33,
+  "key": "pbp|A NICE RETURN",
+  "said": "[excited] A nice return!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|HE BRINGS IT BACK": {
+  "file": "el-pbp-8087641a.mp3",
+  "dur": 1.28,
+  "key": "pbp|HE BRINGS IT BACK",
+  "said": "[excited] He brings it back!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|GOOD FIELD POSITION": {
+  "file": "el-pbp-15b26402.mp3",
+  "dur": 1.88,
+  "key": "pbp|GOOD FIELD POSITION",
+  "said": "[excited] Good field position!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|PICK SIX": {
+  "file": "el-pbp-774a1ff1.mp3",
+  "dur": 2.12,
+  "key": "pbp|PICK SIX",
+  "said": "[shouting] PICK SIX!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|HE IS GONE THE OTHER WAY": {
+  "file": "el-pbp-00fffe6a.mp3",
+  "dur": 2.16,
+  "key": "pbp|HE IS GONE THE OTHER WAY",
+  "said": "[shouting] He is gone the other way!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|HE SPUN HIM AROUND": {
+  "file": "el-pbp-625b2e2c.mp3",
+  "dur": 1.9,
+  "key": "pbp|HE SPUN HIM AROUND",
+  "said": "[shouting] He spun him around!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|AND HE THROWS HIM DOWN": {
+  "file": "el-pbp-b3fe104a.mp3",
+  "dur": 1.74,
+  "key": "pbp|AND HE THROWS HIM DOWN",
+  "said": "[shouting] And he throws him down!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|GERMAN SUPLEX": {
+  "file": "el-pbp-e7306680.mp3",
+  "dur": 1.86,
+  "key": "pbp|GERMAN SUPLEX",
+  "said": "[shouting] GERMAN SUPLEX!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|OH THE SUPLEX": {
+  "file": "el-pbp-e49e2206.mp3",
+  "dur": 1.5,
+  "key": "pbp|OH THE SUPLEX",
+  "said": "[shouting] Oh, the suplex!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|SPINEBUSTER": {
+  "file": "el-pbp-49417ce6.mp3",
+  "dur": 1.58,
+  "key": "pbp|SPINEBUSTER",
+  "said": "[shouting] SPINEBUSTER!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|HE PICKED HIM UP BY THE FACE MASK": {
+  "file": "el-pbp-dbe6284d.mp3",
+  "dur": 2.21,
+  "key": "pbp|HE PICKED HIM UP BY THE FACE MASK",
+  "said": "[shouting] He picked him up by the face mask!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|NECKBREAKER": {
+  "file": "el-pbp-ac98c4c2.mp3",
+  "dur": 1.94,
+  "key": "pbp|NECKBREAKER",
+  "said": "[shouting] NECKBREAKER!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|CLOTHESLINE": {
+  "file": "el-pbp-20898538.mp3",
+  "dur": 1.44,
+  "key": "pbp|CLOTHESLINE",
+  "said": "[shouting] CLOTHESLINE!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|HE TOOK HIS HEAD OFF": {
+  "file": "el-pbp-70579342.mp3",
+  "dur": 1.55,
+  "key": "pbp|HE TOOK HIS HEAD OFF",
+  "said": "[shouting] He took his head off!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|SPEARED": {
+  "file": "el-pbp-375a9d9b.mp3",
+  "dur": 1.14,
+  "key": "pbp|SPEARED",
+  "said": "[shouting] SPEARED!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|FROM THE TOP ROPE": {
+  "file": "el-pbp-25f8ab5b.mp3",
+  "dur": 1.47,
+  "key": "pbp|FROM THE TOP ROPE",
+  "said": "[shouting] From the top rope!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|ELBOW DROP": {
+  "file": "el-pbp-12007ae4.mp3",
+  "dur": 1.51,
+  "key": "pbp|ELBOW DROP",
+  "said": "[shouting] ELBOW DROP!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|LEG DROP": {
+  "file": "el-pbp-d10ecf7a.mp3",
+  "dur": 1.07,
+  "key": "pbp|LEG DROP",
+  "said": "[shouting] LEG DROP!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|BROTHER": {
+  "file": "el-pbp-1d55bbb6.mp3",
+  "dur": 1.43,
+  "key": "pbp|BROTHER",
+  "said": "[shouting] BROTHER!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|ONSIDE KICK": {
+  "file": "el-pbp-d2dd1f93.mp3",
+  "dur": 1.5,
+  "key": "pbp|ONSIDE KICK",
+  "said": "[excited] Onside kick!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|FAKE PUNT": {
+  "file": "el-pbp-0ae8e4eb.mp3",
+  "dur": 1.28,
+  "key": "pbp|FAKE PUNT",
+  "said": "[shouting] FAKE PUNT!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|IT S A FAKE": {
+  "file": "el-pbp-96298f8b.mp3",
+  "dur": 1.39,
+  "key": "pbp|IT S A FAKE",
+  "said": "[shouting] It's a fake!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|IT S TIPPED": {
+  "file": "el-pbp-e6dae955.mp3",
+  "dur": 0.83,
+  "key": "pbp|IT S TIPPED",
+  "said": "[excited] It's tipped!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|UP FOR GRABS": {
+  "file": "el-pbp-e427a3a6.mp3",
+  "dur": 1.32,
+  "key": "pbp|UP FOR GRABS",
+  "said": "[excited] Up for grabs!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|OH THE ELBOW": {
+  "file": "el-pbp-8022cb53.mp3",
+  "dur": 2.08,
+  "key": "pbp|OH THE ELBOW",
+  "said": "[shouting] Oh, the elbow!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|TWO POINTS": {
+  "file": "el-pbp-4dadd94e.mp3",
+  "dur": 1.32,
+  "key": "pbp|TWO POINTS",
+  "said": "[excited] Two points!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|SAFETY": {
+  "file": "el-pbp-338c57cc.mp3",
+  "dur": 1.32,
+  "key": "pbp|SAFETY",
+  "said": "[shouting] SAFETY!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THAT IS HALFTIME": {
+  "file": "el-pbp-d6f70b17.mp3",
+  "dur": 1.35,
+  "key": "pbp|THAT IS HALFTIME",
+  "said": "That is halftime!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|HALFTIME HERE AT THE FRYER": {
+  "file": "el-pbp-a1fd120b.mp3",
+  "dur": 1.67,
+  "key": "pbp|HALFTIME HERE AT THE FRYER",
+  "said": "Halftime here at the fryer!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|LOOK AT HIM SHOWBOAT": {
+  "file": "el-pbp-cb9593ee.mp3",
+  "dur": 1.75,
+  "key": "pbp|LOOK AT HIM SHOWBOAT",
+  "said": "[excited] Look at him showboat!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|HE S DANCING IN": {
+  "file": "el-pbp-12904408.mp3",
+  "dur": 1.54,
+  "key": "pbp|HE S DANCING IN",
+  "said": "[shouting] He's dancing in!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE THIRTY": {
+  "file": "el-pbp-105112e7.mp3",
+  "dur": 0.97,
+  "key": "pbp|THE THIRTY",
+  "said": "[excited] The thirty!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|THE TWENTY": {
+  "file": "el-pbp-bda2461c.mp3",
+  "dur": 1.04,
+  "key": "pbp|THE TWENTY",
+  "said": "[excited] The twenty!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|THE TEN": {
+  "file": "el-pbp-8da03425.mp3",
+  "dur": 1.15,
+  "key": "pbp|THE TEN",
+  "said": "[shouting] THE TEN!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|A TIE NOBODY IS HAPPY": {
+  "file": "el-pbp-c72e66c7.mp3",
+  "dur": 2.28,
+  "key": "pbp|A TIE NOBODY IS HAPPY",
+  "said": "[disappointed] A tie. Nobody is happy.",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|WHAT A HUGE GAIN": {
+  "file": "el-pbp-685601d5.mp3",
+  "dur": 1.82,
+  "key": "pbp|WHAT A HUGE GAIN",
+  "said": "[shouting] What a huge gain!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|HE IS GOING TO RUN ALL DAY": {
+  "file": "el-pbp-32636196.mp3",
+  "dur": 1.94,
+  "key": "pbp|HE IS GOING TO RUN ALL DAY",
+  "said": "[shouting] He is going to run all day!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THAT IS A MONSTER GAIN": {
+  "file": "el-pbp-02f48cf2.mp3",
+  "dur": 1.84,
+  "key": "pbp|THAT IS A MONSTER GAIN",
+  "said": "[shouting] That is a monster gain!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|BIG GAIN": {
+  "file": "el-pbp-239a146f.mp3",
+  "dur": 1.07,
+  "key": "pbp|BIG GAIN",
+  "said": "[excited] Big gain!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|A HUGE CHUNK OF YARDAGE": {
+  "file": "el-pbp-67e05e27.mp3",
+  "dur": 1.93,
+  "key": "pbp|A HUGE CHUNK OF YARDAGE",
+  "said": "[excited] A huge chunk of yardage!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|HE IS EATING UP YARDS": {
+  "file": "el-pbp-f77252da.mp3",
+  "dur": 2.14,
+  "key": "pbp|HE IS EATING UP YARDS",
+  "said": "[excited] He is eating up yards!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|WHAT A PICKUP": {
+  "file": "el-pbp-4ab2941c.mp3",
+  "dur": 1.25,
+  "key": "pbp|WHAT A PICKUP",
+  "said": "[excited] What a pickup!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|LOSING YARDAGE": {
+  "file": "el-pbp-bf49ecba.mp3",
+  "dur": 1.42,
+  "key": "pbp|LOSING YARDAGE",
+  "said": "[disappointed] Losing yardage!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|HE GOES BACKWARDS": {
+  "file": "el-pbp-667ed0dc.mp3",
+  "dur": 1.56,
+  "key": "pbp|HE GOES BACKWARDS",
+  "said": "[disappointed] He goes backwards!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|DROPPED FOR A LOSS": {
+  "file": "el-pbp-46cc7512.mp3",
+  "dur": 1.36,
+  "key": "pbp|DROPPED FOR A LOSS",
+  "said": "[disappointed] Dropped for a loss!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|THE NUGS": {
+  "file": "el-pbp-1fed27be.mp3",
+  "dur": 0.95,
+  "key": "pbp|THE NUGS",
+  "said": "[excited] The nugs!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|WHAT A GAME THE NUGS WIN IT": {
+  "file": "el-pbp-e8afd838.mp3",
+  "dur": 2.01,
+  "key": "pbp|WHAT A GAME THE NUGS WIN IT",
+  "said": "[shouting] What a game! The nugs win it!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE NUGS WIN IT": {
+  "file": "el-pbp-63fce695.mp3",
+  "dur": 1.27,
+  "key": "pbp|THE NUGS WIN IT",
+  "said": "[disappointed] The nugs win it.",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|MOSS TARD WITH THE CATCH": {
+  "file": "el-pbp-5e8f550f.mp3",
+  "dur": 1.73,
+  "key": "pbp|MOSS TARD WITH THE CATCH",
+  "said": "[shouting] Moss-tard with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|BROWN GRAVY WITH THE CATCH": {
+  "file": "el-pbp-a361d234.mp3",
+  "dur": 2.08,
+  "key": "pbp|BROWN GRAVY WITH THE CATCH",
+  "said": "[shouting] Brown-gravy with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|SAUCEDERS WITH THE CATCH": {
+  "file": "el-pbp-994d199f.mp3",
+  "dur": 1.88,
+  "key": "pbp|SAUCEDERS WITH THE CATCH",
+  "said": "[shouting] Sauceders with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|FRYVRE WITH THE CATCH": {
+  "file": "el-pbp-4e3b0e4b.mp3",
+  "dur": 1.44,
+  "key": "pbp|FRYVRE WITH THE CATCH",
+  "said": "[shouting] Fryvre with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE FRY GODS": {
+  "file": "el-pbp-45d52b1d.mp3",
+  "dur": 1.76,
+  "key": "pbp|THE FRY GODS",
+  "said": "[excited] The fry gods!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|WHAT A GAME THE FRY GODS WIN IT": {
+  "file": "el-pbp-cdf4fbed.mp3",
+  "dur": 2.75,
+  "key": "pbp|WHAT A GAME THE FRY GODS WIN IT",
+  "said": "[shouting] What a game! The fry gods win it!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE FRY GODS WIN IT": {
+  "file": "el-pbp-3e85bac6.mp3",
+  "dur": 1.99,
+  "key": "pbp|THE FRY GODS WIN IT",
+  "said": "[disappointed] The fry gods win it.",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|APOLLO CRINKLE WITH THE CATCH": {
+  "file": "el-pbp-3e3b1195.mp3",
+  "dur": 1.81,
+  "key": "pbp|APOLLO CRINKLE WITH THE CATCH",
+  "said": "[shouting] Apollo crinkle with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|ARTEMIS WITH THE CATCH": {
+  "file": "el-pbp-ec0a103d.mp3",
+  "dur": 1.4,
+  "key": "pbp|ARTEMIS WITH THE CATCH",
+  "said": "[shouting] Artemis with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|HERMES WITH THE CATCH": {
+  "file": "el-pbp-e730e2bb.mp3",
+  "dur": 1.52,
+  "key": "pbp|HERMES WITH THE CATCH",
+  "said": "[shouting] Hermes with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|ZEUS WITH THE CATCH": {
+  "file": "el-pbp-630a248c.mp3",
+  "dur": 1.48,
+  "key": "pbp|ZEUS WITH THE CATCH",
+  "said": "[shouting] Zeus with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE TATER TOTS": {
+  "file": "el-pbp-e1c0c1c1.mp3",
+  "dur": 1.24,
+  "key": "pbp|THE TATER TOTS",
+  "said": "[excited] The tater tots!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|WHAT A GAME THE TATER TOTS WIN IT": {
+  "file": "el-pbp-ed6eb770.mp3",
+  "dur": 2.69,
+  "key": "pbp|WHAT A GAME THE TATER TOTS WIN IT",
+  "said": "[shouting] What a game! The tater tots win it!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE TATER TOTS WIN IT": {
+  "file": "el-pbp-611f1fb7.mp3",
+  "dur": 1.71,
+  "key": "pbp|THE TATER TOTS WIN IT",
+  "said": "[disappointed] The tater tots win it.",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|SMALL FRY WITH THE CATCH": {
+  "file": "el-pbp-2598f0d5.mp3",
+  "dur": 1.64,
+  "key": "pbp|SMALL FRY WITH THE CATCH",
+  "said": "[shouting] Small fry with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|TINY TIM WITH THE CATCH": {
+  "file": "el-pbp-8b068bd0.mp3",
+  "dur": 1.85,
+  "key": "pbp|TINY TIM WITH THE CATCH",
+  "said": "[shouting] Tiny tim with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|HASH BROWNIE WITH THE CATCH": {
+  "file": "el-pbp-7ed97580.mp3",
+  "dur": 1.74,
+  "key": "pbp|HASH BROWNIE WITH THE CATCH",
+  "said": "[shouting] Hash brownie with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|LIL TOT WITH THE CATCH": {
+  "file": "el-pbp-cea1de83.mp3",
+  "dur": 1.56,
+  "key": "pbp|LIL TOT WITH THE CATCH",
+  "said": "[shouting] Lil tot with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE RANCH HANDS": {
+  "file": "el-pbp-dc3143a9.mp3",
+  "dur": 1.53,
+  "key": "pbp|THE RANCH HANDS",
+  "said": "[excited] The ranch hands!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|WHAT A GAME THE RANCH HANDS WIN IT": {
+  "file": "el-pbp-0462896d.mp3",
+  "dur": 2.33,
+  "key": "pbp|WHAT A GAME THE RANCH HANDS WIN IT",
+  "said": "[shouting] What a game! The ranch hands win it!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE RANCH HANDS WIN IT": {
+  "file": "el-pbp-f155c5de.mp3",
+  "dur": 1.31,
+  "key": "pbp|THE RANCH HANDS WIN IT",
+  "said": "[disappointed] The ranch hands win it.",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|THE DILL WITH THE CATCH": {
+  "file": "el-pbp-110f2cf5.mp3",
+  "dur": 1.62,
+  "key": "pbp|THE DILL WITH THE CATCH",
+  "said": "[shouting] The dill with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|CHIVES WITH THE CATCH": {
+  "file": "el-pbp-b7539d63.mp3",
+  "dur": 1.35,
+  "key": "pbp|CHIVES WITH THE CATCH",
+  "said": "[shouting] Chives with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|BUTTERMILK WITH THE CATCH": {
+  "file": "el-pbp-5e4f7a5b.mp3",
+  "dur": 1.51,
+  "key": "pbp|BUTTERMILK WITH THE CATCH",
+  "said": "[shouting] Buttermilk with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|HIDDEN VALLEY WITH THE CATCH": {
+  "file": "el-pbp-8cae62ea.mp3",
+  "dur": 1.57,
+  "key": "pbp|HIDDEN VALLEY WITH THE CATCH",
+  "said": "[shouting] Hidden valley with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE SAUCE BOSSES": {
+  "file": "el-pbp-034a0627.mp3",
+  "dur": 1.49,
+  "key": "pbp|THE SAUCE BOSSES",
+  "said": "[excited] The sauce bosses!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|WHAT A GAME THE SAUCE BOSSES WIN IT": {
+  "file": "el-pbp-4fb0ba5e.mp3",
+  "dur": 2.55,
+  "key": "pbp|WHAT A GAME THE SAUCE BOSSES WIN IT",
+  "said": "[shouting] What a game! The sauce bosses win it!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE SAUCE BOSSES WIN IT": {
+  "file": "el-pbp-c90c5dc5.mp3",
+  "dur": 1.95,
+  "key": "pbp|THE SAUCE BOSSES WIN IT",
+  "said": "[disappointed] The sauce bosses win it.",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|SMOKE RING WITH THE CATCH": {
+  "file": "el-pbp-f5a32832.mp3",
+  "dur": 1.95,
+  "key": "pbp|SMOKE RING WITH THE CATCH",
+  "said": "[shouting] Smoke ring with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|DRY RUB WITH THE CATCH": {
+  "file": "el-pbp-6e9df089.mp3",
+  "dur": 1.45,
+  "key": "pbp|DRY RUB WITH THE CATCH",
+  "said": "[shouting] Dry rub with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|BRISKET WITH THE CATCH": {
+  "file": "el-pbp-4b0d197c.mp3",
+  "dur": 1.42,
+  "key": "pbp|BRISKET WITH THE CATCH",
+  "said": "[shouting] Brisket with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE PITMASTER WITH THE CATCH": {
+  "file": "el-pbp-9a789cab.mp3",
+  "dur": 1.8,
+  "key": "pbp|THE PITMASTER WITH THE CATCH",
+  "said": "[shouting] The pitmaster with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE ONION RINGERS": {
+  "file": "el-pbp-196a98f9.mp3",
+  "dur": 1.47,
+  "key": "pbp|THE ONION RINGERS",
+  "said": "[excited] The onion ringers!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|WHAT A GAME THE ONION RINGERS WIN IT": {
+  "file": "el-pbp-fcce88bb.mp3",
+  "dur": 2.86,
+  "key": "pbp|WHAT A GAME THE ONION RINGERS WIN IT",
+  "said": "[shouting] What a game! The onion ringers win it!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE ONION RINGERS WIN IT": {
+  "file": "el-pbp-5dfd5e2e.mp3",
+  "dur": 1.68,
+  "key": "pbp|THE ONION RINGERS WIN IT",
+  "said": "[disappointed] The onion ringers win it.",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|SHALLOT WITH THE CATCH": {
+  "file": "el-pbp-71115f99.mp3",
+  "dur": 1.4,
+  "key": "pbp|SHALLOT WITH THE CATCH",
+  "said": "[shouting] Shallot with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|SCALLION WITH THE CATCH": {
+  "file": "el-pbp-91ea5778.mp3",
+  "dur": 1.57,
+  "key": "pbp|SCALLION WITH THE CATCH",
+  "said": "[shouting] Scallion with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE BLOOMIN WITH THE CATCH": {
+  "file": "el-pbp-a200e34b.mp3",
+  "dur": 1.71,
+  "key": "pbp|THE BLOOMIN WITH THE CATCH",
+  "said": "[shouting] The bloomin' with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|VIDALIA WITH THE CATCH": {
+  "file": "el-pbp-5470de83.mp3",
+  "dur": 1.49,
+  "key": "pbp|VIDALIA WITH THE CATCH",
+  "said": "[shouting] Vidalia with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE HONEY MUSTARDS": {
+  "file": "el-pbp-7f2a8f00.mp3",
+  "dur": 1.57,
+  "key": "pbp|THE HONEY MUSTARDS",
+  "said": "[excited] The honey mustards!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|WHAT A GAME THE HONEY MUSTARDS WIN IT": {
+  "file": "el-pbp-5741fcbc.mp3",
+  "dur": 2.6,
+  "key": "pbp|WHAT A GAME THE HONEY MUSTARDS WIN IT",
+  "said": "[shouting] What a game! The honey mustards win it!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE HONEY MUSTARDS WIN IT": {
+  "file": "el-pbp-52b30c29.mp3",
+  "dur": 1.75,
+  "key": "pbp|THE HONEY MUSTARDS WIN IT",
+  "said": "[disappointed] The honey mustards win it.",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|QUEEN BEE WITH THE CATCH": {
+  "file": "el-pbp-95e814d2.mp3",
+  "dur": 1.51,
+  "key": "pbp|QUEEN BEE WITH THE CATCH",
+  "said": "[shouting] Queen bee with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|YELLOW JACKET WITH THE CATCH": {
+  "file": "el-pbp-a7f8fdab.mp3",
+  "dur": 1.59,
+  "key": "pbp|YELLOW JACKET WITH THE CATCH",
+  "said": "[shouting] Yellow jacket with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE STINGER WITH THE CATCH": {
+  "file": "el-pbp-e34d3a4e.mp3",
+  "dur": 2.01,
+  "key": "pbp|THE STINGER WITH THE CATCH",
+  "said": "[shouting] The stinger with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|DIJON WITH THE CATCH": {
+  "file": "el-pbp-70d8c7df.mp3",
+  "dur": 1.46,
+  "key": "pbp|DIJON WITH THE CATCH",
+  "said": "[shouting] Dijon with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE CURLY FRIES": {
+  "file": "el-pbp-2dd7e53b.mp3",
+  "dur": 1.35,
+  "key": "pbp|THE CURLY FRIES",
+  "said": "[excited] The curly fries!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|WHAT A GAME THE CURLY FRIES WIN IT": {
+  "file": "el-pbp-b57a0ff3.mp3",
+  "dur": 2.48,
+  "key": "pbp|WHAT A GAME THE CURLY FRIES WIN IT",
+  "said": "[shouting] What a game! The curly fries win it!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE CURLY FRIES WIN IT": {
+  "file": "el-pbp-8708eea7.mp3",
+  "dur": 1.55,
+  "key": "pbp|THE CURLY FRIES WIN IT",
+  "said": "[disappointed] The curly fries win it.",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.5
+ },
+ "pbp|LOOP DE LOOP WITH THE CATCH": {
+  "file": "el-pbp-ec429dab.mp3",
+  "dur": 1.88,
+  "key": "pbp|LOOP DE LOOP WITH THE CATCH",
+  "said": "[shouting] Loop de loop with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE SLINKY WITH THE CATCH": {
+  "file": "el-pbp-c28fea60.mp3",
+  "dur": 2.07,
+  "key": "pbp|THE SLINKY WITH THE CATCH",
+  "said": "[shouting] The slinky with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|SPIRALIZER WITH THE CATCH": {
+  "file": "el-pbp-35fa1d42.mp3",
+  "dur": 1.76,
+  "key": "pbp|SPIRALIZER WITH THE CATCH",
+  "said": "[shouting] Spiralizer with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|THE CORKSCREW WITH THE CATCH": {
+  "file": "el-pbp-1f370023.mp3",
+  "dur": 1.61,
+  "key": "pbp|THE CORKSCREW WITH THE CATCH",
+  "said": "[shouting] The corkscrew with the catch!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|BIG HEAD": {
+  "file": "el-pbp-5ab530dd.mp3",
+  "dur": 1.22,
+  "key": "pbp|BIG HEAD",
+  "said": "[shouting] BIG HEAD!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|HUGE HEAD": {
+  "file": "el-pbp-521786e5.mp3",
+  "dur": 1.74,
+  "key": "pbp|HUGE HEAD",
+  "said": "[shouting] HUGE HEAD!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|INFINITE TURBO": {
+  "file": "el-pbp-2fd80eff.mp3",
+  "dur": 1.97,
+  "key": "pbp|INFINITE TURBO",
+  "said": "[shouting] INFINITE TURBO!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|NO PUNTING": {
+  "file": "el-pbp-a06ad146.mp3",
+  "dur": 1.64,
+  "key": "pbp|NO PUNTING",
+  "said": "[shouting] NO PUNTING!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|NIGHT GAME": {
+  "file": "el-pbp-851cee4a.mp3",
+  "dur": 1.52,
+  "key": "pbp|NIGHT GAME",
+  "said": "[shouting] NIGHT GAME!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|POWER UP SPEED": {
+  "file": "el-pbp-0fd5b405.mp3",
+  "dur": 1.64,
+  "key": "pbp|POWER UP SPEED",
+  "said": "[shouting] POWER-UP SPEED!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|FAST PASSES": {
+  "file": "el-pbp-31b29cdb.mp3",
+  "dur": 1.51,
+  "key": "pbp|FAST PASSES",
+  "said": "[shouting] FAST PASSES!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|SHOW FIELD GOAL": {
+  "file": "el-pbp-7275f316.mp3",
+  "dur": 2.39,
+  "key": "pbp|SHOW FIELD GOAL",
+  "said": "[shouting] Show field goal  percent!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|BIG FOOTBALL": {
+  "file": "el-pbp-8a3156ae.mp3",
+  "dur": 1.55,
+  "key": "pbp|BIG FOOTBALL",
+  "said": "[shouting] BIG FOOTBALL!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|NO CPU ASSISTANCE": {
+  "file": "el-pbp-4b5d8102.mp3",
+  "dur": 1.84,
+  "key": "pbp|NO CPU ASSISTANCE",
+  "said": "[shouting] No cpu assistance!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "pbp|START ON FIRE": {
+  "file": "el-pbp-d8018000.mp3",
+  "dur": 1.67,
+  "key": "pbp|START ON FIRE",
+  "said": "[shouting] Start on fire!",
+  "voice": "DduhIyyKkOosbP8VefhP",
+  "stability": 0.0
+ },
+ "color|THAT IS GONNA LEAVE A CRUMB": {
+  "file": "el-color-4385ea74.mp3",
+  "dur": 2.43,
+  "key": "color|THAT IS GONNA LEAVE A CRUMB",
+  "said": "[laughs] That is gonna leave a crumb!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|SOMEBODY CHECK ON HIM": {
+  "file": "el-color-a806682a.mp3",
+  "dur": 1.81,
+  "key": "color|SOMEBODY CHECK ON HIM",
+  "said": "[laughs] Somebody check on him!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|HE FELT THAT ONE IN THE BATTER": {
+  "file": "el-color-db5301f0.mp3",
+  "dur": 2.0,
+  "key": "color|HE FELT THAT ONE IN THE BATTER",
+  "said": "[laughs] He felt that one in the batter!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|HE GOT DEEP FRIED": {
+  "file": "el-color-2a50cff2.mp3",
+  "dur": 2.03,
+  "key": "color|HE GOT DEEP FRIED",
+  "said": "[laughs] He got deep fried!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|I FELT THAT ONE UP HERE": {
+  "file": "el-color-fbb706f4.mp3",
+  "dur": 3.13,
+  "key": "color|I FELT THAT ONE UP HERE",
+  "said": "[laughs] I felt that one up here!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|OH HIS MOTHER FELT THAT": {
+  "file": "el-color-5c9307db.mp3",
+  "dur": 2.72,
+  "key": "color|OH HIS MOTHER FELT THAT",
+  "said": "[laughs] Oh, his mother felt that!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|NO FLAGS IN THIS LEAGUE": {
+  "file": "el-color-cff87540.mp3",
+  "dur": 2.73,
+  "key": "color|NO FLAGS IN THIS LEAGUE",
+  "said": "[laughs] No flags in this league!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|THE WHISTLE IS JUST A SUGGESTION": {
+  "file": "el-color-ce416454.mp3",
+  "dur": 2.73,
+  "key": "color|THE WHISTLE IS JUST A SUGGESTION",
+  "said": "[laughs] The whistle is just a suggestion!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|THAT ONE WAS PERSONAL": {
+  "file": "el-color-2b9147c8.mp3",
+  "dur": 2.32,
+  "key": "color|THAT ONE WAS PERSONAL",
+  "said": "[laughs] That one was personal!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|NO MERCY BABY": {
+  "file": "el-color-95f19c54.mp3",
+  "dur": 2.22,
+  "key": "color|NO MERCY BABY",
+  "said": "[laughs] No mercy, baby!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|EXTRA CRISPY": {
+  "file": "el-color-7272e696.mp3",
+  "dur": 1.46,
+  "key": "color|EXTRA CRISPY",
+  "said": "[excited] Extra crispy!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|GOLDEN BROWN AND DELICIOUS": {
+  "file": "el-color-d6e7f037.mp3",
+  "dur": 1.94,
+  "key": "color|GOLDEN BROWN AND DELICIOUS",
+  "said": "[excited] Golden brown and delicious!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|ORDER UP": {
+  "file": "el-color-e225f747.mp3",
+  "dur": 0.76,
+  "key": "color|ORDER UP",
+  "said": "[excited] Order up!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|SERVE IT UP": {
+  "file": "el-color-0c77a52f.mp3",
+  "dur": 0.6,
+  "key": "color|SERVE IT UP",
+  "said": "[excited] Serve it up!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|THAT IS A TEN PIECE": {
+  "file": "el-color-70f2f696.mp3",
+  "dur": 1.81,
+  "key": "color|THAT IS A TEN PIECE",
+  "said": "[excited] That is a ten piece!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|HE NEVER SAW IT COMING": {
+  "file": "el-color-07bd26c0.mp3",
+  "dur": 1.94,
+  "key": "color|HE NEVER SAW IT COMING",
+  "said": "[laughs] He never saw it coming!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|THAT QUARTERBACK IS TOAST": {
+  "file": "el-color-a934883b.mp3",
+  "dur": 2.29,
+  "key": "color|THAT QUARTERBACK IS TOAST",
+  "said": "[laughs] That quarterback is toast!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|WELCOME TO THE N F N": {
+  "file": "el-color-d689c132.mp3",
+  "dur": 2.67,
+  "key": "color|WELCOME TO THE N F N",
+  "said": "[laughs] Welcome to the N.F.N.!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|RIGHT IN THE BREADING": {
+  "file": "el-color-e64ac455.mp3",
+  "dur": 1.98,
+  "key": "color|RIGHT IN THE BREADING",
+  "said": "[laughs] Right in the breading!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|HE THREW IT RIGHT TO HIM": {
+  "file": "el-color-8f7574f2.mp3",
+  "dur": 1.82,
+  "key": "color|HE THREW IT RIGHT TO HIM",
+  "said": "[sarcastic] He threw it right to him!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|WHAT WAS HE THINKING": {
+  "file": "el-color-87ddb279.mp3",
+  "dur": 1.47,
+  "key": "color|WHAT WAS HE THINKING",
+  "said": "[sarcastic] What was he thinking?",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|THAT ONE IS GOING ON THE BLOOPER REEL": {
+  "file": "el-color-80cbf06e.mp3",
+  "dur": 2.06,
+  "key": "color|THAT ONE IS GOING ON THE BLOOPER REEL",
+  "said": "[sarcastic] That one is going on the blooper reel!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|BUTTERFINGERS": {
+  "file": "el-color-1ca59b14.mp3",
+  "dur": 0.94,
+  "key": "color|BUTTERFINGERS",
+  "said": "[sarcastic] Butterfingers!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|HE HAD IT AND HE DROPPED IT": {
+  "file": "el-color-52e60251.mp3",
+  "dur": 2.14,
+  "key": "color|HE HAD IT AND HE DROPPED IT",
+  "said": "[sarcastic] He had it and he dropped it!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|HANDS OF STONE": {
+  "file": "el-color-fda0aa14.mp3",
+  "dur": 1.55,
+  "key": "color|HANDS OF STONE",
+  "said": "[sarcastic] Hands of stone!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|TOO GREASY": {
+  "file": "el-color-c77d589d.mp3",
+  "dur": 1.35,
+  "key": "color|TOO GREASY",
+  "said": "[sarcastic] Too greasy!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|WHAT A GRAB": {
+  "file": "el-color-3d3e61fe.mp3",
+  "dur": 1.11,
+  "key": "color|WHAT A GRAB",
+  "said": "[impressed] What a grab!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|HE SNAGGED IT": {
+  "file": "el-color-4103b568.mp3",
+  "dur": 1.16,
+  "key": "color|HE SNAGGED IT",
+  "said": "[impressed] He snagged it!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|WHAT HANDS": {
+  "file": "el-color-2678300d.mp3",
+  "dur": 1.25,
+  "key": "color|WHAT HANDS",
+  "said": "[impressed] What hands!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|STICKY FINGERS": {
+  "file": "el-color-54548b2d.mp3",
+  "dur": 1.61,
+  "key": "color|STICKY FINGERS",
+  "said": "[impressed] Sticky fingers!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|HE LAID OUT FOR IT": {
+  "file": "el-color-6cf6b091.mp3",
+  "dur": 1.69,
+  "key": "color|HE LAID OUT FOR IT",
+  "said": "[impressed] He laid out for it!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|WHAT A DIVE": {
+  "file": "el-color-e164ee5f.mp3",
+  "dur": 1.19,
+  "key": "color|WHAT A DIVE",
+  "said": "[impressed] What a dive!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|FULL EXTENSION": {
+  "file": "el-color-f9d1b3b1.mp3",
+  "dur": 1.49,
+  "key": "color|FULL EXTENSION",
+  "said": "[impressed] Full extension!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|OH HE IS TALKING NOW": {
+  "file": "el-color-f06736f4.mp3",
+  "dur": 1.92,
+  "key": "color|OH HE IS TALKING NOW",
+  "said": "[amused] Oh, he is talking now!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|A LITTLE TRASH TALK AT THE LINE": {
+  "file": "el-color-e979b9fe.mp3",
+  "dur": 2.01,
+  "key": "color|A LITTLE TRASH TALK AT THE LINE",
+  "said": "[amused] A little trash talk at the line!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|SOMEBODY IS CONFIDENT": {
+  "file": "el-color-49c36a18.mp3",
+  "dur": 1.45,
+  "key": "color|SOMEBODY IS CONFIDENT",
+  "said": "[amused] Somebody is confident!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|THESE TWO DO NOT LIKE EACH OTHER": {
+  "file": "el-color-6ef1ac07.mp3",
+  "dur": 2.02,
+  "key": "color|THESE TWO DO NOT LIKE EACH OTHER",
+  "said": "[amused] These two do not like each other!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|OH THEY ARE JAWING": {
+  "file": "el-color-7cfb72cd.mp3",
+  "dur": 1.76,
+  "key": "color|OH THEY ARE JAWING",
+  "said": "[amused] Oh, they are jawing!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|LOOK AT HIM SHOWBOAT": {
+  "file": "el-color-c91eb3b9.mp3",
+  "dur": 1.5,
+  "key": "color|LOOK AT HIM SHOWBOAT",
+  "said": "[amused] Look at him showboat!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|HE IS TAUNTING THEM": {
+  "file": "el-color-4e589af9.mp3",
+  "dur": 1.49,
+  "key": "color|HE IS TAUNTING THEM",
+  "said": "[amused] He is taunting them!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|SOMEBODY STOP THIS MAN": {
+  "file": "el-color-4850849f.mp3",
+  "dur": 1.83,
+  "key": "color|SOMEBODY STOP THIS MAN",
+  "said": "[amused] Somebody stop this man!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|OH THE DISRESPECT": {
+  "file": "el-color-027fd807.mp3",
+  "dur": 1.82,
+  "key": "color|OH THE DISRESPECT",
+  "said": "[amused] Oh, the disrespect!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|STUFFED": {
+  "file": "el-color-fce99213.mp3",
+  "dur": 1.28,
+  "key": "color|STUFFED",
+  "said": "[sarcastic] Stuffed!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|NOWHERE TO GO": {
+  "file": "el-color-a0641b75.mp3",
+  "dur": 1.18,
+  "key": "color|NOWHERE TO GO",
+  "said": "[sarcastic] Nowhere to go!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|HE RAN INTO A WALL": {
+  "file": "el-color-3c4e1e25.mp3",
+  "dur": 1.69,
+  "key": "color|HE RAN INTO A WALL",
+  "said": "[sarcastic] He ran into a wall!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|NOTHING THERE": {
+  "file": "el-color-88b6a369.mp3",
+  "dur": 1.05,
+  "key": "color|NOTHING THERE",
+  "said": "[sarcastic] Nothing there!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|HE IS LOOSE": {
+  "file": "el-color-e77078f6.mp3",
+  "dur": 1.43,
+  "key": "color|HE IS LOOSE",
+  "said": "[excited] He is loose!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|LOOK AT HIM GO": {
+  "file": "el-color-5a1590c5.mp3",
+  "dur": 1.3,
+  "key": "color|LOOK AT HIM GO",
+  "said": "[excited] Look at him go!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|BREAKAWAY": {
+  "file": "el-color-a37aeee7.mp3",
+  "dur": 1.03,
+  "key": "color|BREAKAWAY",
+  "said": "[excited] Breakaway!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|SEE YOU LATER": {
+  "file": "el-color-fbfd48d7.mp3",
+  "dur": 0.83,
+  "key": "color|SEE YOU LATER",
+  "said": "[excited] See you later!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|SOMEBODY GET A FIRE EXTINGUISHER": {
+  "file": "el-color-aa06e599.mp3",
+  "dur": 1.85,
+  "key": "color|SOMEBODY GET A FIRE EXTINGUISHER",
+  "said": "[excited] Somebody get a fire extinguisher!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|TOO HOT TO HANDLE": {
+  "file": "el-color-ef060f49.mp3",
+  "dur": 1.1,
+  "key": "color|TOO HOT TO HANDLE",
+  "said": "[excited] Too hot to handle!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|THE FRYER IS ON": {
+  "file": "el-color-b1580f71.mp3",
+  "dur": 1.66,
+  "key": "color|THE FRYER IS ON",
+  "said": "[excited] The fryer is on!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|OOF": {
+  "file": "el-color-081fc4cb.mp3",
+  "dur": 0.44,
+  "key": "color|OOF",
+  "said": "[sarcastic] Oof.",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|THAT IS GONNA MAKE THE BLOOPER REEL": {
+  "file": "el-color-755396a1.mp3",
+  "dur": 2.2,
+  "key": "color|THAT IS GONNA MAKE THE BLOOPER REEL",
+  "said": "[sarcastic] That is gonna make the blooper reel.",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|YIKES": {
+  "file": "el-color-0f0c80bf.mp3",
+  "dur": 0.81,
+  "key": "color|YIKES",
+  "said": "[sarcastic] Yikes.",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|LOOK AT THIS": {
+  "file": "el-color-171349c3.mp3",
+  "dur": 0.86,
+  "key": "color|LOOK AT THIS",
+  "said": "Look at this!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|OH HE IS FEELING IT": {
+  "file": "el-color-b342c74b.mp3",
+  "dur": 1.6,
+  "key": "color|OH HE IS FEELING IT",
+  "said": "Oh, he is feeling it!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|CELEBRATION TIME": {
+  "file": "el-color-c1a27023.mp3",
+  "dur": 1.46,
+  "key": "color|CELEBRATION TIME",
+  "said": "Celebration time!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "color|GET A PICTURE OF THIS": {
+  "file": "el-color-3c91f0ac.mp3",
+  "dur": 1.38,
+  "key": "color|GET A PICTURE OF THIS",
+  "said": "Get a picture of this!",
+  "voice": "mSOmKHC6GZcZbSTGlqHO",
+  "stability": 0.5
+ },
+ "qb:nugs|GOLDEN 22": {
+  "file": "el-qb-nugs-edb6c5d1.mp3",
+  "dur": 1.2,
+  "key": "qb:nugs|GOLDEN 22",
+  "said": "[shouting] Golden twenty-two!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "qb:nugs|GOLDEN 22#1": {
+  "file": "el-qb-nugs-904a1355.mp3",
+  "dur": 1.29,
+  "key": "qb:nugs|GOLDEN 22",
+  "said": "[shouting] Golden twenty-two!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "qb:nugs|GOLDEN 34": {
+  "file": "el-qb-nugs-bad63f3c.mp3",
+  "dur": 1.11,
+  "key": "qb:nugs|GOLDEN 34",
+  "said": "[shouting] Golden thirty-four!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "qb:nugs|GOLDEN 34#1": {
+  "file": "el-qb-nugs-bf7e72e1.mp3",
+  "dur": 1.19,
+  "key": "qb:nugs|GOLDEN 34",
+  "said": "[shouting] Golden thirty-four!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "qb:nugs|GOLDEN 44": {
+  "file": "el-qb-nugs-3a048cc5.mp3",
+  "dur": 1.08,
+  "key": "qb:nugs|GOLDEN 44",
+  "said": "[shouting] Golden forty-four!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "qb:nugs|GOLDEN 44#1": {
+  "file": "el-qb-nugs-7bec6020.mp3",
+  "dur": 1.23,
+  "key": "qb:nugs|GOLDEN 44",
+  "said": "[shouting] Golden forty-four!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "qb:nugs|GOLDEN 80": {
+  "file": "el-qb-nugs-550859fb.mp3",
+  "dur": 0.89,
+  "key": "qb:nugs|GOLDEN 80",
+  "said": "[shouting] Golden eighty!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "qb:nugs|GOLDEN 80#1": {
+  "file": "el-qb-nugs-3a05607a.mp3",
+  "dur": 1.02,
+  "key": "qb:nugs|GOLDEN 80",
+  "said": "[shouting] Golden eighty!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "qb:nugs|SET": {
+  "file": "el-qb-nugs-1a0270af.mp3",
+  "dur": 1.5,
+  "key": "qb:nugs|SET",
+  "said": "[shouting] Ready... SET!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "qb:nugs|SET#1": {
+  "file": "el-qb-nugs-2d2d1fa0.mp3",
+  "dur": 1.06,
+  "key": "qb:nugs|SET",
+  "said": "[shouting] Get set!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "qb:nugs|SET#2": {
+  "file": "el-qb-nugs-0becca95.mp3",
+  "dur": 1.66,
+  "key": "qb:nugs|SET",
+  "said": "[shouting] Ready, SET!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "qb:nugs|HUT": {
+  "file": "el-qb-nugs-f4dc18af.mp3",
+  "dur": 1.04,
+  "key": "qb:nugs|HUT",
+  "said": "[shouting] HUT! HIKE!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "qb:nugs|HUT#1": {
+  "file": "el-qb-nugs-4bfe6498.mp3",
+  "dur": 0.78,
+  "key": "qb:nugs|HUT",
+  "said": "[shouting] Hike!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "qb:nugs|HUT#2": {
+  "file": "el-qb-nugs-872e2f04.mp3",
+  "dur": 1.64,
+  "key": "qb:nugs|HUT",
+  "said": "[shouting] Hut, hut, HIKE!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "qb:frygods|OLYMPUS 22": {
+  "file": "el-qb-frygods-3d5a99f4.mp3",
+  "dur": 2.46,
+  "key": "qb:frygods|OLYMPUS 22",
+  "said": "[shouting] Olympus twenty-two!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "qb:frygods|OLYMPUS 22#1": {
+  "file": "el-qb-frygods-79deb223.mp3",
+  "dur": 2.39,
+  "key": "qb:frygods|OLYMPUS 22",
+  "said": "[shouting] Olympus twenty-two!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "qb:frygods|OLYMPUS 34": {
+  "file": "el-qb-frygods-7caf81e6.mp3",
+  "dur": 2.29,
+  "key": "qb:frygods|OLYMPUS 34",
+  "said": "[shouting] Olympus thirty-four!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "qb:frygods|OLYMPUS 34#1": {
+  "file": "el-qb-frygods-6a4c5005.mp3",
+  "dur": 2.56,
+  "key": "qb:frygods|OLYMPUS 34",
+  "said": "[shouting] Olympus thirty-four!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "qb:frygods|OLYMPUS 44": {
+  "file": "el-qb-frygods-699f5972.mp3",
+  "dur": 3.26,
+  "key": "qb:frygods|OLYMPUS 44",
+  "said": "[shouting] Olympus forty-four!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "qb:frygods|OLYMPUS 44#1": {
+  "file": "el-qb-frygods-7f3d1afc.mp3",
+  "dur": 2.58,
+  "key": "qb:frygods|OLYMPUS 44",
+  "said": "[shouting] Olympus forty-four!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "qb:frygods|OLYMPUS 80": {
+  "file": "el-qb-frygods-54867de8.mp3",
+  "dur": 1.87,
+  "key": "qb:frygods|OLYMPUS 80",
+  "said": "[shouting] Olympus eighty!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "qb:frygods|OLYMPUS 80#1": {
+  "file": "el-qb-frygods-fb69c1dd.mp3",
+  "dur": 2.13,
+  "key": "qb:frygods|OLYMPUS 80",
+  "said": "[shouting] Olympus eighty!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "qb:frygods|SET": {
+  "file": "el-qb-frygods-748bb3be.mp3",
+  "dur": 1.84,
+  "key": "qb:frygods|SET",
+  "said": "[shouting] Ready... SET!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "qb:frygods|SET#1": {
+  "file": "el-qb-frygods-178faac7.mp3",
+  "dur": 1.68,
+  "key": "qb:frygods|SET",
+  "said": "[shouting] Get set!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "qb:frygods|SET#2": {
+  "file": "el-qb-frygods-067c617c.mp3",
+  "dur": 1.84,
+  "key": "qb:frygods|SET",
+  "said": "[shouting] Ready, SET!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "qb:frygods|HUT": {
+  "file": "el-qb-frygods-39515b46.mp3",
+  "dur": 1.68,
+  "key": "qb:frygods|HUT",
+  "said": "[shouting] HUT! HIKE!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "qb:frygods|HUT#1": {
+  "file": "el-qb-frygods-b595ffa5.mp3",
+  "dur": 1.29,
+  "key": "qb:frygods|HUT",
+  "said": "[shouting] Hike!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "qb:frygods|HUT#2": {
+  "file": "el-qb-frygods-731e832c.mp3",
+  "dur": 1.74,
+  "key": "qb:frygods|HUT",
+  "said": "[shouting] Hut, hut, HIKE!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "qb:tots|TOT TOT 22": {
+  "file": "el-qb-tots-5a0c5ac4.mp3",
+  "dur": 1.82,
+  "key": "qb:tots|TOT TOT 22",
+  "said": "[shouting] Tot-tot twenty-two!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "qb:tots|TOT TOT 22#1": {
+  "file": "el-qb-tots-ed3fd814.mp3",
+  "dur": 1.9,
+  "key": "qb:tots|TOT TOT 22",
+  "said": "[shouting] Tot-tot twenty-two!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "qb:tots|TOT TOT 34": {
+  "file": "el-qb-tots-1fd17e70.mp3",
+  "dur": 1.94,
+  "key": "qb:tots|TOT TOT 34",
+  "said": "[shouting] Tot-tot thirty-four!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "qb:tots|TOT TOT 34#1": {
+  "file": "el-qb-tots-8dd1366b.mp3",
+  "dur": 1.93,
+  "key": "qb:tots|TOT TOT 34",
+  "said": "[shouting] Tot-tot thirty-four!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "qb:tots|TOT TOT 44": {
+  "file": "el-qb-tots-6f54c959.mp3",
+  "dur": 2.24,
+  "key": "qb:tots|TOT TOT 44",
+  "said": "[shouting] Tot-tot forty-four!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "qb:tots|TOT TOT 44#1": {
+  "file": "el-qb-tots-8aeff49b.mp3",
+  "dur": 2.28,
+  "key": "qb:tots|TOT TOT 44",
+  "said": "[shouting] Tot-tot forty-four!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "qb:tots|TOT TOT 80": {
+  "file": "el-qb-tots-9071c3e3.mp3",
+  "dur": 2.22,
+  "key": "qb:tots|TOT TOT 80",
+  "said": "[shouting] Tot-tot eighty!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "qb:tots|TOT TOT 80#1": {
+  "file": "el-qb-tots-48ed01ef.mp3",
+  "dur": 2.21,
+  "key": "qb:tots|TOT TOT 80",
+  "said": "[shouting] Tot-tot eighty!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "qb:tots|SET": {
+  "file": "el-qb-tots-076ac127.mp3",
+  "dur": 2.45,
+  "key": "qb:tots|SET",
+  "said": "[shouting] Ready... SET!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "qb:tots|SET#1": {
+  "file": "el-qb-tots-248a68d9.mp3",
+  "dur": 1.13,
+  "key": "qb:tots|SET",
+  "said": "[shouting] Get set!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "qb:tots|SET#2": {
+  "file": "el-qb-tots-4a08d400.mp3",
+  "dur": 1.93,
+  "key": "qb:tots|SET",
+  "said": "[shouting] Ready, SET!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "qb:tots|HUT": {
+  "file": "el-qb-tots-6fd1242a.mp3",
+  "dur": 1.73,
+  "key": "qb:tots|HUT",
+  "said": "[shouting] HUT! HIKE!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "qb:tots|HUT#1": {
+  "file": "el-qb-tots-f9a7d814.mp3",
+  "dur": 0.48,
+  "key": "qb:tots|HUT",
+  "said": "[shouting] Hike!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "qb:tots|HUT#2": {
+  "file": "el-qb-tots-b815a864.mp3",
+  "dur": 1.43,
+  "key": "qb:tots|HUT",
+  "said": "[shouting] Hut, hut, HIKE!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "qb:ranch|COOL RANCH 22": {
+  "file": "el-qb-ranch-f8e5e268.mp3",
+  "dur": 2.2,
+  "key": "qb:ranch|COOL RANCH 22",
+  "said": "[shouting] Cool ranch twenty-two!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "qb:ranch|COOL RANCH 22#1": {
+  "file": "el-qb-ranch-c6e4c18d.mp3",
+  "dur": 1.88,
+  "key": "qb:ranch|COOL RANCH 22",
+  "said": "[shouting] Cool ranch twenty-two!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "qb:ranch|COOL RANCH 34": {
+  "file": "el-qb-ranch-defaa0c5.mp3",
+  "dur": 2.35,
+  "key": "qb:ranch|COOL RANCH 34",
+  "said": "[shouting] Cool ranch thirty-four!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "qb:ranch|COOL RANCH 34#1": {
+  "file": "el-qb-ranch-8520967d.mp3",
+  "dur": 1.73,
+  "key": "qb:ranch|COOL RANCH 34",
+  "said": "[shouting] Cool ranch thirty-four!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "qb:ranch|COOL RANCH 44": {
+  "file": "el-qb-ranch-80bb7870.mp3",
+  "dur": 2.24,
+  "key": "qb:ranch|COOL RANCH 44",
+  "said": "[shouting] Cool ranch forty-four!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "qb:ranch|COOL RANCH 44#1": {
+  "file": "el-qb-ranch-4d45d20f.mp3",
+  "dur": 1.96,
+  "key": "qb:ranch|COOL RANCH 44",
+  "said": "[shouting] Cool ranch forty-four!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "qb:ranch|COOL RANCH 80": {
+  "file": "el-qb-ranch-1e0437e5.mp3",
+  "dur": 1.79,
+  "key": "qb:ranch|COOL RANCH 80",
+  "said": "[shouting] Cool ranch eighty!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "qb:ranch|COOL RANCH 80#1": {
+  "file": "el-qb-ranch-3307fbf3.mp3",
+  "dur": 1.9,
+  "key": "qb:ranch|COOL RANCH 80",
+  "said": "[shouting] Cool ranch eighty!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "qb:ranch|SET": {
+  "file": "el-qb-ranch-fb609ab3.mp3",
+  "dur": 2.33,
+  "key": "qb:ranch|SET",
+  "said": "[shouting] Ready... SET!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "qb:ranch|SET#1": {
+  "file": "el-qb-ranch-094cc96b.mp3",
+  "dur": 1.1,
+  "key": "qb:ranch|SET",
+  "said": "[shouting] Get set!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "qb:ranch|SET#2": {
+  "file": "el-qb-ranch-e609804c.mp3",
+  "dur": 2.25,
+  "key": "qb:ranch|SET",
+  "said": "[shouting] Ready, SET!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "qb:ranch|HUT": {
+  "file": "el-qb-ranch-2243eef2.mp3",
+  "dur": 1.9,
+  "key": "qb:ranch|HUT",
+  "said": "[shouting] HUT! HIKE!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "qb:ranch|HUT#1": {
+  "file": "el-qb-ranch-2b9055e9.mp3",
+  "dur": 1.07,
+  "key": "qb:ranch|HUT",
+  "said": "[shouting] Hike!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "qb:ranch|HUT#2": {
+  "file": "el-qb-ranch-ce8c8809.mp3",
+  "dur": 1.7,
+  "key": "qb:ranch|HUT",
+  "said": "[shouting] Hut, hut, HIKE!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "qb:bosses|BIG SMOKE 22": {
+  "file": "el-qb-bosses-70b37e07.mp3",
+  "dur": 2.04,
+  "key": "qb:bosses|BIG SMOKE 22",
+  "said": "[shouting] Big smoke twenty-two!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "qb:bosses|BIG SMOKE 22#1": {
+  "file": "el-qb-bosses-e1453a5c.mp3",
+  "dur": 1.54,
+  "key": "qb:bosses|BIG SMOKE 22",
+  "said": "[shouting] Big smoke twenty-two!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "qb:bosses|BIG SMOKE 34": {
+  "file": "el-qb-bosses-d2010f95.mp3",
+  "dur": 1.8,
+  "key": "qb:bosses|BIG SMOKE 34",
+  "said": "[shouting] Big smoke thirty-four!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "qb:bosses|BIG SMOKE 34#1": {
+  "file": "el-qb-bosses-57322556.mp3",
+  "dur": 3.52,
+  "key": "qb:bosses|BIG SMOKE 34",
+  "said": "[shouting] Big smoke thirty-four!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "qb:bosses|BIG SMOKE 44": {
+  "file": "el-qb-bosses-c68a5251.mp3",
+  "dur": 1.99,
+  "key": "qb:bosses|BIG SMOKE 44",
+  "said": "[shouting] Big smoke forty-four!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "qb:bosses|BIG SMOKE 44#1": {
+  "file": "el-qb-bosses-2fb36d94.mp3",
+  "dur": 2.64,
+  "key": "qb:bosses|BIG SMOKE 44",
+  "said": "[shouting] Big smoke forty-four!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "qb:bosses|BIG SMOKE 80": {
+  "file": "el-qb-bosses-fad2c095.mp3",
+  "dur": 1.3,
+  "key": "qb:bosses|BIG SMOKE 80",
+  "said": "[shouting] Big smoke eighty!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "qb:bosses|BIG SMOKE 80#1": {
+  "file": "el-qb-bosses-2b3355dc.mp3",
+  "dur": 1.66,
+  "key": "qb:bosses|BIG SMOKE 80",
+  "said": "[shouting] Big smoke eighty!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "qb:bosses|SET": {
+  "file": "el-qb-bosses-d0313ad7.mp3",
+  "dur": 2.0,
+  "key": "qb:bosses|SET",
+  "said": "[shouting] Ready... SET!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "qb:bosses|SET#1": {
+  "file": "el-qb-bosses-ab2541c8.mp3",
+  "dur": 0.84,
+  "key": "qb:bosses|SET",
+  "said": "[shouting] Get set!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "qb:bosses|SET#2": {
+  "file": "el-qb-bosses-5261f88b.mp3",
+  "dur": 1.82,
+  "key": "qb:bosses|SET",
+  "said": "[shouting] Ready, SET!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "qb:bosses|HUT": {
+  "file": "el-qb-bosses-4f1184c5.mp3",
+  "dur": 1.73,
+  "key": "qb:bosses|HUT",
+  "said": "[shouting] Hike the ball!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "qb:bosses|HUT#1": {
+  "file": "el-qb-bosses-06dbaec3.mp3",
+  "dur": 1.53,
+  "key": "qb:bosses|HUT",
+  "said": "[shouting] Go! Go! HIKE!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "qb:bosses|HUT#2": {
+  "file": "el-qb-bosses-014a2dc6.mp3",
+  "dur": 1.84,
+  "key": "qb:bosses|HUT",
+  "said": "[shouting] Ready... HIKE!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "qb:rings|LAYER 22": {
+  "file": "el-qb-rings-ac4f4c7d.mp3",
+  "dur": 1.83,
+  "key": "qb:rings|LAYER 22",
+  "said": "[shouting] Layer twenty-two!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "qb:rings|LAYER 22#1": {
+  "file": "el-qb-rings-8c23f757.mp3",
+  "dur": 2.71,
+  "key": "qb:rings|LAYER 22",
+  "said": "[shouting] Layer twenty-two!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "qb:rings|LAYER 34": {
+  "file": "el-qb-rings-55628561.mp3",
+  "dur": 1.81,
+  "key": "qb:rings|LAYER 34",
+  "said": "[shouting] Layer thirty-four!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "qb:rings|LAYER 34#1": {
+  "file": "el-qb-rings-59630ffc.mp3",
+  "dur": 2.16,
+  "key": "qb:rings|LAYER 34",
+  "said": "[shouting] Layer thirty-four!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "qb:rings|LAYER 44": {
+  "file": "el-qb-rings-d51d5e3d.mp3",
+  "dur": 2.47,
+  "key": "qb:rings|LAYER 44",
+  "said": "[shouting] Layer forty-four!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "qb:rings|LAYER 44#1": {
+  "file": "el-qb-rings-5ef79153.mp3",
+  "dur": 2.02,
+  "key": "qb:rings|LAYER 44",
+  "said": "[shouting] Layer forty-four!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "qb:rings|LAYER 80": {
+  "file": "el-qb-rings-27e3984f.mp3",
+  "dur": 1.76,
+  "key": "qb:rings|LAYER 80",
+  "said": "[shouting] Layer eighty!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "qb:rings|LAYER 80#1": {
+  "file": "el-qb-rings-34169d3c.mp3",
+  "dur": 3.04,
+  "key": "qb:rings|LAYER 80",
+  "said": "[shouting] Layer eighty!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "qb:rings|SET": {
+  "file": "el-qb-rings-9ab91ba7.mp3",
+  "dur": 2.81,
+  "key": "qb:rings|SET",
+  "said": "[shouting] Ready... SET!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "qb:rings|SET#1": {
+  "file": "el-qb-rings-f11a2269.mp3",
+  "dur": 1.38,
+  "key": "qb:rings|SET",
+  "said": "[shouting] Get set!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "qb:rings|SET#2": {
+  "file": "el-qb-rings-47257816.mp3",
+  "dur": 2.27,
+  "key": "qb:rings|SET",
+  "said": "[shouting] Ready, SET!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "qb:rings|HUT": {
+  "file": "el-qb-rings-d5e3ad64.mp3",
+  "dur": 1.64,
+  "key": "qb:rings|HUT",
+  "said": "[shouting] HUT! HIKE!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "qb:rings|HUT#1": {
+  "file": "el-qb-rings-8b0e629d.mp3",
+  "dur": 1.23,
+  "key": "qb:rings|HUT",
+  "said": "[shouting] Hike!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "qb:rings|HUT#2": {
+  "file": "el-qb-rings-73e498cd.mp3",
+  "dur": 2.0,
+  "key": "qb:rings|HUT",
+  "said": "[shouting] Hut, hut, HIKE!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "qb:mustard|STINGER 22": {
+  "file": "el-qb-mustard-02e9cede.mp3",
+  "dur": 1.37,
+  "key": "qb:mustard|STINGER 22",
+  "said": "[shouting] Stinger twenty-two!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "qb:mustard|STINGER 22#1": {
+  "file": "el-qb-mustard-e1a75db6.mp3",
+  "dur": 1.77,
+  "key": "qb:mustard|STINGER 22",
+  "said": "[shouting] Stinger twenty-two!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "qb:mustard|STINGER 34": {
+  "file": "el-qb-mustard-40ada5b3.mp3",
+  "dur": 1.44,
+  "key": "qb:mustard|STINGER 34",
+  "said": "[shouting] Stinger thirty-four!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "qb:mustard|STINGER 34#1": {
+  "file": "el-qb-mustard-18afee7e.mp3",
+  "dur": 1.45,
+  "key": "qb:mustard|STINGER 34",
+  "said": "[shouting] Stinger thirty-four!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "qb:mustard|STINGER 44": {
+  "file": "el-qb-mustard-5bac2d1a.mp3",
+  "dur": 1.2,
+  "key": "qb:mustard|STINGER 44",
+  "said": "[shouting] Stinger forty-four!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "qb:mustard|STINGER 44#1": {
+  "file": "el-qb-mustard-f95579d3.mp3",
+  "dur": 1.32,
+  "key": "qb:mustard|STINGER 44",
+  "said": "[shouting] Stinger forty-four!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "qb:mustard|STINGER 80": {
+  "file": "el-qb-mustard-e838003f.mp3",
+  "dur": 1.35,
+  "key": "qb:mustard|STINGER 80",
+  "said": "[shouting] Stinger eighty!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "qb:mustard|STINGER 80#1": {
+  "file": "el-qb-mustard-a8d14cfe.mp3",
+  "dur": 1.51,
+  "key": "qb:mustard|STINGER 80",
+  "said": "[shouting] Stinger eighty!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "qb:mustard|SET": {
+  "file": "el-qb-mustard-60be2a5b.mp3",
+  "dur": 1.33,
+  "key": "qb:mustard|SET",
+  "said": "[shouting] Ready... SET!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "qb:mustard|SET#1": {
+  "file": "el-qb-mustard-1650b9b6.mp3",
+  "dur": 0.88,
+  "key": "qb:mustard|SET",
+  "said": "[shouting] Get set!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "qb:mustard|SET#2": {
+  "file": "el-qb-mustard-33526059.mp3",
+  "dur": 1.2,
+  "key": "qb:mustard|SET",
+  "said": "[shouting] Ready, SET!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "qb:mustard|HUT": {
+  "file": "el-qb-mustard-4c55a69b.mp3",
+  "dur": 1.75,
+  "key": "qb:mustard|HUT",
+  "said": "[shouting] HUT! HIKE!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "qb:mustard|HUT#1": {
+  "file": "el-qb-mustard-2032d59a.mp3",
+  "dur": 0.37,
+  "key": "qb:mustard|HUT",
+  "said": "[shouting] Hike!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "qb:mustard|HUT#2": {
+  "file": "el-qb-mustard-3063151a.mp3",
+  "dur": 1.43,
+  "key": "qb:mustard|HUT",
+  "said": "[shouting] Ready... HIKE!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "qb:curly|SPIRAL 22": {
+  "file": "el-qb-curly-35de8415.mp3",
+  "dur": 1.47,
+  "key": "qb:curly|SPIRAL 22",
+  "said": "[shouting] Spiral twenty-two!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "qb:curly|SPIRAL 22#1": {
+  "file": "el-qb-curly-d49ebade.mp3",
+  "dur": 1.61,
+  "key": "qb:curly|SPIRAL 22",
+  "said": "[shouting] Spiral twenty-two!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "qb:curly|SPIRAL 34": {
+  "file": "el-qb-curly-a50e7c08.mp3",
+  "dur": 1.54,
+  "key": "qb:curly|SPIRAL 34",
+  "said": "[shouting] Spiral thirty-four!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "qb:curly|SPIRAL 34#1": {
+  "file": "el-qb-curly-1fd18f4f.mp3",
+  "dur": 1.38,
+  "key": "qb:curly|SPIRAL 34",
+  "said": "[shouting] Spiral thirty-four!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "qb:curly|SPIRAL 44": {
+  "file": "el-qb-curly-d83e599a.mp3",
+  "dur": 1.62,
+  "key": "qb:curly|SPIRAL 44",
+  "said": "[shouting] Spiral forty-four!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "qb:curly|SPIRAL 44#1": {
+  "file": "el-qb-curly-c03a2cd5.mp3",
+  "dur": 1.39,
+  "key": "qb:curly|SPIRAL 44",
+  "said": "[shouting] Spiral forty-four!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "qb:curly|SPIRAL 80": {
+  "file": "el-qb-curly-cfd00454.mp3",
+  "dur": 0.91,
+  "key": "qb:curly|SPIRAL 80",
+  "said": "[shouting] Spiral eighty!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "qb:curly|SPIRAL 80#1": {
+  "file": "el-qb-curly-17e4d4cd.mp3",
+  "dur": 1.16,
+  "key": "qb:curly|SPIRAL 80",
+  "said": "[shouting] Spiral eighty!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "qb:curly|SET": {
+  "file": "el-qb-curly-af99df36.mp3",
+  "dur": 1.84,
+  "key": "qb:curly|SET",
+  "said": "[shouting] Ready... SET!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "qb:curly|SET#1": {
+  "file": "el-qb-curly-8bd3970e.mp3",
+  "dur": 0.54,
+  "key": "qb:curly|SET",
+  "said": "[shouting] Get set!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "qb:curly|SET#2": {
+  "file": "el-qb-curly-557b000e.mp3",
+  "dur": 1.77,
+  "key": "qb:curly|SET",
+  "said": "[shouting] Ready, SET!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "qb:curly|HUT": {
+  "file": "el-qb-curly-de89298b.mp3",
+  "dur": 1.59,
+  "key": "qb:curly|HUT",
+  "said": "[shouting] HUT! HIKE!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "qb:curly|HUT#1": {
+  "file": "el-qb-curly-8dc4cbcf.mp3",
+  "dur": 1.74,
+  "key": "qb:curly|HUT",
+  "said": "[shouting] Hike!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "qb:curly|HUT#2": {
+  "file": "el-qb-curly-efc2aba1.mp3",
+  "dur": 1.43,
+  "key": "qb:curly|HUT",
+  "said": "[shouting] Hut, hut, HIKE!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "player:nugs|GOLDEN BROWN BABY": {
+  "file": "el-pl-nugs-034caad4.mp3",
+  "dur": 1.34,
+  "key": "player:nugs|GOLDEN BROWN BABY",
+  "said": "[shouting] Golden brown, baby!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "player:nugs|YOU ARE ABOUT TO GET DIPPED": {
+  "file": "el-pl-nugs-3fab6c23.mp3",
+  "dur": 1.49,
+  "key": "player:nugs|YOU ARE ABOUT TO GET DIPPED",
+  "said": "[mischievously] You are about to get dipped!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "player:nugs|TEN PIECE NO WAITING": {
+  "file": "el-pl-nugs-9939b764.mp3",
+  "dur": 1.7,
+  "key": "player:nugs|TEN PIECE NO WAITING",
+  "said": "[shouting] Ten piece, no waiting!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "player:nugs|NUGGETOWN STAND UP": {
+  "file": "el-pl-nugs-c9c72353.mp3",
+  "dur": 1.43,
+  "key": "player:nugs|NUGGETOWN STAND UP",
+  "said": "[shouting] Nugget-town, stand up!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "player:nugs|WE PUT THE NUG IN NUGGET": {
+  "file": "el-pl-nugs-ba2123af.mp3",
+  "dur": 1.71,
+  "key": "player:nugs|WE PUT THE NUG IN NUGGET",
+  "said": "[mischievously] We put the nug in nugget!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "player:nugs|YOU ARE GOING DOWN": {
+  "file": "el-pl-nugs-0f7f6fa7.mp3",
+  "dur": 1.26,
+  "key": "player:nugs|YOU ARE GOING DOWN",
+  "said": "[shouting] You are going down!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "player:nugs|EXTRA CRISPY": {
+  "file": "el-pl-nugs-edabbf1b.mp3",
+  "dur": 1.64,
+  "key": "player:nugs|EXTRA CRISPY",
+  "said": "[shouting] Extra crispy!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "player:nugs|NICE HELMET NOT": {
+  "file": "el-pl-nugs-305c803b.mp3",
+  "dur": 1.34,
+  "key": "player:nugs|NICE HELMET NOT",
+  "said": "[mischievously] Nice helmet. Not.",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "player:nugs|OVER HERE BUTTERFINGERS": {
+  "file": "el-pl-nugs-878696e8.mp3",
+  "dur": 1.46,
+  "key": "player:nugs|OVER HERE BUTTERFINGERS",
+  "said": "[shouting] Over here, butterfingers!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "player:nugs|HIKE IT I DARE YOU": {
+  "file": "el-pl-nugs-0a253de9.mp3",
+  "dur": 1.65,
+  "key": "player:nugs|HIKE IT I DARE YOU",
+  "said": "[shouting] Hike it, I dare you!",
+  "voice": "DGzg6RaUqxGRTHSBjfgF",
+  "stability": 0.0
+ },
+ "player:frygods|KNEEL BEFORE THE FRY": {
+  "file": "el-pl-frygods-93a4c197.mp3",
+  "dur": 2.16,
+  "key": "player:frygods|KNEEL BEFORE THE FRY",
+  "said": "[shouting] Kneel before the fry!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "player:frygods|SALTED BY THE GODS": {
+  "file": "el-pl-frygods-cd662a58.mp3",
+  "dur": 2.36,
+  "key": "player:frygods|SALTED BY THE GODS",
+  "said": "[shouting] Salted by the gods!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "player:frygods|BEHOLD MORTAL": {
+  "file": "el-pl-frygods-1ae607dd.mp3",
+  "dur": 2.16,
+  "key": "player:frygods|BEHOLD MORTAL",
+  "said": "[shouting] Behold, mortal!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "player:frygods|YOU DARE CHALLENGE US": {
+  "file": "el-pl-frygods-efd27fac.mp3",
+  "dur": 2.29,
+  "key": "player:frygods|YOU DARE CHALLENGE US",
+  "said": "[mischievously] You dare challenge us?",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "player:frygods|CRINKLE CUT BABY": {
+  "file": "el-pl-frygods-57bfbf0a.mp3",
+  "dur": 2.29,
+  "key": "player:frygods|CRINKLE CUT BABY",
+  "said": "[shouting] Crinkle cut, baby!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "player:frygods|COME GET SOME": {
+  "file": "el-pl-frygods-58b9a695.mp3",
+  "dur": 2.48,
+  "key": "player:frygods|COME GET SOME",
+  "said": "[shouting] Come get some!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "player:frygods|I AM COMING FOR YOU": {
+  "file": "el-pl-frygods-a64b6e4c.mp3",
+  "dur": 2.24,
+  "key": "player:frygods|I AM COMING FOR YOU",
+  "said": "[shouting] I am coming for you!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "player:frygods|BREADED AND READY": {
+  "file": "el-pl-frygods-c96b7076.mp3",
+  "dur": 1.69,
+  "key": "player:frygods|BREADED AND READY",
+  "said": "[shouting] Breaded and ready!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "player:frygods|YOU ARE ON THE MENU": {
+  "file": "el-pl-frygods-b80d40d4.mp3",
+  "dur": 2.88,
+  "key": "player:frygods|YOU ARE ON THE MENU",
+  "said": "[shouting] You are on the menu!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "player:frygods|NOBODY BEATS THE BATTER": {
+  "file": "el-pl-frygods-2558b5d1.mp3",
+  "dur": 2.73,
+  "key": "player:frygods|NOBODY BEATS THE BATTER",
+  "said": "[shouting] Nobody beats the batter!",
+  "voice": "ysswSXp8U9dFpzPJqFje",
+  "stability": 0.0
+ },
+ "player:tots|WE ARE SMALL BUT WE ARE MEAN": {
+  "file": "el-pl-tots-f4ea6f24.mp3",
+  "dur": 2.5,
+  "key": "player:tots|WE ARE SMALL BUT WE ARE MEAN",
+  "said": "[mischievously] We are small but we are mean!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "player:tots|BITE SIZE BIG HITS": {
+  "file": "el-pl-tots-a94c7adb.mp3",
+  "dur": 1.76,
+  "key": "player:tots|BITE SIZE BIG HITS",
+  "said": "[shouting] Bite size, big hits!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "player:tots|TOTS TOTS TOTS": {
+  "file": "el-pl-tots-976b9495.mp3",
+  "dur": 2.36,
+  "key": "player:tots|TOTS TOTS TOTS",
+  "said": "[shouting] Tots! Tots! Tots!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "player:tots|YOU ARE TOAST": {
+  "file": "el-pl-tots-47f83220.mp3",
+  "dur": 1.67,
+  "key": "player:tots|YOU ARE TOAST",
+  "said": "[shouting] You are toast!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "player:tots|FAMILY SIZE BEATDOWN": {
+  "file": "el-pl-tots-1e940301.mp3",
+  "dur": 2.09,
+  "key": "player:tots|FAMILY SIZE BEATDOWN",
+  "said": "[shouting] Family size beatdown!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "player:tots|I SMELL FRIES": {
+  "file": "el-pl-tots-bf3507bc.mp3",
+  "dur": 1.48,
+  "key": "player:tots|I SMELL FRIES",
+  "said": "[shouting] I smell fries!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "player:tots|IS THAT ALL YOU GOT": {
+  "file": "el-pl-tots-0bb29854.mp3",
+  "dur": 2.02,
+  "key": "player:tots|IS THAT ALL YOU GOT",
+  "said": "[mischievously] Is that all you got?",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "player:tots|YOU ARE SOGGY": {
+  "file": "el-pl-tots-48dd5819.mp3",
+  "dur": 1.66,
+  "key": "player:tots|YOU ARE SOGGY",
+  "said": "[shouting] You are soggy!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "player:tots|NO REFS NO RULES": {
+  "file": "el-pl-tots-ef02ae24.mp3",
+  "dur": 2.03,
+  "key": "player:tots|NO REFS NO RULES",
+  "said": "[shouting] No refs, no rules!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "player:tots|YOU ARE GETTING DUNKED": {
+  "file": "el-pl-tots-b70f224b.mp3",
+  "dur": 1.69,
+  "key": "player:tots|YOU ARE GETTING DUNKED",
+  "said": "[shouting] You are getting dunked!",
+  "voice": "QzTKubutNn9TjrB7Xb2Q",
+  "stability": 0.0
+ },
+ "player:ranch|STAY COOL KID": {
+  "file": "el-pl-ranch-f7db6013.mp3",
+  "dur": 1.68,
+  "key": "player:ranch|STAY COOL KID",
+  "said": "[mischievously] Stay cool, kid.",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "player:ranch|WELCOME TO DIP CITY": {
+  "file": "el-pl-ranch-de18d76b.mp3",
+  "dur": 2.11,
+  "key": "player:ranch|WELCOME TO DIP CITY",
+  "said": "[shouting] Welcome to dip city!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "player:ranch|WE GO WITH EVERYTHING": {
+  "file": "el-pl-ranch-9e53d829.mp3",
+  "dur": 2.68,
+  "key": "player:ranch|WE GO WITH EVERYTHING",
+  "said": "[shouting] We go with everything!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "player:ranch|CREAMY AND MEAN": {
+  "file": "el-pl-ranch-33836346.mp3",
+  "dur": 2.62,
+  "key": "player:ranch|CREAMY AND MEAN",
+  "said": "[mischievously] Creamy. And mean.",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "player:ranch|YOU ARE DRESSED FOR A LOSS": {
+  "file": "el-pl-ranch-40b879d8.mp3",
+  "dur": 2.02,
+  "key": "player:ranch|YOU ARE DRESSED FOR A LOSS",
+  "said": "[mischievously] You are dressed for a loss!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "player:ranch|YOU ARE GOING DOWN": {
+  "file": "el-pl-ranch-662d889a.mp3",
+  "dur": 1.97,
+  "key": "player:ranch|YOU ARE GOING DOWN",
+  "said": "[shouting] You are going down!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "player:ranch|EXTRA CRISPY": {
+  "file": "el-pl-ranch-67e12ecd.mp3",
+  "dur": 1.89,
+  "key": "player:ranch|EXTRA CRISPY",
+  "said": "[shouting] Extra crispy!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "player:ranch|NICE HELMET NOT": {
+  "file": "el-pl-ranch-564957d7.mp3",
+  "dur": 2.49,
+  "key": "player:ranch|NICE HELMET NOT",
+  "said": "[mischievously] Nice helmet. Not.",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "player:ranch|OVER HERE BUTTERFINGERS": {
+  "file": "el-pl-ranch-1d4d7f98.mp3",
+  "dur": 2.08,
+  "key": "player:ranch|OVER HERE BUTTERFINGERS",
+  "said": "[shouting] Over here, butterfingers!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "player:ranch|HIKE IT I DARE YOU": {
+  "file": "el-pl-ranch-ecda480e.mp3",
+  "dur": 1.64,
+  "key": "player:ranch|HIKE IT I DARE YOU",
+  "said": "[shouting] Hike it, I dare you!",
+  "voice": "Av4Fi2idMFuA8kTbVZgv",
+  "stability": 0.0
+ },
+ "player:bosses|YOU ARE GETTING SAUCED": {
+  "file": "el-pl-bosses-2ead8799.mp3",
+  "dur": 2.65,
+  "key": "player:bosses|YOU ARE GETTING SAUCED",
+  "said": "[shouting] You are getting sauced!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "player:bosses|LOW AND SLOW BABY": {
+  "file": "el-pl-bosses-3cf78d6e.mp3",
+  "dur": 1.76,
+  "key": "player:bosses|LOW AND SLOW BABY",
+  "said": "[shouting] Low and slow, baby!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "player:bosses|I SMELL BRISKET": {
+  "file": "el-pl-bosses-26fb1b0e.mp3",
+  "dur": 2.08,
+  "key": "player:bosses|I SMELL BRISKET",
+  "said": "[shouting] I smell brisket!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "player:bosses|WE SMOKE FOOLS": {
+  "file": "el-pl-bosses-89a5e043.mp3",
+  "dur": 1.66,
+  "key": "player:bosses|WE SMOKE FOOLS",
+  "said": "[shouting] We smoke fools!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "player:bosses|PASS THE SAUCE": {
+  "file": "el-pl-bosses-aacab6de.mp3",
+  "dur": 1.88,
+  "key": "player:bosses|PASS THE SAUCE",
+  "said": "[shouting] Pass the sauce!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "player:bosses|COME GET SOME": {
+  "file": "el-pl-bosses-a3a5bc28.mp3",
+  "dur": 1.92,
+  "key": "player:bosses|COME GET SOME",
+  "said": "[shouting] Come get some!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "player:bosses|I AM COMING FOR YOU": {
+  "file": "el-pl-bosses-570105af.mp3",
+  "dur": 1.67,
+  "key": "player:bosses|I AM COMING FOR YOU",
+  "said": "[shouting] I am coming for you!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "player:bosses|BREADED AND READY": {
+  "file": "el-pl-bosses-e330834d.mp3",
+  "dur": 1.92,
+  "key": "player:bosses|BREADED AND READY",
+  "said": "[shouting] Breaded and ready!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "player:bosses|YOU ARE ON THE MENU": {
+  "file": "el-pl-bosses-621b930f.mp3",
+  "dur": 2.91,
+  "key": "player:bosses|YOU ARE ON THE MENU",
+  "said": "[shouting] You are on the menu!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "player:bosses|NOBODY BEATS THE BATTER": {
+  "file": "el-pl-bosses-5c0c67cd.mp3",
+  "dur": 1.93,
+  "key": "player:bosses|NOBODY BEATS THE BATTER",
+  "said": "[shouting] Nobody beats the batter!",
+  "voice": "Bj9UqZbhQsanLzgalpEG",
+  "stability": 0.0
+ },
+ "player:rings|PREPARE TO CRY": {
+  "file": "el-pl-rings-7b1d6dae.mp3",
+  "dur": 2.8,
+  "key": "player:rings|PREPARE TO CRY",
+  "said": "[shouting] Prepare to cry!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "player:rings|WE GOT LAYERS": {
+  "file": "el-pl-rings-442ac0f1.mp3",
+  "dur": 3.0,
+  "key": "player:rings|WE GOT LAYERS",
+  "said": "[shouting] We got layers!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "player:rings|ONION YOU GO": {
+  "file": "el-pl-rings-88c04c5d.mp3",
+  "dur": 1.96,
+  "key": "player:rings|ONION YOU GO",
+  "said": "[shouting] Onion you go!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "player:rings|PEEL HIM": {
+  "file": "el-pl-rings-6a114a28.mp3",
+  "dur": 2.37,
+  "key": "player:rings|PEEL HIM",
+  "said": "[shouting] Peel him!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "player:rings|TEARS ON THE FIELD": {
+  "file": "el-pl-rings-40368e73.mp3",
+  "dur": 1.88,
+  "key": "player:rings|TEARS ON THE FIELD",
+  "said": "[shouting] Tears on the field!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "player:rings|I SMELL FRIES": {
+  "file": "el-pl-rings-dde69e82.mp3",
+  "dur": 2.56,
+  "key": "player:rings|I SMELL FRIES",
+  "said": "[shouting] I smell fries!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "player:rings|IS THAT ALL YOU GOT": {
+  "file": "el-pl-rings-99897faa.mp3",
+  "dur": 2.01,
+  "key": "player:rings|IS THAT ALL YOU GOT",
+  "said": "[mischievously] Is that all you got?",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "player:rings|YOU ARE SOGGY": {
+  "file": "el-pl-rings-ed91fe51.mp3",
+  "dur": 2.03,
+  "key": "player:rings|YOU ARE SOGGY",
+  "said": "[shouting] You are soggy!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "player:rings|NO REFS NO RULES": {
+  "file": "el-pl-rings-d0911a60.mp3",
+  "dur": 2.83,
+  "key": "player:rings|NO REFS NO RULES",
+  "said": "[shouting] No refs, no rules!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "player:rings|YOU ARE GETTING DUNKED": {
+  "file": "el-pl-rings-32cd6484.mp3",
+  "dur": 2.64,
+  "key": "player:rings|YOU ARE GETTING DUNKED",
+  "said": "[shouting] You are getting dunked!",
+  "voice": "wXvR48IpOq9HACltTmt7",
+  "stability": 0.0
+ },
+ "player:mustard|BUZZ OFF": {
+  "file": "el-pl-mustard-a05d268a.mp3",
+  "dur": 1.13,
+  "key": "player:mustard|BUZZ OFF",
+  "said": "[shouting] Buzz off!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "player:mustard|YOU ARE GONNA GET STUNG": {
+  "file": "el-pl-mustard-cd519974.mp3",
+  "dur": 1.77,
+  "key": "player:mustard|YOU ARE GONNA GET STUNG",
+  "said": "[shouting] You are gonna get stung!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "player:mustard|SWEET NOT TODAY": {
+  "file": "el-pl-mustard-5ec3e92b.mp3",
+  "dur": 1.66,
+  "key": "player:mustard|SWEET NOT TODAY",
+  "said": "[shouting] Sweet? Not today!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "player:mustard|BEE LIEVE IT": {
+  "file": "el-pl-mustard-12d5fbb1.mp3",
+  "dur": 1.71,
+  "key": "player:mustard|BEE LIEVE IT",
+  "said": "[shouting] Bee-lieve it!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "player:mustard|HONEY YOU ARE DONE": {
+  "file": "el-pl-mustard-021cf1b2.mp3",
+  "dur": 1.98,
+  "key": "player:mustard|HONEY YOU ARE DONE",
+  "said": "[shouting] Honey, you are done!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "player:mustard|YOU ARE GOING DOWN": {
+  "file": "el-pl-mustard-6f947d40.mp3",
+  "dur": 2.0,
+  "key": "player:mustard|YOU ARE GOING DOWN",
+  "said": "[shouting] You are going down!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "player:mustard|EXTRA CRISPY": {
+  "file": "el-pl-mustard-eddc1b4e.mp3",
+  "dur": 1.35,
+  "key": "player:mustard|EXTRA CRISPY",
+  "said": "[shouting] Extra crispy!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "player:mustard|NICE HELMET NOT": {
+  "file": "el-pl-mustard-15cdce05.mp3",
+  "dur": 1.76,
+  "key": "player:mustard|NICE HELMET NOT",
+  "said": "[mischievously] Nice helmet. Not.",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "player:mustard|OVER HERE BUTTERFINGERS": {
+  "file": "el-pl-mustard-577a2d0f.mp3",
+  "dur": 1.52,
+  "key": "player:mustard|OVER HERE BUTTERFINGERS",
+  "said": "[shouting] Over here, butterfingers!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "player:mustard|HIKE IT I DARE YOU": {
+  "file": "el-pl-mustard-dfb423d8.mp3",
+  "dur": 1.46,
+  "key": "player:mustard|HIKE IT I DARE YOU",
+  "said": "[shouting] Hike it, I dare you!",
+  "voice": "zCgijgIKIMkFHnzXcCva",
+  "stability": 0.0
+ },
+ "player:curly|YOU CANNOT CATCH CURLY": {
+  "file": "el-pl-curly-2a5c79ae.mp3",
+  "dur": 1.82,
+  "key": "player:curly|YOU CANNOT CATCH CURLY",
+  "said": "[shouting] You cannot catch curly!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "player:curly|TWIST AND SHOUT": {
+  "file": "el-pl-curly-fbbb5271.mp3",
+  "dur": 1.7,
+  "key": "player:curly|TWIST AND SHOUT",
+  "said": "[shouting] Twist and shout!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "player:curly|WE ARE TOO TWISTY": {
+  "file": "el-pl-curly-d5ce161d.mp3",
+  "dur": 2.54,
+  "key": "player:curly|WE ARE TOO TWISTY",
+  "said": "[shouting] We are too twisty!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "player:curly|LOOP DE LOOP": {
+  "file": "el-pl-curly-38e76a71.mp3",
+  "dur": 1.05,
+  "key": "player:curly|LOOP DE LOOP",
+  "said": "[shouting] Loop de loop!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "player:curly|GET SPUN": {
+  "file": "el-pl-curly-9dfc330f.mp3",
+  "dur": 0.95,
+  "key": "player:curly|GET SPUN",
+  "said": "[shouting] Get spun!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "player:curly|COME GET SOME": {
+  "file": "el-pl-curly-ec0893c6.mp3",
+  "dur": 1.06,
+  "key": "player:curly|COME GET SOME",
+  "said": "[shouting] Come get some!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "player:curly|I AM COMING FOR YOU": {
+  "file": "el-pl-curly-16969d11.mp3",
+  "dur": 1.32,
+  "key": "player:curly|I AM COMING FOR YOU",
+  "said": "[shouting] I am coming for you!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "player:curly|BREADED AND READY": {
+  "file": "el-pl-curly-6c49411e.mp3",
+  "dur": 0.96,
+  "key": "player:curly|BREADED AND READY",
+  "said": "[shouting] Breaded and ready!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "player:curly|YOU ARE ON THE MENU": {
+  "file": "el-pl-curly-7d758293.mp3",
+  "dur": 1.78,
+  "key": "player:curly|YOU ARE ON THE MENU",
+  "said": "[shouting] You are on the menu!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ },
+ "player:curly|NOBODY BEATS THE BATTER": {
+  "file": "el-pl-curly-9ff6d09e.mp3",
+  "dur": 1.68,
+  "key": "player:curly|NOBODY BEATS THE BATTER",
+  "said": "[shouting] Nobody beats the batter!",
+  "voice": "IRHApOXLvnW57QJPQH2P",
+  "stability": 0.0
+ }
+}

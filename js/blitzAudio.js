@@ -660,16 +660,16 @@ function blzChantBar(t, sd) {
 // "the voices are far too robotic … make them more human like" — Chris. The
 // browser's speech engine IS the robot (and pitching it made it worse), so no
 // line is synthesized in the browser any more: every one of them was rendered
-// offline by Kokoro (an open neural TTS model) and ships as a small MP3 in
-// audio/blitz/vo/ (manifest: js/blitzVO.js, key = voice scope | normalized
-// text). The booth — play-by-play + colour — is ONE channel that never talks
+// offline (ElevenLabs eleven_v3, acted: shouted, laughed, sighed — Kokoro was
+// still "weak") and ships as an MP3 in audio/blitz/vo/ (manifest: js/blitzVO.js,
+// key = voice scope | normalized text → one or more takes). The booth — play-by-play + colour — is ONE channel that never talks
 // over itself; the field — the QB's cadence, the trash talk — is a second,
 // quieter channel that ducks under the booth. Both run through a PA chain
 // (presence EQ, compression, the stadium's slapback and reverb), and the band
 // ducks under the booth. A line with no clip is simply not said.
 const blzVoice = {
   bytes: new Map(), bufs: new Map(), lru: [], loading: new Map(),
-  ch: { booth: null, field: null }, q: { booth: [], field: [] }, bus: null, fieldBus: null, miss: new Set(),
+  ch: { booth: null, field: null }, q: { booth: [], field: [] }, bus: null, fieldBus: null, miss: new Set(), last: new Map(),
 };
 const BLZ_VO_BASE = 'audio/blitz/vo/';
 function blzVoNorm(t) { return String(t).toUpperCase().replace(/[^A-Z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim(); }
@@ -685,7 +685,7 @@ function blzVoBuses() {
   blzMusInit();
   // the booth: a broadcast voice in a stadium — cleaned up, pushed forward, a little slapback
   const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 95;
-  const pres = ctx.createBiquadFilter(); pres.type = 'peaking'; pres.frequency.value = 3200; pres.Q.value = 0.9; pres.gain.value = 3.5;
+  const pres = ctx.createBiquadFilter(); pres.type = 'peaking'; pres.frequency.value = 3200; pres.Q.value = 0.9; pres.gain.value = 1.5;
   const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -22; comp.ratio.value = 3.2; comp.attack.value = 0.003; comp.release.value = 0.12;
   const out = ctx.createGain(); out.gain.value = 1.4;
   hp.connect(pres); pres.connect(comp); comp.connect(out); out.connect(S.master);
@@ -696,10 +696,10 @@ function blzVoBuses() {
   const rev = ctx.createGain(); rev.gain.value = 0.16; comp.connect(rev); if (blzMus.revIn) rev.connect(blzMus.revIn);
   blzVoice.bus = hp;
   // the field: players shouting at the line — further away, more stadium, never on top of the booth
-  const fhp = ctx.createBiquadFilter(); fhp.type = 'highpass'; fhp.frequency.value = 140;
-  const flp = ctx.createBiquadFilter(); flp.type = 'lowpass'; flp.frequency.value = 7000;
+  const fhp = ctx.createBiquadFilter(); fhp.type = 'highpass'; fhp.frequency.value = 110;
+  const flp = ctx.createBiquadFilter(); flp.type = 'lowpass'; flp.frequency.value = 9500;
   const fcomp = ctx.createDynamicsCompressor(); fcomp.threshold.value = -20; fcomp.ratio.value = 2.5;
-  const fg = ctx.createGain(); fg.gain.value = 0.5;
+  const fg = ctx.createGain(); fg.gain.value = 0.62;
   fhp.connect(flp); flp.connect(fcomp); fcomp.connect(fg); fg.connect(S.master);
   const frev = ctx.createGain(); frev.gain.value = 0.34; fcomp.connect(frev); if (blzMus.revIn) frev.connect(blzMus.revIn);
   blzVoice.fieldIn = fhp; blzVoice.fieldBus = fg;
@@ -734,11 +734,22 @@ function blzVoPrefetch(teams) {
   const want = [];
   for (const k in BLZ_VO) {
     const scope = k.slice(0, k.indexOf('|'));
-    if (scope === 'pbp' || scope === 'color' || teams.some((t) => scope.endsWith(':' + t))) want.push(BLZ_VO[k][0]);
+    // the first take of every line now; the other takes as they're asked for (blzVoTake)
+    if (scope === 'pbp' || scope === 'color' || teams.some((t) => scope.endsWith(':' + t))) want.push(BLZ_VO[k][0][0]);
   }
   let i = 0;
   const next = () => { if (i < want.length) blzVoFetch(want[i++]).then(next); };
   for (let n = 0; n < 4; n++) next();
+}
+// a line can have several takes ([[file, secs], …]): never the same one twice running, and only one that's already
+// downloaded (the rest start loading so they're ready next time)
+function blzVoTake(key, ent) {
+  const V = blzVoice, last = V.last.get(key);
+  const ready = ent.filter((e) => e[0] !== last && V.bytes.has(e[0]));
+  for (const e of ent) if (!V.bytes.has(e[0])) blzVoFetch(e[0]);
+  const take = ready.length ? ready[(Math.random() * ready.length) | 0] : ent[0];
+  V.last.set(key, take[0]);
+  return take;
 }
 // text, { who: 'pbp' | 'color' | 'qb' | 'player', team (index, for the field voices), prio (0 chatter … 3 the play of the game), maxAge (secs it's still news) }
 function blzSpeak(text, o) {
@@ -749,7 +760,8 @@ function blzSpeak(text, o) {
   if (!ent) { blzVoice.miss.add(key); return; }
   if (!blzVoBuses()) return;
   const chan = o.who === 'qb' || o.who === 'player' ? 'field' : 'booth';
-  const item = { key, file: ent[0], dur: ent[1], prio: o.prio || 0, born: performance.now(), maxAge: (o.maxAge || 2.2) * 1000, chan };
+  const take = blzVoTake(key, ent);
+  const item = { key, file: take[0], dur: take[1], prio: o.prio || 0, born: performance.now(), maxAge: (o.maxAge || 2.2) * 1000, chan };
   const cur = blzVoice.ch[chan];
   if (!cur) { blzVoStart(item); return; }
   if (item.prio > cur.prio + 1 || (item.prio >= 3 && cur.prio < 3)) { blzVoStop(chan); blzVoice.q[chan].length = 0; blzVoStart(item); return; }
@@ -779,7 +791,7 @@ function blzVoStart(item) {
 }
 function blzVoFieldLevel(k) {
   const V = blzVoice, ctx = blitz.sfx.ctx;
-  if (V.fieldBus && ctx) V.fieldBus.gain.setTargetAtTime(0.5 * k, ctx.currentTime, 0.06);
+  if (V.fieldBus && ctx) V.fieldBus.gain.setTargetAtTime(0.62 * k, ctx.currentTime, 0.06);
 }
 function blzVoStop(chan) {
   const it = blzVoice.ch[chan];

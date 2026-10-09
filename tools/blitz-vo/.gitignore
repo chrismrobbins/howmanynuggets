@@ -4,3 +4,4 @@ lines.json
 tmp.wav
 asr.json
 *.wav
+asr_el.json

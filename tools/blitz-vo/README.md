@@ -1,39 +1,58 @@
 # Nugget Blitz voices (tools/blitz-vo)
 
-Every spoken line in Nugget Blitz is a pre-rendered clip — **no browser speech
-engine** (Chris: "the voices are far too robotic"). Clips live in
-`audio/blitz/vo/`, the manifest the game reads is `js/blitzVO.js`
-(key = `voice scope | normalized text` → `[file, seconds]`).
+Every spoken line in Nugget Blitz is a pre-rendered clip; the browser never
+synthesizes speech. Clips live in `audio/blitz/vo/` (`el-*.mp3`), and the
+manifest the game reads is `js/blitzVO.js`:
+`key → [[file, seconds], …one per take]`, key = `voice scope | normalized text`.
 
-Renderer: [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M), an open
-neural TTS model, run offline. Cast (in `render.py`):
+History: browser speechSynthesis ("far too robotic") → Kokoro-82M, an open TTS
+(2026-10-02; clear but flat: "still weak, I want it to sound more real") →
+**ElevenLabs `eleven_v3`** (2026-10-09), which can act: `[shouting]`,
+`[laughs]`, `[sarcastic]`… tags in the text. Chris picked every voice by ear
+from two tryout pages.
 
-| who | voice | notes |
+## The cast (`render_el.py`, `team_cast.json`)
+
+| who | ElevenLabs voice | |
 |---|---|---|
-| play-by-play | `am_michael` @1.12 | the booth |
-| colour | `af_heart` @1.04 | Kokoro's best-rated voice |
-| each team (cadence + trash talk) | `am_puck` nugs · `bm_george` fry gods · `am_eric` tots · `am_fenrir` ranch · `am_onyx` bosses · `bm_fable` rings · `am_liam` mustard · `am_echo` curly |  |
+| play-by-play | David - Sports Arena Announcer | `DduhIyyKkOosbP8VefhP` |
+| colour | Mister Gruff - miserable old neighbor | `mSOmKHC6GZcZbSTGlqHO` |
+| The Nugs | Brock - Commanding and Loud Sergeant | `DGzg6RaUqxGRTHSBjfgF` |
+| The Fry Gods | Azazel - Menacing and Gravelly Demon | `ysswSXp8U9dFpzPJqFje` |
+| The Tater Tots | Jerry B. - New York Italian Mobster | `QzTKubutNn9TjrB7Xb2Q` |
+| The Ranch Hands | Russel - Raw Cowboy | `Av4Fi2idMFuA8kTbVZgv` |
+| The Sauce Bosses | Austin - Deep, Raspy and Authentic | `Bj9UqZbhQsanLzgalpEG` |
+| The Onion Rings | Dante - Growly and Menacing Monster | `wXvR48IpOq9HACltTmt7` |
+| The Honey Mustard | Brad - Energetic, Rushed and Intense | `zCgijgIKIMkFHnzXcCva` |
+| The Curly Fries | Adam - American, Dark and Tough | `IRHApOXLvnW57QJPQH2P` |
+
+Library voices are used by id; they don't need adding to the account.
+Rendering needs a paid (commercial) ElevenLabs plan. Chris has one.
 
 ## Adding or changing a line
 
-1. Change the text in `js/blitz.js` (the pools are `BLZ_CALLS`, `BLZ_COLOR`,
-   `BLZ_PBP`, `BLZ_MOVES[*].say`, `BLZ_FLAVOR`, `BLZ_TRASH`; a few inline lines
-   are listed in `extract.js`). A line the game says but has no clip is simply
-   not voiced — `blzVoice.miss` lists them while you play.
-2. Serve the repo on :8787 and run `node extract.js` (writes `lines.json`).
-3. `uv venv -p python3.12 .venv && source .venv/bin/activate && uv pip install kokoro==0.9.4 "transformers>=4.44" "tokenizers>=0.19" soundfile numpy`
-   and `brew install espeak-ng` (the pip-bundled espeak's data path is broken
-   on macOS; `kokoro_env.py` points misaki at Homebrew's).
-4. `python render.py` — renders only new/changed lines (file names are a hash
-   of the key, so nothing else moves), trims, loudness-normalizes, encodes
-   48 kbps mono MP3 with `lame`, rewrites `js/blitzVO.js`.
-5. **Check it with your ears, and then with Whisper:** `uv pip install faster-whisper num2words scipy`
-   then `python asr.py` transcribes every clip back and prints the worst
-   matches. Short barks ("Hut!") and odd phrasings garble; `variants.py`
-   renders candidate phrasings in the real voice and keeps the one Whisper
-   understands (written to `overrides.json`, which `render.py` honours — the
-   on-screen bubble keeps its words, the voice says the clearer line).
-6. Bump the `?v=` on `js/blitzVO.js` in index.html.
-
-Last full render: 360 clips, 3.3 MB, mean word error 5.5% (most of what's
-left is made-up names and puns: "Tot Tot" heard as "Todd Todd").
+1. Change the text in `js/blitz.js` (pools: `BLZ_CALLS`, `BLZ_COLOR`, `BLZ_PBP`,
+   `BLZ_MOVES[*].say`, `BLZ_FLAVOR`, `BLZ_TRASH`; inline lines are listed in
+   `extract.js`). **A line with no clip is silent**: `blzVoice.miss` lists the
+   keys the game wanted while you play.
+2. Serve the repo on :8787 and run
+   `PUPPETEER=~/node_modules/puppeteer node tools/blitz-vo/extract.js`
+   (writes `lines.json`, each line tagged with its pool, e.g. `call:td`).
+3. API key: `~/.config/elevenlabs.key` (chmod 600, never in the repo; a
+   TTS + voices-read scoped key is enough).
+   `DRY=1 python3 tools/blitz-vo/render_el.py` shows what would be rendered,
+   with the acted script and the character count (= credits).
+   `python3 tools/blitz-vo/render_el.py [scope]` renders only new or changed
+   lines. Delivery comes from the line's pool (`kind()`/`script()`): big
+   plays are shouted at stability 0.0, situational calls are excited,
+   incompletions are disappointed, and colour gets a tag per pool. Common
+   lines get several takes (`TAKES`). Output is trimmed, normalized to
+   -16 LUFS, 64 kbps mono.
+4. **Check it.** In a venv with `faster-whisper numpy`, run `python asr_el.py`:
+   it transcribes every take back and scores it against the words it was
+   asked to say, forgiving word splits like "spine buster". Then run
+   `python fix_el.py` to re-roll any take Whisper can't understand (up to 3
+   fresh renders, keep the clearest). If a line keeps failing, change its
+   wording in `script()`. A bare "Set!" comes out "Sit!", and Austin's drawl
+   turns "Hike!" into "Hank!". Last pass: 436 takes, mean word error 3.9%.
+5. Bump the `?v=` on `js/blitzVO.js` in index.html.

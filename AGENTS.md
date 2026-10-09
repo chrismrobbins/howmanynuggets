@@ -255,8 +255,8 @@ already bitten someone.
 > stiff-arm, defensive dive + MONSTER HITS, LATE HITS after the whistle, HE'S
 > ON FIRE (3 straight catches by one receiver, or 3 straight defensive stops),
 > live fumbles, kick/punt returns, PAT-or-go-for-two, sudden-death OT, the VS
-> screen CODES and a CPU rubber band. Neural-voice announcers + players
-> (pre-rendered Kokoro clips in `audio/blitz/vo/`, V toggles; see 🎙️ THE VOICES).
+> screen CODES and a CPU rubber band. Acted announcers + players
+> (pre-rendered ElevenLabs clips in `audio/blitz/vo/`, V toggles; see 🎙️ THE VOICES).
 > Tiers (ArcadeKit `blitz`): ROOKIE vs the Drive-Thru Demons / PRO vs the Hot
 > Sauce Havoc / ALL-BLITZ vs the Deep Fryer Furies (earned: `nugBlitzPro`;
 > winning it sets `nugBlitzChamp`). No lore exhibit — it's just football.
@@ -2422,6 +2422,38 @@ lines), `css/blitz.css`, the outer pair of uprights on the east island.
     0 missing keys, 264 prefetches 0 bad;
     music RMS 0.067 → booth 0.086 over the ducked music, field 0.076, peaks
     < 0.42; no page errors.
+  - **⚠️ Superseded the same week: re-cast on ElevenLabs (2026-10-09).** Chris:
+    "the voices are still weak in the game, I want it to sound more real".
+    Kokoro reads like an audiobook; it can't yell. The booth and the field are
+    now **ElevenLabs `eleven_v3`**, which acts from tags (`[shouting]`,
+    `[laughs]`, `[sarcastic]`, `[disappointed]`). Chris has a commercial
+    plan, and the key lives in `~/.config/elevenlabs.key`, outside the repo.
+    He picked every voice by ear from two tryout pages (Claude can't listen;
+    the pages put candidates side by side at matched loudness): David (arena
+    announcer) on play-by-play, Mister Gruff on colour, and a gritty, loud
+    voice per team. The cast table is in `tools/blitz-vo/README.md`. What
+    changed:
+    - Tooling: `render_el.py` (delivery by the line's pool, from `extract.js`'s
+      new `cat` field), `asr_el.py` (Whisper check that forgives word splits),
+      `fix_el.py` (re-roll a take Whisper can't understand, keep the
+      clearest). `el_manifest.json` records what every file was asked to say.
+      The Kokoro scripts and clips are gone; git history has them.
+    - **Takes:** `BLZ_VO[key]` is now `[[file, secs], …]`. The cadence, SET,
+      HUT, TD, MONSTER HIT, FIRST DOWN and INCOMPLETE have 2–3 takes.
+      `blzVoTake` never repeats the last one and only picks a take that's
+      already downloaded (prefetch loads take 1 of everything, and the rest
+      as they're asked for).
+    - Audio: 64 kbps / 44.1 kHz (was 48 / 24), −16 LUFS. The booth presence
+      boost is down to +1.5 dB (the source is already broadcast-bright), the
+      field chain is wider (110 Hz–9.5 kHz) and louder (0.62).
+    - Wording learned the hard way: a bare "Set!" is heard as "Sit!" (the
+      takes are "Ready... SET!" / "Get set!"); Austin's drawl makes "Hike!"
+      into "Hank!" (the Sauce Bosses say "Hike the ball!"). The cadence clip
+      is ONE call: blzPreStep already says it twice.
+    - Ledger: 436 takes / 360 lines, 6.7 MB, ~4 MB prefetched per game; mean
+      word error 3.9%. 45s of play: 27 clips, 0 missing, 276 fetched 0 bad,
+      takes rotating. Music RMS 0.067, booth 0.086, colour 0.081, field 0.072,
+      peaks ≤ 0.51. Credits: ~13k characters for tryouts + the render.
 
 ## 🍗 THE HERO NUGGET (js/nugHero.js) — 2026-10-07, the first Spline session
 
