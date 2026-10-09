@@ -515,6 +515,12 @@ changed, the API worker. Verify with `gh run list` / `gh run watch`.
 The worker only allows the production origin — leaderboard fetches from
 localhost fail CORS by design (the hall scoreboard shows its OFFLINE state).
 
+**Direct game links (2026-10-09):** `howmanynuggets.com/?play=<mode>` (e.g.
+`?play=blitz`) skips the converter and the hall and starts that game on a house
+storm. Any key of `MODE_HINTS` works; anything else is ignored (js/app.js, end).
+Leaving lands on the converter. A new game gets a link for free; just keep its
+mode in `MODE_HINTS`.
+
 ## 🧊 Blender GEOMETRY (js/hallMesh.js + js/hallMeshData.js)
 
 The hall can display real Blender meshes now, not just Blender *textures*.

@@ -205,3 +205,28 @@ if (typeof nugFoundersDay === 'function' && nugFoundersDay()) {
   const fCard = document.querySelector('main.card');
   if (fCard) fCard.insertBefore(ribbon, fCard.firstChild);
 }
+
+// 🔗 THE DIRECT LINK: howmanynuggets.com/?play=blitz drops you straight into a
+// game — no converter, no walk through the hall (Chris: "can i get a direct
+// link made to this game to share with people?"). Same launch path as the
+// bots lobby (js/botsMP.js): a house storm in arcade mode, then setStormMode so
+// the game's sync hook runs. Any storm mode works (?play=bowl, ?play=gta …);
+// anything else is ignored. Leaving the game lands on the converter like the
+// Leave button always has.
+window.addEventListener('load', () => {
+  let want = null;
+  try { want = new URLSearchParams(location.search).get('play'); } catch (e) { return; }
+  if (!want || typeof MODE_HINTS === 'undefined' || !Object.prototype.hasOwnProperty.call(MODE_HINTS, want)) return;
+  if (storm.running || (window.NuggetArcade && NuggetArcade.active)) return;
+  storm.mode = want; storm.arcade = true;
+  startStorm(HOUSE_STORM_NUGS, HOUSE_STORM_DOLLARS);
+  setStormMode(want);
+  updateArcadeBtn();
+  // no hall to walk back into: put the converter's button back when the game ends
+  const prev = window.onStormExit;
+  window.onStormExit = (completed) => {
+    window.onStormExit = prev;
+    if (typeof prev === 'function') prev(completed);
+    updateArcadeBtn();
+  };
+});
