@@ -325,6 +325,7 @@ function syncBlitz() {
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     blitz.t = 0; blitz.earned = 0; blitz.paused = false; blitz.keys = {};
     blitzLayout();
+    blzDiscManifest();     // start downloading the soundtrack now, before the first click makes a sound
     blzOpenTier();
   } else {
     if (blitz.tierPick) { blitz.tierPick.close(); blitz.tierPick = null; }

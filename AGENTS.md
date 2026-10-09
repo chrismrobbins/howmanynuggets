@@ -556,6 +556,15 @@ Chris's Mac.
   Q3 → Q4 → win all switch, 29 files 0 bad, no page errors. Seams: the beat
   holds within 4%, and the junction step is below the music's own 99.9th
   percentile step.
+- **No synth at the door** (Chris: "when you first enter the game you still
+  hear a little bit of synth"). The downloads now start when the Blitz screen
+  opens (`blzDiscManifest()` from `syncBlitz`; fetching needs no
+  AudioContext), menu song first. The synth band only plays when
+  `blzDiscSynthOK()`: the manifest or the wanted song failed, or nothing has
+  arrived 6 s after the sound came on. A failed file is never refetched
+  (`blzDisc.failed`). Tested: an immediate click → the recording from the
+  first frame; music blocked → synth at once; a slow connection → quiet, then
+  synth at 6 s, then the recording crossfades in when it lands.
 
 **Direct game links (2026-10-09):** `howmanynuggets.com/?play=<mode>` (e.g.
 `?play=blitz`) skips the converter and the hall and starts that game on a house

@@ -299,7 +299,7 @@ function blzMusTick() {
     const bar = T.bars[M.bar % T.bars.length];
     let t = M.nextT;
     if (T.swing && M.step % 2 === 1) t += T.swing * sd;
-    if (M.on && !blzDisc.cur) blzMusStep(T, bar, M.step, t, sd);
+    if (M.on && blzDiscSynthOK()) blzMusStep(T, bar, M.step, t, sd);
     if (M.chant && M.step === 0) blzChantBar(t, sd);
     M.nextT += sd;
     M.step++;
@@ -679,7 +679,7 @@ function blzChantBar(t, sd) {
 //   • decoded music is big (40 s stereo ≈ 14 MB), so only a few loops stay decoded; the MP3 bytes stay
 const BLZ_DISC_BASE = 'audio/blitz/music/';
 const BLZ_DISC_V = 1;    // bump with the files (Pages caches for 10 minutes)
-const blzDisc = { man: null, asked: false, bytes: new Map(), loading: new Map(), bufs: new Map(), lru: [], cur: null, want: '', filt: null, gain: null };
+const blzDisc = { man: null, manP: null, dead: false, failed: new Set(), t0: null, asked: false, bytes: new Map(), loading: new Map(), bufs: new Map(), lru: [], cur: null, want: '', filt: null, gain: null };
 const BLZ_DISC_MIX = { full: [18000, 1], live: [2400, 0.62], snap: [950, 0.55], low: [1500, 0.45], off: [18000, 0] };
 const BLZ_DISC_DUCK = { td: [0.25, 2.1], charge: [0.3, 1.6], sack: [0.4, 0.9], trombone: [0.35, 1.8], fire: [0.45, 1.2], int: [0.35, 1.0] };
 const BLZ_DISC_LEVEL = 1.7;     // a record against the synth band's level (measured on the master: same RMS)
@@ -692,8 +692,17 @@ function blzDiscInit() {
   R.filt = ctx.createBiquadFilter(); R.filt.type = 'lowpass'; R.filt.frequency.value = 18000; R.filt.Q.value = 0.5;
   R.gain = ctx.createGain(); R.gain.gain.value = BLZ_DISC_LEVEL;
   R.filt.connect(R.gain); R.gain.connect(M.bus);
-  fetch(BLZ_DISC_BASE + 'index.json?v=' + BLZ_DISC_V).then((r) => (r.ok ? r.json() : null)).then((m) => {
-    if (!m) return;
+  R.t0 = ctx.currentTime;
+  blzDiscManifest().then((m) => { if (m) for (const k of ['theme', 'q1']) if (m.loops[k]) blzDiscBuf(m.loops[k].file); });
+}
+// the downloads don't need an AudioContext, so they start the moment the Blitz screen opens (from
+// syncBlitz) — by the first click the menu song is already here ("when you first enter the game you
+// still hear a little bit of synth" — Chris)
+function blzDiscManifest() {
+  const R = blzDisc;
+  if (R.manP) return R.manP;
+  R.manP = fetch(BLZ_DISC_BASE + 'index.json?v=' + BLZ_DISC_V).then((r) => (r.ok ? r.json() : null)).then((m) => {
+    if (!m) { R.dead = true; return null; }
     R.man = m;
     // the menu song and every short sound first, then the rest of the season one at a time
     const first = [m.loops.theme && m.loops.theme.file, m.loops.q1 && m.loops.q1.file].filter(Boolean)
@@ -701,27 +710,42 @@ function blzDiscInit() {
     const later = ['q2', 'q3', 'q4', 'half', 'bed'].map((k) => m.loops[k] && m.loops[k].file).concat(['win', 'lose'].map((k) => m.shots[k] && m.shots[k].file)).filter(Boolean);
     let i = 0;
     const next = () => { if (i < later.length) blzDiscFetch(later[i++]).then(next); };
-    Promise.all(first.map(blzDiscFetch)).then(next);
-    for (const f of first.slice(0, 2)) blzDiscBuf(f);
-  }).catch(() => {});
+    // the menu song alone first (it's the one you hear), then the rest of the first batch together
+    blzDiscFetch(first[0]).then(() => Promise.all(first.slice(1).map(blzDiscFetch))).then(next);
+    return m;
+  }).catch(() => { R.dead = true; return null; });
+  return R.manP;
+}
+// the synth band only fills in when the records can't: the manifest failed, the song that's wanted
+// failed, or nothing has arrived 6 s after the sound came on. Otherwise a beat of silence beats the
+// wrong band.
+function blzDiscSynthOK() {
+  const R = blzDisc, M = blzMus, ctx = blitz.sfx.ctx;
+  if (R.cur) return false;
+  if (R.dead) return true;
+  const ent = R.man && (R.man.loops[M.pend || M.key] || R.man.shots[M.pend || M.key]);
+  if (ent && R.failed.has(ent.file)) return true;
+  return R.t0 != null && ctx && ctx.currentTime - R.t0 > 6;
 }
 function blzDiscFetch(file) {
   const R = blzDisc;
   if (R.bytes.has(file)) return Promise.resolve(R.bytes.get(file));
   if (R.loading.has(file)) return R.loading.get(file);
+  if (R.failed.has(file)) return Promise.resolve(null);       // once is enough: no refetching every frame
   const pr = fetch(BLZ_DISC_BASE + file + '?v=' + BLZ_DISC_V).then((r) => (r.ok ? r.arrayBuffer() : null))
-    .then((ab) => { R.loading.delete(file); if (ab) R.bytes.set(file, ab); return ab; })
-    .catch(() => { R.loading.delete(file); return null; });
+    .then((ab) => { R.loading.delete(file); if (ab) R.bytes.set(file, ab); else R.failed.add(file); return ab; })
+    .catch(() => { R.loading.delete(file); R.failed.add(file); return null; });
   R.loading.set(file, pr);
   return pr;
 }
 // decoded audio, with only a few long ones kept (the short sounds are cheap: keep them all)
 function blzDiscBuf(file) {
   const R = blzDisc, ctx = blitz.sfx.ctx;
+  if (R.failed.has(file)) return Promise.resolve(null);
   if (R.bufs.has(file)) { const b = R.bufs.get(file); if (b.then) return b; R.lru.splice(R.lru.indexOf(file), 1); R.lru.push(file); return Promise.resolve(b); }
   const pr = blzDiscFetch(file).then((ab) => (ab && ctx ? new Promise((res) => ctx.decodeAudioData(ab.slice(0), res, () => res(null))) : null))
     .then((buf) => {
-      if (!buf) { R.bufs.delete(file); return null; }
+      if (!buf) { R.bufs.delete(file); R.failed.add(file); return null; }
       R.bufs.set(file, buf); R.lru.push(file);
       const long = R.lru.filter((f) => R.bufs.get(f) && R.bufs.get(f).duration > 12);
       while (long.length > 3) { const f = long.shift(); if (!R.cur || R.cur.file !== f) { R.bufs.delete(f); R.lru.splice(R.lru.indexOf(f), 1); } }
