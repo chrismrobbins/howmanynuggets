@@ -1300,14 +1300,23 @@ function crkDrawFinal(g, W, H) {
 // ---- sound (the synth floor; js/cricketAudio.js adds the recordings + voices) ---------------------------------
 function crkAudio() {
   const S = cricket.sfx;
-  if (S.ctx) { if (S.ctx.state === 'suspended') S.ctx.resume(); return; }
+  if (S.ctx) { crkAudioUnlock(S.ctx); return; }
   try {
+    // games play through the iPhone silent switch (Safari 16.4+); without this the ringer switch mutes everything
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { }
     S.ctx = new (window.AudioContext || window.webkitAudioContext)();
     S.master = S.ctx.createGain(); S.master.gain.value = S.muted ? 0 : 0.36; S.master.connect(S.ctx.destination);
     const n = S.ctx.sampleRate * 2, buf = S.ctx.createBuffer(1, n, S.ctx.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
     S.noise = buf;
   } catch (e) { S.ctx = null; }
+}
+// the context is made on the splash, before any gesture, so every tap / key / button after that has to wake it:
+// resume() covers Chrome; iOS also wants a sound actually started inside the gesture, and can sit in 'interrupted'
+function crkAudioUnlock(ctx) {
+  if (ctx.state === 'running') return;
+  try { ctx.resume(); } catch (e) { }
+  try { const src = ctx.createBufferSource(); src.buffer = ctx.createBuffer(1, 1, 22050); src.connect(ctx.destination); src.start(0); } catch (e) { }
 }
 function crkSfx(kind, q) {
   const S = cricket.sfx, ctx = S.ctx;
@@ -1473,7 +1482,9 @@ cricketWorld.addEventListener('touchmove', (e) => {
   }
   e.preventDefault();
 }, { passive: false });
-window.addEventListener('pointerdown', () => { if (cricketActive()) crkAudio(); }, true);
+// any gesture wakes the sound — iOS only honours some of these (touchend / click), and the pad's touchstart
+// preventDefault swallows the click, so listen to all of them
+for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) window.addEventListener(ev, () => { if (cricketActive()) crkAudio(); }, true);
 window.addEventListener('touchend', (e) => { const T = cricket.touch; for (const t of e.changedTouches) { if (T.roles[t.identifier] === 'L') T.L = null; delete T.roles[t.identifier]; } });
 window.addEventListener('touchcancel', (e) => { const T = cricket.touch; for (const t of e.changedTouches) { if (T.roles[t.identifier] === 'L') T.L = null; delete T.roles[t.identifier]; } });
 

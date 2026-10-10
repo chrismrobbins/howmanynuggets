@@ -2972,3 +2972,9 @@ browsers block sound before a gesture). Human-presser harness: pad 27/29 hits, t
 (GROUND, which isn't a cricket term, and LOFT) and didn't even match across devices (phone said DRIVE). Everywhere now
 reads **BAT** (along the ground) · **BIG HIT** (in the air, can be caught) · **BLOCK**. Internal type ids stay
 'ground' / 'loft' / 'block'; only the player-facing words changed.
+
+**Sound fix** (Chris: "the sound isn't working"): starting the AudioContext on the splash (before any gesture) left it
+suspended, and the only wake-up was `resume()` on `pointerdown` — not enough on iPhone Safari, which wants a sound
+started inside a touchend/click gesture (and the pad's touchstart `preventDefault` swallows the click). `crkAudioUnlock`
+now resumes + plays a 1-sample silent buffer on pointerdown/pointerup/touchend/click/keydown, handles iOS's
+'interrupted' state, and `navigator.audioSession.type = 'playback'` lets the game play through the iPhone silent switch.
