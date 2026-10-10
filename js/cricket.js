@@ -1210,10 +1210,10 @@ function crkDrawSplash(g, W, H) {
   g.restore();
   const pop = t < 0.35 ? 0.6 + t / 0.35 * 0.4 : 1 + Math.sin(t * 3) * 0.015;
   if (!crkDrawLogo(g, W / 2, H * 0.45, Math.min(H * 0.8, W * 0.78) * pop)) crkTextC(g, 'BIRYANI BLITZ!', W / 2, H * 0.45, 40, '#f7a032');
+  // a cold link: the browser holds the sound until the first touch, so the start prompt says so, big
+  const S = C.sfx, mute = !S.ctx || S.ctx.state !== 'running';
+  if (mute) { crkTextC(g, C.mobile ? '🔊 TAP TO PLAY — WITH SOUND' : '🔊 CLICK OR PRESS A KEY — SOUND ON', W / 2, H * 0.93, Math.round(Math.min(20, Math.max(13, W / 44)) * (0.94 + 0.06 * Math.sin(C.t * 5))), '#c8321f'); return; }
   if (t > 0.8 && ((t * 2) | 0) % 2 === 0) crkTextC(g, C.mobile ? 'TAP TO PLAY' : C.inputMode === 'pad' ? 'PRESS A' : 'PRESS ANY KEY', W / 2, H * 0.93, 12, '#7a1a20');
-  // a cold link: the browser holds the sound until the first touch
-  const S = C.sfx;
-  if (!S.ctx || S.ctx.state !== 'running') crkTextC(g, '🔊 TAP OR PRESS A KEY FOR SOUND', W / 2, H * 0.05 + 8, 9, '#7a1a20');
 }
 function crkDrawTeams(g, W, H) {
   const C = cricket, t = C.phaseT;

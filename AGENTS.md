@@ -2983,3 +2983,5 @@ touchstart with `preventDefault`, which on iPhone means the tap never counts as 
 real click was the difficulty card. The splash now leaves touchstart alone and opens the menu from the resulting
 `click` (which also wakes the audio); the wake-up listeners also run in the bubble phase so the arcade's own launch tap
 can unlock sound. Browsers still can't play anything before the first tap on a cold link.
+The splash's start prompt doubles as the sound prompt while the AudioContext is held: a big pulsing
+"🔊 TAP TO PLAY — WITH SOUND" (desktop: "CLICK OR PRESS A KEY — SOUND ON") at the bottom, replacing the tiny 9px line.
