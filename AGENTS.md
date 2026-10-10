@@ -2956,3 +2956,14 @@ the hero is ready so the two shader compiles never overlap.
 - On boot it calls `update()` so the grid re-runs through the tray path — the
   PNGs drawn before the tray existed go, and the "+N more" note uses its cap.
 - No WebGL2 / `nugHero3d=0` / hero failed → no tray; the PNG grid stays.
+
+**Playable on pad + phone (same day)** (Chris: "not playable with a controller or on mobile"; "why does the music take so long to start"):
+the input itself worked; the *timing* was the problem for humans. `CRK_LEAD` is now 0.03 s (press AS the ball arrives), a
+late press still counts until the ball reaches `CRK_LATEZ` (−9.05, just in front of the stumps), touch presses are
+back-dated `CRK_TOUCH_LAG` 0.05 s for tap latency, and rookie/pro widen the timing window ×1.3/×1.12 for the human batter
+only. The HUD draws a shrinking ring at the contact point that turns green "NOW!" in the window, and the shot feed says
+EARLY / LATE / TOO EARLY / TOO LATE. When the bat connects the swing jumps to its contact frame so it visibly meets the ball.
+Music: `want` is 'match' from the splash on, the manifest loads the match loop before anything else, and the first
+pointer/touch/gamepad press anywhere unlocks the AudioContext (cold shared links show "TAP OR PRESS A KEY FOR SOUND" —
+browsers block sound before a gesture). Human-presser harness: pad 27/29 hits, touch 18/23; AI balance unchanged
+(~8 runs/over, ~1.2 wkts/innings).

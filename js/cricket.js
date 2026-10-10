@@ -66,7 +66,14 @@ const CRK_FIELD = [
   { pos: 'MID-OFF', x: 11, z: 20 }, { pos: 'MID-ON', x: -11, z: 20 }, { pos: 'MIDWICKET', x: -25, z: 3 },
   { pos: 'SQUARE LEG', x: -21, z: -14 }, { pos: 'FINE LEG', x: -27, z: -45 }, { pos: 'LONG-ON', x: -16, z: 50 },
 ];
-const CRK_LEAD = 0.16;       // secs between pressing a shot and the bat arriving (the swing's lead)
+// "right now the game is not playable with a controller or on mobile" — Chris. The first cut wanted the press
+// 0.16 s BEFORE the ball arrived and called anything after the arrival a miss: a person swings as the ball
+// gets there (and a phone adds its touch delay), so nearly every swing missed. Now the bat arrives 0.06 s
+// after the press, a press is still good until the ball reaches the pads (CRK_LATEZ), touch gets its latency
+// back, and a shrinking ring on the contact point shows WHEN.
+const CRK_LEAD = 0.03;       // secs between pressing a shot and the bat arriving: press AS the ball gets there
+const CRK_LATEZ = -9.05;     // a press is still in time until the ball gets here (just in front of the pads)
+const CRK_TOUCH_LAG = 0.05;  // what a touchscreen costs between the thumb and the event
 const CRK_ZC = -8.0;         // the contact plane, in front of the popping crease
 
 const cricket = {
@@ -122,6 +129,7 @@ function syncCricket() {
     if (crkIsPhone()) crkPadOn();
     if (typeof crkDiscManifest === 'function') crkDiscManifest();
     C.phase = 'splash'; C.phaseT = 0;
+    crkAudio();      // music with the splash ("make it start as the loading screen starts" — Chris)
   } else {
     if (C.tierPick) { C.tierPick.close(); C.tierPick = null; }
     C.phase = 'idle';
@@ -371,11 +379,14 @@ function crkPressShot(type, dir) {
   const C = cricket;
   if (C.phase !== 'flight' && !(C.phase === 'runup' && C.runupT - C.phaseT < 0.2)) return;
   if (C.shot) return;
-  C.shot = { type, dir: dir || null, tp: C.t };
+  C.shot = { type, dir: dir || null, tp: C.t - (C.inputMode === 'touch' ? CRK_TOUCH_LAG : 0) };
   const st = C.striker;
   st.act = 'swing';
   const d = dir ? (dir[0] >= 0 ? 1 : -1) * Math.min(1, Math.abs(dir[0]) * 1.5) : 0;
   st.swing = { u: 0, loft: type === 'loft', dir: d, back: type === 'block' ? false : false, block: type === 'block' };
+  // a late press (the ball's already past the contact plane but short of the pads) still gets bat on it
+  const B = C.ball;
+  if (C.phase === 'flight' && C.del && C.del.passedZC && B.st === 'del' && B.z > CRK_LATEZ && !B.hitBat) crkResolveShot();
 }
 // the CPU's batter: reads length and line, picks a gap, and gets the timing roughly right
 function crkCpuShot() {
@@ -428,9 +439,10 @@ function crkResolveShot() {
   const reachX = d.cx - st.x;                         // the ball's line against his stance (+ = off side)
   const inReach = reachX > -0.6 && reachX < 1.75 && d.cy < 1.95;
   const block = sh.type === 'block';
-  const W = block ? 0.13 : sh.type === 'loft' ? 0.125 : 0.14;
+  const human = crkHumanBats() && !C.auto, ease = human ? (C.cfg && C.cfg.key === 'rookie' ? 1.3 : C.cfg && C.cfg.key === 'pro' ? 1.12 : 1) : 1;
+  const W = (block ? 0.13 : sh.type === 'loft' ? 0.125 : 0.14) * ease;
   const ae = Math.abs(e);
-  if (!inReach || ae > W + 0.03) return false;        // missed it
+  if (!inReach || ae > W + 0.03) { if (human && inReach) crkFeed(e < 0 ? 'TOO EARLY' : 'TOO LATE', '#ff9a8a'); return false; }        // missed it
   // the edge: just off the middle, a thick or thin nick
   if (!block && ae > W - 0.045 && Math.random() < 0.72) {
     B.st = 'live'; B.hitBat = true; B.bounced = false; B.lastTouch = st; C.liveT = 0;
@@ -444,7 +456,8 @@ function crkResolveShot() {
     crkGoLive();
     return true;
   }
-  const q = crkClamp(1 - ae / W, 0, 1), perfect = ae < 0.028;
+  const q = crkClamp(1 - ae / W, 0, 1), perfect = ae < 0.028 * ease;
+  if (human && !perfect) crkFeed(e < 0 ? (ae > W * 0.55 ? 'EARLY' : 'A SHADE EARLY') : (ae > W * 0.55 ? 'LATE' : 'A SHADE LATE'), '#c8dcff');
   let dx = 0, dz = 1;
   if (sh.dir) { dx = sh.dir[0]; dz = sh.dir[1]; }
   // timing pulls it round: early to leg (−x), late to off (+x); the line nudges it too
@@ -462,6 +475,7 @@ function crkResolveShot() {
     B.vx = Math.sin(a) * sp; B.vz = Math.cos(a) * sp; B.vy = crkRnd(0.8, 2.6) + (d.cy > 1.2 ? 2.5 : 0);
   }
   B.st = 'live'; B.hitBat = true; B.bounced = false; B.lastTouch = st; C.liveT = 0; C.edgeBall = false;
+  if (st.swing) st.swing.u = Math.max(st.swing.u, 0.44);     // the bat is ON the ball at the moment of contact
   if (perfect && !block) { crkFeed('PERFECT TIMING!', '#ffd23a'); if (crkHumanBats()) C.stats.perfect++; C.slowT = 0.3; }
   crkSfx(block ? 'block' : 'bat', q);
   crkGoLive();
@@ -926,7 +940,8 @@ function cricketUpdate(dt) {
       const z0 = B.z;
       crkDelStep(B, h);
       if (z0 > CRK_ZC && B.z <= CRK_ZC) {
-        if (crkResolveShot()) break;
+        C.del.passedZC = true;
+        if (C.shot && crkResolveShot()) break;
       }
       // past the bat: the pad, the stumps, the keeper
       if (z0 > -9.15 && B.z <= -9.15 && !B.hitBat) {
@@ -1144,8 +1159,21 @@ function crkDrawHud(g, W, H) {
     crkTextC(g, mob ? 'AIM THE MARKER · TAP PACE OR SPIN' : pad ? 'STICK AIMS · A PACE · B SPIN' : 'ARROWS AIM · J PACE · K SPIN', W / 2, hy, 12 * ui, '#ffffff');
   }
   if (C.phase === 'runup' && C.meter) crkDrawMeter(g, W, H);
+  if ((C.phase === 'flight' || C.phase === 'runup') && crkHumanBats() && !C.auto && C.del && C.del.tc && !C.shot) {
+    const d = C.del, P = crkProj(d.cx, Math.max(0.3, d.cy), CRK_ZC);
+    if (P) {
+      const now = C.t - (C.inputMode === 'touch' ? CRK_TOUCH_LAG : 0), left = d.tc - CRK_LEAD - now;   // secs until the perfect press
+      if (left < 0.9 && left > -0.12) {
+        const r = Math.max(5, 7 + left * 70) * C.ui, hot = Math.abs(left) < 0.05;
+        g.lineWidth = 3; g.strokeStyle = hot ? '#3ae85a' : left < 0.12 ? '#ffd23a' : 'rgba(255,255,255,0.85)';
+        g.beginPath(); g.arc(P.x, P.y, r, 0, 7); g.stroke();
+        g.fillStyle = hot ? 'rgba(58,232,90,0.35)' : 'rgba(255,255,255,0.12)'; g.beginPath(); g.arc(P.x, P.y, 6 * C.ui, 0, 7); g.fill();
+        if (hot) crkTextC(g, 'NOW!', P.x, P.y - r - 8, 11 * C.ui, '#3ae85a');
+      }
+    }
+  }
   if ((C.phase === 'set' || C.phase === 'runup') && crkHumanBats() && !C.auto)
-    crkTextC(g, mob ? 'TAP A SHOT AS THE BALL ARRIVES · STICK AIMS' : pad ? 'A GROUND · B LOFT · X BLOCK — AS IT ARRIVES · STICK AIMS' : 'J GROUND · K LOFT · L BLOCK — AS IT ARRIVES · ARROWS AIM', W / 2, hy, 10 * ui, '#c8dcff');
+    crkTextC(g, mob ? 'TAP A SHOT WHEN THE RING CLOSES · STICK AIMS' : pad ? 'A GROUND · B LOFT · X BLOCK — WHEN THE RING CLOSES · STICK AIMS' : 'J GROUND · K LOFT · L BLOCK — WHEN THE RING CLOSES · ARROWS AIM', W / 2, hy, 10 * ui, '#c8dcff');
   if (C.phase === 'live' && crkHumanBats() && !C.auto && C.run && !C.boundary && !C.outPending) {
     const eta = crkFieldEta(), safe = eta > (C.run.going ? 1.8 : 3.4);
     if (((C.t * 3) | 0) % 2 === 0 || C.run.going) crkTextC(g, C.run.going ? (C.run.queued ? 'ANOTHER! ' : 'RUNNING… ') + (mob ? 'BACK TO STOP' : pad ? 'X = BACK' : 'L = BACK') : (mob ? 'RUN!' : pad ? 'Y = RUN!' : 'SPACE = RUN!') + (safe ? '  (SAFE)' : '  (RISKY)'), W / 2, hy, 13 * ui, safe ? '#7aff8a' : '#ffb08a');
@@ -1183,6 +1211,9 @@ function crkDrawSplash(g, W, H) {
   const pop = t < 0.35 ? 0.6 + t / 0.35 * 0.4 : 1 + Math.sin(t * 3) * 0.015;
   if (!crkDrawLogo(g, W / 2, H * 0.45, Math.min(H * 0.8, W * 0.78) * pop)) crkTextC(g, 'BIRYANI BLITZ!', W / 2, H * 0.45, 40, '#f7a032');
   if (t > 0.8 && ((t * 2) | 0) % 2 === 0) crkTextC(g, C.mobile ? 'TAP TO PLAY' : C.inputMode === 'pad' ? 'PRESS A' : 'PRESS ANY KEY', W / 2, H * 0.93, 12, '#7a1a20');
+  // a cold link: the browser holds the sound until the first touch
+  const S = C.sfx;
+  if (!S.ctx || S.ctx.state !== 'running') crkTextC(g, '🔊 TAP OR PRESS A KEY FOR SOUND', W / 2, H * 0.05 + 8, 9, '#7a1a20');
 }
 function crkDrawTeams(g, W, H) {
   const C = cricket, t = C.phaseT;
@@ -1442,6 +1473,7 @@ cricketWorld.addEventListener('touchmove', (e) => {
   }
   e.preventDefault();
 }, { passive: false });
+window.addEventListener('pointerdown', () => { if (cricketActive()) crkAudio(); }, true);
 window.addEventListener('touchend', (e) => { const T = cricket.touch; for (const t of e.changedTouches) { if (T.roles[t.identifier] === 'L') T.L = null; delete T.roles[t.identifier]; } });
 window.addEventListener('touchcancel', (e) => { const T = cricket.touch; for (const t of e.changedTouches) { if (T.roles[t.identifier] === 'L') T.L = null; delete T.roles[t.identifier]; } });
 
@@ -1457,7 +1489,7 @@ function crkPollPad() {
   P.lx = dz(gp.axes[0] || 0) + (btn(15) ? 1 : 0) - (btn(14) ? 1 : 0);
   P.ly = dz(gp.axes[1] || 0) + (btn(13) ? 1 : 0) - (btn(12) ? 1 : 0);
   const a = btn(0), b = btn(1), x = btn(2), y = btn(3) || btn(4) || btn(5) || btn(7), st = btn(9);
-  if (P.lx || P.ly || a || b || x || y) { P.on = true; C.inputMode = 'pad'; }
+  if (P.lx || P.ly || a || b || x || y) { P.on = true; C.inputMode = 'pad'; if ((a && !P._a) || (st && !P._st)) crkAudio(); }
   const nav = Math.abs(P.lx) > 0.6 ? (P.lx > 0 ? 'R' : 'L') : Math.abs(P.ly) > 0.6 ? (P.ly > 0 ? 'D' : 'U') : '';
   if (nav && nav !== P._nav) {
     if (C.phase === 'tier') crkTierPadMove(nav);

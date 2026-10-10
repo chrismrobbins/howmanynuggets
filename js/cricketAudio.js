@@ -92,11 +92,11 @@ function crkDiscManifest() {
   D.manP = fetch(CRK_DISC_BASE + 'index.json?v=' + CRK_DISC_V).then((r) => (r.ok ? r.json() : null)).then((m) => {
     if (!m) return null;
     D.man = m;
-    const files = [m.loops.match && m.loops.match.file].concat(Object.values(m.shots).map((x) => x.file)).filter(Boolean);
+    // the stadium loop alone first (it plays on the splash), then the sounds, then the commentary
+    const files = Object.values(m.shots).map((x) => x.file).filter(Boolean);
     let i = 0;
     const next = () => { if (i < files.length) crkDiscFetch(files[i++]).then(next); };
-    next(); next();
-    crkVoPrefetch();
+    (m.loops.match ? crkDiscFetch(m.loops.match.file) : Promise.resolve()).then(() => { next(); next(); crkVoPrefetch(); });
     return m;
   }).catch(() => null);
   return D.manP;
@@ -158,7 +158,8 @@ function crkMusicFrame() {
   const C = cricket, D = crkDisc, ctx = C.sfx.ctx, M = crkMus;
   if (!ctx || !D.man || C.sfx.muted || !crkMusInit()) return;
   const ph = C.phase;
-  const want = ph === 'final' ? (C.result && C.result.won ? 'win' : 'lose') : (ph === 'idle' || ph === 'tier') ? '' : 'match';
+  // the stadium loop from the very first frame (the splash), through the menus and the match
+  const want = ph === 'final' ? (C.result && C.result.won ? 'win' : 'lose') : ph === 'idle' ? '' : 'match';
   if (want !== M.want) {
     M.want = want;
     if (M.cur) { const old = M.cur; old.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.3); try { old.src.stop(ctx.currentTime + 1.5); } catch (e) { } M.cur = null; }
