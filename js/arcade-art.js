@@ -47,6 +47,9 @@ const ArcadeArt = (() => {
     // game 19 — NFL Blitz, but it's nuggets: the two outer uprights on the
     // east island (Nugmo Bowl keeps the inner pair). Street-page face (blitzFace).
     { mode: 'blitz', title: 'NUGGET BLITZ', icon: '💥', c1: '#ff6a1a', c2: '#2b6fff', tag: 'NO REFS. NO MERCY.' },
+    // game 20 — cricket, Blitz's tech on an oval: the two outer uprights on the
+    // west island (Reel of Fortune keeps the inner pair). Street-page face (cricketFace).
+    { mode: 'cricket', title: 'NUGGET CRICKET', icon: '🏏', c1: '#3ae85a', c2: '#ffd23a', tag: 'HOWZAT?' },
     // (game 17, BatteredBots, moved to GAMES — it has a cabinet on the back wall
     // now; the garage shutter on the street stays as a second door, botsFace.)
   ];
@@ -1605,6 +1608,9 @@ const ArcadeArt = (() => {
     // 💥 game 19 — the Blitz upright's face (chrome marquee, the 3D field, a 3-button deck)
     alloc('blitzFace', 128, 224, pBlitzFace);
     alloc('blitzTopper', 256, 96, pBlitzTopper);
+    // 🏏 game 20 — the cricket upright's face + its lit sign box
+    alloc('cricketFace', 128, 224, pCricketFace);
+    alloc('cricketTopper', 256, 96, pCricketTopper);
     const SW2 = {
       iron: '#3a4256', wood: '#6d5426', woodDark: '#42320e', red: '#e8412c',
       amber: '#ffb020', curb: '#3c3c46', black: '#0a0a12', white: '#f4f0e6',
@@ -2236,6 +2242,86 @@ const ArcadeArt = (() => {
     g.fillStyle = '#6a3412'; g.beginPath(); g.ellipse(30, h * 0.6, 11, 7, -0.3, 0, 7); g.fill();
     g.strokeStyle = '#d8d0b8'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(26, h * 0.62); g.lineTo(34, h * 0.58); g.stroke();
     g.strokeStyle = '#2b6fff'; g.lineWidth = 3; g.strokeRect(2, 2, w - 4, h - 4);
+  }
+
+  // 🏏 the cricket upright: a green-and-gold marquee, the broadcast view of the pitch on the CRT
+  function pCricketFace(g, w, h) {
+    g.fillStyle = '#0c1610'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#2c6640'; g.lineWidth = 4; g.strokeRect(2, 2, w - 4, h - 4);
+    const mq = g.createLinearGradient(0, 6, 0, h * 0.2);
+    mq.addColorStop(0, '#12502a'); mq.addColorStop(1, '#06200e');
+    g.fillStyle = mq; g.fillRect(6, 6, w - 12, h * 0.2 - 8);
+    g.fillStyle = '#e8c21a'; g.fillRect(6, h * 0.2 - 4, w - 12, 2);
+    g.save();
+    g.translate(w / 2, h * 0.112); g.transform(1, 0, -0.18, 1, 0, 0);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '900 italic 9px Impact, Haettenschweiler, sans-serif';
+    g.fillStyle = '#b8e8c0'; g.fillText('NUGGET', 0, -h * 0.062);
+    g.font = '900 italic 27px Impact, Haettenschweiler, sans-serif';
+    g.lineWidth = 4; g.strokeStyle = '#000'; g.strokeText('CRICKET', 0, h * 0.014);
+    const bt = g.createLinearGradient(0, -12, 0, 14);
+    bt.addColorStop(0, '#fff2a0'); bt.addColorStop(0.55, '#f2c41e'); bt.addColorStop(1, '#a87a0a');
+    g.fillStyle = bt; g.fillText('CRICKET', 0, h * 0.014);
+    g.restore();
+    // the CRT: from behind the bowler, the strip running up the screen to a batter
+    const sx = 10, sy = h * 0.24, sw = w - 20, sh = h * 0.36;
+    g.fillStyle = '#05060a'; g.fillRect(sx - 3, sy - 3, sw + 6, sh + 6);
+    g.fillStyle = '#2a3048'; g.fillRect(sx, sy, sw, sh * 0.2);
+    for (let i = 0; i < sw; i += 2) { g.fillStyle = ['#c03424', '#e8c21a', '#d0c8b0', '#2a58b0'][(i * 7) % 4]; g.fillRect(sx + i, sy + sh * 0.08 + (i % 3), 1, 1); }
+    g.fillStyle = '#f4f4f0'; g.fillRect(sx, sy + sh * 0.2, sw, 3);                       // the boards
+    for (let i = 0; i < 6; i++) { g.fillStyle = i % 2 ? '#3c8a2c' : '#45983a'; g.fillRect(sx, sy + sh * (0.24 + i * 0.13), sw, sh * 0.13); }
+    const cx = sx + sw / 2, top = sy + sh * 0.34, bot = sy + sh;
+    g.fillStyle = '#d8c494';
+    g.beginPath(); g.moveTo(cx - 6, top); g.lineTo(cx + 6, top); g.lineTo(cx + 16, bot); g.lineTo(cx - 16, bot); g.fill();
+    g.fillStyle = '#ffffff'; g.fillRect(cx - 7, top + 4, 14, 1); g.fillRect(cx - 14, bot - 6, 28, 1);
+    // stumps, the batter (helmet, bat), the bowler running in
+    g.fillStyle = '#f0e8d0'; for (const dx of [-2, 0, 2]) g.fillRect(cx + dx, top - 2, 1, 5);
+    g.fillStyle = '#d99a3c'; g.fillRect(cx + 3, top - 7, 4, 6); g.fillStyle = '#c8321f'; g.beginPath(); g.arc(cx + 5, top - 9, 2.5, 0, 7); g.fill();
+    g.fillStyle = '#e8d8a8'; g.fillRect(cx + 7, top - 4, 1, 6);
+    g.fillStyle = '#d99a3c'; g.fillRect(cx - 3, bot - 16, 6, 9); g.fillStyle = '#f2c41e'; g.fillRect(cx - 3, bot - 15, 6, 4);
+    g.fillStyle = '#c81a1a'; g.beginPath(); g.arc(cx + 1, top + 12, 1.6, 0, 7); g.fill();     // the ball, in flight
+    g.fillStyle = 'rgba(0,0,0,0.18)'; for (let y = sy; y < sy + sh; y += 2) g.fillRect(sx, y, sw, 1);
+    g.textAlign = 'center';
+    g.fillStyle = '#c8c0a8'; g.font = '700 8px Consolas, monospace';
+    g.fillText('HOWZAT?', w / 2, h * 0.655);
+    // the deck: a stick and four buttons (GROUND · LOFT · BLOCK · RUN)
+    g.fillStyle = '#1c3a24'; g.fillRect(6, h * 0.69, w - 12, h * 0.15);
+    g.fillStyle = '#0a160e'; g.fillRect(6, h * 0.69, w - 12, 2);
+    const bx = w * 0.26, by = h * 0.765;
+    g.fillStyle = '#0a0a10'; g.beginPath(); g.arc(bx, by + 3, 5, 0, 7); g.fill();
+    g.fillStyle = '#c03424'; g.beginPath(); g.arc(bx, by - 3, 4, 0, 7); g.fill();
+    [['#c03424', 0.5], ['#e8c21a', 0.62], ['#5a6478', 0.74], ['#2a9a3a', 0.86]].forEach(([c, px]) => { g.fillStyle = c; g.beginPath(); g.arc(w * px, by, 3.6, 0, 7); g.fill(); });
+    g.fillStyle = '#d4e6d4'; g.font = '900 9px Consolas, monospace';
+    g.fillText('FREE PLAY', w / 2, h * 0.885);
+    g.fillStyle = '#86a88e'; g.font = '700 7px Consolas, monospace';
+    g.fillText('BAT. BOWL. SIX.', w / 2, h * 0.925);
+    g.fillStyle = '#2e5038'; for (let i = 0; i < 2; i++) g.fillRect(14, h * 0.95 + i * 3.4, w - 28, 2);
+  }
+  // the lit box on top of the cricket uprights
+  function pCricketTopper(g, w, h) {
+    g.fillStyle = '#04100a'; g.fillRect(0, 0, w, h);
+    // a stripe of mown grass along the bottom
+    for (let x = 0; x < w; x += 16) { g.fillStyle = (x / 16) % 2 ? '#1e6a2a' : '#258034'; g.fillRect(x, h - 14, 16, 14); }
+    g.save();
+    g.translate(w / 2 + 16, h * 0.46); g.transform(1, 0, -0.18, 1, 0, 0);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '900 italic 50px Impact, Haettenschweiler, sans-serif';
+    g.lineWidth = 7; g.strokeStyle = '#000'; g.strokeText('CRICKET', 0, 4);
+    const bt = g.createLinearGradient(0, -24, 0, 28);
+    bt.addColorStop(0, '#fff6b0'); bt.addColorStop(0.5, '#f2c41e'); bt.addColorStop(1, '#a8780a');
+    g.fillStyle = bt; g.fillText('CRICKET', 0, 4);
+    g.font = '900 italic 14px Impact, Haettenschweiler, sans-serif';
+    g.lineWidth = 3; g.strokeText('NUGGET', -64, -26);
+    g.fillStyle = '#b8f0c0'; g.fillText('NUGGET', -64, -26);
+    g.restore();
+    // a bat and a red ball, left
+    g.save(); g.translate(22, h * 0.56); g.rotate(-0.5);
+    g.fillStyle = '#1a1a1a'; g.fillRect(-2, -30, 4, 14);
+    g.fillStyle = '#e8d8a0'; g.fillRect(-6, -17, 12, 36);
+    g.restore();
+    g.fillStyle = '#d0201a'; g.beginPath(); g.arc(40, h * 0.7, 6, 0, 7); g.fill();
+    g.strokeStyle = '#f4e0d0'; g.lineWidth = 1; g.beginPath(); g.arc(40, h * 0.7, 6, -0.9, 0.9); g.stroke();
+    g.strokeStyle = '#3ae85a'; g.lineWidth = 3; g.strokeRect(2, 2, w - 4, h - 4);
   }
 
   function pDrainSign(g, w, h) {

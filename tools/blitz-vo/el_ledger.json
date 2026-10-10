@@ -1,6 +1,6 @@
 {
  "cap": 10000,
- "spent": 5205.0,
+ "spent": 6130.0,
  "calls": [
   {
    "t": "2026-10-09 15:34",
@@ -265,6 +265,118 @@
    "secs": 15,
    "credits": 150.0,
    "file": "cr-bed.mp3"
+  },
+  {
+   "t": "2026-10-09 18:27",
+   "kind": "music",
+   "what": "Upbeat IPL-style cricket stadium anthem for an arcade video game: dhol drums, punchy brass stabs, a bright electric guit",
+   "secs": 40,
+   "credits": 500.0,
+   "file": "match.mp3"
+  },
+  {
+   "t": "2026-10-09 18:28",
+   "kind": "music",
+   "what": "Triumphant festive brass and dhol victory fanfare for a cricket video game, ending on a big final hit. Instrumental, no ",
+   "secs": 10,
+   "credits": 125.0,
+   "file": "win.mp3"
+  },
+  {
+   "t": "2026-10-09 18:28",
+   "kind": "music",
+   "what": "Short deflated brass sting for losing a cricket match in a video game, a sad descending line that fizzles out. Instrumen",
+   "secs": 8,
+   "credits": 100.0,
+   "file": "lose.mp3"
+  },
+  {
+   "t": "2026-10-09 18:28",
+   "kind": "sfx",
+   "what": "A cricket bat striking a leather cricket ball cleanly, a sharp loud wooden crack",
+   "secs": 1,
+   "credits": 10.0,
+   "file": "bat.mp3"
+  },
+  {
+   "t": "2026-10-09 18:28",
+   "kind": "sfx",
+   "what": "A cricket ball taking a thin edge off the bat, a quick light wooden click",
+   "secs": 1,
+   "credits": 10.0,
+   "file": "edge.mp3"
+  },
+  {
+   "t": "2026-10-09 18:28",
+   "kind": "sfx",
+   "what": "Cricket stumps being knocked over by the ball, wooden stumps and bails clattering",
+   "secs": 2,
+   "credits": 20.0,
+   "file": "stumps.mp3"
+  },
+  {
+   "t": "2026-10-09 18:28",
+   "kind": "sfx",
+   "what": "A hard leather cricket ball slapping into a fielder's hands, a solid thud",
+   "secs": 1,
+   "credits": 10.0,
+   "file": "catch.mp3"
+  },
+  {
+   "t": "2026-10-09 18:28",
+   "kind": "sfx",
+   "what": "A cricket ball thudding into a batsman's leg pad, a dull padded thump",
+   "secs": 1,
+   "credits": 10.0,
+   "file": "pad.mp3"
+  },
+  {
+   "t": "2026-10-09 18:28",
+   "kind": "sfx",
+   "what": "Short bright brass sting for hitting a four in a cricket video game",
+   "secs": 2,
+   "credits": 20.0,
+   "file": "four.mp3"
+  },
+  {
+   "t": "2026-10-09 18:28",
+   "kind": "sfx",
+   "what": "Big triumphant brass and dhol sting with an air horn for a six in a cricket video game",
+   "secs": 3,
+   "credits": 30.0,
+   "file": "six.mp3"
+  },
+  {
+   "t": "2026-10-09 18:28",
+   "kind": "sfx",
+   "what": "Dramatic drum hit and brass stab for taking a wicket in a cricket video game",
+   "secs": 2,
+   "credits": 20.0,
+   "file": "wicket.mp3"
+  },
+  {
+   "t": "2026-10-09 18:28",
+   "kind": "sfx",
+   "what": "Huge cricket stadium crowd erupting in cheers after a six, air horns and drums",
+   "secs": 3,
+   "credits": 30.0,
+   "file": "cr-roar.mp3"
+  },
+  {
+   "t": "2026-10-09 18:28",
+   "kind": "sfx",
+   "what": "Big stadium crowd groaning in disappointment",
+   "secs": 2,
+   "credits": 20.0,
+   "file": "cr-aww.mp3"
+  },
+  {
+   "t": "2026-10-09 18:28",
+   "kind": "sfx",
+   "what": "Cricket fielders and crowd loudly appealing HOWZAT together",
+   "secs": 2,
+   "credits": 20.0,
+   "file": "cr-appeal.mp3"
   }
  ]
 }

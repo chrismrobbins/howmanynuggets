@@ -635,6 +635,83 @@ the counter, but doesn't enter the game. similar issues when using a controller"
   - 60fps, ~3 pad DOM writes/s. The desktop is unchanged (no pad, top bar
     shown, 60fps).
 
+## 🏏 NUGGET CRICKET (game 20, mode `cricket`) — 2026-10-09
+
+Chris: "taking everything we've done for blitz make a game for cricket" (bat +
+bowl, a lean audio budget, "add it to the arcade and give me a separate url",
+"make sure to use thicker indian accents"). Files: `js/cricketGL.js` (the
+renderer), `js/cricket.js` (the game), `js/cricketAudio.js` + `js/cricketVO.js`
+(sound), `css/cricket.css`, `cricket/index.html` (the short URL),
+`tools/cricket-audio/`. Test seam `window.cricketDebug`.
+- **Everything is `crk`-prefixed with its own state object** (`cricket`, the
+  world div `#cricketWorld`). Nothing is shared with Blitz at runtime; the code
+  is ported (the GL shader, mesh builders, rigid-part rig, pad, ArcadeKit tier,
+  disc/VO players). Check `comm` of top-level names against the blitz files
+  after any addition.
+- **The ground:** metres; the pitch runs along z (striker's stumps at −10.06,
+  the bowler's at +10.06), boundary rope at 58 m. The TV camera is high behind
+  the bowler on a long lens (`crkCam`: (2.4, 14, 84) looking at z −6.5,
+  F = H×7.2). After the hit, a follow camera rises and chases the ball. A
+  right-hander stands side-on facing +x: +x is the off side, −x the leg side,
+  and the screen's right is −x.
+- **Rules (arcade):** 2–3 overs a side, 3 wickets; the toss; bowled / caught /
+  LBW (pad in front of middle-and-leg, ~85% given when pitched in line) / run
+  out; wides +1 and re-bowled; fours and sixes at the rope; strike rotates on
+  odd runs and at the end of an over. No stumpings, byes, no-balls or follow-on.
+- **Batting:** a shot is pressed `CRK_LEAD` (0.16 s) before the ball reaches the
+  contact plane (z −8). The timing error `e` sets the quality (window ±0.13–0.14)
+  and pulls the direction: early to leg, late to off. Just off the middle is an
+  edge (late = outside edge to slip/keeper, early = inside edge, 35% played on
+  if it was hitting). Stick = aim (nothing held = straight back). GROUND / LOFT
+  (skied when q < 0.45) / BLOCK. The swing is keyframed (`CRK_BATKEYS` in
+  cricketGL.js: stance → back-lift toward the keeper → bat vertical at contact
+  → finish over the front shoulder).
+- **Bowling:** the human aims a marker on the pitch (line + length) and picks
+  PACE or SPIN to run in, then hits BOWL with a sine needle in the green. The
+  error sprays the line/length; way off is a wide. The CPU plans from a length
+  distribution (yorker / full / good / short / bouncer), with swing in the air
+  (pace) and turn off the pitch (spin).
+- **Fielding:** `crkFieldPlan` sends the man who reaches the ball's path first
+  (a ball passing within arm's reach, 1 m, counts). There are catches with a
+  difficulty roll (drops pop up), dives, gathers and throws to the danger end.
+  A direct hit is 30%; otherwise the gather needs 0.32 s to break the stumps
+  (`C.whip`), and a batter can make his ground in that beat. The keeper and
+  bowler only relay a throw if there's a run on at the other end (this ended a
+  throw-to-yourself loop).
+- **Running:** the human calls RUN (again = another, BLOCK = send back) with a
+  SAFE/RISKY prompt from `crkFieldEta`. That is the min of every fielder's
+  path-intercept + throw and a "fielder already near the ball" check, because
+  the chaser-only estimate lied and got the scripted player run out. The CPU's
+  batters use the same estimate with a threshold.
+- **CPU batting:** reads the length (block yorkers, pull short, drive full),
+  picks a gap among 12 angles, timing error N(0, σ(skill)), and a misread
+  chance (more for spin and yorkers) that produces the bowled/LBW. **Balance**
+  (AI v AI, PRO): ~9 runs an over, ~1.1 wickets per 3-over innings, b4 ≈ 3.7,
+  b6 ≈ 1.4 per innings, every dismissal type present, no hangs. A scripted
+  human with ±0.035 s timing wins most PRO matches. Bugs found by the sims: a
+  slow spinner that beat the bat stopped short of the keeper (stood up) and
+  hung the delivery forever (now: the keeper takes it wherever he stands, plus
+  a 3.5 s valve); 6 sixes an innings (loft speed and drag); 1 run out an innings.
+- **Sound:** Raju (an Indian cricket commentator, Chris's pick) voices 42 lines
+  (62 clips) through `crkSpeak`. Number lines show on the ticker and speak a
+  number-free alternative. Also a 35 s IPL-style stadium loop (dhol + brass),
+  win/lose stings, and recorded bat / edge / stumps / catch / pad / four / six /
+  wicket / crowd roar / aww / appeal. Synth fallbacks are in cricket.js.
+  ~1,850 credits all in.
+- **Phone:** the Blitz pad, cricket's actions (DRIVE / BLOCK / LOFT, RUN / BACK,
+  PACE / SPIN, BOWL!), the pause sheet with quit; the HUD's batter strip and
+  feed go to the top on a phone. Controller: A ground/pace · B loft/spin ·
+  X block/back · Y or a bumper run/bowl · START pause; the stick walks the
+  opponent cards.
+- **Integration:** storm.js (MODE_HINTS/BADGE/VERB, compact HUD, pausesStorm,
+  sync/step/tally), index.html (world div, scripts `?v=1`, css, score tile,
+  mode button, leaderboard option), account.js (score maps), worker (GAMES +
+  60e6 cap — **the worker deploys from `worker/**` on push**), the hall: the
+  WEST island's outer pair (Reel of Fortune keeps the inner pair, mirroring
+  Blitz on the east) with `cricketFace` + a lit green `cricketTopper` on the
+  street atlas, plus a STREET_GAMES entry. Direct links:
+  `howmanynuggets.com/cricket/` and `?play=cricket`.
+
 ## 🏈 NUGGET BLITZ: THE CATCH — receivers look it in (2026-10-09)
 
 Chris: "the game play for actually receiving a catch is still weak - the players

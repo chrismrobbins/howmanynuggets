@@ -26,6 +26,7 @@
   <link rel="stylesheet" href="css/bots.css" />
   <link rel="stylesheet" href="css/bowl.css" />
   <link rel="stylesheet" href="css/blitz.css?v=12" />
+  <link rel="stylesheet" href="css/cricket.css?v=1" />
   <link rel="stylesheet" href="css/arcade.css" />
   <link rel="stylesheet" href="css/locker.css" />
   <link rel="stylesheet" href="css/multiplayer.css" />
@@ -125,6 +126,7 @@
         <div class="score-tile"><div class="game">🤖</div><div class="game-name">Bots</div><div class="best" id="myBots">0</div></div>
         <div class="score-tile"><div class="game">🏈</div><div class="game-name">Bowl</div><div class="best" id="myBowl">0</div></div>
         <div class="score-tile"><div class="game">💥</div><div class="game-name">Blitz</div><div class="best" id="myBlitz">0</div></div>
+        <div class="score-tile"><div class="game">🏏</div><div class="game-name">Cricket</div><div class="best" id="myCricket">0</div></div>
       </div>
     </div>
 
@@ -177,6 +179,7 @@
       <button type="button" data-mode="bots" title="BatteredBots — nugget RC battlebots under the Grease Garage. three minutes. last bot rolling.">🤖</button>
       <button type="button" data-mode="bowl" title="Nugmo Bowl — nine-on-nine nugget football. four plays, they guess one. Bo knows.">🏈</button>
       <button type="button" data-mode="blitz" title="Nugget Blitz — seven-on-seven, 30 yards for a first, turbo, late hits. no refs.">💥</button>
+      <button type="button" data-mode="cricket" title="Nugget Cricket — bat and bowl, three wickets, sixes into the stands.">🏏</button>
     </span>
     <button id="stormStop" type="button">Stop</button>
   </div>
@@ -247,6 +250,9 @@
 
   <!-- Nugget Blitz: NFL Blitz (N64), but it's nuggets (canvas injected by js/blitz.js) -->
   <div id="blitzWorld"></div>
+
+  <!-- Nugget Cricket: bat + bowl, nugget nations (canvas injected by js/cricket.js) -->
+  <div id="cricketWorld"></div>
 
   <!-- Account modal: log in / create account / signed-in menu -->
   <div class="modal-overlay" id="authModal">
@@ -345,6 +351,7 @@
         <button type="button" data-game="bots">🤖 Bots</button>
         <button type="button" data-game="bowl">🏈 Bowl</button>
         <button type="button" data-game="blitz">💥 Blitz</button>
+        <button type="button" data-game="cricket">🏏 Cricket</button>
       </div>
       <div id="lbBody"><div class="lb-loading">Loading…</div></div>
     </div>
@@ -455,6 +462,10 @@
   <script src="js/blitz.js?v=12"></script>
   <script src="js/blitzVO.js?v=12"></script>
   <script src="js/blitzAudio.js?v=12"></script>
+  <script src="js/cricketGL.js?v=1"></script>
+  <script src="js/cricket.js?v=1"></script>
+  <script src="js/cricketVO.js?v=1"></script>
+  <script src="js/cricketAudio.js?v=1"></script>
   <script src="js/hallBoot.js"></script>
   <script src="js/nugHero.js"></script>
   <script src="js/regulars.js"></script>

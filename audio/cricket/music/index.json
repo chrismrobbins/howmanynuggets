@@ -1,0 +1,65 @@
+{
+ "loops": {
+  "match": {
+   "file": "match.mp3",
+   "start": 0.25,
+   "end": 35.1496,
+   "bpm": 95.7,
+   "bars": 14
+  }
+ },
+ "shots": {
+  "win": {
+   "file": "win.mp3",
+   "dur": 8.07
+  },
+  "lose": {
+   "file": "lose.mp3",
+   "dur": 5.2
+  },
+  "bat": {
+   "file": "bat.mp3",
+   "dur": 0.34
+  },
+  "edge": {
+   "file": "edge.mp3",
+   "dur": 0.33
+  },
+  "stumps": {
+   "file": "stumps.mp3",
+   "dur": 1.92
+  },
+  "catch": {
+   "file": "catch.mp3",
+   "dur": 1.0
+  },
+  "pad": {
+   "file": "pad.mp3",
+   "dur": 1.0
+  },
+  "four": {
+   "file": "four.mp3",
+   "dur": 1.24
+  },
+  "six": {
+   "file": "six.mp3",
+   "dur": 1.62
+  },
+  "wicket": {
+   "file": "wicket.mp3",
+   "dur": 1.07
+  },
+  "cr-roar": {
+   "file": "cr-roar.mp3",
+   "dur": 3.0
+  },
+  "cr-aww": {
+   "file": "cr-aww.mp3",
+   "dur": 2.0
+  },
+  "cr-appeal": {
+   "file": "cr-appeal.mp3",
+   "dur": 1.78
+  }
+ }
+}
