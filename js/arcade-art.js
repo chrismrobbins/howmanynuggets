@@ -2244,6 +2244,10 @@ const ArcadeArt = (() => {
     g.strokeStyle = '#2b6fff'; g.lineWidth = 3; g.strokeRect(2, 2, w - 4, h - 4);
   }
 
+  // 🍛 Chris's BIRYANI BLITZ logo for the cricket cabinet: fetched as this file loads, so it's long
+  // here by the time the hall paints its street atlas (a slow network gets the lettering instead)
+  const crkCabLogo = new Image(); crkCabLogo.src = 'cricket/biryani-logo-sm.png?v=1';
+  const crkCabLogoOk = () => crkCabLogo.complete && crkCabLogo.naturalWidth > 0;
   // 🏏 the cricket upright: a green-and-gold marquee, the broadcast view of the pitch on the CRT
   function pCricketFace(g, w, h) {
     g.fillStyle = '#0c1610'; g.fillRect(0, 0, w, h);
@@ -2264,6 +2268,12 @@ const ArcadeArt = (() => {
     g.restore();
     g.fillStyle = '#2a6a36'; g.fillRect(18, h * 0.17, w - 36, 7);
     g.fillStyle = '#fff3d8'; g.font = '900 6px Consolas, monospace'; g.textAlign = 'center'; g.fillText('C R I C K E T', w / 2, h * 0.17 + 5.5);
+    // the real logo over the lettering, filling the marquee band (the hall redraws the top 20% proud)
+    if (crkCabLogoOk()) {
+      g.fillStyle = '#1a0608'; g.fillRect(6, 6, w - 12, h * 0.2 - 8);   // dark: the hall's glow blows cream out
+      const lh = h * 0.2 - 8, lw = lh * crkCabLogo.naturalWidth / crkCabLogo.naturalHeight;
+      g.drawImage(crkCabLogo, (w - lw) / 2, 6, lw, lh);
+    }
     // the CRT: from behind the bowler, the strip running up the screen to a batter
     const sx = 10, sy = h * 0.24, sw = w - 20, sh = h * 0.36;
     g.fillStyle = '#05060a'; g.fillRect(sx - 3, sy - 3, sw + 6, sh + 6);
@@ -2314,6 +2324,13 @@ const ArcadeArt = (() => {
     g.fillStyle = '#2a6a36'; g.fillRect(54, h * 0.7, w - 80, 17);
     g.fillStyle = '#fff3d8'; g.font = '900 13px Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText('C R I C K E T', w / 2 + 14, h * 0.7 + 9);
+    // the real logo, the sign box's whole height, on a cream panel flanked by the bat and ball
+    if (crkCabLogoOk()) {
+      g.fillStyle = '#1a0608'; g.fillRect(2, 2, w - 4, h - 4);           // dark: the hall's glow blows cream out
+      for (let x = 2; x < w - 2; x += 16) { g.fillStyle = (x / 16) % 2 ? '#123a1a' : '#164a20'; g.fillRect(x, h - 16, Math.min(16, w - 2 - x), 14); }
+      const lh = h - 6, lw = lh * crkCabLogo.naturalWidth / crkCabLogo.naturalHeight;
+      g.drawImage(crkCabLogo, (w - lw) / 2, 3, lw, lh);
+    }
     // a bat and a red ball, left
     g.save(); g.translate(22, h * 0.56); g.rotate(-0.5);
     g.fillStyle = '#1a1a1a'; g.fillRect(-2, -30, 4, 14);

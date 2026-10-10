@@ -274,6 +274,12 @@ function crkPaintAds() {
   const c = crkCanvas(1024, 64), g = c.getContext('2d'), sw = 1024 / CRK_ADS.length;
   CRK_ADS.forEach((ad, i) => {
     const x = i * sw;
+    if (i === 0 && typeof CRK_LOGO !== 'undefined' && crkLogoReady(CRK_LOGO)) {
+      g.fillStyle = '#fff3d6'; g.fillRect(x, 0, sw, 64);
+      const lh = 62, lw = lh * CRK_LOGO.naturalWidth / CRK_LOGO.naturalHeight;
+      g.drawImage(CRK_LOGO, x + (sw - lw) / 2, 1, lw, lh);
+      return;
+    }
     g.fillStyle = ad[1]; g.fillRect(x, 0, sw, 64);
     g.font = '900 italic 24px Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillStyle = ad[2]; g.fillText(ad[0], x + sw / 2, 33, sw - 14);
@@ -452,6 +458,12 @@ function crkGLScene() {
   // the sight screens behind each bowler's arm (white, so the red ball reads)
   for (const s of [-1, 1]) crkMBox(props, 0, 3.5, s * (rb + 1.5), 9, 3.5, 0.4, crkRGB('#f4f4f0'));
   S.ads = crkGLUpload(ads); S.crowd = crkGLUpload(crowd); S.props = crkGLUpload(props);
+  // the logo painted on the outfield behind the keeper, reading up the screen from the TV camera (the
+  // camera looks down −z with screen-right = −x: u runs +x → −x, v from the far edge to the near)
+  m = crkMesh();
+  const LW = 22, LH = LW * 832 / 915, LZ = -38;
+  crkMQuad(m, [[LW / 2, 0.02, LZ - LH / 2], [-LW / 2, 0.02, LZ - LH / 2], [-LW / 2, 0.02, LZ + LH / 2], [LW / 2, 0.02, LZ + LH / 2]], [0, 1, 0], [1, 1, 1], [[0, 0], [1, 0], [1, 1], [0, 1]]);
+  S.groundLogo = crkGLUpload(m);
   return S;
 }
 function crkGLBuild(key) {
@@ -467,6 +479,8 @@ function crkGLBuild(key) {
   G.tex.shirts = crkGLTex(crkPaintShirts());
   G.tex.helm0 = crkGLTex(crkPaintHelmet(crkTeam(0)));
   G.tex.helm1 = crkGLTex(crkPaintHelmet(crkTeam(1)));
+  if (G.tex.logo) { gl.deleteTexture(G.tex.logo); G.tex.logo = null; }
+  if (typeof CRK_LOGO !== 'undefined' && crkLogoReady(CRK_LOGO)) { const c = crkCanvas(512, 512); c.getContext('2d').drawImage(CRK_LOGO, 0, 0, 512, 512); G.tex.logo = crkGLTex(c); }
   G.key = key;
 }
 
@@ -719,7 +733,7 @@ function crkGLRender() {
   const C = cricket, gl = C.gl, G = C.glr;
   if (!gl || !G) return false;
   crkGLSize();
-  const key = C.teams.join('|') + (C.night ? 'n' : '');
+  const key = C.teams.join('|') + (C.night ? 'n' : '') + (typeof CRK_LOGO !== 'undefined' && crkLogoReady(CRK_LOGO) ? 'L' : '');
   if (G.key !== key) crkGLBuild(key);
   const night = !!C.night, U = G.P.u;
   const fog = night ? [0.04, 0.05, 0.1] : [0.68, 0.8, 0.94];
@@ -742,6 +756,7 @@ function crkGLRender() {
   crkGLDraw1(S.pitch, I, G.tex.pitch, { lit: 0 });
   crkGLDraw1(S.circle, I, null, { lit: 0 });
   crkGLDraw1(S.rope, I, null, { lit: 0 });
+  if (G.tex.logo) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); crkGLDraw1(S.groundLogo, I, G.tex.logo, { lit: 0, alpha: 0.9 }); gl.depthMask(true); gl.disable(gl.BLEND); }
   gl.disable(gl.POLYGON_OFFSET_FILL);
   crkGLDraw1(S.crowd, I, G.tex.crowd, { lit: 0, tint: night ? [0.6, 0.6, 0.7] : null, uvx: [1, 1, 0, Math.sin(C.t * 15) * 0.004 * Math.min(1, C.crowdJump || 0)] });
   crkGLDraw1(S.ads, I, G.tex.ads, { lit: 0 });

@@ -17,6 +17,20 @@
 // commentary. Rules simplified where an arcade wants it (no stumpings, no byes, no follow-on).
 
 const cricketWorld = document.getElementById('cricketWorld');
+// 🍛 Chris's logo (cricket/biryani-logo*.png: the original on cream, a cut-out, a small cut-out)
+const CRK_LOGO = new Image(); CRK_LOGO.src = 'cricket/biryani-logo-cut.png?v=1';
+const CRK_LOGO_SM = new Image(); CRK_LOGO_SM.src = 'cricket/biryani-logo-sm.png?v=1';
+function crkLogoReady(im) { return im.complete && im.naturalWidth > 0; }
+// draw the logo centred at (cx, cy), `h` tall (logical px); false if it hasn't loaded yet
+function crkDrawLogo(g, cx, cy, h, alpha, small) {
+  const im = small && crkLogoReady(CRK_LOGO_SM) ? CRK_LOGO_SM : CRK_LOGO;
+  if (!crkLogoReady(im)) return false;
+  const w = h * im.naturalWidth / im.naturalHeight;
+  g.globalAlpha = alpha == null ? 1 : alpha;
+  g.drawImage(im, cx - w / 2, cy - h / 2, w, h);
+  g.globalAlpha = 1;
+  return true;
+}
 const CRK_RES = 384;
 const CRK_TEAMS = {
   nugs:     { name: 'NUGS', full: 'THE NUGS', city: 'NUGGETOWN', abbr: 'NUG', logo: 'N', c1: '#c8321f', c2: '#ffd23a', trou: '#f2ead8', num: '#ffffff', blurb: 'THE HOME SIDE. GOLDEN BROWN.' },
@@ -107,7 +121,7 @@ function syncCricket() {
     cricketLayout();
     if (crkIsPhone()) crkPadOn();
     if (typeof crkDiscManifest === 'function') crkDiscManifest();
-    crkOpenTier();
+    C.phase = 'splash'; C.phaseT = 0;
   } else {
     if (C.tierPick) { C.tierPick.close(); C.tierPick = null; }
     C.phase = 'idle';
@@ -871,6 +885,7 @@ function cricketUpdate(dt) {
   C.crowdJump = Math.max(0, C.crowdJump - dt * 0.6);
   crkStumpsStep(dt);
   const ph = C.phase;
+  if (ph === 'splash') { if (C.phaseT > 2.8) crkOpenTier(); return; }
   if (ph === 'teams' || ph === 'toss' || ph === 'tier' || ph === 'idle') return;
   if (ph === 'break') { if (C.phaseT > 3.2 && (C.auto || C.phaseT > 6)) crkSecondInnings(); return; }
   if (ph === 'final') return;
@@ -1060,7 +1075,8 @@ function crkDraw() {
   g.setTransform(C.ov, 0, 0, C.ov, 0, 0);
   g.clearRect(0, 0, W, H);
   C.hit.cards = [];
-  const menu = C.phase === 'tier' || C.phase === 'idle' || C.phase === 'teams' || C.phase === 'toss';
+  const menu = C.phase === 'tier' || C.phase === 'idle' || C.phase === 'teams' || C.phase === 'toss' || C.phase === 'splash';
+  if (C.phase === 'splash') { if (C.glCv) C.glCv.style.visibility = 'hidden'; crkDrawSplash(g, W, H); return; }
   if (C.glCv) C.glCv.style.visibility = menu ? 'hidden' : 'visible';
   if (C.phase === 'teams') { crkDrawTeams(g, W, H); return; }
   if (C.phase === 'toss') { crkDrawToss(g, W, H); return; }
@@ -1083,6 +1099,7 @@ function crkDrawHud(g, W, H) {
   crkText(g, '(' + crkOvers(s.b) + ')', bx + bw - 8 * ui, by + 13 * ui, 11 * ui, '#c8dcff', 'right');
   crkText(g, 'OF ' + C.cfg.overs + ' OVERS', bx + 14 * ui, by + 26 * ui, 8 * ui, '#8a96b8');
   if (C.inn) crkText(g, 'NEED ' + Math.max(0, C.target - s.r) + ' OFF ' + Math.max(0, C.cfg.overs * 6 - s.b), bx + 14 * ui, by + 38 * ui, 10 * ui, '#ffffff');
+  if (!mob) crkDrawLogo(g, bx + bw + 26 * ui, by + bh / 2 + 4 * ui, 46 * ui, 1, true);
   // this over: a dot per ball
   const ox = W - 14 - menuW, oy = by + 10 * ui;
   crkText(g, 'THIS OVER', ox, oy, 8 * ui, '#8a96b8', 'right');
@@ -1156,10 +1173,23 @@ function crkDrawMeter(g, W, H) {
   g.fillStyle = '#ffffff'; g.fillRect(nx - 2, y - 6, 4, h + 12);
   crkTextC(g, C.mobile ? 'TAP BOWL IN THE GREEN' : C.inputMode === 'pad' ? 'A / B IN THE GREEN' : 'SPACE IN THE GREEN', W / 2, y + h + 12 * ui, 10 * ui, '#ffffff');
 }
+function crkDrawSplash(g, W, H) {
+  const C = cricket, t = C.phaseT;
+  g.fillStyle = '#fff3d6'; g.fillRect(0, 0, W, H);
+  // a slow sunburst behind the pot
+  g.save(); g.translate(W / 2, H * 0.44); g.rotate(t * 0.15);
+  for (let i = 0; i < 16; i++) { g.rotate(Math.PI / 8); g.fillStyle = i % 2 ? 'rgba(247,160,50,0.10)' : 'rgba(216,48,110,0.06)'; g.beginPath(); g.moveTo(0, 0); g.lineTo(W, -W * 0.2); g.lineTo(W, W * 0.2); g.fill(); }
+  g.restore();
+  const pop = t < 0.35 ? 0.6 + t / 0.35 * 0.4 : 1 + Math.sin(t * 3) * 0.015;
+  if (!crkDrawLogo(g, W / 2, H * 0.45, Math.min(H * 0.8, W * 0.78) * pop)) crkTextC(g, 'BIRYANI BLITZ!', W / 2, H * 0.45, 40, '#f7a032');
+  if (t > 0.8 && ((t * 2) | 0) % 2 === 0) crkTextC(g, C.mobile ? 'TAP TO PLAY' : C.inputMode === 'pad' ? 'PRESS A' : 'PRESS ANY KEY', W / 2, H * 0.93, 12, '#7a1a20');
+}
 function crkDrawTeams(g, W, H) {
   const C = cricket, t = C.phaseT;
   const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#0a3a1a'); bg.addColorStop(1, '#02100a');
   g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  crkDrawLogo(g, W / 2, H * 0.52, H * 0.9, 0.08);
+  crkDrawLogo(g, 40, 30, 54, 1, true);
   g.save(); g.translate(W / 2, 32); g.transform(1, 0, -0.2, 1, 0, 0); crkText(g, 'PICK YOUR SIDE', 0, 0, 24, '#ffe23a', 'center'); g.restore();
   const cols = W < 420 ? 2 : 4, rows = CRK_TEAM_ORDER.length / cols;
   const gw = Math.min(W - 20, 560), cw = (gw - (cols - 1) * 8) / cols, top = 56, ch = Math.min(92, (H - top - 90) / rows - 8), x0 = (W - gw) / 2;
@@ -1188,9 +1218,8 @@ function crkDrawToss(g, W, H) {
   const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#0a2a4a'); bg.addColorStop(1, '#02060e');
   g.fillStyle = bg; g.fillRect(0, 0, W, H);
   const A = crkTeam(0), B = crkTeam(1);
-  crkTextC(g, A.full, W / 2, 30, 16, A.c2 === '#ffffff' ? '#ffffff' : crkMix(A.c2, 0.1));
-  crkTextC(g, 'V', W / 2, 52, 22, '#ffd23a');
-  crkTextC(g, B.full, W / 2, 74, 16, '#ffffff');
+  const lg = crkDrawLogo(g, W / 2, 50, 92, 1, true), oy = lg ? 66 : 0;
+  crkTextC(g, A.full + '  V  ' + B.full, W / 2, 34 + oy, 13, '#ffffff');
   const btn = (label, x, y, w, h, n, hot) => {
     crkChrome(g, x, y, w, h, hot ? '#c8321f' : 'rgba(20,30,60,0.92)');
     crkTextC(g, label, x + w / 2, y + h / 2 + 1, 15, '#ffffff');
@@ -1214,6 +1243,7 @@ function crkDrawToss(g, W, H) {
 function crkDrawBreak(g, W, H) {
   const C = cricket, s = C.sc[0];
   g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(0, 0, W, H);
+  crkDrawLogo(g, W / 2, H * 0.14, H * 0.22, 1, true);
   crkTextC(g, 'INNINGS BREAK', W / 2, H * 0.3, 26, '#ffd23a');
   crkTextC(g, crkTeam(C.bat).full + '  ' + s.r + '/' + s.w + '  (' + crkOvers(s.b) + ')', W / 2, H * 0.42, 14, '#ffffff');
   crkTextC(g, crkTeam(1 - C.bat).full + ' NEED ' + C.target + ' TO WIN', W / 2, H * 0.52, 16, '#7aff8a');
@@ -1222,6 +1252,7 @@ function crkDrawBreak(g, W, H) {
 function crkDrawFinal(g, W, H) {
   const C = cricket, R = C.result, t = C.phaseT;
   g.fillStyle = 'rgba(0,0,0,0.62)'; g.fillRect(0, 0, W, H);
+  crkDrawLogo(g, W - 60, 46, 76, 1, true);
   const head = R.tie ? 'IT\'S A TIE!' : R.won ? 'YOU WIN!' : 'YOU LOSE';
   crkTextC(g, head, W / 2, H * 0.22, 34, R.won ? (((t * 5) | 0) % 2 ? '#ffd23a' : '#ffffff') : R.tie ? '#ffd23a' : '#ff8a7a');
   if (!R.tie) crkTextC(g, (R.won ? crkTeam(C.human) : crkTeam(1 - C.human)).full + ' WIN BY ' + R.margin, W / 2, H * 0.32, 12, '#ffffff');
@@ -1308,6 +1339,7 @@ function crkShotDir() {
 function crkAct(btn) {
   const C = cricket, ph = C.phase;
   crkAudio();
+  if (ph === 'splash') { if (C.phaseT > 0.4) crkOpenTier(); return; }
   if (ph === 'teams') { if (btn === 'A' || btn === 'Y') crkTeamPick(); return; }
   if (ph === 'toss') { crkTossPress(C.tossSel); return; }
   if (ph === 'break') { if (C.phaseT > 1.2) crkSecondInnings(); return; }
@@ -1334,6 +1366,7 @@ window.addEventListener('keydown', (e) => {
   const C = cricket;
   if (C.phase === 'tier' || crkMenuOpen()) return;
   crkAudio();
+  if (C.phase === 'splash') { if (!e.repeat && C.phaseT > 0.4) crkOpenTier(); e.preventDefault(); return; }
   if (/^(Key[WASDJKLQRMNV]|Arrow(Up|Down|Left|Right)|Space|Enter|Escape|Digit[1-8])$/.test(e.code)) e.preventDefault();
   if (e.code === 'Escape') { if (!e.repeat && C.phase !== 'final' && C.phase !== 'teams' && C.phase !== 'toss') C.paused = !C.paused; return; }
   if (e.code === 'KeyM' && !e.repeat) { const S = C.sfx; S.muted = !S.muted; if (S.master) S.master.gain.value = S.muted ? 0 : 0.36; if (S.muted && typeof crkHush === 'function') crkHush(); crkFeed(S.muted ? 'SOUND OFF' : 'SOUND ON', '#6a7290'); return; }
@@ -1365,6 +1398,7 @@ window.addEventListener('resize', () => { if (cricket.on) cricketLayout(); });
 function crkWorldXY(cx, cy) { return { x: cx / window.innerWidth * cricket.W, y: cy / window.innerHeight * cricket.H }; }
 function crkTapUI(x, y) {
   const C = cricket;
+  if (C.phase === 'splash') { if (C.phaseT > 0.4) crkOpenTier(); return true; }
   for (const c of C.hit.cards) if (x >= c.x && x < c.x + c.w && y >= c.y && y < c.y + c.h) {
     if (C.phase === 'teams') { crkTeamPick(c.n); return true; }
     if (C.phase === 'toss') { crkTossPress(c.n); return true; }
@@ -1376,6 +1410,7 @@ function crkPointerDown(e) {
   const C = cricket;
   if (!cricketActive() || C.phase === 'tier' || e.pointerType === 'touch') return;
   e.preventDefault();
+  if (C.phase === 'splash') { crkAudio(); if (C.phaseT > 0.4) crkOpenTier(); return; }
   crkAudio();
   if (C.paused) { C.paused = false; return; }
   const p = crkWorldXY(e.clientX, e.clientY);
@@ -1430,7 +1465,8 @@ function crkPollPad() {
     else if (C.phase === 'toss' && (nav === 'L' || nav === 'R')) { C.tossSel ^= 1; crkSfx('select'); }
   }
   P._nav = nav;
-  if (C.phase === 'tier') { if ((a && !P._a) || (st && !P._st)) crkTierPadPick(); }
+  if (C.phase === 'splash') { if (((a && !P._a) || (st && !P._st)) && C.phaseT > 0.4) crkOpenTier(); }
+  else if (C.phase === 'tier') { if ((a && !P._a) || (st && !P._st)) crkTierPadPick(); }
   else {
     if (a && !P._a) crkAct(C.phase === 'runup' && C.meter ? 'A' : 'A');
     if (b && !P._b) crkAct(C.phase === 'runup' && C.meter ? 'A' : 'B');

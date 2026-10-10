@@ -642,6 +642,16 @@ player-facing string says BIRYANI BLITZ (tier title, pause sheet, storm label + 
 mode button, ad boards, hall label + cabinet art in the logo's colours on a dark plate — cream washes out under
 the hall's glow), and Raju says "Welcome to Biryani Blitz!". The code keeps `cricket` / `crk` everywhere
 (mode key, files, storage keys, leaderboard id) so scores and links carry on.
+**The logo** (Chris's file, now `cricket/biryani-logo.png`; `-cut.png` = the cream flood-filled out from the
+edges, so the cream INSIDE the outlines — rice, ribbon letters — survives; `-sm.png` = 512 px): a splash phase
+(`'splash'`, 2.8 s, any key/tap/A skips) before the opponent cards; the team select (corner + watermark), the
+toss, the innings break, the result; a badge beside the scorebox (desktop); the first ad board and a 22 m logo
+on the outfield behind the keeper (`S.groundLogo`, reads up the screen from the TV camera; the GL scene key
+gains 'L' once the image has loaded so it rebuilds); the hall cabinet's marquee + sign box (arcade-art.js
+preloads `crkCabLogo`, falls back to lettering if the atlas paints first) on a DARK plate — cream under the
+hall's emissive glow is a white smear (found twice); og:image for `/cricket/`.
+**Cache:** storm.js, arcade-art.js, arcade.js and account.js had no `?v=` and Chris saw the old build
+("I don't see the changes yet?"): they're versioned now (`?v=20261009`) — bump them with any change.
 
 Chris: "taking everything we've done for blitz make a game for cricket" (bat +
 bowl, a lean audio budget, "add it to the arcade and give me a separate url",
