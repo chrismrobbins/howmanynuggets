@@ -7,7 +7,7 @@
 // THE GAME: a short limited-overs match (2–3 overs a side, 3 wickets) against a nugget nation.
 //   • BATTING — the CPU runs in and bowls; you time the shot. Press as the ball arrives: early drags
 //     it to the leg side, late pushes it to the off side (and late-late finds the edge). The stick
-//     aims (nothing held = straight back past the bowler). GROUND keeps it down, LOFT goes for six
+//     aims (nothing held = straight back past the bowler). BAT keeps it down, BIG HIT goes for six
 //     (and can be caught), BLOCK keeps your wicket. RUN calls for a run; BLOCK while running sends
 //     them back. Out: bowled, caught, LBW, run out.
 //   • BOWLING — aim the marker on the pitch (line and length), pick PACE or SPIN to start the run-up,
@@ -1173,7 +1173,7 @@ function crkDrawHud(g, W, H) {
     }
   }
   if ((C.phase === 'set' || C.phase === 'runup') && crkHumanBats() && !C.auto)
-    crkTextC(g, mob ? 'TAP A SHOT WHEN THE RING CLOSES · STICK AIMS' : pad ? 'A GROUND · B LOFT · X BLOCK — WHEN THE RING CLOSES · STICK AIMS' : 'J GROUND · K LOFT · L BLOCK — WHEN THE RING CLOSES · ARROWS AIM', W / 2, hy, 10 * ui, '#c8dcff');
+    crkTextC(g, mob ? 'TAP A SHOT WHEN THE RING CLOSES · STICK AIMS' : pad ? 'A BAT · B BIG HIT · X BLOCK — WHEN THE RING CLOSES · STICK AIMS' : 'J BAT · K BIG HIT · L BLOCK — WHEN THE RING CLOSES · ARROWS AIM', W / 2, hy, 10 * ui, '#c8dcff');
   if (C.phase === 'live' && crkHumanBats() && !C.auto && C.run && !C.boundary && !C.outPending) {
     const eta = crkFieldEta(), safe = eta > (C.run.going ? 1.8 : 3.4);
     if (((C.t * 3) | 0) % 2 === 0 || C.run.going) crkTextC(g, C.run.going ? (C.run.queued ? 'ANOTHER! ' : 'RUNNING… ') + (mob ? 'BACK TO STOP' : pad ? 'X = BACK' : 'L = BACK') : (mob ? 'RUN!' : pad ? 'Y = RUN!' : 'SPACE = RUN!') + (safe ? '  (SAFE)' : '  (RISKY)'), W / 2, hy, 13 * ui, safe ? '#7aff8a' : '#ffb08a');
@@ -1366,7 +1366,7 @@ function crkShotDir() {
   if (s.m < 0.3) return null;
   return [-s.x, -s.y];
 }
-// the four actions, whatever device: A (ground / pace), B (loft / spin), X (block / back), Y (run / bowl)
+// the four actions, whatever device: A (bat / pace), B (big hit / spin), X (block / back), Y (run / bowl)
 function crkAct(btn) {
   const C = cricket, ph = C.phase;
   crkAudio();
@@ -1477,7 +1477,7 @@ window.addEventListener('pointerdown', () => { if (cricketActive()) crkAudio(); 
 window.addEventListener('touchend', (e) => { const T = cricket.touch; for (const t of e.changedTouches) { if (T.roles[t.identifier] === 'L') T.L = null; delete T.roles[t.identifier]; } });
 window.addEventListener('touchcancel', (e) => { const T = cricket.touch; for (const t of e.changedTouches) { if (T.roles[t.identifier] === 'L') T.L = null; delete T.roles[t.identifier]; } });
 
-// the controller: A ground/pace · B loft/spin · X block/back · Y or a bumper run/bowl · START pause
+// the controller: A bat/pace · B big hit/spin · X block/back · Y or a bumper run/bowl · START pause
 function crkPollPad() {
   const C = cricket, P = C.pad;
   if (!navigator.getGamepads) return;
@@ -1577,7 +1577,7 @@ function crkPadSpec() {
   if (ph === 'final') { if (C.phaseT > 1) { S.P0 = f('REMATCH', '#2a9a3a', () => crkAct('A')); S.P1 = f('NEW TEAM', '#5a6478', () => crkOpenTier()); } return S; }
   if (crkHumanBats()) {
     if (ph === 'live' && C.run && !C.boundary && !C.outPending) { S.P0 = f(C.run.going ? 'AGAIN!' : 'RUN', '#2a9a3a', () => crkAct('Y')); if (C.run.going) S.P1 = f('BACK', '#5a6478', () => crkAct('X')); return S; }
-    if (ph === 'set' || ph === 'runup' || ph === 'flight') { S.P0 = f('DRIVE', '#c8321f', () => crkAct('A')); S.P1 = f('BLOCK', '#5a6478', () => crkAct('X')); S.P2 = f('LOFT', '#c8961f', () => crkAct('B')); }
+    if (ph === 'set' || ph === 'runup' || ph === 'flight') { S.P0 = f('BAT', '#c8321f', () => crkAct('A')); S.P1 = f('BLOCK', '#5a6478', () => crkAct('X')); S.P2 = f('BIG HIT', '#c8961f', () => crkAct('B')); }
     return S;
   }
   if (ph === 'set' && C.setT <= 0) { S.P0 = f('PACE', '#c8321f', () => crkAct('A')); S.P2 = f('SPIN', '#6a2aa8', () => crkAct('B')); }

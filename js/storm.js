@@ -52,7 +52,7 @@ const MODE_HINTS = {
   croft:   'beneath Fort Nugget — WASD/←→↑↓ move · X/click slash · clear the room, take ONE relic · mind your lantern · find THE DOOR',
   fortune: 'the house wheel — HOLD space (or the wheel) and release to SPIN · pick a letter (type / tap) · vowels pay half · solve the phrase · mind the 💀',
   blitz:   'NUGGET BLITZ — 1-9 play · WASD/arrows move · SHIFT turbo (before the snap: TAUNT) · SPACE hike · J K L throw to THAT receiver (tap lob / hold bullet) · I hot route (pre-snap) / pump fake · with the ball: I showboat (open field) or hurdle, L spin, K stiff arm, J dive · D: L switch, J dive, K big hit · TD: J spike K dance L backflip I flex · N music · M sound · V announcer',
-  cricket: 'BIRYANI BLITZ: CRICKET EDITION — BAT: J ground · K loft · L block, AS THE BALL ARRIVES (early = leg side, late = off side) · arrows aim · SPACE run · L send back — BOWL: arrows aim the marker · J pace · K spin · SPACE in the green · M sound · N music · V commentary',
+  cricket: 'BIRYANI BLITZ: CRICKET EDITION — BAT: J bat · K big hit · L block, AS THE BALL ARRIVES (early = leg side, late = off side) · arrows aim · SPACE run · L send back — BOWL: arrows aim the marker · J pace · K spin · SPACE in the green · M sound · N music · V commentary',
   bowl:    'NUGMO BOWL — pick 1 of 4 plays (they guess one — so do you) · arrows move · A = SPACE/J throw · dive · MASH to break tackles · B = SHIFT/K next receiver · switch defender',
   bots:    'CLUCKED METAL — WASD drive (hold where you want to GO) · mouse aims · click fires · SPACE special · SHIFT nitro · grab sauces off the pads · last bot rolling',
 };

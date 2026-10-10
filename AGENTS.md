@@ -2967,3 +2967,8 @@ Music: `want` is 'match' from the splash on, the manifest loads the match loop b
 pointer/touch/gamepad press anywhere unlocks the AudioContext (cold shared links show "TAP OR PRESS A KEY FOR SOUND" —
 browsers block sound before a gesture). Human-presser harness: pad 27/29 hits, touch 18/23; AI balance unchanged
 (~8 runs/over, ~1.2 wkts/innings).
+
+**Batting buttons renamed** (Chris: "it's not loft it's bat?"): the shot types were labelled with my own jargon
+(GROUND, which isn't a cricket term, and LOFT) and didn't even match across devices (phone said DRIVE). Everywhere now
+reads **BAT** (along the ground) · **BIG HIT** (in the air, can be caught) · **BLOCK**. Internal type ids stay
+'ground' / 'loft' / 'block'; only the player-facing words changed.
