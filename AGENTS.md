@@ -635,6 +635,54 @@ the counter, but doesn't enter the game. similar issues when using a controller"
   - 60fps, ~3 pad DOM writes/s. The desktop is unchanged (no pad, top bar
     shown, 60fps).
 
+## 🏈 NUGGET BLITZ: THE CATCH — receivers look it in (2026-10-09)
+
+Chris: "the game play for actually receiving a catch is still weak - the players
+just raise their arms. Look at footage and reviews of games like Madden". The
+research (Madden catch types, FieldSENSE / Hit Everything notes, receiver
+coaching on "late hands", player complaints about arms up early, suction and
+balls glued to bodies) → `js/blitz.js` "🏈 THE CATCH":
+- **Head tracking:** `p.look` is set from the throw for the target, and in the
+  last second for anyone near the landing spot. `blzPose` turns the head (up
+  to 1.3 rad) and twists the chest the rest of the way (`J.look`, `J.chest`).
+  The GL renderer aims the helmet and the torso/pads with them. Direction
+  entries are listed in `BLZ_DIRS`, so the pitch/roll loops don't treat them
+  as points. A deep ball over his back becomes an over-the-shoulder catch.
+- **Late hands:** the reach starts `BLZ_HANDS` (0.32 s) before arrival and
+  eases in from the run (`reachW`). It used to be 0.55 s. The real "arms up"
+  bug was an old `catchT` pose that threw both arms up at 0.4 s, before any
+  reach; it's gone.
+- **Catch types** (`blzCatchPlan`, chosen at the throw): high (> 2.15 m, or a
+  contested lob; the jump is timed so its peak meets the ball, `blzCatchJump`),
+  low (< 0.95 m: he sinks and digs it out), over the shoulder, chest, side, and
+  16% one-handed on side/over catches. The hands are shaped by height and
+  kept off the chest.
+- **Arrival height:** a pass used to arrive at 1.6 m every time. Now bullets
+  arrive at 1.3–1.65 m, touch passes at 1.4–1.85 m, lobs at 1.5–2.25 m, and a
+  wild throw sails high or dies low. Over 2.5 m (3.6 m when jumping) is out
+  of reach.
+- **Absorb and tuck:** `p.handsAt` remembers where the hands met the ball. The
+  secure lerps from there to the chest, the ball renders between the hands
+  while `secureT > 0.12`, then it goes under the arm.
+- **Bobbles** (`blzBobble`): a fingertip or contested catch (and some drops)
+  pops into a 0.42 s juggle with a second resolve (+0.18). The feed says
+  BOBBLED! / JUGGLED… HANGS ON!
+- **The moment:** layout / one-handed / high-pointed / toe tap (sideline, with
+  feet planted, `toeT`) / long over-the-shoulder catches get 0.42 s of hit-cam
+  slow motion, a feed callout, a crowd roar and a colour line. Catches now
+  make a leather "thwack" instead of a beep. Defenders jump to contest high
+  balls on time.
+- Film tool (scratch): a "catch lab" that clears the defense, throws exactly
+  onto the receiver at a chosen height and films 8 moments around arrival.
+  Balance over 12 AI PRO games: completions 74% → 72%, interceptions 3.75 →
+  4.1, tips 3.4 → 4.6, 60fps.
+- **Engine question** (Chris asked whether another engine or SDK would help):
+  the limit is motion authoring, not the renderer. The next step up is
+  motion-capture clips (e.g. Mixamo, free with an Adobe login) retargeted
+  onto this rig's joints, time-warped to the ball, with IK on top. Switching
+  to Unity/Godot web exports or rebuilding on three.js skinned meshes isn't
+  worth it for this site.
+
 **Direct game links (2026-10-09):** `howmanynuggets.com/?play=<mode>` (e.g.
 `?play=blitz`) skips the converter and the hall and starts that game on a house
 storm. Any key of `MODE_HINTS` works; anything else is ignored (js/app.js, end).
