@@ -635,7 +635,13 @@ the counter, but doesn't enter the game. similar issues when using a controller"
   - 60fps, ~3 pad DOM writes/s. The desktop is unchanged (no pad, top bar
     shown, 60fps).
 
-## 🏏 NUGGET CRICKET (game 20, mode `cricket`) — 2026-10-09
+## 🏏 NUGGET CRICKET → 🍛 BIRYANI BLITZ: CRICKET EDITION (game 20, mode `cricket`) — 2026-10-09
+
+**Renamed the same day** (Chris: "we want this game to be called Biryani Blitz: Cricket Edition"): every
+player-facing string says BIRYANI BLITZ (tier title, pause sheet, storm label + hint, score tile, leaderboard,
+mode button, ad boards, hall label + cabinet art in the logo's colours on a dark plate — cream washes out under
+the hall's glow), and Raju says "Welcome to Biryani Blitz!". The code keeps `cricket` / `crk` everywhere
+(mode key, files, storage keys, leaderboard id) so scores and links carry on.
 
 Chris: "taking everything we've done for blitz make a game for cricket" (bat +
 bowl, a lean audio budget, "add it to the arcade and give me a separate url",

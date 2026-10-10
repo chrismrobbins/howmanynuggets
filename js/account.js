@@ -247,7 +247,7 @@
   })();
 
   // ---- Leaderboards ----
-  const GAME_LABEL = { catch: '🧺 Catch', blaster: '🎯 Blaster', flappy: '🐤 Flappy', dunk: '🥣 Dunk', sim: '🧘 Sim', run: '🏃 Run', knight: '⚔️ Knight', brawl: '🥊 Brawl', ranch: '🐔 Ranch', kart: '🏎️ Fast Food', reel: '🎣 Reel', gta: '🚔 GTN', beat: '🎧 Dip Hop', drain: '🕳️ Drain', croft: '🕯️ Undercroft', fortune: '🎡 Fortune', bots: '🤖 Bots', bowl: '🏈 Bowl', blitz: '💥 Blitz', cricket: '🏏 Cricket' };
+  const GAME_LABEL = { catch: '🧺 Catch', blaster: '🎯 Blaster', flappy: '🐤 Flappy', dunk: '🥣 Dunk', sim: '🧘 Sim', run: '🏃 Run', knight: '⚔️ Knight', brawl: '🥊 Brawl', ranch: '🐔 Ranch', kart: '🏎️ Fast Food', reel: '🎣 Reel', gta: '🚔 GTN', beat: '🎧 Dip Hop', drain: '🕳️ Drain', croft: '🕯️ Undercroft', fortune: '🎡 Fortune', bots: '🤖 Bots', bowl: '🏈 Bowl', blitz: '💥 Blitz', cricket: '🍛 Biryani Blitz' };
 
   menuLeaderboards.addEventListener('click', () => { closeModal(authModal); openLb(); });
   openLeaderboards.addEventListener('click', openLb);

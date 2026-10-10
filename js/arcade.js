@@ -4882,7 +4882,7 @@ void main() {
         { mode: 'fortune', side: -1, face: suv.fortuneFace, tube: suv.sw_amber, lc: [0.55, 0.42, 0.16],
           label: '🎡 REEL OF FORTUNE — SPIN · GUESS · SOLVE (FREE, ASK NOBODY WHY)',
           outer: { mode: 'cricket', face: suv.cricketFace, tube: suv.sw_amber, topper: suv.cricketTopper,
-            label: '🏏 NUGGET CRICKET — BAT. BOWL. HIT IT INTO THE STANDS.' } },
+            label: '🍛 BIRYANI BLITZ: CRICKET EDITION — BAT. BOWL. HIT IT INTO THE STANDS.' } },
       ];
       for (const I of ISLANDS) {
         const xs = [I.side * 2.75, I.side * 3.65];

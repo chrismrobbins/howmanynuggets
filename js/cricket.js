@@ -121,7 +121,7 @@ function crkOpenTier() {
   C.phase = 'tier'; C.sc = null; C.ball.on = false;
   const tiers = CRK_TIERS.map((t) => (t.key === 'worldcup' && !cricketProWon() ? Object.assign({}, t, { locked: true }) : t));
   C.tierPick = ArcadeKit.tierSelect({
-    storeKey: 'cricket', title: '🏏 NUGGET CRICKET — pick your opponent',
+    storeKey: 'cricket', title: '🍛 BIRYANI BLITZ — CRICKET EDITION · pick your opponent',
     note: 'bat AND bowl · 3 wickets · tap a card · 1 · 2 · 3 · or stick + A', tiers, mount: cricketWorld,
     onPick: (key, t) => { C.tierPick = null; crkNewMatch(t); },
   });
@@ -185,7 +185,7 @@ function crkStartInnings() {
   C.thisOver = [];
   crkCast();
   crkBanner(C.inn ? 'TARGET ' + C.target : crkTeam(C.bat).full + ' BAT', '#ffd23a', C.inn ? crkTeam(C.bat).abbr + ' NEED ' + C.target + ' OFF ' + C.cfg.overs * 6 : C.cfg.overs + ' OVERS · ' + CRK_WKTS + ' WICKETS', 2);
-  crkSay(C.inn ? crkTeam(C.bat).full + ' NEED ' + C.target + ' TO WIN.' : 'WELCOME TO THE NUGGET BOWL!', 2, C.inn ? 'THE CHASE IS ON!' : null);
+  crkSay(C.inn ? crkTeam(C.bat).full + ' NEED ' + C.target + ' TO WIN.' : 'WELCOME TO BIRYANI BLITZ!', 2, C.inn ? 'THE CHASE IS ON!' : null);
   crkNextBall(1.6);
 }
 
@@ -1463,7 +1463,7 @@ function crkPadOn() {
   el.innerHTML = '<div class="crkp-stick"><div class="crkp-knob"></div></div>' +
     ['P0', 'P1', 'P2', 'P3'].map((k) => '<button type="button" class="crkp-b" data-slot="' + k + '" hidden><span class="crkp-l"></span></button>').join('') +
     '<button type="button" class="crkp-menu" aria-label="Pause">❚❚</button>' +
-    '<div class="crkp-sheet" hidden><div class="crkp-card"><div class="crkp-kick">NUGGET CRICKET</div><div class="crkp-h">PAUSED</div>' +
+    '<div class="crkp-sheet" hidden><div class="crkp-card"><div class="crkp-kick">BIRYANI BLITZ · CRICKET EDITION</div><div class="crkp-h">PAUSED</div>' +
     '<button type="button" data-m="resume" class="crkp-go">RESUME</button><button type="button" data-m="music"></button><button type="button" data-m="sound"></button><button type="button" data-m="voice"></button>' +
     '<button type="button" data-m="quit" class="crkp-quit">QUIT TO THE ARCADE</button></div></div>';
   cricketWorld.appendChild(el);

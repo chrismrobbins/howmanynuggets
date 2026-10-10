@@ -49,7 +49,7 @@ const ArcadeArt = (() => {
     { mode: 'blitz', title: 'NUGGET BLITZ', icon: '💥', c1: '#ff6a1a', c2: '#2b6fff', tag: 'NO REFS. NO MERCY.' },
     // game 20 — cricket, Blitz's tech on an oval: the two outer uprights on the
     // west island (Reel of Fortune keeps the inner pair). Street-page face (cricketFace).
-    { mode: 'cricket', title: 'NUGGET CRICKET', icon: '🏏', c1: '#3ae85a', c2: '#ffd23a', tag: 'HOWZAT?' },
+    { mode: 'cricket', title: 'BIRYANI BLITZ', icon: '🍛', c1: '#3ae85a', c2: '#ffd23a', tag: 'HOWZAT?' },
     // (game 17, BatteredBots, moved to GAMES — it has a cabinet on the back wall
     // now; the garage shutter on the street stays as a second door, botsFace.)
   ];
@@ -2252,17 +2252,18 @@ const ArcadeArt = (() => {
     mq.addColorStop(0, '#12502a'); mq.addColorStop(1, '#06200e');
     g.fillStyle = mq; g.fillRect(6, 6, w - 12, h * 0.2 - 8);
     g.fillStyle = '#e8c21a'; g.fillRect(6, h * 0.2 - 4, w - 12, 2);
+    // BIRYANI BLITZ! — Chris's logo colours (orange on a maroon outline, a green CRICKET ribbon)
+    g.fillStyle = '#2a0a0c'; g.fillRect(6, 6, w - 12, h * 0.2 - 8);   // dark plate: a lit cabinet washes cream out
     g.save();
-    g.translate(w / 2, h * 0.112); g.transform(1, 0, -0.18, 1, 0, 0);
+    g.translate(w / 2, h * 0.085); g.rotate(-0.05);
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = '900 italic 9px Impact, Haettenschweiler, sans-serif';
-    g.fillStyle = '#b8e8c0'; g.fillText('NUGGET', 0, -h * 0.062);
-    g.font = '900 italic 27px Impact, Haettenschweiler, sans-serif';
-    g.lineWidth = 4; g.strokeStyle = '#000'; g.strokeText('CRICKET', 0, h * 0.014);
-    const bt = g.createLinearGradient(0, -12, 0, 14);
-    bt.addColorStop(0, '#fff2a0'); bt.addColorStop(0.55, '#f2c41e'); bt.addColorStop(1, '#a87a0a');
-    g.fillStyle = bt; g.fillText('CRICKET', 0, h * 0.014);
+    g.font = '900 17px Impact, Haettenschweiler, sans-serif';
+    g.lineJoin = 'round'; g.lineWidth = 4; g.strokeStyle = '#fff3d8';
+    g.strokeText('BIRYANI', 0, -6); g.fillStyle = '#f7a032'; g.fillText('BIRYANI', 0, -6);
+    g.strokeText('BLITZ!', 0, 10); g.fillText('BLITZ!', 0, 10);
     g.restore();
+    g.fillStyle = '#2a6a36'; g.fillRect(18, h * 0.17, w - 36, 7);
+    g.fillStyle = '#fff3d8'; g.font = '900 6px Consolas, monospace'; g.textAlign = 'center'; g.fillText('C R I C K E T', w / 2, h * 0.17 + 5.5);
     // the CRT: from behind the bowler, the strip running up the screen to a batter
     const sx = 10, sy = h * 0.24, sw = w - 20, sh = h * 0.36;
     g.fillStyle = '#05060a'; g.fillRect(sx - 3, sy - 3, sw + 6, sh + 6);
@@ -2299,21 +2300,20 @@ const ArcadeArt = (() => {
   }
   // the lit box on top of the cricket uprights
   function pCricketTopper(g, w, h) {
-    g.fillStyle = '#04100a'; g.fillRect(0, 0, w, h);
-    // a stripe of mown grass along the bottom
-    for (let x = 0; x < w; x += 16) { g.fillStyle = (x / 16) % 2 ? '#1e6a2a' : '#258034'; g.fillRect(x, h - 14, 16, 14); }
+    // BIRYANI BLITZ! on a dark plate (the hall's light washes cream out), the CRICKET ribbon under it
+    g.fillStyle = '#2a0a0c'; g.fillRect(0, 0, w, h);
     g.save();
-    g.translate(w / 2 + 16, h * 0.46); g.transform(1, 0, -0.18, 1, 0, 0);
-    g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = '900 italic 50px Impact, Haettenschweiler, sans-serif';
-    g.lineWidth = 7; g.strokeStyle = '#000'; g.strokeText('CRICKET', 0, 4);
-    const bt = g.createLinearGradient(0, -24, 0, 28);
-    bt.addColorStop(0, '#fff6b0'); bt.addColorStop(0.5, '#f2c41e'); bt.addColorStop(1, '#a8780a');
-    g.fillStyle = bt; g.fillText('CRICKET', 0, 4);
-    g.font = '900 italic 14px Impact, Haettenschweiler, sans-serif';
-    g.lineWidth = 3; g.strokeText('NUGGET', -64, -26);
-    g.fillStyle = '#b8f0c0'; g.fillText('NUGGET', -64, -26);
+    g.translate(w / 2 + 18, h * 0.4); g.rotate(-0.04);
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+    g.font = '900 40px Impact, Haettenschweiler, sans-serif';
+    g.lineWidth = 9; g.strokeStyle = '#fff3d8'; g.strokeText('BIRYANI BLITZ!', 0, 0);
+    g.fillStyle = '#7a1a20'; g.fillText('BIRYANI BLITZ!', 2.5, 2.5);
+    g.fillStyle = '#f7a032'; g.fillText('BIRYANI BLITZ!', 0, 0);
     g.restore();
+    g.fillStyle = '#3a0a0e'; g.fillRect(52, h * 0.7 - 1, w - 76, 20);
+    g.fillStyle = '#2a6a36'; g.fillRect(54, h * 0.7, w - 80, 17);
+    g.fillStyle = '#fff3d8'; g.font = '900 13px Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('C R I C K E T', w / 2 + 14, h * 0.7 + 9);
     // a bat and a red ball, left
     g.save(); g.translate(22, h * 0.56); g.rotate(-0.5);
     g.fillStyle = '#1a1a1a'; g.fillRect(-2, -30, 4, 14);

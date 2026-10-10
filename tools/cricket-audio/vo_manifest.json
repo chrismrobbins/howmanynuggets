@@ -341,12 +341,6 @@
   "key": "TIMBER",
   "said": "[excited] Timber!"
  },
- "WELCOME TO THE NUGGET BOWL": {
-  "file": "raju-7a6f9851.mp3",
-  "dur": 1.87,
-  "key": "WELCOME TO THE NUGGET BOWL",
-  "said": "[excited] Welcome to the nugget bowl!"
- },
  "WELL LEFT": {
   "file": "raju-4a84f146.mp3",
   "dur": 0.79,
@@ -370,5 +364,11 @@
   "dur": 2.22,
   "key": "WHAT A WIN WHAT A MATCH",
   "said": "[excited] What a win! What a match!"
+ },
+ "WELCOME TO BIRYANI BLITZ": {
+  "file": "raju-a300531b.mp3",
+  "dur": 2.55,
+  "key": "WELCOME TO BIRYANI BLITZ",
+  "said": "[excited] Welcome to biryani blitz!"
  }
 }

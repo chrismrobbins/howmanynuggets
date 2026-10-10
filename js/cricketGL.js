@@ -268,7 +268,7 @@ function crkPaintCrowd(A, B) {
   crkGrain(g, w, h, 14, 5);
   return c;
 }
-const CRK_ADS = [['NUGGET CRICKET', '#ffd23a', '#7a1a10'], ['DIP HOP NIGHTLY', '#1a1a2a', '#ff5ad8'], ['FRYER OIL CO.', '#e8401a', '#ffffff'],
+const CRK_ADS = [['BIRYANI BLITZ!', '#f7a032', '#7a1a20'], ['DIP HOP NIGHTLY', '#1a1a2a', '#ff5ad8'], ['FRYER OIL CO.', '#e8401a', '#ffffff'],
   ['HOWMANYNUGGETS.COM', '#ffffff', '#c8321f'], ['MASALA DIP', '#2a8a3a', '#fff2a8'], ['NO BALL? NO PROBLEM', '#16307a', '#ffffff'], ['SIX = NUGGETS', '#ff9a2a', '#1a1a1a'], ['GREASE GARAGE', '#3a2a1a', '#ffd23a']];
 function crkPaintAds() {
   const c = crkCanvas(1024, 64), g = c.getContext('2d'), sw = 1024 / CRK_ADS.length;
