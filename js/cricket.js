@@ -1446,6 +1446,11 @@ function crkTapUI(x, y) {
   if (C.phase === 'break' || C.phase === 'final') { crkAct('A'); return true; }
   return false;
 }
+cricketWorld.addEventListener('click', () => {
+  const C = cricket;
+  if (!cricketActive() || C.phase !== 'splash') return;
+  crkAudio(); if (C.phaseT > 0.4) crkOpenTier();
+});
 function crkPointerDown(e) {
   const C = cricket;
   if (!cricketActive() || C.phase === 'tier' || e.pointerType === 'touch') return;
@@ -1462,6 +1467,9 @@ cricketWorld.addEventListener('touchstart', (e) => {
   const C = cricket;
   if (!cricketActive() || C.phase === 'tier') return;
   if (e.target.closest('.storm-hud, .ak-tier, .modal-overlay')) return;
+  // the splash leaves the touch alone so the browser turns it into a click — iPhone only lets sound start from
+  // that click (or touchend), never from a preventDefault'ed touchstart; the click below opens the menu
+  if (C.phase === 'splash') { crkAudio(); return; }
   crkAudio(); crkPadOn();
   C.inputMode = 'touch';
   const T = C.touch;
@@ -1484,7 +1492,8 @@ cricketWorld.addEventListener('touchmove', (e) => {
 }, { passive: false });
 // any gesture wakes the sound — iOS only honours some of these (touchend / click), and the pad's touchstart
 // preventDefault swallows the click, so listen to all of them
-for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) window.addEventListener(ev, () => { if (cricketActive()) crkAudio(); }, true);
+// (bubble phase too: the arcade's own launch tap turns the game on mid-event, and that same gesture can wake the sound)
+for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) for (const cap of [true, false]) window.addEventListener(ev, () => { if (cricketActive()) crkAudio(); }, cap);
 window.addEventListener('touchend', (e) => { const T = cricket.touch; for (const t of e.changedTouches) { if (T.roles[t.identifier] === 'L') T.L = null; delete T.roles[t.identifier]; } });
 window.addEventListener('touchcancel', (e) => { const T = cricket.touch; for (const t of e.changedTouches) { if (T.roles[t.identifier] === 'L') T.L = null; delete T.roles[t.identifier]; } });
 

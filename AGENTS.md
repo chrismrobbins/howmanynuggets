@@ -2978,3 +2978,8 @@ suspended, and the only wake-up was `resume()` on `pointerdown` — not enough o
 started inside a touchend/click gesture (and the pad's touchstart `preventDefault` swallows the click). `crkAudioUnlock`
 now resumes + plays a 1-sample silent buffer on pointerdown/pointerup/touchend/click/keydown, handles iOS's
 'interrupted' state, and `navigator.audioSession.type = 'playback'` lets the game play through the iPhone silent switch.
+Follow-up (Chris: "music is back but not until you get to the team selection page"): the splash tap was handled on
+touchstart with `preventDefault`, which on iPhone means the tap never counts as a sound-unlocking gesture — the first
+real click was the difficulty card. The splash now leaves touchstart alone and opens the menu from the resulting
+`click` (which also wakes the audio); the wake-up listeners also run in the bubble phase so the arcade's own launch tap
+can unlock sound. Browsers still can't play anything before the first tap on a cold link.
