@@ -19,3 +19,7 @@ made ONCE and shipped as files — playing costs no ElevenLabs credits.
   `js/cricketAudio.js` when the files change.
 - First pass (2026-10-09): tryout 190 + soundtrack/sounds 925 + commentary 738
   ≈ 1,850 credits of the 3,000 Chris approved.
+
+- **The music changed** ("something Indian … hindustani funk/rock … psychedelic"): two 40 s psych takes
+  (`src/match-psych-a.mp3` → copied to `src/match.mp3`, and `match-psych-b`, built alongside); the IPL take is
+  `src/match-ipl.mp3`. To switch the game to take B, copy it over `src/match.mp3`, rebuild, bump `CRK_DISC_V`.

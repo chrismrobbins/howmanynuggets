@@ -81,7 +81,7 @@ function crkVoNext() { const Q = crkVO.q, now = performance.now(); while (Q.leng
 function crkHush() { crkVO.q.length = 0; crkVoStop(); }
 
 // ---- 📀 the records: one stadium loop, stings, the sounds ------------------------------------------------------
-const CRK_DISC_BASE = 'audio/cricket/music/', CRK_DISC_V = 1;
+const CRK_DISC_BASE = 'audio/cricket/music/', CRK_DISC_V = 2;
 const crkMus = { on: true, vol: 0.5, bus: null, mix: null, filt: null, cur: null, want: '' };
 const crkDisc = { man: null, manP: null, bytes: new Map(), loading: new Map(), bufs: new Map(), failed: new Set() };
 // per-sound trims against the synth (set by ear against the master)

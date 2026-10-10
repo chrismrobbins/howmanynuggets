@@ -697,7 +697,10 @@ renderer), `js/cricket.js` (the game), `js/cricketAudio.js` + `js/cricketVO.js`
   number-free alternative. Also a 35 s IPL-style stadium loop (dhol + brass),
   win/lose stings, and recorded bat / edge / stumps / catch / pad / four / six /
   wicket / crowd roar / aww / appeal. Synth fallbacks are in cricket.js.
-  ~1,850 credits all in.
+  ~1,850 credits all in. **Then the music changed** (Chris: "something Indian … hindustani funk/rock … psychedelic"):
+  the loop is now a 70s Bollywood-heist psych-funk take (fuzz guitar, sitar, tabla, wah, organ; `match`), with a
+  trippier alternative built beside it (`match-psych-b`, unused; swap the files to switch). The IPL take is
+  `src/match-ipl.mp3`. +1,000 credits ≈ 2,850 total. `CRK_DISC_V` 2.
 - **Phone:** the Blitz pad, cricket's actions (DRIVE / BLOCK / LOFT, RUN / BACK,
   PACE / SPIN, BOWL!), the pause sheet with quit; the HUD's batter strip and
   feed go to the top on a phone. Controller: A ground/pace · B loft/spin ·

@@ -4,7 +4,8 @@ import os, sys; os.chdir(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join('..', 'blitz-vo'))
 import el_audio as A
 MUSIC = {
- 'match': (40, 'Upbeat IPL-style cricket stadium anthem for an arcade video game: dhol drums, punchy brass stabs, a bright electric guitar riff, claps, festival energy. Instrumental, no vocals. A steady groove that keeps going: no intro, no fade, no ending, so it can loop.'),
+ # (the in-game loop is now src/match-psych-a.mp3 copied to src/match.mp3 — see the README; this was the first take)
+ 'match-ipl': (40, 'Upbeat IPL-style cricket stadium anthem for an arcade video game: dhol drums, punchy brass stabs, a bright electric guitar riff, claps, festival energy. Instrumental, no vocals. A steady groove that keeps going: no intro, no fade, no ending, so it can loop.'),
  'win':   (10, 'Triumphant festive brass and dhol victory fanfare for a cricket video game, ending on a big final hit. Instrumental, no vocals.'),
  'lose':  (8,  'Short deflated brass sting for losing a cricket match in a video game, a sad descending line that fizzles out. Instrumental, no vocals.'),
 }

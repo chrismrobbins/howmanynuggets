@@ -8,7 +8,7 @@ import os; os.chdir(os.path.dirname(os.path.abspath(__file__)))
 import json, subprocess
 import numpy as np, librosa, soundfile as sf
 REPO = os.path.abspath('../..'); OUT = os.path.join(REPO, 'audio', 'cricket', 'music')
-LOOPS = ['match']
+LOOPS = ['match', 'match-psych-b']
 ONESHOT = ['win', 'lose', 'bat', 'edge', 'stumps', 'catch', 'pad', 'four', 'six', 'wicket', 'cr-roar', 'cr-aww', 'cr-appeal']
 SR = 44100; PRE = 0.25; XF = 0.08
 def loud(y, target):

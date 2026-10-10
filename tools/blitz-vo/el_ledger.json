@@ -1,6 +1,6 @@
 {
  "cap": 10000,
- "spent": 6130.0,
+ "spent": 7130.0,
  "calls": [
   {
    "t": "2026-10-09 15:34",
@@ -377,6 +377,22 @@
    "secs": 2,
    "credits": 20.0,
    "file": "cr-appeal.mp3"
+  },
+  {
+   "t": "2026-10-09 18:36",
+   "kind": "music",
+   "what": "1970s psychedelic Hindustani funk rock instrumental, like a vintage Bollywood heist-movie groove: fuzzed electric guitar",
+   "secs": 40,
+   "credits": 500.0,
+   "file": "match-psych-a.mp3"
+  },
+  {
+   "t": "2026-10-09 18:36",
+   "kind": "music",
+   "what": "Trippy psychedelic Indian rock jam for a stadium video game: droning tanpura, sitar lead with heavy reverb and delay, ta",
+   "secs": 40,
+   "credits": 500.0,
+   "file": "match-psych-b.mp3"
   }
  ]
 }

@@ -3,9 +3,16 @@
   "match": {
    "file": "match.mp3",
    "start": 0.25,
-   "end": 35.1496,
-   "bpm": 95.7,
+   "end": 32.5722,
+   "bpm": 103.4,
    "bars": 14
+  },
+  "match-psych-b": {
+   "file": "match-psych-b.mp3",
+   "start": 0.25,
+   "end": 34.6388,
+   "bpm": 112.3,
+   "bars": 16
   }
  },
  "shots": {
