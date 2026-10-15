@@ -2985,3 +2985,37 @@ real click was the difficulty card. The splash now leaves touchstart alone and o
 can unlock sound. Browsers still can't play anything before the first tap on a cold link.
 The splash's start prompt doubles as the sound prompt while the AudioContext is held: a big pulsing
 "🔊 TAP TO PLAY — WITH SOUND" (desktop: "CLICK OR PRESS A KEY — SOUND ON") at the bottom, replacing the tiny 9px line.
+
+## ⏱️ NUGGET BLITZ: THE 2-MINUTE DRILL (2026-10-15)
+
+Chris: *"a 2 minute drill for blitz … the final two minutes of the game with random amounts of
+timeouts left and down and distance. Basically a scenario you have to win/overcome."* He wanted the
+offense comeback, the defensive hold, AND ties going to OT, plus real two-minute clock rules,
+difficulty picked on the cards, and entry as a 4th card.
+
+- **Entry:** `BLZ_DRILL_CARD` is the 4th card on the opponent picker. Picking it opens a second
+  ArcadeKit picker (`blzOpenDrillTier`, storeKey `blitzDrill`) with ROOKIE / PRO / ALL-BLITZ (same
+  opponents, same ALL-BLITZ lock). `blitz.drillMode` survives rematches; `blitz.drill` is the live
+  scenario (null in a normal game; every hook checks it).
+- **The deal** (`blzDrillDeal`, tuned by `BLZ_DRILL_TIERS`): whoever has the ball is the one behind.
+  You (offense, `offP`) trail by `trail`, or the CPU has it and trails you by `lead`. Clock in
+  scoreboard seconds (`clk`, converted to live seconds), timeouts per side, field spot, down, and
+  yards to go. `blzDrillSet` puts it on the board at the matchup so the VS screen can show it.
+  `blzDrillStart` replaces the kickoff. It's Q4, so `blzEndQuarter` gives a tie the usual OT
+  (with timeouts reset to 2 each).
+- **The clock** (the one real rule change): `drill.run` is set in `blzAfterDead`. Only a tackle in
+  bounds, still the same team's ball, on a pass or run keeps it running. `blzChange` (any change
+  of possession) stops it. While it runs, the clock burns on the call screen and at the line
+  (`blzDrillRun`): yours in real time (after a 1.5s unpile), the CPU's at its tempo (`drill.burn`):
+  3–5s behind, 5–8s tied, 11–15s ahead (with 60% runs). Whatever is left burns at the snap or kick
+  (`blzDrillSnap` in `blzSnap`/`blzSpecial`). If it hits 0 before the snap, that's the game.
+- **Timeouts / spike:** T or pad Y, X or pad X, or the buttons on the call screen. A timeout with a
+  stopped clock is refused, not wasted. The spike costs 1s and a down. The CPU calls timeouts on
+  defense whenever it's behind and the clock runs, on offense under 0:48, and spikes under ~0:22
+  with none left. `blzCpuOffCall` treats the whole drill as crunch time (no punts or FGs when a FG
+  can't save it), but the Hail Mary still waits for the last 12 live seconds.
+- **Pay:** a won drill is a flat 80 × tier mult ('DRILL WON'). Drills never set
+  `nugBlitzPro`/`nugBlitzChamp`. Bests go under `blitzDrill`.
+- **Soak** (AI both sides, 40 drills per tier, 0 hangs): AI-as-you comebacks came off ROOKIE ~37% /
+  PRO ~8% / ALL-BLITZ ~5%, and holds succeeded ~92% / 80% / 71%. The AI is a weaker QB than a
+  person in full games too, so tune these by hand, not by these numbers.

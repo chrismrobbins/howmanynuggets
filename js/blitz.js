@@ -222,6 +222,25 @@ const BLZ_TIERS = [
     blurb: 'vs the FRY GODS on MOUNT FRYMPUS. no refs. no mortals.', lockNote: 'win a PRO game' },
 ];
 
+// ⏱️ THE 2-MINUTE DRILL: the 4th card. You get dropped into the end of the 4th quarter: score,
+// ball, down & distance and timeouts all dealt. Sometimes you're behind with the ball, sometimes
+// you're ahead and have to hold. A tie at the gun goes to overtime, like any game.
+const BLZ_DRILL_CARD = { key: 'drill', emoji: '⏱️', name: '2-MINUTE DRILL', mult: 2,
+  blurb: 'the last two minutes, dealt. down, distance, timeouts. win it.' };
+// per difficulty: clock in SCOREBOARD seconds, timeouts, how far behind/ahead, where the ball is
+// (yards from the possessing team's own goal), which downs get dealt, how often you're on offense
+const BLZ_DRILL_TIERS = {
+  rookie: { clk: [80, 120], toMe: [2, 3], toThem: [1, 2], trail: [3, 3, 4, 6, 7], lead: [3, 4, 6, 7],
+    offSpot: [28, 48], defSpot: [20, 35], downs: [1, 1, 2, 3], offP: 0.7,
+    blurb: 'plenty of clock. plenty of timeouts. go get it.' },
+  pro: { clk: [65, 110], toMe: [1, 3], toThem: [1, 3], trail: [3, 3, 4, 6, 7, 8], lead: [2, 3, 4, 6],
+    offSpot: [22, 42], defSpot: [25, 45], downs: [1, 1, 2, 3, 3], offP: 0.6,
+    blurb: 'less clock. a long way to go. don\'t waste a timeout.' },
+  allpro: { clk: [30, 80], toMe: [0, 2], toThem: [2, 3], trail: [4, 6, 7, 8, 8], lead: [1, 2, 3, 4],
+    offSpot: [8, 28], defSpot: [32, 55], downs: [1, 2, 3, 3, 4], offP: 0.55,
+    blurb: 'no time. no timeouts. the FRY GODS. good luck.' },
+};
+
 // the VS-screen codes: [turbo, jump, pass] taps, then a direction
 const BLZ_CODES = [
   { k: '200R', id: 'big', name: 'BIG HEAD' },
@@ -258,6 +277,7 @@ const blitz = {
   sfx: { ctx: null, master: null, crowd: null, crowdGain: null, muted: false, noise: null },
   hit: { cards: [], extra: [], rcv: [] }, crowdCv: null, anims: [], saidShow: false,
   hype: [0, 0], heatSaid: [false, false], bubbles: [], cad: null, tauntNext: 0, tauntsDown: [0, 0], tauntCd: 0, halftime: false, inputMode: '', charge: null, rcv: null,
+  drillMode: false, drill: null,
 };
 
 function blitzActive() { return storm.mode === 'blitz' && storm.running; }
@@ -345,9 +365,26 @@ function blzOpenTier() {
   blitz.tierPick = ArcadeKit.tierSelect({
     storeKey: 'blitz',
     title: '💥 NUGGET BLITZ — pick your opponent',
-    note: '7 on 7 · 30 yards for a first · no refs · tap a card · 1 · 2 · 3 · or stick + A',
+    note: '7 on 7 · 30 yards for a first · no refs · tap a card · 1 · 2 · 3 · 4 · or stick + A',
+    tiers: tiers.concat(BLZ_DRILL_CARD), mount: blitzWorld,
+    onPick: (key, t) => {
+      blitz.tierPick = null;
+      if (key === 'drill') { blzOpenDrillTier(); return; }
+      blitz.drillMode = false; blzNewGame(t);
+    },
+  });
+}
+// the drill's own difficulty cards: the same three opponents, dealing nastier situations
+function blzOpenDrillTier() {
+  blitz.phase = 'tier';
+  const tiers = BLZ_TIERS.map((t) => Object.assign({}, t, { blurb: 'vs the ' + BLZ_TEAMS[t.opp].name + '. ' + BLZ_DRILL_TIERS[t.key].blurb },
+    t.key === 'allpro' && !blitzProWon() ? { locked: true } : {}));
+  blitz.tierPick = ArcadeKit.tierSelect({
+    storeKey: 'blitzDrill',
+    title: '⏱️ 2-MINUTE DRILL — how bad is it?',
+    note: 'the clock runs between plays · incompletions + out of bounds stop it · T TIMEOUT · X SPIKE',
     tiers, mount: blitzWorld,
-    onPick: (key, t) => { blitz.tierPick = null; blzNewGame(t); },
+    onPick: (key, t) => { blitz.tierPick = null; blitz.drillMode = true; blzNewGame(BLZ_TIERS.find((b) => b.key === key)); },
   });
 }
 
@@ -546,6 +583,9 @@ function blzBeginMatchup(mine) {
   blitz.hype = [0, 0]; blitz.heatSaid = [false, false]; blitz.bubbles = []; blitz.halftime = false;
   blitz.codes = {}; blitz.codeIn = [0, 0, 0]; blitz.codeMsg = null;
   blitz.players = [];
+  blitz.lateSaid = false;
+  blitz.drill = blitz.drillMode ? blzDrillDeal(blitz.cfg) : null;
+  if (blitz.drill) blzDrillSet();
   blitz.phase = 'vs'; blitz.vsT = 0; blitz.codeAt = 0;
 }
 
@@ -558,6 +598,7 @@ function blzStartGame() {
   blzBuildExtras();
   blzVoPrefetch(blitz.teams);
   blitz.rec = []; blitz.playsSinceReplay = 3; blitz.fw = []; blitz.bulbs = []; blitz.wave = null; blitz.waveQ = 0;
+  if (blitz.drill) { blzDrillStart(); return; }
   const recv = 1 - blitz.openKicker;
   blzBanner(blzTeam(recv).name + ' RECEIVE', '#ffd23a', blzTeam(0).city + ' vs ' + blzTeam(1).city, 1.6);
   blzSetupKickoff(blitz.openKicker, false);
@@ -669,6 +710,7 @@ function blzToCall() {
   const off = blitz.poss;
   // line both teams up first so the call screen has a field behind it
   blzLineUp(BLZ_OFF_PLAYS[0], BLZ_DEF_PLAYS[0], false);
+  if (blitz.drill && blzDrillHuddle()) return;
   blitz.cpuFlip = Math.random() < 0.5;
   if (blzHuman(off)) {
     blitz.callFor = 'off';
@@ -694,15 +736,17 @@ function blzToCall() {
 
 function blzCpuOffCall(team) {
   const togo = Math.abs(blitz.firstAt - blitz.los), trail = blitz.score[1 - team] - blitz.score[team];
-  const late = blitz.q >= 4 && blitz.clock < 30;
+  const late = blitz.q >= 4 && blitz.clock < (blitz.drill ? 12 : 30);
+  const crunch = late || !!blitz.drill;                  // the whole drill is crunch time
   if (blitz.down === 4 && !blitz.pat2) {
     const fgd = blzFGDist();
-    if (fgd <= 52 && !(late && trail > 3)) return Math.random() < 0.05 && togo < 10 ? 'fakefg' : 'fg';
-    if (!blitz.codes.nopunt && togo > 6 && !(late && trail > 0) && !(blitz.q >= 4 && trail > 8)) return Math.random() < 0.08 && togo < 12 ? 'fakepunt' : 'punt';
+    if (fgd <= 52 && !(crunch && trail > 3)) return Math.random() < 0.05 && togo < 10 ? 'fakefg' : 'fg';
+    if (!blitz.codes.nopunt && togo > 6 && !(crunch && trail > 0) && !(blitz.q >= 4 && trail > 8)) return Math.random() < 0.08 && togo < 12 ? 'fakepunt' : 'punt';
   }
   const passes = [0, 1, 2, 3, 4, 8], runs = [6, 7];
   let pRun = togo < 8 ? 0.45 : togo > 18 ? 0.12 : 0.25;
-  if (late && trail > 0) pRun = 0.05;
+  if (crunch && trail > 0) pRun = 0.05;
+  if (blitz.drill && trail < 0) pRun = 0.6;              // ahead in the drill: keep it on the ground, keep the clock running
   if (late && trail > 0 && Math.abs(blzGoal(team) - blitz.los) > 45 && Math.random() < 0.5) return 5; // the Hail Mary
   if (Math.random() < pRun) return blzPick(runs);
   if (togo > 20 && Math.random() < 0.35) return 1;
@@ -721,6 +765,8 @@ function blzCpuDefCall() {
 // the human picked (n = card index, or 'punt' / 'fg')
 function blzChoose(n) {
   if (blitz.phase !== 'call') return;
+  if (n === 'timeout') { blzDrillTimeout(0); return; }
+  if (n === 'spike') { blzDrillSpike(); return; }
   blzSfx('pick');
   if (blitz.callFor === 'off') {
     if (n === 'punt' || n === 'fg') {
@@ -1263,6 +1309,7 @@ function blzAssignButtons(off, bx, d) {
 function blzBtnLabel(btn) { return blitz.inputMode === 'pad' || blitz.inputMode === 'touch' ? btn : BLZ_BTN_KEY[btn]; }
 
 function blzSnap() {
+  if (blzDrillSnap()) return;
   const off = blitz.poss;
   blitz.hot = null;
   blitz.playsSinceReplay = (blitz.playsSinceReplay || 0) + 1;
@@ -1295,6 +1342,7 @@ function blzSnap() {
 
 // ---- special teams --------------------------------------------------------------------------
 function blzSpecial(kind) {
+  if (blzDrillSnap()) return;
   blzClearPlay();
   const off = blitz.poss, def = 1 - off, d = blzDir(off);
   blitz.kind = kind; blitz.players = [];
@@ -1415,6 +1463,7 @@ function blzBtnDown(btn, src) {
   const ph = blitz.phase;
   if (ph === 'replay') { blzEndReplay(); return; }
   if (ph === 'vs') { if (btn === 'SP' || btn === 'A') blzCodeTap(2); else if (btn === 'Y') blzCodeTap(1); return; }
+  if (ph === 'call' && blitz.drill && (btn === 'Y' || btn === 'X')) { if (btn === 'Y') blzDrillTimeout(0); else blzDrillSpike(); return; }
   if (ph === 'teams' || ph === 'call' || ph === 'pat' || ph === 'final') { if (btn === 'SP' || btn === 'A') blzPressPass(); return; }
   if (ph === 'pre') {
     const off = blitz.poss;
@@ -3088,6 +3137,8 @@ function blzAfterDead() {
     for (const t of [0, 1]) { const F = blitz.fire[t]; if (F.on && ++F.plays > 7) { blzDouse(t); blitz.hype[t] = 0.2; } }
   };
   fireTick();
+  // the drill: only a tackle in bounds, still your ball, keeps the clock going
+  if (blitz.drill) blitz.drill.run = D.type === 'tackle' && D.team === off && (blitz.kind === 'pass' || blitz.kind === 'run') && !blitz.pat2;
   if (D.type === 'td') {
     // (a defensive return on a two-point try is worth two to the defense, as it should be)
     if (blitz.pat2) { blitz.score[D.team] += 2; if (blzHuman(D.team)) blzEarn(8, '2-POINT'); blitz.pat2 = false; blzNext({ kick: off }); return; }
@@ -3185,6 +3236,7 @@ function blzFirstAt(team, spot) {
   return (f - g) * d >= 0 ? g : f;
 }
 function blzChange(team, spot) {
+  if (blitz.drill) blitz.drill.run = false;
   blitz.poss = team; blitz.los = spot; blitz.down = 1;
   blitz.firstAt = blzFirstAt(team, spot);
 }
@@ -3218,6 +3270,7 @@ function blzEndQuarter(what) {
   if (q >= 4) {
     if (blitz.score[0] === blitz.score[1] && !blitz.ot) {
       blitz.ot = true; blitz.q = 5; blitz.clock = Math.round(BLZ_QLEN * 0.8);
+      if (blitz.drill) { blitz.drill.to = [2, 2]; blitz.drill.run = false; blitz.drill.burn = 0; }
       blzBanner('OVERTIME', '#ffd23a', 'SUDDEN DEATH', 2);
       blzAfter(1.8, () => blzSetupKickoff(Math.random() < 0.5 ? 0 : 1, false));
       return;
@@ -3232,6 +3285,138 @@ function blzEndQuarter(what) {
     else if (what.free != null) blzSetupKickoff(what.free, true);
     else blzToCall();
   });
+}
+
+// ---- ⏱️ THE 2-MINUTE DRILL -------------------------------------------------------------------
+// Blitz's clock only runs while the ball is live. In the drill it runs between plays too, the way
+// the real thing does: a tackle in bounds keeps it going, while an incompletion, out of bounds, a score,
+// a change of possession or a TIMEOUT stops it. A running clock burns while you sit on the call
+// screen and at the line, so the hurry-up is real. The CPU has its own tempo (it hurries when
+// it's behind, milks it when it's ahead) and it uses its timeouts and the spike.
+// blitz.drill = { off, score, los, down, firstAt, clock, to: [yours, theirs], run, burn }
+function blzDrillDeal(tier) {
+  const T = BLZ_DRILL_TIERS[tier.key] || BLZ_DRILL_TIERS.rookie;
+  const ri = (r) => Math.round(blzRnd(r[0], r[1]));
+  // whoever has the ball is the one behind
+  const off = Math.random() < T.offP ? 0 : 1, d = blzDir(off);
+  const gap = blzPick(off === 0 ? T.trail : T.lead);
+  const base = blzPick([7, 10, 13, 14, 17, 20, 21, 24, 27, 28]);
+  const own = ri(off === 0 ? T.offSpot : T.defSpot), los = blzOwnGoal(off) + d * own;
+  const down = blzPick(T.downs);
+  const togo = down === 1 ? BLZ_FIRST : ri([down === 4 ? 3 : 6, down === 2 ? 24 : 18]);
+  return {
+    off, gap, los, down,
+    score: off === 0 ? [base, base + gap] : [base + gap, base],
+    firstAt: togo >= 100 - own ? blzGoal(off) : los + d * togo,
+    clock: ri(T.clk) * BLZ_QLEN / 120,
+    to: [ri(T.toMe), ri(T.toThem)], run: false, burn: 0,
+  };
+}
+
+// the situation, from your side: [score + clock, down & distance, timeouts, what it takes]
+function blzDrillLines() {
+  const D = blitz.drill, me = blitz.score[0] - blitz.score[1], g = D.gap;
+  const togo = blitz.firstAt === blzGoal(blitz.poss) ? 'GOAL' : Math.max(1, Math.round(Math.abs(blitz.firstAt - blitz.los)));
+  const need = D.off === 0
+    ? (g <= 2 ? 'A FIELD GOAL WINS IT.' : g === 3 ? 'A FIELD GOAL TIES IT. A TOUCHDOWN WINS IT.'
+      : g <= 5 ? 'ONLY A TOUCHDOWN WINS IT.' : g === 6 ? 'A TOUCHDOWN TIES IT. THE KICK WINS IT.'
+      : g === 7 ? 'A TOUCHDOWN TIES IT. GO FOR TWO TO WIN IT.' : 'A TOUCHDOWN AND TWO TIES IT.')
+    : (g <= 2 ? 'HOLD THEM. NOT EVEN A FIELD GOAL.' : g === 3 ? 'A FIELD GOAL SENDS IT TO OVERTIME.'
+      : g <= 7 ? 'HOLD THEM. NO TOUCHDOWNS.' : 'A TOUCHDOWN AND TWO TIES IT. HOLD THEM.');
+  return [
+    (me < 0 ? 'DOWN ' + -me : me > 0 ? 'UP ' + me : 'TIED') + ' · ' + blzClockTxt() + ' LEFT',
+    blzOrd(blitz.down) + ' & ' + togo + ' · ' + (D.off === 0 ? 'YOUR BALL · ' : 'THEIR BALL · ') + blzYardTxt(blitz.los, blitz.poss),
+    'TIMEOUTS · YOU ' + D.to[0] + ' · THEM ' + D.to[1],
+    need,
+  ];
+}
+
+// put the situation on the board (at the matchup, so the VS screen can show it)
+function blzDrillSet() {
+  const D = blitz.drill;
+  blitz.q = 4; blitz.clock = D.clock; blitz.score = D.score.slice(); blitz.ot = false;
+  blitz.poss = D.off; blitz.los = D.los; blitz.ballX = BLZ_MID; blitz.down = D.down; blitz.firstAt = D.firstAt; blitz.pat2 = false;
+  D.run = false; D.burn = 0;
+}
+// leave the VS screen into the situation instead of a kickoff
+function blzDrillStart() {
+  blzClearPlay();
+  blzLineUp(BLZ_OFF_PLAYS[0], BLZ_DEF_PLAYS[0], false);
+  blzBanner('2-MINUTE DRILL', '#ffd23a', blzDrillLines()[3], 2.6);
+  blzSpeak(blzPick(['CRUNCH TIME!', 'THE CLOCK IS TICKING!']), { who: 'pbp', prio: 1 });
+  blzAfter(2.4, () => blzToCall());
+}
+
+// take secs off a running clock; true if that was the end of it
+function blzDrillTick(secs) {
+  if (blitz.clock <= 0) return false;
+  blitz.clock = Math.max(0, blitz.clock - secs);
+  if (blitz.clock > 0) return false;
+  blitz.drill.run = false; blitz.drill.burn = 0;
+  blzEndQuarter({ call: true });
+  return true;
+}
+// the call screen and the line: a running clock burns (yours in real time, the CPU's at its tempo)
+function blzDrillRun(dt) {
+  const D = blitz.drill;
+  if (!D.run || D.burn <= 0) return false;
+  const s = D.burn === Infinity ? dt : Math.min(D.burn, dt * 3);
+  D.burn -= s;
+  return blzDrillTick(s);
+}
+// the snap (or the kick) takes whatever's left of the CPU's tempo
+function blzDrillSnap() {
+  const D = blitz.drill;
+  if (!D) return false;
+  const b = D.burn;
+  D.burn = 0;
+  return b > 0 && b !== Infinity && D.run ? blzDrillTick(b) : false;
+}
+
+// between plays, before the call screen: who stops the clock, and how fast the CPU goes.
+// true if it took the down itself (the CPU spiked it).
+function blzDrillHuddle() {
+  const D = blitz.drill;
+  D.burn = 0;
+  if (!D.run || blitz.pat2) return false;
+  const off = blitz.poss, def = 1 - off, lead = blitz.score[off] - blitz.score[def];
+  // a CPU defense that's behind stops the clock every time it can
+  if (!blzHuman(def) && lead > 0 && D.to[def] > 0) { blzDrillTimeout(def); return false; }
+  if (blzHuman(off)) {
+    // the pile unstacks, then the clock is yours to waste
+    if (blzDrillTick(1.5)) return true;
+    D.burn = Infinity;
+    return false;
+  }
+  if (lead < 0 && D.to[off] > 0 && blitz.clock < 30) { blzDrillTimeout(off); return false; }
+  if (lead < 0 && D.to[off] === 0 && blitz.clock < 14 && blitz.down < 4) { blzDrillSpike(true); return true; }
+  D.burn = lead < 0 ? blzRnd(3, 5) : lead === 0 ? blzRnd(5, 8) : blzRnd(11, 15);
+  return false;
+}
+
+function blzDrillTimeout(team) {
+  const D = blitz.drill;
+  if (!D) return;
+  if (D.to[team] <= 0) { if (blzHuman(team)) { blzFeed('NO TIMEOUTS LEFT', '#ff8a7a'); blzSfx('bad'); } return; }
+  if (!D.run) { if (blzHuman(team)) blzFeed('THE CLOCK IS ALREADY STOPPED', '#bfc6ff'); return; }
+  D.to[team]--; D.run = false; D.burn = 0;
+  blzSfx('whistle');
+  blzBanner('TIMEOUT', '#bfe8ff', blzTeam(team).name + ' · ' + D.to[team] + ' LEFT', 1.3);
+  if (blitz.phase === 'call') blitz.callT = 0;
+}
+
+// snap it and throw it into the ground: a down for a stopped clock
+function blzDrillSpike(cpu) {
+  const D = blitz.drill;
+  if (!D || blitz.pat2) return;
+  if (!cpu && (blitz.phase !== 'call' || blitz.callFor !== 'off')) return;
+  blitz.stats.plays++;
+  D.run = false; D.burn = 0;
+  blzSfx('whistle');
+  blzBanner('SPIKE!', '#bfe8ff', 'CLOCK STOPPED', 0.9);
+  blzSpeak('INCOMPLETE!', { who: 'pbp', prio: 1, maxAge: 2 });
+  if (blzDrillTick(1)) return;        // the snap and the spike take a second
+  blzNextDown(blitz.los);
 }
 
 // ---- PAT ------------------------------------------------------------------------------------
@@ -3318,6 +3503,7 @@ function blitzUpdate(dt) {
   if (ph === 'final') { blitz.finalT += dt; blzSim(dt); return; }
   if (ph === 'call' || ph === 'pat') {
     blitz.callT += dt;
+    if (ph === 'call' && blitz.drill && blzDrillRun(dt)) return;
     // the play clock: Blitz picks for you if you dawdle
     if (ph === 'call' && blitz.callT > 15) blzChoose(blitz.callSel);
     blzCam(dt);
@@ -3330,6 +3516,7 @@ function blitzUpdate(dt) {
     return;
   }
   if (ph === 'pre') {
+    if (blitz.drill && blzDrillRun(dt)) return;
     blitz.playT += dt;
     blzPreStep(dt);
     blzSim(dt);
@@ -3577,17 +3764,20 @@ function blzFinal() {
   const s = blitz.score, won = s[0] > s[1], tie = s[0] === s[1];
   blitz.phase = 'final'; blitz.finalT = 0;
   blzSfx('horn');
+  const drill = !!blitz.drill;
   if (won) {
-    blzEarn(120 + Math.min(35, s[0] - s[1]) * 4, 'WIN');
-    if (blitz.cfg.key === 'pro') { try { localStorage.setItem('nugBlitzPro', '1'); } catch (e) { } }
-    if (blitz.cfg.key === 'allpro') { try { localStorage.setItem('nugBlitzChamp', '1'); } catch (e) { } }
+    // (a drill is a short game: a flat bonus, and it doesn't unlock the ladder)
+    if (drill) blzEarn(80, 'DRILL WON');
+    else blzEarn(120 + Math.min(35, s[0] - s[1]) * 4, 'WIN');
+    if (!drill && blitz.cfg.key === 'pro') { try { localStorage.setItem('nugBlitzPro', '1'); } catch (e) { } }
+    if (!drill && blitz.cfg.key === 'allpro') { try { localStorage.setItem('nugBlitzChamp', '1'); } catch (e) { } }
     blzRoar(1, 3); blzSfx('td');
     for (const p of blitz.players) if (p.team === 0) p.celebT = 6;
     blzSay('WHAT A GAME! ' + blzTeam(0).full + ' WIN IT!', true);
   } else if (tie) { blzEarn(40, 'TIE'); blzSay('a tie. nobody is happy.', true); }
   else { blzSfx('bad'); blzSay(blzTeam(1).full + ' WIN IT.', true); }
-  try { ArcadeKit.saveBest('blitz', blitz.cfg.key, blitz.earned); } catch (e) { }
-  blitz.result = { won, tie, unlock: won && blitz.cfg.key === 'pro', champ: won && blitz.cfg.key === 'allpro' };
+  try { ArcadeKit.saveBest(drill ? 'blitzDrill' : 'blitz', blitz.cfg.key, blitz.earned); } catch (e) { }
+  blitz.result = { won, tie, drill, unlock: won && !drill && blitz.cfg.key === 'pro', champ: won && !drill && blitz.cfg.key === 'allpro' };
 }
 
 function stepBlitz(dt, w, h) {
@@ -5559,6 +5749,16 @@ function blzDrawHud(g, W, H) {
     g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(hx, hy, hwid, 2.2 * ui);
     if (hv > 0) { g.fillStyle = blzOnFire(i) ? (((blitz.t * 10) | 0) % 2 ? '#ffd23a' : '#ff5a1a') : hv >= 0.6 ? '#ff8a1e' : '#c8641e'; g.fillRect(hx, hy, hwid * hv, 2.2 * ui); }
   }
+  // the drill: each side's timeouts as three pips under the box, and a red rim while the clock runs between plays
+  if (blitz.drill) {
+    const D = blitz.drill;
+    for (let i = 0; i < 2; i++) {
+      const px = bx + (i ? bw * 0.55 : 4 * ui), py = by + bh + 3 * ui;
+      blzText(g, blzTeam(i).abbr, px, py + 2.5 * ui, 7 * ui, '#bfc6ff');
+      for (let k = 0; k < 3; k++) { g.fillStyle = k < D.to[i] ? '#ffd23a' : 'rgba(0,0,0,0.55)'; g.fillRect(px + (19 + k * 7) * ui, py, 5 * ui, 5 * ui); }
+    }
+    if (D.run && D.burn > 0 && blitz.phase !== 'live') { g.strokeStyle = ((blitz.t * 3) | 0) % 2 ? '#ff5a3a' : '#ffd23a'; g.lineWidth = 1.5; g.strokeRect(bx + 2, by + 2, 56 * ui, bh - 4); }
+  }
   const ph = blitz.phase;
   // TURBO, bottom left: the bar IS the meter
   if (ph !== 'final' && ph !== 'call') {
@@ -5773,7 +5973,7 @@ function blzDrawCall(g, W, H) {
   const plays = off ? BLZ_OFF_PLAYS : BLZ_DEF_PLAYS;
   g.fillStyle = 'rgba(2,4,14,0.5)'; g.fillRect(0, 0, W, H);
   const gw = Math.min(W - 16, 540), cw = (gw - 12) / 3, top = Math.max(58, H * 0.19);
-  const ch = Math.min(80, (H - top - (off ? 72 : 40)) / 3 - 6);
+  const ch = Math.min(80, (H - top - (off ? 72 : 40) - (blitz.drill ? 22 : 0)) / 3 - 6);
   const x0 = (W - gw) / 2;
   g.save(); g.translate(W / 2, top - 22); g.transform(1, 0, -0.2, 1, 0, 0);
   blzText(g, off ? 'SELECT OFFENSIVE PLAY' : 'SELECT DEFENSIVE PLAY', 0, 0, 18 * blitz.ui, off ? '#ffe23a' : '#7ad0ff', 'center');
@@ -5814,7 +6014,25 @@ function blzDrawCall(g, W, H) {
       ey += 22;
     }
   }
+  if (blitz.drill) ey = blzDrawDrillRow(g, x0, ey, gw, off);
   blzTextC(g, '1-9 / ARROWS + PASS · ' + blzOrd(blitz.down) + ' & ' + (blitz.firstAt === blzGoal(blitz.poss) ? 'GOAL' : Math.max(1, Math.round(Math.abs(blitz.firstAt - blitz.los)))) + ' · ' + blzYardTxt(blitz.los, blitz.poss), W / 2, ey + 8, 9, '#c8dcff');
+}
+
+// the drill's row on the call screen: is the clock running, TIMEOUT, and (on offense) SPIKE
+function blzDrillKey(k) { return blitz.inputMode === 'pad' ? ' [' + k + ']' : blitz.inputMode === 'touch' ? '' : ' [' + (k === 'Y' ? 'T' : 'X') + ']'; }
+function blzDrawDrillRow(g, x0, ey, gw, off) {
+  const D = blitz.drill, run = D.run && D.burn > 0;
+  const items = [{ t: run ? '⏱ CLOCK RUNNING' : '⏱ CLOCK STOPPED', n: '' }, { t: 'TIMEOUT (' + D.to[0] + ')' + blzDrillKey('Y'), n: 'timeout' }];
+  if (off && !blitz.pat2) items.push({ t: 'SPIKE' + blzDrillKey('X'), n: 'spike' });
+  const iw = (gw - (items.length - 1) * 6) / items.length;
+  items.forEach((it, i) => {
+    const x = x0 + i * (iw + 6), dim = it.n === 'timeout' && (!D.to[0] || !run);
+    blzChrome(g, x, ey, iw, 18, 0, !it.n ? (run ? 'rgba(110,16,10,0.9)' : 'rgba(6,40,20,0.88)') : 'rgba(6,12,30,0.88)');
+    const col = !it.n ? (run && ((blitz.t * 3) | 0) % 2 ? '#ffd23a' : '#ffffff') : dim ? '#6a7290' : '#ffffff';
+    blzText(g, it.t, x + iw / 2, ey + 10, 10, col, 'center');
+    if (it.n) blitz.hit.extra.push({ x, y: ey, w: iw, h: 18, n: it.n });
+  });
+  return ey + 22;
 }
 
 // a little chalkboard: the play's routes from its own data
@@ -5888,7 +6106,12 @@ function blzDrawVS(g, W, H) {
   const hr = Math.min(H * 0.1, W * 0.07);
   blzHelmetIcon(g, A, W * 0.25 - (1 - slide) * W * 0.4, H * 0.22 + sz * 0.7 + hr * 1.6, hr, 1);
   blzHelmetIcon(g, B, W * 0.75 + (1 - slide) * W * 0.4, H * 0.22 + sz * 0.7 + hr * 1.6, hr, -1);
-  blzTextC(g, blitz.cfg.name + ' · ×' + blitz.cfg.mult, W / 2, H * 0.45, 12, '#ffffff');
+  if (blitz.drill) {
+    // the situation, between the helmets
+    const L = blzDrillLines(), fs = Math.min(10, W / 34);
+    blzTextC(g, '⏱ 2-MINUTE DRILL · ' + blitz.cfg.name, W / 2, H * 0.37, fs + 1, '#ffd23a');
+    L.forEach((l, i) => blzTextC(g, l, W / 2, H * 0.37 + (i + 1) * (fs + 3), i === 3 ? fs : fs - 1, i === 3 ? '#39ff7a' : '#ffffff'));
+  } else blzTextC(g, blitz.cfg.name + ' · ×' + blitz.cfg.mult, W / 2, H * 0.45, 12, '#ffffff');
   // the three code boxes
   const labels = ['TURBO', 'JUMP', 'PASS'];
   const bw = 46, gap = 12, x0 = W / 2 - (bw * 3 + gap * 2) / 2, y = H * 0.56;
@@ -5904,7 +6127,7 @@ function blzDrawVS(g, W, H) {
   if (on.length) blzTextC(g, on.join(' · '), W / 2, y + 66, 9, '#39ff7a');
   blzTextC(g, 'TAP TURBO · JUMP · PASS' + (blitz.inputMode === 'pad' ? ' (RT · Y · A)' : blitz.inputMode === 'touch' ? '' : ' (SHIFT · I · SPACE)') + ', THEN PUSH A DIRECTION', W / 2, H * 0.86, 9, '#ffffff');
   const left = Math.max(1, Math.ceil(blzVsGoAt() - t)), md = blitz.inputMode;
-  blzTextC(g, 'KICKOFF IN ' + left + ' · ' + (md === 'pad' ? 'START' : md === 'touch' ? 'TAP HERE' : 'ENTER') + ' TO GO NOW', W / 2, H * 0.93, 13, ((t * 2) | 0) % 2 === 0 ? '#ffd23a' : '#ffffff');
+  blzTextC(g, (blitz.drill ? 'SNAP IN ' : 'KICKOFF IN ') + left + ' · ' + (md === 'pad' ? 'START' : md === 'touch' ? 'TAP HERE' : 'ENTER') + ' TO GO NOW', W / 2, H * 0.93, 13, ((t * 2) | 0) % 2 === 0 ? '#ffd23a' : '#ffffff');
   blitz.hit.cards = [{ x: 0, y: H * 0.86, w: W, h: H * 0.14, n: 'go' }];
 }
 
@@ -5914,13 +6137,14 @@ function blzDrawFinal(g, W, H) {
   let y = H * 0.18;
   blzTextC(g, 'FINAL', W / 2, y, 24, '#bfe8ff'); y += 32;
   blzTextC(g, blzTeam(0).name + '  ' + blitz.score[0] + '  -  ' + blitz.score[1] + '  ' + blzTeam(1).name, W / 2, y, Math.min(22, W / 22), '#ffffff'); y += 30;
-  const head = R.champ ? 'ALL-BLITZ CHAMPIONS!' : R.won ? blzTeam(0).name + ' WIN!' : R.tie ? 'A TIE. NOBODY SLEEPS.' : blzTeam(1).name + ' WIN';
+  const head = R.drill ? (R.won ? 'DRILL PASSED!' : R.tie ? 'A TIE. NOBODY SLEEPS.' : 'DRILL FAILED')
+    : R.champ ? 'ALL-BLITZ CHAMPIONS!' : R.won ? blzTeam(0).name + ' WIN!' : R.tie ? 'A TIE. NOBODY SLEEPS.' : blzTeam(1).name + ' WIN';
   blzTextC(g, head, W / 2, y, 20, R.won ? (((t * 5) | 0) % 2 ? '#ffd23a' : '#ffffff') : '#ff8a7a'); y += 28;
   blzTextC(g, st.yds + ' YDS · ' + st.tds + ' TD · ' + st.sacks + ' SACKS · ' + st.ints + ' INT', W / 2, y, 11, '#bfc6ff'); y += 16;
   blzTextC(g, st.hits + ' MONSTER HITS · ' + st.late + ' LATE HITS · ' + st.fires + 'x ON FIRE · LONG ' + st.long, W / 2, y, 11, '#bfc6ff'); y += 20;
   blzTextC(g, '+' + fmt.format(blitz.earned) + ' NUGGETS', W / 2, y, 16, '#ffd23a'); y += 24;
   if (R.unlock) { blzTextC(g, 'ALL-BLITZ IS OPEN. THE FRYER IS WAITING.', W / 2, y, 11, '#26e0ff'); y += 18; }
-  if (t > 1 && ((t * 2) | 0) % 2 === 0) blzTextC(g, 'PASS / SPACE REMATCH · R NEW OPPONENT', W / 2, y + 6, 11, '#8a92b0');
+  if (t > 1 && ((t * 2) | 0) % 2 === 0) blzTextC(g, R.drill ? 'PASS / SPACE NEXT DRILL · R MENU' : 'PASS / SPACE REMATCH · R NEW OPPONENT', W / 2, y + 6, 11, '#8a92b0');
 }
 
 function blzDrawTouch(g, W, H) {
@@ -5966,6 +6190,8 @@ function blzCallKey(code) {
   if (ph !== 'call') return false;
   const m = /^(Digit|Numpad)([1-9])$/.exec(code);
   if (m) { blitz.callSel = +m[2] - 1; blzChoose(+m[2] - 1); return true; }
+  if (blitz.drill && code === 'KeyT') { blzDrillTimeout(0); return true; }
+  if (blitz.drill && code === 'KeyX') { blzDrillSpike(); return true; }
   if (blitz.callFor === 'off') {
     if (code === 'KeyF') { blitz.flip = !blitz.flip; blzSfx('select'); return true; }
     if (code === 'KeyP') { blzChoose('punt'); return true; }
@@ -5986,7 +6212,7 @@ window.addEventListener('keydown', (e) => {
   if (e.target && e.target.tagName === 'INPUT') return;
   if (blitz.phase === 'tier' || blzMenuOpen()) return;
   blzAudio();
-  const claimed = /^(Key[WASDIJKLMNQRFPGVUH]|Arrow(Up|Down|Left|Right)|Space|Enter|ShiftLeft|ShiftRight|Escape|Digit[1-9]|Numpad[1-9])$/.test(e.code);
+  const claimed = /^(Key[WASDIJKLMNQRFPGVUHTX]|Arrow(Up|Down|Left|Right)|Space|Enter|ShiftLeft|ShiftRight|Escape|Digit[1-9]|Numpad[1-9])$/.test(e.code);
   if (claimed) e.preventDefault();
   if (e.code === 'Escape') { if (!e.repeat && blitz.phase !== 'final' && blitz.phase !== 'vs' && blitz.phase !== 'teams') blitz.paused = !blitz.paused; return; }
   if (e.code === 'KeyM' && !e.repeat) {
@@ -6283,7 +6509,7 @@ function blzPadSpec() {
   const S = {}, ph = blitz.phase, off = blitz.poss, me = blitz.ctl, C = blitz.carrier, B = blitz.ball;
   if (blitz.paused || ph === 'tier' || ph === 'idle' || ph === 'teams' || ph === 'call' || ph === 'pat') return S;
   const red = '#c8321f', blue = '#1f6fc8', gold = '#c8961f', green = '#2a9a3a', grey = '#5a6478';
-  if (ph === 'final') { if (blitz.finalT > 1) { S.P0 = blzPadAct('SP', 'REMATCH', green); S.P1 = blzPadFn('NEW TEAM', grey, () => blzOpenTier()); } return S; }
+  if (ph === 'final') { if (blitz.finalT > 1) { S.P0 = blzPadAct('SP', blitz.drill ? 'NEXT DRILL' : 'REMATCH', green); S.P1 = blzPadFn(blitz.drill ? 'MENU' : 'NEW TEAM', grey, () => blzOpenTier()); } return S; }
   if (ph === 'vs') {
     // the code boxes: TURBO / JUMP / PASS taps, then push the stick
     S.P0 = blzPadFn('PASS', red, () => blzCodeTap(2)); S.P1 = blzPadFn('JUMP', blue, () => blzCodeTap(1)); S.P2 = blzPadFn('TURBO', gold, () => blzCodeTap(0));
