@@ -111,6 +111,17 @@ function alrPause(on) {
 function alrUIBuildWorld() {
   const M = alr.M, U = alr.ui;
   const tcv = alrTerrainCanvas(M, 24);
+  // scatter bushes on open grass: off the dirt, the ore, the tracks, anything solid; denser near the woods
+  U.shrubs = [];
+  { let s = M.seed * 17 + 3; const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+    const nearTree = new Uint8Array(ALR_N * ALR_N); for (const t of M.trees) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const x = Math.floor(t.x) + dx, z = Math.floor(t.z) + dz; if (x >= 0 && z >= 0 && x < ALR_N && z < ALR_N) nearTree[z * ALR_N + x] = 1; }
+    for (let z = 1; z < ALR_N - 1; z++) for (let x = 1; x < ALR_N - 1; x++) {
+      const k = z * ALR_N + x;
+      if (M.block[k] || M.ore[k] > 0 || M.dirt[k] > 0.12) continue;
+      const n = (nearTree[k] ? 2 : 0) + (r() < 0.05 ? 1 : 0);
+      for (let j = 0; j < n; j++) if (r() < 0.5) U.shrubs.push({ x: x + 0.15 + r() * 0.7, z: z + 0.15 + r() * 0.7, v: (r() * 4) | 0, yaw: r() * 6.28, s: 0.7 + r() * 0.6 });
+    }
+  }
   if (U.terrTex) alrGL.gl.deleteTexture(U.terrTex);
   U.terrTex = alrGLTexCanvas(tcv, true);
   if (!U.terrMesh) {
@@ -351,7 +362,17 @@ function alrUIRender(dt) {
     alrGLDraw(A.ore[lv * 3 + (k % 3)], alrTRS(x + 0.5, 0, z + 0.5, k * 1.7), { spec: 0.9 });
     alrGLGround(x + 0.5, z + 0.5, 0.62, 0.62, k * 0.7, 0.55, 0.42, 0.12, 0.4, 5, false, 0.012);
   }
-  for (const tr of M.trees) if (seen(tr.x, tr.z) && tr.x >= x0 && tr.x <= x1 + 1 && tr.z >= z0 && tr.z <= z1 + 1) alrGLDraw(A.trees[tr.v % A.trees.length], alrTRS(tr.x, 0, tr.z, tr.yaw, tr.s), { spec: 0.05 });
+  // stands of one kind: broadleaf (0-2) or pine (3-5) by a slow wave over the map, so woods read as woods
+  for (const tr of M.trees) if (seen(tr.x, tr.z) && tr.x >= x0 && tr.x <= x1 + 1 && tr.z >= z0 && tr.z <= z1 + 1) {
+    const sp = A.trees.length >= 6 ? (tr.v % 3) + (Math.sin(tr.x * 0.19 + 1.3) + Math.cos(tr.z * 0.23) > 0.2 ? 3 : 0) : tr.v % A.trees.length;
+    alrGLDraw(A.trees[sp], alrTRS(tr.x, 0, tr.z, tr.yaw, tr.s), { spec: 0.05 });
+  }
+  // bushes (visual only: never block, skipped under buildings and ore)
+  if (A.shrubs && U.shrubs) for (const sh of U.shrubs) {
+    if (sh.x < x0 || sh.x > x1 + 1 || sh.z < z0 || sh.z > z1 + 1 || !seen(sh.x, sh.z)) continue;
+    const k = alrTile(sh.x, sh.z); if (M.bld[k] || M.ore[k] > 0) continue;
+    alrGLDraw(A.shrubs[sh.v % A.shrubs.length], alrTRS(sh.x, 0, sh.z, sh.yaw, sh.s), { spec: 0.05 });
+  }
   for (const rk of M.rocks) if (seen(rk.x, rk.z) && rk.x >= x0 && rk.x <= x1 + 1 && rk.z >= z0 && rk.z <= z1 + 1) alrGLDraw(A.rocks[rk.v % A.rocks.length], alrTRS(rk.x, 0, rk.z, rk.yaw, rk.s), { spec: 0.1 });
   // rubble, scorches and wrecks
   for (const d of alr.decor) {

@@ -198,7 +198,7 @@ precision highp float; precision highp sampler2DShadow; precision highp sampler2
 in vec3 vN; in vec4 vC; in vec3 vW; in vec4 vL; in vec2 vUV; in vec3 vP; in vec3 vON;
 uniform sampler2DShadow uShadow; uniform sampler2D uTex; uniform sampler2D uShroud; uniform sampler2D uDetail;
 // the Blender models' surfaces (js/alertArt.js alrMatLayers): uv.x = surface class (0 = none), uv.y = grime
-uniform sampler2DArray uMat; uniform float uMatOn; uniform float uMatS[16]; uniform float uMatSpec[16];
+uniform sampler2DArray uMat; uniform float uMatOn; uniform float uMatS[20]; uniform float uMatSpec[20];
 uniform vec3 uSun, uSunCol, uSky, uGround, uTeam, uView, uAdd;
 uniform float uUseTex, uSpec, uAlpha, uN, uTexel, uNoShroud, uDesat;
 out vec4 o;
@@ -225,9 +225,12 @@ void main() {
   base = mix(base, uTeam * (0.25 + 1.05 * lum), vC.a);
   float mspec = 1.0;
   if (uUseTex > 0.5) {
-    base = texture(uTex, vUV).rgb * vC.rgb;
-    // the close-up grain: a tiled detail texture over the painted ground
-    float dt = texture(uDetail, vW.xz * 0.45).r * 0.6 + texture(uDetail, vW.xz * 0.13 + 0.37).r * 0.4;
+    vec3 tc = texture(uTex, vUV).rgb;
+    base = tc * vC.rgb;
+    // the close-up grain: soil grit (r) on earth, grass blades (g) on grass, chosen by the paint's own hue
+    vec2 d1 = texture(uDetail, vW.xz * 0.45).rg, d2 = texture(uDetail, vW.xz * 0.13 + 0.37).rg;
+    float grassy = clamp((tc.g - tc.r) * 9.0, 0.0, 1.0);
+    float dt = mix(d1.r * 0.6 + d2.r * 0.4, d1.g * 0.65 + d2.g * 0.35, grassy);
     base *= 0.64 + 0.72 * dt;
   } else if (uMatOn > 0.5 && vUV.x > 0.5) {
     // a real surface: the class's texture, triplanar in OBJECT space (it rides with a moving tank),
@@ -323,7 +326,7 @@ function alrGLMatTex(S, layers, scales, specs) {
   if (an) gl.texParameterf(gl.TEXTURE_2D_ARRAY, an.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, gl.getParameter(an.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
   gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
   gl.bindTexture(gl.TEXTURE_2D_ARRAY, null);
-  G.mat = t; G.matS = new Float32Array(16); G.matSpec = new Float32Array(16);
+  G.mat = t; G.matS = new Float32Array(20); G.matSpec = new Float32Array(20);
   scales.forEach((v, k) => { G.matS[k] = v; }); specs.forEach((v, k) => { G.matSpec[k] = v; });
 }
 function alrGLBindMat(U) {
@@ -473,8 +476,15 @@ function alrDetailCanvas() {
     const v8 = Math.max(0, Math.min(255, (0.35 + n * 0.3 + (r() - 0.5) * 0.28) * 255));
     const o = (y * S + x) * 4; id.data[o] = id.data[o + 1] = id.data[o + 2] = v8; id.data[o + 3] = 255;
   }
+  // g: grass blades — short slanted light/dark strokes over a soft base (wrapped)
+  const gb = new Float32Array(S * S).fill(0.5);
+  for (let k = 0; k < 5200; k++) {
+    let x = r() * S, y = r() * S; const len = 3 + r() * 6, a = -Math.PI / 2 + (r() - 0.5) * 0.9, v = r() < 0.5 ? -0.22 : 0.2;
+    for (let t = 0; t < len; t++) { const xi = ((x | 0) % S + S) % S, yi = ((y | 0) % S + S) % S; gb[yi * S + xi] += v * (1 - t / len); x += Math.cos(a); y += Math.sin(a); }
+  }
+  for (let k = 0; k < S * S; k++) id.data[k * 4 + 1] = Math.max(0, Math.min(255, (0.18 + gb[k] * 0.64) * 255));
   g.putImageData(id, 0, 0);
-  // pebbles: dark specks with a light edge (wrapped so the tile repeats cleanly)
+  // pebbles: dark specks with a light edge (wrapped so the tile repeats cleanly) — soil channel only
   for (let k = 0; k < 420; k++) {
     const x = r() * S, y = r() * S, rr = 0.8 + r() * 2.2;
     for (const [ox, oy] of [[0, 0], [S, 0], [0, S], [-S, 0], [0, -S]]) {
@@ -482,6 +492,9 @@ function alrDetailCanvas() {
       g.fillStyle = 'rgba(230,230,230,0.35)'; g.beginPath(); g.arc(x + ox - rr * 0.3, y + oy - rr * 0.3, rr * 0.5, 0, 7); g.fill();
     }
   }
+  const back = g.getImageData(0, 0, S, S);
+  for (let k = 0; k < S * S; k++) back.data[k * 4 + 1] = Math.max(0, Math.min(255, (0.18 + gb[k] * 0.64) * 255));
+  g.putImageData(back, 0, 0);
   return cv;
 }
 const ALR_CELL = (i) => [(i % 4) * 0.25, ((i / 4) | 0) * 0.5];

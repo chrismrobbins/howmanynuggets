@@ -3207,3 +3207,28 @@ building (yellow corner X's, hazard stripes, lamp posts, crates and drums), and 
   a sloped poured apron. The corner marks, most hazard yellow and the copy-pasted lamps/crates/drums are
   gone (only the barracks keeps its crates, and the HQ one entrance lamp). The palette is muted and warm.
 - Trees, rocks and ore are still the procedural low-poly ones.
+
+### Pass 3: the trees and the landscape (same day)
+Chris: *"great now fix the trees and landscape"*.
+- **Blender landscape** (alertrig.py `LANDSCAPE`, exported as `t.0-5` / `s.0-3` / `r.0-3` / `o.0-8`; `alrMeshUse`
+  routes t/s/r/o into `alrArt.trees / shrubs / rocks / ore` by index):
+  - Broadleaf trees: a short, forked, bent trunk under a dense crown of ~24 noise-displaced clumps shaped
+    like an ellipsoid shell. Rejected looks: one big ball on a stick (a lollipop), then many small faceted
+    clumps (low-poly gems).
+  - Pines: 6-8 tiers of drooping boughs with ragged, jagged rims.
+  - Bushes; boulder groups.
+  - Ore: 1-3 heaps a tile of half-buried gold lumps, with a crystal outcrop on the richest tiles. Spec is
+    toned down, because sprinkled shiny lumps read as popcorn.
+  - New surface classes: 14 foliage, 15 rock (strata, fractures, lichen), 16 ore. The shader arrays are 20 long.
+- **Stands:** the draw picks broadleaf (0-2) or pine (3-5) from a slow sine wave over the map, so woods
+  are one species with mixed edges, not confetti.
+- **Bushes** (`alr.ui.shrubs`, built in `alrUIBuildWorld`) are visual only: on open grass, denser next to
+  trees, and skipped at draw time under buildings (`M.bld`) and ore. They never block.
+- **Ground** (`alrTerrainCanvas`): muted olive grass broken into lush and dry patches by domain-warped
+  noise; earth with ragged edges and a yellowed fringe of thinning grass; damp and sandy earth variants;
+  twin rutted tyre tracks; stones on earth only. The flower confetti is gone. The close-up detail texture
+  now carries soil grit in R and grass blades in G, and the shader picks between them by the paint's
+  own hue (green - red).
+- Harness gotcha: after filling `shroud` in a test, call `alrGLShroud(ALR_N, shroud)`, or the GPU copy
+  stays dark and the frame renders black.
+- The mesh file is now 3.2 MB (1.39 MB gzipped), with ~100k tris across 48 models.

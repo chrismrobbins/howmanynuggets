@@ -387,9 +387,12 @@ function alrNoise(seed) {
   };
 }
 function alrTerrainCanvas(M, ppt) {
+  // Temperate ground the way the pre-rendered RTS maps painted it: muted olive grass broken into lush and dry
+  // patches (domain-warped noise, so the shapes are organic, not blobs), bare earth with ragged edges and a
+  // band of thinning, yellowed grass round it, rutted tyre tracks, scattered stones on the earth only.
   const N = M.N, S = N * ppt, cv = document.createElement('canvas'); cv.width = cv.height = S;
   const g = cv.getContext('2d');
-  const n1 = alrNoise(M.seed), n2 = alrNoise(M.seed + 7), n3 = alrNoise(M.seed + 13);
+  const n1 = alrNoise(M.seed), n2 = alrNoise(M.seed + 7), n3 = alrNoise(M.seed + 13), n4 = alrNoise(M.seed + 21), n5 = alrNoise(M.seed + 29);
   const img = g.createImageData(S, S), d = img.data;
   const dirt = M.dirt;             // Float32Array N*N: 0 grass … 1 bare earth
   const dAt = (x, y) => {
@@ -398,38 +401,53 @@ function alrTerrainCanvas(M, ppt) {
     const a = dirt[iy * N + ix], b = dirt[iy * N + ix + 1], c = dirt[(iy + 1) * N + ix], e = dirt[(iy + 1) * N + ix + 1];
     return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + e * tx) * ty;
   };
+  const mix3 = (A, B, t) => [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t];
+  const GRASS = [84, 98, 50], LUSH = [58, 80, 38], DRY = [124, 118, 70], EARTH = [116, 97, 72], DAMP = [88, 74, 56], SAND = [146, 128, 96];
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
     const u = x / ppt, v = y / ppt;
-    const big = n1(u * 0.12, v * 0.12), mid = n2(u * 0.55, v * 0.55), fine = n3(u * 3.1, v * 3.1), grain = Math.random();
-    // grass
-    let r = 74 + big * 34 + mid * 18, gg = 112 + big * 30 + mid * 22, b = 46 + mid * 12;
-    const dk = Math.max(0, mid - 0.62) * 2.2; r -= dk * 22; gg -= dk * 26; b -= dk * 8;
-    r += (fine - 0.5) * 16; gg += (fine - 0.5) * 18; b += (fine - 0.5) * 8;
-    // earth
-    let k = dAt(x, y) + (mid - 0.5) * 0.35 + (fine - 0.5) * 0.18;
-    k = Math.max(0, Math.min(1, (k - 0.25) * 2.2));
-    const er = 118 + big * 22 + fine * 12, eg = 101 + big * 16 + fine * 9, eb = 76 + fine * 9;
-    r = r * (1 - k) + er * k; gg = gg * (1 - k) + eg * k; b = b * (1 - k) + eb * k;
-    const gr = (grain - 0.5) * 10;
+    // domain warp: bend the sample point by low noise so patch outlines meander
+    const wu = u + (n4(u * 0.18, v * 0.18) - 0.5) * 6, wv = v + (n5(u * 0.18 + 9, v * 0.18) - 0.5) * 6;
+    const big = n1(wu * 0.1, wv * 0.1), mid = n2(wu * 0.42, wv * 0.42), fine = n3(u * 2.6, v * 2.6), clump = n3(u * 7.5 + 3, v * 7.5);
+    let c = mix3(GRASS, LUSH, Math.max(0, Math.min(1, (mid - 0.45) * 2.6)));
+    c = mix3(c, DRY, Math.max(0, Math.min(1, (big - 0.58) * 3.2)) * 0.85);
+    const cl = (clump - 0.5) * 18 + (fine - 0.5) * 12;
+    c = [c[0] + cl * 0.8, c[1] + cl, c[2] + cl * 0.5];
+    // earth, with a ragged edge and a fringe of thinning grass
+    let k = dAt(x, y) + (mid - 0.5) * 0.42 + (fine - 0.5) * 0.25 + (clump - 0.5) * 0.12;
+    const fringe = Math.max(0, 1 - Math.abs(k - 0.3) / 0.12);
+    k = Math.max(0, Math.min(1, (k - 0.3) * 3.2));
+    let e = mix3(EARTH, DAMP, Math.max(0, Math.min(1, (n2(u * 0.9 + 5, v * 0.9) - 0.55) * 3)));
+    e = mix3(e, SAND, Math.max(0, Math.min(1, (big - 0.62) * 3)) * 0.7);
+    const eg = (fine - 0.5) * 16;
+    e = [e[0] + eg, e[1] + eg * 0.9, e[2] + eg * 0.7];
+    c = mix3(c, DRY, fringe * 0.45);
+    c = mix3(c, e, k);
+    const gr = (Math.random() - 0.5) * 8;
     const o = (y * S + x) * 4;
-    d[o] = Math.max(0, Math.min(255, r + gr)); d[o + 1] = Math.max(0, Math.min(255, gg + gr)); d[o + 2] = Math.max(0, Math.min(255, b + gr * 0.6)); d[o + 3] = 255;
+    d[o] = Math.max(0, Math.min(255, c[0] + gr)); d[o + 1] = Math.max(0, Math.min(255, c[1] + gr)); d[o + 2] = Math.max(0, Math.min(255, c[2] + gr * 0.6)); d[o + 3] = 255;
   }
   g.putImageData(img, 0, 0);
-  // stones and flowers
   let s = M.seed * 31 + 5; const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
-  for (let k = 0; k < N * N * 0.6; k++) {
-    const x = r() * S, y = r() * S, t = r();
-    if (t >= 0.55 && dAt(x, y) > 0.3) continue;            // flowers and tufts grow on the grass, not the dirt
-    if (t < 0.55) { const v = 105 + r() * 60; g.fillStyle = `rgba(${v},${v * 0.97},${v * 0.92},0.55)`; g.beginPath(); g.ellipse(x, y, 0.7 + r() * 1.5, 0.5 + r() * 1.0, r() * 3, 0, 7); g.fill(); }
-    else if (t < 0.8) { g.fillStyle = ['rgba(240,230,120,0.85)', 'rgba(255,255,255,0.8)', 'rgba(220,120,160,0.8)'][(r() * 3) | 0]; g.fillRect(x, y, 1.6, 1.6); }
-    else { g.strokeStyle = 'rgba(40,70,25,0.5)'; g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (r() - 0.5) * 4, y - 3 - r() * 3); g.stroke(); }
+  // stones on the earth; darker tufts on the grass (no confetti)
+  for (let k = 0; k < N * N * 0.5; k++) {
+    const x = r() * S, y = r() * S, dd = dAt(x, y);
+    if (dd > 0.35 && r() < 0.6) {
+      const v = 95 + r() * 55, rx = 0.6 + r() * 1.4;
+      g.fillStyle = 'rgba(40,32,24,0.35)'; g.beginPath(); g.ellipse(x + 0.6, y + 0.6, rx, rx * 0.7, 0, 0, 7); g.fill();
+      g.fillStyle = `rgba(${v},${v * 0.96},${v * 0.9},0.75)`; g.beginPath(); g.ellipse(x, y, rx, rx * 0.7, r() * 3, 0, 7); g.fill();
+    } else if (dd < 0.2) {
+      g.strokeStyle = r() < 0.5 ? 'rgba(34,52,22,0.45)' : 'rgba(140,140,80,0.3)'; g.lineWidth = 0.8;
+      for (let b = 0; b < 4; b++) { g.beginPath(); g.moveTo(x + b * 0.7, y); g.lineTo(x + b * 0.7 + (r() - 0.5) * 3, y - 2 - r() * 3); g.stroke(); }
+    }
   }
-  // tire tracks along the worn path
-  g.strokeStyle = 'rgba(80,62,40,0.22)'; g.lineWidth = ppt * 0.08;
-  for (const path of M.tracks || []) for (const off of [-0.18, 0.18]) {
-    g.beginPath();
-    path.forEach(([px, pz], i) => { const X = (px + off) * ppt, Y = (pz + off) * ppt; if (i) g.lineTo(X, Y); else g.moveTo(X, Y); });
-    g.stroke();
+  // rutted tyre tracks along the worn path: twin ruts, dark in the groove, a pale crushed ridge between
+  for (const path of M.tracks || []) for (const off of [-0.2, 0.2]) {
+    for (const [w, col] of [[ppt * 0.13, 'rgba(70,54,38,0.28)'], [ppt * 0.05, 'rgba(60,46,32,0.35)']]) {
+      g.strokeStyle = col; g.lineWidth = w; g.lineJoin = 'round';
+      g.beginPath();
+      path.forEach(([px, pz], i) => { const j = (n3(px * 3, pz * 3) - 0.5) * 0.08; const X = (px + off + j) * ppt, Y = (pz + off + j) * ppt; if (i) g.lineTo(X, Y); else g.moveTo(X, Y); });
+      g.stroke();
+    }
   }
   return cv;
 }
@@ -461,7 +479,7 @@ function alrArtInit() {
 // The procedural models above draw first and stay as the fallback. The Blender set (~1 MB gzipped) is
 // injected the first time the game opens, then swapped in by name: 'b.hq' → alrArt.b.hq, 'u.tank' → alrArt.u.tank.
 // Everything draws through alrArt lookups each frame, so the swap is live; the sidebar cameos are re-shot.
-const ALR_MESH_SRC = 'js/alertMeshData.js?v=2';
+const ALR_MESH_SRC = 'js/alertMeshData.js?v=3';
 function alrMeshUse() {
   const D = window.ALR_MESH_DATA;
   if (!D) {
@@ -489,7 +507,9 @@ function alrMeshUse() {
     const u = new Float32Array(M.v * 2);
     if (M.u) { const ui = new Uint8Array(raw(M.u)); for (let k = 0; k < ui.length; k += 2) { u[k] = ui[k]; u[k + 1] = ui[k + 1] / 255; } }
     const mesh = alrGLMesh({ p, n, c, u, i });
-    (grp === 'b' ? alrArt.b : alrArt.u)[key] = mesh;
+    // b.* buildings, u.* units by name; t / s / r / o = trees, shrubs, rocks, ore by index
+    const LIST = { t: 'trees', s: 'shrubs', r: 'rocks', o: 'ore' };
+    if (LIST[grp]) { (alrArt[LIST[grp]] = alrArt[LIST[grp]] || [])[+key] = mesh; } else (grp === 'b' ? alrArt.b : alrArt.u)[key] = mesh;
   }
   alrArt.mesh = true;
   if (!alrGL.mat) { const L = alrMatLayers(256); alrGLMatTex(256, L.layers, ALR_MAT_SCALE, ALR_MAT_SPEC); }
@@ -502,8 +522,8 @@ function alrMeshUse() {
 // colour unchanged; the shader multiplies by 2×) with its own physical logic: formwork seams + tie holes on cast
 // concrete, slab joints + cracks + oil on the aprons, gravel on roofs, ribs + rust runs on corrugated sheet, weld
 // seams + chipped paint on armour, rivet rows + rust weeping on silos. Scales are repeats per tile.
-const ALR_MAT_SCALE = [0, 2.0, 1.0, 2.2, 3.0, 3.2, 3.0, 8.0, 2.0, 7.0, 5.0, 2.5, 6.0, 3.0];
-const ALR_MAT_SPEC = [1, 0.15, 0.08, 0.25, 0.7, 0.75, 1.1, 0.12, 2.2, 0.05, 0.1, 0.6, 0.3, 0.08];
+const ALR_MAT_SCALE = [0, 2.0, 1.0, 2.2, 3.0, 3.2, 3.0, 8.0, 2.0, 7.0, 5.0, 2.5, 6.0, 3.0, 5.0, 3.0, 9.0];
+const ALR_MAT_SPEC = [1, 0.15, 0.08, 0.25, 0.7, 0.75, 1.1, 0.12, 2.2, 0.05, 0.1, 0.6, 0.3, 0.08, 0.12, 0.2, 0.9];
 function alrMatLayers(S) {
   const hash = (x, y, s) => { let h = (x * 374761393 + y * 668265263 + s * 2147483647) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
   // tileable value noise: `cells` lattice cells across the tile, wrapped
@@ -587,5 +607,21 @@ function alrMatLayers(S) {
   make((L) => { each(L, (x, y) => grey((fbm(x, y, 16, 3, 26) - 0.5) * 70 + (hash(x, y, 27) - 0.5) * 30)); for (let k = 0; k < 140; k++) blob(L, rnd() * S | 0, rnd() * S | 0, 2 + rnd() * 4 | 0, rnd() < 0.5 ? -50 : 40, [1, 0.85, 0.6]); });
   // 13 canvas: fine weave, water marks
   make((L) => { each(L, (x, y) => grey(((x + y) % 4 < 2 ? 6 : -6) + (fbm(x, y, 3, 4, 28) - 0.5) * 32)); for (let k = 0; k < 5; k++) blob(L, rnd() * S | 0, rnd() * S | 0, 26, -24, DIRT); });
+  // 14 foliage: overlapping leaves, light tops and dark gaps between them
+  make((L) => {
+    each(L, (x, y) => grey((fbm(x, y, 8, 3, 30) - 0.5) * 30 - 34));
+    for (let k = 0; k < 1500; k++) { const x = rnd() * S | 0, y = rnd() * S | 0, r = 2 + rnd() * 3 | 0, d = 30 + rnd() * 55; blob(L, x, y, r, d, [0.9, 1.05, 0.65]); blob(L, x + 1, y + r, 2, -55, [1, 1, 1]); }
+  });
+  // 15 rock: bedding strata, fractures, lichen
+  make((L) => {
+    each(L, (x, y) => grey(Math.sin((y + fbm(x, y, 4, 3, 31) * 60) / 9) * 14 + (fbm(x, y, 6, 4, 32) - 0.5) * 40 + (hash(x, y, 33) - 0.5) * 16));
+    for (let k = 0; k < 7; k++) { let x = rnd() * S, y = rnd() * S, a = rnd() * 6.28; for (let t = 0; t < 40 + rnd() * 70; t++) { a += (rnd() - 0.5) * 0.9; x += Math.cos(a); y += Math.sin(a); add(L, x | 0, y | 0, -45, -45, -45); } }
+    for (let k = 0; k < 26; k++) blob(L, rnd() * S | 0, rnd() * S | 0, 4 + rnd() * 9 | 0, 34, [0.55, 0.75, -0.1]);
+  });
+  // 16 ore: nuggety crumb, bright facets, dark pits
+  make((L) => {
+    each(L, (x, y) => grey((fbm(x, y, 12, 3, 34) - 0.5) * 50));
+    for (let k = 0; k < 260; k++) blob(L, rnd() * S | 0, rnd() * S | 0, 1 + rnd() * 3 | 0, rnd() < 0.55 ? 70 : -60, [1, 0.9, 0.5]);
+  });
   return { layers };
 }

@@ -23,6 +23,7 @@ CONVENTIONS (a contract with js/alertArt.js + js/alertUI.js — do not drift):
   glass are exempt.
 """
 import bpy, bmesh, math, json, os, sys, random
+from mathutils import noise as mnoise
 from mathutils import Vector, Matrix
 from mathutils.bvhtree import BVHTree
 
@@ -55,6 +56,11 @@ PAL = {
     "bandTeam": _m("#8a8a8a", 11, 1),
     # vehicle drab: hulls are paint-and-dust, the team colour is the markings (turret, fenders, stripes)
     "armor": _m("#6d6f5f", 5), "armorDark": _m("#505246", 5),
+    # the landscape: 14 foliage · 15 rock · 16 ore
+    "leafA": _m("#46622b", 14), "leafB": _m("#55702f", 14), "leafC": _m("#344d22", 14), "leafD": _m("#617336", 14),
+    "pineA": _m("#2f4a2c", 14), "pineB": _m("#3a5532", 14), "bark": _m("#4d3e2e", 10), "barkDark": _m("#3a2f24", 10),
+    "rockA": _m("#6f6a60", 15), "rockB": _m("#5c5850", 15), "rockC": _m("#7b766b", 15),
+    "ore": _m("#b98a2c", 16), "oreDark": _m("#80591e", 16), "oreLite": _m("#d4a440", 16), "gem": _m("#d89a36", 16),
 }
 
 
@@ -142,6 +148,22 @@ class Model:
         res = bmesh.ops.create_uvsphere(self.bm, u_segments=u, v_segments=v, radius=r, matrix=Matrix.Identity(4))
         vs = res["verts"]
         M = self._xf(Matrix.Translation(c) @ Matrix.Diagonal((s[0], s[1], s[2], 1)))
+        bmesh.ops.transform(self.bm, matrix=M, verts=vs)
+        return self._done(vs, mat)
+
+    def rock(self, c, r, mat, sub=2, s=(1, 1, 1), amp=0.28, freq=2.2, seed=0.0, flat_below=None):
+        """A noise-displaced icosphere: a boulder, a leaf clump, an ore lump. `flat_below` clamps the
+        bottom (in local y, before s) so it sits on / sinks into the ground."""
+        res = bmesh.ops.create_icosphere(self.bm, subdivisions=sub, radius=1.0, matrix=Matrix.Identity(4))
+        vs = res["verts"]
+        off = Vector((seed * 7.1, seed * 3.3, seed * 5.7))
+        for v in vs:
+            d = v.co.normalized()
+            n = mnoise.noise(d * freq + off) * 0.7 + mnoise.noise(d * freq * 2.3 + off * 1.7) * 0.3
+            v.co = d * (1.0 + amp * n)
+            if flat_below is not None and v.co.y < flat_below:
+                v.co.y = flat_below
+        M = self._xf(Matrix.Translation(c) @ Matrix.Diagonal((s[0] * r, s[1] * r, s[2] * r, 1)))
         bmesh.ops.transform(self.bm, matrix=M, verts=vs)
         return self._done(vs, mat)
 
@@ -1248,10 +1270,145 @@ def build_leg():
     return m
 
 
+# =========================================================================================================
+# THE LANDSCAPE: trees (t.0-2 broadleaf, t.3-5 pine), rocks (r.0-3), shrubs (s.0-3), ore (o.0-8 = 3 levels × 3)
+# =========================================================================================================
+def _branchy_trunk(m, rnd, h, r0, lean):
+    """A trunk that bends a little, flares at the root, and forks into 3-4 limbs; returns limb tips."""
+    pts = [Vector((0, 0, 0))]
+    for k in range(1, 5):
+        t = k / 4
+        pts.append(Vector((lean[0] * t * t + rnd.uniform(-0.01, 0.01), h * t, lean[1] * t * t + rnd.uniform(-0.01, 0.01))))
+    rings = []
+    for i, p in enumerate(pts):
+        rr = r0 * (1.0 - 0.45 * i / 4)
+        rings.append([(p.x + math.cos(j / 9 * TAU) * rr * (1.35 if i == 0 else 1), p.y, p.z + math.sin(j / 9 * TAU) * rr * (1.35 if i == 0 else 1)) for j in range(9)])
+    m.loft(rings, "bark")
+    tips = []
+    top = pts[-1]
+    nl = rnd.choice((3, 4))
+    for k in range(nl):
+        a = k / nl * TAU + rnd.uniform(-0.4, 0.4)
+        d = rnd.uniform(0.14, 0.24)
+        tip = top + Vector((math.cos(a) * d, rnd.uniform(0.12, 0.25), math.sin(a) * d))
+        mid = top + (tip - top) * 0.5 + Vector((0, 0.03, 0))
+        m.tube([tuple(top - Vector((0, 0.05, 0))), tuple(mid), tuple(tip)], r0 * 0.38, "barkDark", n=6)
+        tips.append(tip)
+    return top, tips
+
+
+def build_broadleaf(i):
+    """An oak/maple-ish tree: a short forked trunk under a broad, dense crown of many small leaf clumps
+    (a lollipop is one big ball on a stick; a tree is a cloud of clumps that starts low and hangs)."""
+    m = Model("t.%d" % i, smooth_deg=70)
+    rnd = random.Random(100 + i)
+    h = (0.3, 0.36, 0.27)[i]
+    top, tips = _branchy_trunk(m, rnd, h, 0.055, (rnd.uniform(-0.05, 0.05), rnd.uniform(-0.05, 0.05)))
+    leaves = ["leafA", "leafC", "leafB", "leafA", "leafC"]
+    crown_c = top + Vector((0, 0.3, 0))
+    W, Hc = (0.3, 0.33, 0.27)[i], (0.25, 0.28, 0.23)[i]
+    k = 0
+    for t in tips:     # a clump on every limb tip
+        m.rock(tuple(t + Vector((0, 0.04, 0))), rnd.uniform(0.1, 0.13), "leafC", sub=2, s=(1, 0.8, 1), amp=0.3, freq=3.2, seed=i * 29 + k)
+        k += 1
+    for j in range(rnd.randint(20, 24)):
+        # sample an ellipsoid shell, flattened underneath, so the crown is a full canopy
+        a = rnd.uniform(0, TAU)
+        e = rnd.uniform(-0.55, 1.0)
+        rr = math.sqrt(max(0.0, 1 - e * e)) * rnd.uniform(0.75, 1.0)
+        c = crown_c + Vector((math.cos(a) * rr * W, e * Hc, math.sin(a) * rr * W))
+        mat = "leafB" if e > 0.55 else ("leafC" if e < -0.2 else leaves[(j + i) % 5])
+        m.rock(tuple(c), rnd.uniform(0.09, 0.125), mat, sub=2, s=(1.0, 0.82, 1.0), amp=0.32, freq=3.4, seed=i * 31 + j + 7)
+    return m
+
+
+def build_pine(i):
+    """A pine: a straight trunk and 6-8 tiers of drooping, ragged boughs, narrowing to a spire."""
+    m = Model("t.%d" % (3 + i), smooth_deg=55)
+    rnd = random.Random(200 + i)
+    H = (1.25, 1.4, 1.1)[i]
+    m.cyl((0, H * 0.3, 0), 0.04, H * 0.6, "bark", n=8, r2=0.025)
+    m.lathe([(0.075, 0.0), (0.05, 0.05), (0.0, 0.05)], "barkDark", n=8)
+    tiers = (7, 8, 6)[i]
+    for k in range(tiers):
+        t = k / (tiers - 1)
+        y = 0.22 + t * (H - 0.38)
+        R = (0.36 - 0.27 * t) * rnd.uniform(0.9, 1.08)
+        n = 14
+        edge = []
+        for j in range(n):
+            a = j / n * TAU + k * 0.37
+            jag = 1.0 + (0.22 if j % 2 == 0 else -0.06) + rnd.uniform(-0.08, 0.08)
+            droop = rnd.uniform(0.0, 0.05)
+            edge.append((math.cos(a) * R * jag, y - 0.06 - droop - R * 0.18, math.sin(a) * R * jag))
+        apex = [(0.0, y + 0.16 + R * 0.25, 0.0)] * n
+        mid = [(e[0] * 0.55, y + 0.05, e[2] * 0.55) for e in edge]
+        under = [(e[0] * 0.35, y - 0.04, e[2] * 0.35) for e in edge]
+        m.loft([apex, mid, edge, under, [(0.0, y - 0.02, 0.0)] * n], "pineA" if k % 2 == 0 else "pineB", cap0=False, cap1=False)
+    m.cyl((0, H + 0.04, 0), 0.03, 0.14, "pineB", n=6, r2=0.0)
+    return m
+
+
+def build_shrub(i):
+    """A low bush: 4-6 leaf clumps hugging the ground."""
+    m = Model("s.%d" % i, smooth_deg=70)
+    rnd = random.Random(300 + i)
+    for k in range(rnd.randint(4, 6)):
+        a = rnd.uniform(0, TAU)
+        d = rnd.uniform(0.0, 0.1)
+        r = rnd.uniform(0.06, 0.11)
+        m.rock((math.cos(a) * d, r * 0.55, math.sin(a) * d), r, ("leafB", "leafA", "leafD", "leafC")[(k + i) % 4], sub=2, s=(1.0, 0.72, 1.0), amp=0.35, freq=3.0, seed=50 + i * 7 + k)
+    return m
+
+
+def build_rocks(i):
+    """A boulder group: one big weathered stone half-sunk, two or three smaller ones leaning on it."""
+    m = Model("r.%d" % i, smooth_deg=48)
+    rnd = random.Random(400 + i)
+    big = rnd.uniform(0.16, 0.22)
+    m.rock((0, big * 0.35, 0), big, ("rockA", "rockC")[i % 2], sub=3, s=(1.15, 0.7, 0.95), amp=0.24, freq=1.8, seed=i * 3.3, flat_below=-0.45)
+    for k in range(rnd.randint(2, 3)):
+        a = rnd.uniform(0, TAU)
+        d = big * rnd.uniform(0.9, 1.4)
+        r = big * rnd.uniform(0.35, 0.6)
+        m.rock((math.cos(a) * d, r * 0.3, math.sin(a) * d), r, ("rockB", "rockA", "rockC")[k % 3], sub=2, s=(1.1, 0.75, 1.0), amp=0.3, freq=2.4, seed=i * 5 + k + 1, flat_below=-0.4)
+    return m
+
+
+def build_ore(level, v):
+    """Sauce ore: heaps of gold lumps half-buried in stained earth — 1-3 heaps a tile, bigger with
+    density — plus a crystal outcrop on the richest tiles."""
+    m = Model("o.%d" % (level * 3 + v), smooth_deg=55)
+    rnd = random.Random(500 + level * 10 + v)
+    heaps = (1, 2, 3)[level]
+    for hp in range(heaps):
+        cx, cz = rnd.uniform(-0.25, 0.25), rnd.uniform(-0.25, 0.25)
+        R = (0.1, 0.13, 0.16)[level] * rnd.uniform(0.8, 1.15)
+        for k in range(rnd.randint(5, 8) + level * 2):
+            a = rnd.uniform(0, TAU)
+            d = R * math.sqrt(rnd.random())
+            r = rnd.uniform(0.03, 0.05) + level * 0.008
+            y = r * (0.2 + 0.9 * (1 - d / R)) * (0.6 + level * 0.25)
+            m.rock((cx + math.cos(a) * d, y, cz + math.sin(a) * d), r, ("ore", "oreDark", "ore", "oreLite")[rnd.randrange(4)], sub=1, s=(1.0, 0.7, 1.0), amp=0.38, freq=2.5, seed=level * 40 + v * 13 + hp * 5 + k, flat_below=-0.35)
+    if level == 2:
+        cx, cz = rnd.uniform(-0.2, 0.2), rnd.uniform(-0.2, 0.2)
+        for j in range(4):
+            h = rnd.uniform(0.08, 0.14)
+            m.push(cx + rnd.uniform(-0.025, 0.025), 0, cz + rnd.uniform(-0.025, 0.025), rnd.uniform(0, TAU), rnd.uniform(-0.4, 0.4), rnd.uniform(-0.4, 0.4))
+            m.cyl((0, h * 0.4, 0), 0.02, h * 0.8, "gem", n=6)
+            m.cyl((0, h * 0.8 + 0.025, 0), 0.02, 0.05, "gem", n=6, r2=0.0)
+            m.pop()
+    return m
+
+
+LANDSCAPE = [lambda i=i: build_broadleaf(i) for i in range(3)] + [lambda i=i: build_pine(i) for i in range(3)] + \
+            [lambda i=i: build_shrub(i) for i in range(4)] + [lambda i=i: build_rocks(i) for i in range(4)] + \
+            [lambda l=l, v=v: build_ore(l, v) for l in range(3) for v in range(3)]
+
 MODELS = [build_hq, build_hq_crane, build_power, build_refinery, build_barracks, build_barracks_flag, build_factory,
           build_factory_door, build_radar, build_radar_dish, build_turret, build_turret_head, build_tesla,
           build_tank, build_tank_turret, build_tank_gun, build_heavy, build_heavy_turret, build_heavy_gun,
-          build_harv, build_harv_drum, build_harv_load, lambda: build_inf("rifle"), lambda: build_inf("rocket"), build_leg]
+          build_harv, build_harv_drum, build_harv_load, lambda: build_inf("rifle"), lambda: build_inf("rocket"), build_leg] + LANDSCAPE
 
 # the game draws a building's part parented to its body: give the AO bake the body as an occluder
 OCCLUDERS = {"b.hq_crane": "b.hq", "b.radar_dish": "b.radar", "b.turret_head": "b.turret", "b.factory_door": None,
