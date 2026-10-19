@@ -1,6 +1,6 @@
 {
  "cap": 10000,
- "spent": 10169.5,
+ "spent": 10244.5,
  "calls": [
   {
    "t": "2026-10-09 15:34",
@@ -545,6 +545,54 @@
    "secs": 1.2,
    "credits": 12.0,
    "file": "sell.mp3"
+  },
+  {
+   "t": "2026-10-19 12:00",
+   "kind": "sfx",
+   "what": "Two quick aggressive dog barks, video game",
+   "secs": 0.8,
+   "credits": 8.0,
+   "file": "bark.mp3"
+  },
+  {
+   "t": "2026-10-19 12:00",
+   "kind": "sfx",
+   "what": "Fighter jet fast flyby whoosh roar, video game",
+   "secs": 1.5,
+   "credits": 15.0,
+   "file": "jet.mp3"
+  },
+  {
+   "t": "2026-10-19 12:00",
+   "kind": "sfx",
+   "what": "Bright crystalline laser beam firing, a shimmering high-energy zap, video game",
+   "secs": 1.2,
+   "credits": 12.0,
+   "file": "prism.mp3"
+  },
+  {
+   "t": "2026-10-19 12:00",
+   "kind": "sfx",
+   "what": "Anti-aircraft flak bursts, rapid thumping cannon shots popping in the sky, video game",
+   "secs": 1.0,
+   "credits": 10.0,
+   "file": "flak.mp3"
+  },
+  {
+   "t": "2026-10-19 12:00",
+   "kind": "sfx",
+   "what": "Science-fiction teleport, a warping whoosh with a crackle, video game",
+   "secs": 1.2,
+   "credits": 12.0,
+   "file": "chrono.mp3"
+  },
+  {
+   "t": "2026-10-19 12:00",
+   "kind": "sfx",
+   "what": "Falling bomb whistle then a heavy explosion, video game",
+   "secs": 1.8,
+   "credits": 18.0,
+   "file": "bomb.mp3"
   }
  ]
 }

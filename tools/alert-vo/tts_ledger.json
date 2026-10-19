@@ -1,6 +1,6 @@
 {
  "cap": 3500,
- "spent": 667.0,
+ "spent": 1783.0,
  "calls": [
   {
    "t": "2026-10-19 11:17",
@@ -484,6 +484,650 @@
    "text": "[relaxed] Back to the field.",
    "credits": 11.0,
    "file": "harv-attack-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Battle control online.",
+   "credits": 18.0,
+   "file": "eva-battle-control-online.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Building.",
+   "credits": 13.0,
+   "file": "eva-building.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Construction complete.",
+   "credits": 18.0,
+   "file": "eva-construction-complete.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Training.",
+   "credits": 13.0,
+   "file": "eva-training.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Unit ready.",
+   "credits": 14.0,
+   "file": "eva-unit-ready.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Low power.",
+   "credits": 14.0,
+   "file": "eva-low-power.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Insufficient funds.",
+   "credits": 17.0,
+   "file": "eva-insufficient-funds.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Our base is under attack.",
+   "credits": 20.0,
+   "file": "eva-our-base-is-under-attack.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Unit under attack.",
+   "credits": 17.0,
+   "file": "eva-unit-under-attack.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Sauce hauler under attack.",
+   "credits": 20.0,
+   "file": "eva-harvester-under-attack.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Building lost.",
+   "credits": 15.0,
+   "file": "eva-building-lost.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Unit lost.",
+   "credits": 14.0,
+   "file": "eva-unit-lost.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] On hold.",
+   "credits": 13.0,
+   "file": "eva-on-hold.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Canceled.",
+   "credits": 13.0,
+   "file": "eva-canceled.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Building sold.",
+   "credits": 15.0,
+   "file": "eva-building-sold.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Repairing.",
+   "credits": 14.0,
+   "file": "eva-repairing.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Cannot deploy here.",
+   "credits": 17.0,
+   "file": "eva-cannot-deploy-here.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] New construction options.",
+   "credits": 20.0,
+   "file": "eva-new-construction-options.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Radar online.",
+   "credits": 15.0,
+   "file": "eva-radar-online.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Radar offline.",
+   "credits": 15.0,
+   "file": "eva-radar-offline.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Enemy structure destroyed.",
+   "credits": 20.0,
+   "file": "eva-enemy-building-destroyed.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Mission accomplished. The Fry Federation has been deep-fried.",
+   "credits": 34.0,
+   "file": "eva-mission-accomplished.mp3"
+  },
+  {
+   "t": "2026-10-19 11:24",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Mission failed.",
+   "credits": 16.0,
+   "file": "eva-mission-failed.mp3"
+  },
+  {
+   "t": "2026-10-19 11:58",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Building captured.",
+   "credits": 17.0,
+   "file": "eva-building-captured.mp3"
+  },
+  {
+   "t": "2026-10-19 11:58",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Our building has been captured.",
+   "credits": 22.0,
+   "file": "eva-our-building-has-been-captured.mp3"
+  },
+  {
+   "t": "2026-10-19 11:58",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Unit promoted.",
+   "credits": 15.0,
+   "file": "eva-unit-promoted.mp3"
+  },
+  {
+   "t": "2026-10-19 11:58",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[cold, stern, gravelly] Building repaired.",
+   "credits": 17.0,
+   "file": "eva-building-repaired.mp3"
+  },
+  {
+   "t": "2026-10-19 11:58",
+   "voice": "IKne3meq5aSn9XLyUdCD",
+   "text": "[cheerful] Fry Cook here.",
+   "credits": 10.0,
+   "file": "engineer-select-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:58",
+   "voice": "IKne3meq5aSn9XLyUdCD",
+   "text": "[cheerful] Need something fixed?",
+   "credits": 13.0,
+   "file": "engineer-select-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:58",
+   "voice": "IKne3meq5aSn9XLyUdCD",
+   "text": "[cheerful] On my way.",
+   "credits": 8.0,
+   "file": "engineer-move-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "IKne3meq5aSn9XLyUdCD",
+   "text": "[cheerful] Coming through, hot pan!",
+   "credits": 14.0,
+   "file": "engineer-move-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "IKne3meq5aSn9XLyUdCD",
+   "text": "[cheerful] I'll take it from here.",
+   "credits": 14.0,
+   "file": "engineer-attack-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "zCgijgIKIMkFHnzXcCva",
+   "text": "[excited] Jetpack Nug!",
+   "credits": 9.0,
+   "file": "jetpack-select-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "zCgijgIKIMkFHnzXcCva",
+   "text": "[excited] Ready to fly!",
+   "credits": 9.0,
+   "file": "jetpack-select-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "zCgijgIKIMkFHnzXcCva",
+   "text": "[excited] Taking off!",
+   "credits": 8.0,
+   "file": "jetpack-move-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "zCgijgIKIMkFHnzXcCva",
+   "text": "[excited] Up, up and away!",
+   "credits": 10.0,
+   "file": "jetpack-move-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "zCgijgIKIMkFHnzXcCva",
+   "text": "[excited] Strafing run!",
+   "credits": 9.0,
+   "file": "jetpack-attack-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "TX3LPaxmHKxFdv7VOQHJ",
+   "text": "[focused] IFV ready.",
+   "credits": 8.0,
+   "file": "ifv-select-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "TX3LPaxmHKxFdv7VOQHJ",
+   "text": "[focused] Missiles armed.",
+   "credits": 10.0,
+   "file": "ifv-select-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "TX3LPaxmHKxFdv7VOQHJ",
+   "text": "[focused] Moving.",
+   "credits": 7.0,
+   "file": "ifv-move-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "TX3LPaxmHKxFdv7VOQHJ",
+   "text": "[focused] On the move.",
+   "credits": 9.0,
+   "file": "ifv-move-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "TX3LPaxmHKxFdv7VOQHJ",
+   "text": "[focused] Missiles away!",
+   "credits": 10.0,
+   "file": "ifv-attack-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[precise] Prism Fry, charged.",
+   "credits": 12.0,
+   "file": "prismtank-select-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[precise] Light it up?",
+   "credits": 9.0,
+   "file": "prismtank-select-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[precise] Adjusting position.",
+   "credits": 12.0,
+   "file": "prismtank-move-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[precise] Moving.",
+   "credits": 7.0,
+   "file": "prismtank-move-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[precise] Focusing beam!",
+   "credits": 10.0,
+   "file": "prismtank-attack-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "bIHbv24MWmeRgasZH58o",
+   "text": "[sly] Mirage Nug.",
+   "credits": 7.0,
+   "file": "mirage-select-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "bIHbv24MWmeRgasZH58o",
+   "text": "[sly] Now you see me.",
+   "credits": 8.0,
+   "file": "mirage-select-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "bIHbv24MWmeRgasZH58o",
+   "text": "[sly] Relocating.",
+   "credits": 7.0,
+   "file": "mirage-move-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "bIHbv24MWmeRgasZH58o",
+   "text": "[sly] Blending in.",
+   "credits": 7.0,
+   "file": "mirage-move-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "bIHbv24MWmeRgasZH58o",
+   "text": "[sly] Surprise!",
+   "credits": 6.0,
+   "file": "mirage-attack-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "iP95p4xoKVk53GoZ742B",
+   "text": "[pilot] Nug Jet, standing by.",
+   "credits": 12.0,
+   "file": "jet-select-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "iP95p4xoKVk53GoZ742B",
+   "text": "[pilot] Ready for launch.",
+   "credits": 10.0,
+   "file": "jet-select-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "iP95p4xoKVk53GoZ742B",
+   "text": "[pilot] Wheels up.",
+   "credits": 7.0,
+   "file": "jet-move-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "iP95p4xoKVk53GoZ742B",
+   "text": "[pilot] Airborne.",
+   "credits": 7.0,
+   "file": "jet-move-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "iP95p4xoKVk53GoZ742B",
+   "text": "[pilot] Target in sight. Weapons free.",
+   "credits": 15.0,
+   "file": "jet-attack-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "N2lVS1w4EtoT3dr4eOWO",
+   "text": "[Russian accent] Tater Conscript!",
+   "credits": 13.0,
+   "file": "conscript-select-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "N2lVS1w4EtoT3dr4eOWO",
+   "text": "[Russian accent] For the Federation!",
+   "credits": 14.0,
+   "file": "conscript-select-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "N2lVS1w4EtoT3dr4eOWO",
+   "text": "[Russian accent] Moving out!",
+   "credits": 11.0,
+   "file": "conscript-move-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "N2lVS1w4EtoT3dr4eOWO",
+   "text": "[Russian accent] Da, comrade!",
+   "credits": 12.0,
+   "file": "conscript-move-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "N2lVS1w4EtoT3dr4eOWO",
+   "text": "[Russian accent] For the Fryer!",
+   "credits": 12.0,
+   "file": "conscript-attack-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "wXvR48IpOq9HACltTmt7",
+   "text": "[growling] Zap Nug, charged.",
+   "credits": 11.0,
+   "file": "zapper-select-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "wXvR48IpOq9HACltTmt7",
+   "text": "[growling] Fully grounded.",
+   "credits": 10.0,
+   "file": "zapper-select-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "wXvR48IpOq9HACltTmt7",
+   "text": "[growling] Moving.",
+   "credits": 7.0,
+   "file": "zapper-move-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "wXvR48IpOq9HACltTmt7",
+   "text": "[growling] Shocking pace.",
+   "credits": 10.0,
+   "file": "zapper-move-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "wXvR48IpOq9HACltTmt7",
+   "text": "[growling] Feel the current!",
+   "credits": 11.0,
+   "file": "zapper-attack-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "pqHfZKP75CvOlQylNhV4",
+   "text": "[Russian accent] Flak Track ready.",
+   "credits": 14.0,
+   "file": "flaktrack-select-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "pqHfZKP75CvOlQylNhV4",
+   "text": "[Russian accent] Eyes on the sky.",
+   "credits": 13.0,
+   "file": "flaktrack-select-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "pqHfZKP75CvOlQylNhV4",
+   "text": "[Russian accent] Rolling.",
+   "credits": 10.0,
+   "file": "flaktrack-move-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "pqHfZKP75CvOlQylNhV4",
+   "text": "[Russian accent] Da.",
+   "credits": 8.0,
+   "file": "flaktrack-move-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "pqHfZKP75CvOlQylNhV4",
+   "text": "[Russian accent] Flak up!",
+   "credits": 10.0,
+   "file": "flaktrack-attack-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "QzTKubutNn9TjrB7Xb2Q",
+   "text": "[gruff] War Hauler.",
+   "credits": 8.0,
+   "file": "harvF-select-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "QzTKubutNn9TjrB7Xb2Q",
+   "text": "[gruff] Got sauce?",
+   "credits": 7.0,
+   "file": "harvF-select-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "QzTKubutNn9TjrB7Xb2Q",
+   "text": "[gruff] Moving out.",
+   "credits": 8.0,
+   "file": "harvF-move-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "QzTKubutNn9TjrB7Xb2Q",
+   "text": "[gruff] Yeah, yeah.",
+   "credits": 8.0,
+   "file": "harvF-move-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "QzTKubutNn9TjrB7Xb2Q",
+   "text": "[gruff] Back to work.",
+   "credits": 8.0,
+   "file": "harvF-attack-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "nPczCjzI2devNBz1zQrb",
+   "text": "[Russian accent] V3 ready.",
+   "credits": 10.0,
+   "file": "v3-select-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "nPczCjzI2devNBz1zQrb",
+   "text": "[Russian accent] Rockets loaded.",
+   "credits": 13.0,
+   "file": "v3-select-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "nPczCjzI2devNBz1zQrb",
+   "text": "[Russian accent] Repositioning.",
+   "credits": 12.0,
+   "file": "v3-move-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "nPczCjzI2devNBz1zQrb",
+   "text": "[Russian accent] Moving.",
+   "credits": 10.0,
+   "file": "v3-move-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "nPczCjzI2devNBz1zQrb",
+   "text": "[Russian accent] Launching!",
+   "credits": 11.0,
+   "file": "v3-attack-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "mSOmKHC6GZcZbSTGlqHO",
+   "text": "[booming] Family Size, ready.",
+   "credits": 12.0,
+   "file": "apoc-select-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "mSOmKHC6GZcZbSTGlqHO",
+   "text": "[booming] Extra large.",
+   "credits": 9.0,
+   "file": "apoc-select-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "mSOmKHC6GZcZbSTGlqHO",
+   "text": "[booming] Coming through.",
+   "credits": 10.0,
+   "file": "apoc-move-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "mSOmKHC6GZcZbSTGlqHO",
+   "text": "[booming] Make way.",
+   "credits": 8.0,
+   "file": "apoc-move-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:59",
+   "voice": "mSOmKHC6GZcZbSTGlqHO",
+   "text": "[booming] Supersize them.",
+   "credits": 10.0,
+   "file": "apoc-attack-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 12:00",
+   "voice": "ysswSXp8U9dFpzPJqFje",
+   "text": "[deep, slow] Gravy Blimp reporting.",
+   "credits": 14.0,
+   "file": "blimp-select-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 12:00",
+   "voice": "ysswSXp8U9dFpzPJqFje",
+   "text": "[deep, slow] Bombardiers to your stations.",
+   "credits": 17.0,
+   "file": "blimp-select-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 12:00",
+   "voice": "ysswSXp8U9dFpzPJqFje",
+   "text": "[deep, slow] Setting course.",
+   "credits": 11.0,
+   "file": "blimp-move-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 12:00",
+   "voice": "ysswSXp8U9dFpzPJqFje",
+   "text": "[deep, slow] Maneuver props engaged.",
+   "credits": 14.0,
+   "file": "blimp-move-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 12:00",
+   "voice": "ysswSXp8U9dFpzPJqFje",
+   "text": "[deep, slow] Bombs away.",
+   "credits": 10.0,
+   "file": "blimp-attack-0-0.mp3"
   }
  ]
 }

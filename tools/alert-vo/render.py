@@ -22,12 +22,28 @@ TTS_LEDGER = os.path.join(HERE, 'tts_ledger.json')
 # Battle Control is a calm, clipped British woman (the computer that runs your base); the soldiers are
 # the gruff, the tough and the tired. Four of these already speak in Nugget Blitz and were picked by ear.
 CAST = {
-    'eva':    {'voice': 'Xb7hH8MSUJpSbSDYk0k2', 'who': 'Alice — confident British (ElevenLabs premade)', 'stab': 0.5, 'tag': '[calm]'},
+    # (Chris, same day: "make the announcer grittier" — a cold, hard, gravelly delivery, less stable; the game
+    # also runs her through a battlefield radio chain, js/alertAudio.js)
+    'eva':    {'voice': 'Xb7hH8MSUJpSbSDYk0k2', 'who': 'Alice — confident British (ElevenLabs premade), delivered gritty', 'stab': 0.25, 'tag': '[cold, stern, gravelly]'},
     'inf':    {'voice': 'DGzg6RaUqxGRTHSBjfgF', 'who': 'Brock — commanding, loud sergeant (Blitz: the Nugs)', 'stab': 0.3, 'tag': '[eager]'},
     'rocket': {'voice': 'IRHApOXLvnW57QJPQH2P', 'who': 'Adam — American, dark and tough (Blitz: Curly Fries)', 'stab': 0.35, 'tag': '[confident]'},
     'tank':   {'voice': '2EiwWnXFnvU5JabPnv8n', 'who': 'Clyde — war veteran (ElevenLabs premade)', 'stab': 0.35, 'tag': '[gruff]'},
     'heavy':  {'voice': 'Bj9UqZbhQsanLzgalpEG', 'who': 'Austin — deep, raspy (Blitz: Sauce Bosses)', 'stab': 0.3, 'tag': '[menacing]'},
     'harv':   {'voice': 'Av4Fi2idMFuA8kTbVZgv', 'who': 'Russel — raw cowboy (Blitz: Ranch Hands)', 'stab': 0.4, 'tag': '[relaxed]'},
+    # phase 1 (2026-10-19): the two armies. Alliance units are crisp; the Federation's carry a Russian accent tag.
+    'engineer':  {'voice': 'IKne3meq5aSn9XLyUdCD', 'who': 'Charlie (premade)', 'stab': 0.4, 'tag': '[cheerful]'},
+    'jetpack':   {'voice': 'zCgijgIKIMkFHnzXcCva', 'who': 'Brad — energetic, rushed (Blitz: Honey Mustards)', 'stab': 0.3, 'tag': '[excited]'},
+    'ifv':       {'voice': 'TX3LPaxmHKxFdv7VOQHJ', 'who': 'Liam (premade)', 'stab': 0.4, 'tag': '[focused]'},
+    'prismtank': {'voice': 'onwK4e9ZLuTAKqWW03F9', 'who': 'Daniel (premade)', 'stab': 0.45, 'tag': '[precise]'},
+    'mirage':    {'voice': 'bIHbv24MWmeRgasZH58o', 'who': 'Will (premade)', 'stab': 0.45, 'tag': '[sly]'},
+    'jet':       {'voice': 'iP95p4xoKVk53GoZ742B', 'who': 'Chris (premade), a pilot on the radio', 'stab': 0.35, 'tag': '[pilot]'},
+    'conscript': {'voice': 'N2lVS1w4EtoT3dr4eOWO', 'who': 'Callum (premade)', 'stab': 0.35, 'tag': '[Russian accent]'},
+    'zapper':    {'voice': 'wXvR48IpOq9HACltTmt7', 'who': 'Dante — growly (Blitz: Onion Rings)', 'stab': 0.3, 'tag': '[growling]'},
+    'flaktrack': {'voice': 'pqHfZKP75CvOlQylNhV4', 'who': 'Bill (premade)', 'stab': 0.35, 'tag': '[Russian accent]'},
+    'harvF':     {'voice': 'QzTKubutNn9TjrB7Xb2Q', 'who': 'Jerry B. — gruff (Blitz: Tater Tots)', 'stab': 0.4, 'tag': '[gruff]'},
+    'v3':        {'voice': 'nPczCjzI2devNBz1zQrb', 'who': 'Brian (premade)', 'stab': 0.35, 'tag': '[Russian accent]'},
+    'apoc':      {'voice': 'mSOmKHC6GZcZbSTGlqHO', 'who': 'Mister Gruff (Blitz: colour)', 'stab': 0.3, 'tag': '[booming]'},
+    'blimp':     {'voice': 'ysswSXp8U9dFpzPJqFje', 'who': 'Azazel — deep, gravelly (Blitz: Fry Gods)', 'stab': 0.3, 'tag': '[deep, slow]'},
 }
 
 # ---- the lines -----------------------------------------------------------------------------------------
@@ -57,6 +73,10 @@ EVA = {
     'ENEMY BUILDING DESTROYED': 'Enemy structure destroyed.',
     'MISSION ACCOMPLISHED': 'Mission accomplished. The Fry Federation has been deep-fried.',
     'MISSION FAILED': 'Mission failed.',
+    'BUILDING CAPTURED': 'Building captured.',
+    'OUR BUILDING HAS BEEN CAPTURED': 'Our building has been captured.',
+    'UNIT PROMOTED': 'Unit promoted.',
+    'BUILDING REPAIRED': 'Building repaired.',
 }
 UNITS = {
     'inf': {
@@ -84,6 +104,20 @@ UNITS = {
         'move':   ['Heading out.', 'Gotcha.', 'On the road.'],
         'attack': ['Hauling sauce.', 'Back to the field.'],
     },
+    # phase 1: two to select, two to move, one to attack (lean: tags are billed too)
+    'engineer':  {'select': ['Fry Cook here.', 'Need something fixed?'], 'move': ['On my way.', 'Coming through, hot pan!'], 'attack': ['I\'ll take it from here.']},
+    'jetpack':   {'select': ['Jetpack Nug!', 'Ready to fly!'], 'move': ['Taking off!', 'Up, up and away!'], 'attack': ['Strafing run!']},
+    'ifv':       {'select': ['IFV ready.', 'Missiles armed.'], 'move': ['Moving.', 'On the move.'], 'attack': ['Missiles away!']},
+    'prismtank': {'select': ['Prism Fry, charged.', 'Light it up?'], 'move': ['Adjusting position.', 'Moving.'], 'attack': ['Focusing beam!']},
+    'mirage':    {'select': ['Mirage Nug.', 'Now you see me.'], 'move': ['Relocating.', 'Blending in.'], 'attack': ['Surprise!']},
+    'jet':       {'select': ['Nug Jet, standing by.', 'Ready for launch.'], 'move': ['Wheels up.', 'Airborne.'], 'attack': ['Target in sight. Weapons free.']},
+    'conscript': {'select': ['Tater Conscript!', 'For the Federation!'], 'move': ['Moving out!', 'Da, comrade!'], 'attack': ['For the Fryer!']},
+    'zapper':    {'select': ['Zap Nug, charged.', 'Fully grounded.'], 'move': ['Moving.', 'Shocking pace.'], 'attack': ['Feel the current!']},
+    'flaktrack': {'select': ['Flak Track ready.', 'Eyes on the sky.'], 'move': ['Rolling.', 'Da.'], 'attack': ['Flak up!']},
+    'harvF':     {'select': ['War Hauler.', 'Got sauce?'], 'move': ['Moving out.', 'Yeah, yeah.'], 'attack': ['Back to work.']},
+    'v3':        {'select': ['V3 ready.', 'Rockets loaded.'], 'move': ['Repositioning.', 'Moving.'], 'attack': ['Launching!']},
+    'apoc':      {'select': ['Family Size, ready.', 'Extra large.'], 'move': ['Coming through.', 'Make way.'], 'attack': ['Supersize them.']},
+    'blimp':     {'select': ['Gravy Blimp reporting.', 'Bombardiers to your stations.'], 'move': ['Setting course.', 'Maneuver props engaged.'], 'attack': ['Bombs away.']},
 }
 # (one take each: every pool already has 3–4 different lines, and audio tags are billed as characters)
 TAKES = 1
@@ -115,6 +149,13 @@ SFX = [
     ('alarm',   2.0, 'Military base alarm klaxon, two short blasts, video game'),
     ('build',   1.5, 'Construction sparks, welding and power tools, short, video game'),
     ('sell',    1.2, 'Mechanical deconstruction, metal panels unbolting and lowering, video game'),
+    # phase 1
+    ('bark',    0.8, 'Two quick aggressive dog barks, video game'),
+    ('jet',     1.5, 'Fighter jet fast flyby whoosh roar, video game'),
+    ('prism',   1.2, 'Bright crystalline laser beam firing, a shimmering high-energy zap, video game'),
+    ('flak',    1.0, 'Anti-aircraft flak bursts, rapid thumping cannon shots popping in the sky, video game'),
+    ('chrono',  1.2, 'Science-fiction teleport, a warping whoosh with a crackle, video game'),
+    ('bomb',    1.8, 'Falling bomb whistle then a heavy explosion, video game'),
 ]
 
 def tts_ledger():

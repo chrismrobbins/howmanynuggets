@@ -39,7 +39,9 @@ function alrUIInit() {
       <div class="alr-keys" hidden>
         <b>Left-click</b> select · drag a box · <b>double-click</b> all of that type<br>
         <b>Left-click</b> the ground: move · an enemy: attack · ore: harvest · <b>right-click</b>: deselect / cancel<br>
-        <b>A</b> then click: attack-move · <b>S</b> stop · <b>Q</b> select your army<br>
+        <b>A</b> then click: attack-move · <b>S</b> stop · <b>D</b> deploy (troopers dig in) · <b>Q</b> select your army<br>
+        Jets: click a target, they strike once and fly home to rearm · Fry Cooks: click a building to take it (or fix yours)<br>
+        Walls: drag a line · tanks squish enemy infantry · crates: drive over them<br>
         <b>Ctrl+1–9</b> make a group · <b>1–9</b> pick it (twice: go there)<br>
         <b>Arrows</b> / screen edge / middle-drag scroll · <b>wheel</b> zoom<br>
         <b>H</b> home · <b>Space</b> last alert · <b>M</b> sound · <b>N</b> music · <b>Esc</b> menu<br>
@@ -135,33 +137,22 @@ function alrUIBuildWorld() {
   U.radarGround = rc;
   alrGLShroud(ALR_N, alr.players[0].shroud);
   if (!U.cameosBuilt) { alrBuildCameos(); U.cameosBuilt = true; }
-}
-function alrModelParts(type) {
-  const A = alrArt, I = alrM4();
-  if (ALR_BLD[type]) {
-    const parts = [{ mesh: A.b[type], M: I }];
-    if (type === 'turret') parts.push({ mesh: A.b.turret_head, M: alrTRS(0, 0.32, 0, 0.6) });
-    if (type === 'radar') parts.push({ mesh: A.b.radar_dish, M: alrTRS(0.45, 0.78, -0.45, 0.8) });
-    if (type === 'hq') parts.push({ mesh: A.b.hq_crane, M: alrTRS(-1.05, 0, -1.0, 0.7) });
-    if (type === 'factory') parts.push({ mesh: A.b.factory_door, M: alrTRS(0, 0.42, 0.86, 0) });
-    if (type === 'barracks') parts.push({ mesh: A.b.barracks_flag, M: alrTRS(0.72, 1.02, -0.65, 0.4) });
-    return parts;
+  if (!U.sandbags) {
+    const mb = new AlrMB(); mb.color(ALR_PAL.sand);
+    for (let k = 0; k < 9; k++) { const a = k / 9 * Math.PI * 2 + 0.3; if (k === 4) continue; mb.push().at(Math.cos(a) * 0.26, 0.04, Math.sin(a) * 0.26, -a).box(0, 0, 0, 0.075, 0.04, 0.045, 0.02).box(0.02, 0.07, 0, 0.07, 0.035, 0.04, 0.018).pop(); }
+    U.sandbags = mb.bake();
   }
-  const u = A.u;
-  if (type === 'inf' || type === 'rocket') return [{ mesh: u[type === 'inf' ? 'inf' : 'rocket'], M: alrTRS(0, 0.0, 0, 0) }, { mesh: u.leg, M: alrTRS(0.045, 0.13, 0, 0, 1, 1, 1, 0.3) }, { mesh: u.leg, M: alrTRS(-0.045, 0.13, 0, 0, 1, 1, 1, -0.3) }];
-  if (type === 'tank') return [{ mesh: u.tank, M: I }, { mesh: u.tank_turret, M: alrTRS(0, 0.29, 0, 0) }, { mesh: u.tank_gun, M: alrTRS(0, 0.365, 0.12, 0) }];
-  if (type === 'heavy') return [{ mesh: u.heavy, M: I }, { mesh: u.heavy_turret, M: alrTRS(0, 0.34, 0, 0) }, { mesh: u.heavy_gun, M: alrTRS(0, 0.43, 0.15, 0) }];
-  if (type === 'harv') return [{ mesh: u.harv, M: I }, { mesh: u.harv_drum, M: alrTRS(0, 0.12, 0.52, 0) }, { mesh: u.harv_load, M: alrTRS(0, 0.42, -0.2, 0) }];
-  return [];
 }
 function alrBuildCameos() {
   const U = alr.ui, team = ALR_TEAMS[0].col;
   const all = Object.keys(ALR_BLD).filter((k) => ALR_BLD[k].cat).concat(Object.keys(ALR_UNIT));
   for (const k of all) {
     const B = ALR_BLD[k];
-    const zoom = B ? (B.w >= 3 ? 4.1 : B.w === 2 ? 3.0 : 2.3) : (ALR_UNIT[k].cat === 'inf' ? 0.85 : 1.45);
-    const lift = B ? -0.35 : ALR_UNIT[k].cat === 'inf' ? -0.2 : -0.12;
-    const parts = alrModelParts(k).map((p) => ({ mesh: p.mesh, M: alrMul(alrTRS(0, lift, 0, B ? ALR_BLD_YAW : Math.PI * 1.15), p.M) }));
+    const UD = ALR_UNIT[k];
+    const zoom = B ? (B.w >= 3 ? 4.1 : B.w === 2 ? 3.0 : B.wall ? 1.6 : 2.3) : (UD.cat === 'inf' ? 0.85 : k === 'blimp' ? 2.8 : k === 'apoc' ? 1.8 : 1.45);
+    const lift = B ? -0.35 : UD.cat === 'inf' ? -0.2 : -0.12;
+    const parts = alrModelParts(k).filter((p) => p.mesh).map((p) => ({ mesh: p.mesh, M: alrMul(alrTRS(0, lift, 0, B ? ALR_BLD_YAW : Math.PI * 1.15), p.M) }));
+    if (!parts.length) continue;
     const cv = alrGLCameo(parts, team, 112, 84, zoom, [0.11, 0.13, 0.17]);
     U.cameos[k] = cv.toDataURL('image/png');
   }
@@ -217,7 +208,8 @@ function alrUISide(rebuild) {
   alrUIButtons();
 }
 function alrTypesIn(cat) {
-  return Object.keys(ALR_BLD).filter((k) => ALR_BLD[k].cat === cat).concat(Object.keys(ALR_UNIT).filter((k) => ALR_UNIT[k].cat === cat));
+  const side = (alr.players[0] || {}).side, mine = (D) => D.cat === cat && (!D.side || D.side === side);
+  return Object.keys(ALR_BLD).filter((k) => mine(ALR_BLD[k])).concat(Object.keys(ALR_UNIT).filter((k) => mine(ALR_UNIT[k])));
 }
 function alrCameoClick(t) {
   const P = alr.players[0], D = ALR_BLD[t] || ALR_UNIT[t];
@@ -273,6 +265,23 @@ function alrFxZap(a, b) {
   alrP({ x: b[0], y: b[1], z: b[2], s: 1.1, T: 0.3, r: 0.55, g: 0.75, b: 1, a: 1, cell: 0, add: true });
   alrP({ x: a[0], y: a[1], z: a[2], s: 0.9, T: 0.3, r: 0.6, g: 0.8, b: 1, a: 1, cell: 0, add: true });
   alrFxSpark(b[0], b[1], b[2], 6);
+}
+// a prism beam: a fat pale-blue glow around a white-hot core (k = how many towers fed it)
+function alrFxPrism(a, b, k) {
+  alr.fx.push({ kind: 'prism', a, b, t: 0, T: 0.28, k: k || 1 });
+  alrP({ x: b[0], y: b[1], z: b[2], s: 0.7 * (k || 1), T: 0.25, r: 0.7, g: 0.9, b: 1, a: 1, cell: 0, add: true });
+  alrP({ x: a[0], y: a[1], z: a[2], s: 0.45, T: 0.2, r: 0.8, g: 0.95, b: 1, a: 1, cell: 0, add: true });
+}
+// flak: a dark burst in the air with a flash in it
+function alrFxFlak(p) {
+  alrP({ x: p[0], y: p[1], z: p[2], s: 0.45, T: 0.12, r: 1, g: 0.85, b: 0.5, a: 1, cell: 0, add: true });
+  for (let k = 0; k < 3; k++) alrFxSmoke(p[0] + alrRnd(-0.15, 0.15), p[1] + alrRnd(-0.1, 0.1), p[2] + alrRnd(-0.15, 0.15), 0.35, 1.1, true);
+  alrFxSpark(p[0], p[1], p[2], 3);
+}
+// the chrono blink: a blue-white flash and a ring of sparkles
+function alrFxChrono(x, z) {
+  alrP({ x, y: 0.4, z, s: 1.6, T: 0.35, r: 0.55, g: 0.8, b: 1, a: 1, cell: 0, add: true });
+  for (let k = 0; k < 12; k++) { const a = k / 12 * 6.283; alrP({ x: x + Math.cos(a) * 0.4, y: 0.2, z: z + Math.sin(a) * 0.4, vx: Math.cos(a) * 0.8, vy: 1.2, vz: Math.sin(a) * 0.8, s: 0.12, T: 0.5, r: 0.7, g: 0.9, b: 1, a: 1, cell: 0, add: true }); }
 }
 function alrFxBlast(x, y, z, s) {
   alrP({ x, y, z, s: s * 2.2, T: 0.18, r: 1, g: 0.8, b: 0.4, a: 1, cell: 0, add: true });
@@ -400,6 +409,7 @@ function alrUIRender(dt) {
     const o = { team: team(b.owner), spec: 0.3, add };
     const base = alrTRS(b.x, 0, b.z, ALR_BLD_YAW, 1, sy, 1);
     for (const p of alrBldParts(b)) alrGLDraw(p.mesh, alrMul(base, p.M), o);
+    if (b.type === 'prism' && b.charge > 0.2 && !alr.players[b.owner].low) alrGLSprite(b.x, 1.55, b.z, 0.35 + b.charge * 0.5, alr.t * 2, 0.75, 0.92, 1, 0.45 + b.charge * 0.4, 0, true);
     if (b.type === 'tesla' && b.charge > 0.2 && !alr.players[b.owner].low) {
       alrGLSprite(b.x, 1.35, b.z, 0.5 + b.charge * 0.7, alr.t * 3, 0.55, 0.75, 1, 0.5 + b.charge * 0.4, 0, true);
       if (Math.random() < b.charge * 0.5) { const a = Math.random() * 6.28; alrFxZapMini([b.x, 1.35, b.z], [b.x + Math.cos(a) * 0.35, 1.0 + Math.random() * 0.3, b.z + Math.sin(a) * 0.35]); }
@@ -410,11 +420,34 @@ function alrUIRender(dt) {
     if (u.kind !== 'unit' || !onScreen(u.x, u.z)) continue;
     if (u.owner !== 0 && !seen(u.x, u.z)) continue;
     const o = { team: team(u.owner), spec: u.D.cat === 'veh' ? 0.55 : 0.2, add: u.flash > 0 ? [0.4, 0.35, 0.3] : null };
-    for (const p of alrUnitParts(u)) alrGLDraw(p.mesh, p.M, o);
+    // the Mirage, parked: a tree to them (and to you, a tree with a ghost of your tank in it)
+    if (u.D.disguise && u.still > 1.2) {
+      const tr = alrArt.trees[(u.id % 3) * 2 + 1] || alrArt.trees[0];
+      alrGLDraw(tr, alrTRS(u.x, 0, u.z, u.id, 0.95), { spec: 0.05 });
+      if (u.owner === 0) for (const p of alrUnitParts(u)) alrGLDraw(p.mesh, p.M, Object.assign({}, o, { alpha: 0.35, noCast: true }));
+    } else for (const p of alrUnitParts(u)) alrGLDraw(p.mesh, p.M, o);
+    // dug in: the sandbags around him
+    if (u.deployed && U.sandbags) alrGLDraw(U.sandbags, alrTRS(u.x, 0, u.z, u.yaw), { spec: 0.05 });
+    // the jetpack's exhaust
+    if (u.D.air === 'hover' && Math.random() < 0.8) { for (const sx of [-0.07, 0.07]) { const [nx, nz] = alrHullAt(u, sx * 1.3, -0.2); alrGLSprite(nx, u.alt + 0.2, nz, 0.13, 0, 1, 0.65, 0.25, 0.9, 0, true); } if (Math.random() < 0.15) alrFxSmoke(u.x, u.alt + 0.1, u.z, 0.12, 0.6); }
     if (alr.sel.includes(u)) alrGLGround(u.x, u.z, u.D.r * 1.35 + 0.06, u.D.r * 1.35 + 0.06, 0, 0.55, 1, 0.55, 0.85, 4, true, 0.02);
+  }
+  // crates: bobbing, turning, glinting
+  for (const c of alr.crates || []) {
+    if (!seen(c.x, c.z) || !onScreen(c.x, c.z)) continue;
+    if (alrArt.u.crate) alrGLDraw(alrArt.u.crate, alrTRS(c.x, 0.04 + Math.abs(Math.sin(c.t * 2.2)) * 0.06, c.z, c.t * 0.8), { spec: 0.4 });
+    if (Math.sin(c.t * 3) > 0.92) alrGLSprite(c.x, 0.35, c.z, 0.35, c.t, 1, 0.9, 0.5, 0.9, 6, true);
   }
   // shells and rockets in flight
   for (const s of alr.shots) {
+    if (s.kind === 'v3') {
+      // the V3's rocket, nose along its flight, with a long burn behind it
+      const dx = s.x - (s.px == null ? s.a[0] : s.px), dy = s.y - (s.py == null ? s.a[1] : s.py), dz = s.z - (s.pz == null ? s.a[2] : s.pz), h = Math.hypot(dx, dz) || 1e-3;
+      if (alrArt.u.v3_rocket) alrGLDraw(alrArt.u.v3_rocket, alrTRS(s.x, s.y, s.z, Math.atan2(dx, dz), 1, 1, 1, -Math.atan2(dy, h)), { team: team(s.owner), spec: 0.5 });
+      alrGLSprite(s.x - dx / h * 0.3, s.y, s.z - dz / h * 0.3, 0.42, 0, 1, 0.6, 0.25, 1, 0, true);
+      continue;
+    }
+    if (s.kind === 'bomb') { alrGLSprite(s.x, s.y, s.z, 0.22, 0, 0.25, 0.22, 0.2, 1, 3, false); continue; }
     if (s.kind === 'rocket') { alrGLSprite(s.x, s.y, s.z, 0.32, 0, 1, 0.7, 0.3, 1, 0, true); alrGLSprite(s.x, s.y, s.z, 0.14, 0, 1, 1, 0.9, 1, 0, true); }
     else { alrGLSprite(s.x, s.y, s.z, 0.2, 0, 1, 0.85, 0.5, 1, 0, true); const bk = 0.25 / Math.max(0.01, Math.hypot(s.b[0] - s.a[0], s.b[2] - s.a[2])); alrGLBeam([s.x - (s.b[0] - s.a[0]) * bk, s.y, s.z - (s.b[2] - s.a[2]) * bk], [s.x, s.y, s.z], 0.05, 1, 0.8, 0.45, 0.8); }
   }
@@ -423,6 +456,7 @@ function alrUIRender(dt) {
     const u = f.t / f.T;
     if (f.kind === 'p') { const fa = u < 0.15 && !f.add ? u / 0.15 : 1 - u; alrGLSprite(f.x, f.y, f.z, f.s, f.rot, f.r, f.g, f.b, f.a * Math.max(0, fa), f.cell, !!f.add); }
     else if (f.kind === 'beam') alrGLBeam(f.a, f.b, f.w, f.r, f.g, f.bl, f.al * (1 - u));
+    else if (f.kind === 'prism') { alrGLBeam(f.a, f.b, 0.24 * f.k, 0.45, 0.75, 1, 0.55 * (1 - u)); alrGLBeam(f.a, f.b, 0.07 * f.k, 1, 1, 1, 1 - u); }
     else if (f.kind === 'zap') alrZapDraw(f.a, f.b, f.seed + ((alr.t * 30) | 0), 1 - u);
     else if (f.kind === 'zapm') alrZapDraw(f.a, f.b, f.seed, (1 - u) * 0.7, 0.03, 3);
     else if (f.kind === 'ring') alrGLGround(f.x, f.z, f.s * u, f.s * u, 0, 1, 0.8, 0.5, (1 - u) * 0.8, 4, true, 0.05);
@@ -435,6 +469,11 @@ function alrUIRender(dt) {
     alr.place.tx = tx; alr.place.tz = tz;
     const ok = alrCanPlace(alr.players[0], alr.place.type, tx, tz);
     alr.place.ok = ok;
+    if (D.wall && alr.place.line) for (const [wx, wz] of alrWallLine(alr.place)) {
+      const good = alrCanPlace(alr.players[0], alr.place.type, wx, wz);
+      alrGLGround(wx + 0.5, wz + 0.5, 0.47, 0.47, 0, good ? 0.3 : 1, good ? 1 : 0.25, 0.3, 0.38, 3, false, 0.03);
+      if (good) for (const p of alrModelParts(alr.place.type)) alrGLDraw(p.mesh, alrMul(alrTRS(wx + 0.5, 0, wz + 0.5, ALR_BLD_YAW), p.M), { team: team(0), alpha: 0.5, noCast: true });
+    }
     for (let j = 0; j < D.h; j++) for (let i = 0; i < D.w; i++) {
       const k = (tz + j) * ALR_N + tx + i, bad = !alrIn(tx + i, tz + j) || alr.M.block[k] || alr.M.bld[k] || alr.M.ore[k] > 0;
       alrGLGround(tx + i + 0.5, tz + j + 0.5, 0.47, 0.47, 0, bad || !ok ? 1 : 0.3, bad || !ok ? 0.25 : 1, 0.3, 0.38, 3, false, 0.03);
@@ -468,18 +507,54 @@ function alrZapDraw(a, b, seed, fade, w, depth) {
     alrGLBeam(P[i], P[i + 1], ww, 0.85, 0.92, 1, fade);
   }
 }
+// ---- every model's parts, posed -----------------------------------------------------------------------------------
+// One place for both the live game and the sidebar's pictures (a stand-in entity at the origin). Where each moving
+// part sits on its model is ALR_RIG; a mesh that isn't there (yet) is simply skipped.
+// (from the art pass's report: js/alertArtP1.js)
+const ALR_RIG = {
+  sam_head: [0, 0.3, 0], flak_head: [0, 0.3, 0], derrick_pump: [-0.3, 0.44, 0.45],
+  ifv_turret: [0, 0.24, -0.04], prismtank_turret: [0, 0.28, -0.03], mirage_turret: [0, 0.28, -0.05], v3_rack: [0, 0.3, -0.3],
+  apoc_turret: [0, 0.38, -0.04], apoc_gun: [0, 0.12, 0.2], flaktrack_head: [0, 0.26, -0.12, 0.6], harvF_gun: [0, 0.5, 0.3],
+  blimp_prop: [[0.44, -0.3, -0.63], [-0.44, -0.3, -0.63]], dog_leg: [[0.05, 0.12, 0.11], [-0.05, 0.12, 0.11], [0.05, 0.12, -0.11], [-0.05, 0.12, -0.11]],
+};
+// a point on the hull (local x, z) in the world, for a turret that sits off-center
+function alrHullAt(u, lx, lz) { const c = Math.cos(u.yaw), s = Math.sin(u.yaw); return [u.x + c * lx + s * lz, u.z - s * lx + c * lz]; }
+function alrModelParts(type) {
+  if (ALR_BLD[type]) return alrBldParts({ type, owner: 0, anim: 0.6, tYaw: ALR_BLD_YAW + 0.6, stub: true, D: ALR_BLD[type] });
+  const D = ALR_UNIT[type];
+  return alrUnitParts0({ type, D, x: 0, z: 0, yaw: 0, tYaw: 0, alt: 0, walk: 0.8, moving: true, cargo: D.cap ? D.cap : 0, stub: true });
+}
+// a building's parts in its own frame (the caller turns it ALR_BLD_YAW and places it)
 function alrBldParts(b) {
-  const A = alrArt, P = alr.players[b.owner], parts = [{ mesh: A.b[b.type], M: alrM4() }];
-  if (b.type === 'turret') parts.push({ mesh: A.b.turret_head, M: alrTRS(0, 0.32, 0, b.tYaw - ALR_BLD_YAW) });   // (tYaw is a world angle; the base is turned)
-  if (b.type === 'radar') parts.push({ mesh: A.b.radar_dish, M: alrTRS(0.45, 0.78, -0.45, P.low ? 0.8 : b.anim * 1.3) });
-  if (b.type === 'hq') parts.push({ mesh: A.b.hq_crane, M: alrTRS(-1.05, 0, -1.0, 0.7 + Math.sin(b.anim * 0.25) * 1.2) });
-  if (b.type === 'factory') { const op = alrClamp(b.door > 0 ? Math.min(1, (1.6 - b.door) * 4, b.door * 2) : 0, 0, 1); parts.push({ mesh: A.b.factory_door, M: alrTRS(0, 0.42 + op * 0.38, 0.86, 0, 1, 1 - op * 0.75, 1) }); }
-  if (b.type === 'barracks') parts.push({ mesh: A.b.barracks_flag, M: alrTRS(0.72, 1.02, -0.65, 0.5 + Math.sin(b.anim * 2.1) * 0.25) });
+  const A = alrArt.b, t = b.type, P = alr.players[b.owner] || {}, an = b.anim || 0, R = ALR_RIG;
+  const ty = (b.tYaw || 0) - ALR_BLD_YAW;          // (tYaw is a world angle; the base is turned)
+  const parts = [], add = (k, M) => { if (A[k]) parts.push({ mesh: A[k], M: M || alrM4() }); };
+  if (b.D && b.D.wall) {
+    // a wall is a post, plus a bar toward each neighboring wall of the same owner (the line joins up)
+    add(t + '_post');
+    const dirs = [[1, 0, Math.PI], [-1, 0, 0], [0, 1, Math.PI / 2], [0, -1, -Math.PI / 2]];
+    for (const [dx, dz, yaw] of dirs) {
+      let link = b.stub ? dz === 0 : false;
+      if (!b.stub) { const x = b.tx + dx, z = b.tz + dz; if (alrIn(x, z)) { const n = alr.byId.get(alr.M.bld[z * ALR_N + x]); link = !!(n && n.D.wall && n.owner === b.owner); } }
+      if (link) add(t + '_bar', alrTRS(0, 0, 0, yaw));
+    }
+    return parts;
+  }
+  add(t);
+  if (t === 'turret') add('turret_head', alrTRS(0, 0.32, 0, ty));
+  if (t === 'sam') add('sam_head', alrTRS(R.sam_head[0], R.sam_head[1], R.sam_head[2], ty));
+  if (t === 'flak') add('flak_head', alrTRS(R.flak_head[0], R.flak_head[1], R.flak_head[2], ty));
+  if (t === 'radar') add('radar_dish', alrTRS(0.45, 0.78, -0.45, P.low ? 0.8 : an * 1.3));
+  if (t === 'hq') add('hq_crane', alrTRS(-1.05, 0, -1.0, 0.7 + Math.sin(an * 0.25) * 1.2));
+  if (t === 'factory') { const op = alrClamp(b.door > 0 ? Math.min(1, (1.6 - b.door) * 4, b.door * 2) : 0, 0, 1); add('factory_door', alrTRS(0, 0.42 + op * 0.38, 0.86, 0, 1, 1 - op * 0.75, 1)); }
+  if (t === 'barracks') add('barracks_flag', alrTRS(0.72, 1.02, -0.65, 0.5 + Math.sin(an * 2.1) * 0.25));
+  if (t === 'derrick') { const p = R.derrick_pump; add('derrick_pump', alrTRS(p[0], p[1], p[2], 0, 1, 1, 1, Math.sin(an * (b.owner === 2 ? 0.6 : 1.8)) * 0.35)); }
   return parts;
 }
-// a unit's parts, posed: a soldier's legs walk, a turret turns, a gun recoils, the hauler's drum spins
+// a unit's parts, posed: legs walk, a turret turns, a gun recoils, the hauler's drum spins, a jet banks
 // (drawn a size up from their footprint so a soldier reads at battle zoom, the way RA2's sprites did)
-const ALR_DRAW_SCALE = { inf: 1.3, rocket: 1.3, tank: 1.15, heavy: 1.12, harv: 1.1 };
+const ALR_DRAW_SCALE = { inf: 1.3, rocket: 1.3, conscript: 1.3, engineer: 1.3, zapper: 1.3, jetpack: 1.3, dog: 1.25, tank: 1.15, heavy: 1.12, harv: 1.1, harvF: 1.1, ifv: 1.12, prismtank: 1.12, mirage: 1.12, flaktrack: 1.12, v3: 1.1, apoc: 1.05 };
+const ALR_INF_BODY = { inf: 'inf', rocket: 'rocket', conscript: 'conscript', engineer: 'engineer', zapper: 'zapper', jetpack: 'jetpack' };
 function alrUnitParts(u) {
   const parts = alrUnitParts0(u), k = ALR_DRAW_SCALE[u.type] || 1;
   if (k === 1) return parts;
@@ -487,26 +562,64 @@ function alrUnitParts(u) {
   return parts.map((p) => ({ mesh: p.mesh, M: alrMul(S, p.M) }));
 }
 function alrUnitParts0(u) {
-  const A = alrArt.u, t = u.type;
-  if (t === 'inf' || t === 'rocket') {
-    const sw = u.moving ? Math.sin(u.walk) * 0.7 : 0, bob = u.moving ? Math.abs(Math.cos(u.walk)) * 0.02 : 0;
-    const B = alrTRS(u.x, bob, u.z, u.yaw);
-    return [{ mesh: A[t === 'inf' ? 'inf' : 'rocket'], M: B }, { mesh: A.leg, M: alrMul(B, alrTRS(0.045, 0.13, 0, 0, 1, 1, 1, sw)) }, { mesh: A.leg, M: alrMul(B, alrTRS(-0.045, 0.13, 0, 0, 1, 1, 1, -sw)) }];
+  const A = alrArt.u, t = u.type, R = ALR_RIG, parts = [], alt = u.alt || 0;
+  const add = (k, M) => { const m = A[k] || (k === t ? A[ALR_FALLBACK[k]] : null); if (m) parts.push({ mesh: m, M }); };
+  if (ALR_INF_BODY[t]) {
+    const fly = u.D && u.D.air;
+    const sw = u.moving ? Math.sin(u.walk) * (fly ? 0.25 : 0.7) : fly ? 0.15 : 0, bob = fly ? Math.sin((u.walk || 0) * 0.4 + u.id) * 0.03 : u.moving ? Math.abs(Math.cos(u.walk)) * 0.02 : 0;
+    const B = alrTRS(u.x, alt + bob, u.z, u.yaw);
+    add(ALR_INF_BODY[t], B);
+    add('leg', alrMul(B, alrTRS(0.045, 0.13, 0, 0, 1, 1, 1, sw)));
+    add('leg', alrMul(B, alrTRS(-0.045, 0.13, 0, 0, 1, 1, 1, -sw)));
+    return parts;
   }
-  const H = alrTRS(u.x, 0, u.z, u.yaw);
+  if (t === 'dog') {
+    const B = alrTRS(u.x, (u.leap > 0 ? Math.sin(u.leap / 0.3 * Math.PI) * 0.18 : 0), u.z, u.yaw);
+    add('dog', B);
+    R.dog_leg.forEach(([x, y, z], i) => add('dog_leg', alrMul(B, alrTRS(x, y, z, 0, 1, 1, 1, u.moving ? Math.sin(u.walk * 1.6 + (i % 2 ? Math.PI : 0) + (i > 1 ? Math.PI / 2 : 0)) * 0.8 : 0))));
+    return parts;
+  }
+  const H = alrTRS(u.x, alt, u.z, u.yaw);
+  if (t === 'jet') { add('jet', alrTRS(u.x, alt, u.z, u.yaw, 1, 1, 1, 0, -(u.bank || 0))); return parts; }
+  if (t === 'blimp') {
+    add('blimp', H);
+    for (const [x, y, z] of R.blimp_prop) add('blimp_prop', alrMul(H, alrTRS(x, y, z, 0, 1, 1, 1, 0, (alr.t || 0) * 9 + x)));
+    return parts;
+  }
   if (t === 'tank' || t === 'heavy') {
     const hy = t === 'tank' ? 0.29 : 0.34, gy = t === 'tank' ? 0.075 : 0.09, gz = t === 'tank' ? 0.12 : 0.15;
     const T = alrTRS(u.x, hy, u.z, u.tYaw), rc = Math.max(0, u.recoil || 0) * 0.07;
-    return [{ mesh: A[t], M: H }, { mesh: A[t + '_turret'], M: T }, { mesh: A[t + '_gun'], M: alrMul(T, alrTRS(0, gy, gz - rc, 0)) }];
-  }
-  if (t === 'harv') {
-    const parts = [{ mesh: A.harv, M: H }, { mesh: A.harv_drum, M: alrMul(H, alrTRS(0, 0.12, 0.52, 0, 1, 1, 1, u.drum || 0)) }];
-    const f = (u.cargo || 0) / u.D.cap;
-    if (f > 0.02) parts.push({ mesh: A.harv_load, M: alrMul(H, alrTRS(0, 0.36 + f * 0.08, -0.2, 0, 1, Math.max(0.2, f), 1)) });
+    add(t, H); add(t + '_turret', T); add(t + '_gun', alrMul(T, alrTRS(0, gy, gz - rc, 0)));
     return parts;
   }
-  return [];
+  if (t === 'harv' || t === 'harvF') {
+    add(t, H);
+    if (t === 'harv') add('harv_drum', alrMul(H, alrTRS(0, 0.12, 0.52, 0, 1, 1, 1, u.drum || 0)));
+    else { const g = R.harvF_gun, [gx, gz] = alrHullAt(u, g[0], g[2]); add('harv_drum', alrMul(H, alrTRS(0, 0.12, 0.52, 0, 1, 1, 1, u.drum || 0))); add('harvF_gun', alrTRS(gx, g[1], gz, u.tYaw)); }
+    const f = (u.cargo || 0) / u.D.cap;
+    if (f > 0.02) add('harv_load', alrMul(H, alrTRS(0, 0.36 + f * 0.08, -0.2, 0, 1, Math.max(0.2, f), 1)));
+    return parts;
+  }
+  if (t === 'ifv' || t === 'prismtank' || t === 'mirage') { const r = R[t + '_turret'], [tx, tz] = alrHullAt(u, r[0], r[2]); add(t, H); add(t + '_turret', alrTRS(tx, r[1], tz, u.tYaw)); return parts; }
+  if (t === 'flaktrack') { add(t, H); const f = R.flaktrack_head, [tx, tz] = alrHullAt(u, f[0], f[2]); if (alrArt.b.flak_head) parts.push({ mesh: alrArt.b.flak_head, M: alrTRS(tx, f[1], tz, u.tYaw, f[3]) }); return parts; }
+  if (t === 'apoc') {
+    const r = R.apoc_turret, [tx, tz] = alrHullAt(u, r[0], r[2]);
+    const T = alrTRS(tx, r[1], tz, u.tYaw), rc = Math.max(0, u.recoil || 0) * 0.08, g = R.apoc_gun;
+    add('apoc', H); add('apoc_turret', T); add('apoc_gun', alrMul(T, alrTRS(g[0], g[1], g[2] - rc, 0)));
+    return parts;
+  }
+  if (t === 'v3') {
+    const r = R.v3_rack, K = alrMul(H, alrTRS(r[0], r[1], r[2], 0));
+    add('v3', H); add('v3_rack', K);
+    // the rocket sits on the rail until it's fired, then a new one's loaded
+    if (u.stub || (u.cool || 0) < ALR_WPN.v3.rof * 0.55) add('v3_rocket', alrMul(K, alrTRS(0, 0.186, 0.222, 0, 1, 1, 1, -0.436)));
+    return parts;
+  }
+  add(t, H);
+  return parts;
 }
+// until a model exists, borrow a close one (so nothing is ever invisible)
+const ALR_FALLBACK = { conscript: 'inf', engineer: 'inf', zapper: 'inf', jetpack: 'inf', ifv: 'tank', prismtank: 'tank', mirage: 'tank', apoc: 'heavy', flaktrack: 'tank', harvF: 'harv', v3: 'tank', jet: 'tank', blimp: 'harv', dog: 'leg' };
 
 // ---- the overlay: selection brackets, health pips, the drag box, floating text --------------------------------------
 function alrOverlay() {
@@ -520,6 +633,16 @@ function alrOverlay() {
     const n = segs || 10, sw = w / n;
     for (let i = 0; i < n; i++) { g.fillStyle = (i + 0.5) / n <= f ? col : 'rgba(60,60,60,0.8)'; g.fillRect(x + i * sw + 0.5, y, sw - 1, 4); }
   };
+  // veterancy: a chevron for a veteran, two for elite, always shown on yours
+  for (const e of alr.ents) {
+    if (e.kind !== 'unit' || !e.rank || (e.owner !== 0 && !S[alrTile(e.x, e.z)])) continue;
+    const p = alrGLProject(e.x, (e.alt || 0) + (e.D.cat === 'inf' ? 0.55 : 0.62), e.z);
+    for (let k = 0; k < e.rank; k++) {
+      const y = p[1] - 12 - k * 4;
+      g.strokeStyle = '#000'; g.lineWidth = 3.5; g.beginPath(); g.moveTo(p[0] + 14, y + 3); g.lineTo(p[0] + 17, y); g.lineTo(p[0] + 20, y + 3); g.stroke();
+      g.strokeStyle = e.rank === 2 ? '#ffd23a' : '#d8e2ee'; g.lineWidth = 1.8; g.stroke();
+    }
+  }
   for (const e of alr.ents) {
     const sel = alr.sel.includes(e);
     const hover = U.hover === e;
@@ -527,10 +650,11 @@ function alrOverlay() {
     if (!sel && !hover && !(damaged && e.owner === 0 && e.kind === 'bld')) continue;
     if (e.owner !== 0 && !S[alrTile(e.x, e.z)]) continue;
     if (e.kind === 'unit') {
-      const top = alrGLProject(e.x, e.D.cat === 'inf' ? 0.55 : 0.62, e.z);
-      const w = e.D.cat === 'inf' ? 22 : 34;
+      const top = alrGLProject(e.x, (e.alt || 0) + (e.D.cat === 'inf' ? 0.55 : e.type === 'blimp' ? 0.75 : 0.62), e.z);
+      const w = e.D.cat === 'inf' ? 22 : e.type === 'blimp' ? 54 : 34;
       if (sel || hover) bar(top[0] - w / 2, top[1] - 8, w, e.hp / e.max, e.D.cat === 'inf' ? 5 : 8);
       if (e.D.harv && sel) { g.fillStyle = '#ffd23a'; g.fillRect(top[0] - w / 2, top[1] - 2, w * e.cargo / e.D.cap, 2); }
+      if (e.D.air === 'jet' && sel) { g.fillStyle = e.ammo > 0 ? '#ffd23a' : '#555'; g.fillRect(top[0] - 4, top[1] - 2, 8, 3); }
     } else {
       // the bracket around a building's box on screen
       const pts = [];
@@ -614,6 +738,7 @@ function alrRadar() {
       g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.closePath(); g.fill();
     } else { const [u, v] = alrRadarXY(e.x, e.z); g.fillRect(u - 3, v - 3, 6, 6); }
   }
+  for (const c of alr.crates || []) if (P.shroud[alrTile(c.x, c.z)] > 40) { const [u, v] = alrRadarXY(c.x, c.z); g.fillStyle = '#fff'; g.fillRect(u - 2.5, v - 2.5, 5, 5); }
   // what the camera sees
   const cam = alr.cam, cs = [alrGLPick(0, 0), alrGLPick(cam.w, 0), alrGLPick(cam.w, cam.h), alrGLPick(0, cam.h)].map((c) => alrRadarXY(c[0], c[1]));
   g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.beginPath(); cs.forEach((c, i) => (i ? g.lineTo(c[0], c[1]) : g.moveTo(c[0], c[1]))); g.closePath(); g.stroke();
@@ -633,7 +758,7 @@ function alrPickAt(px, py) {
   for (const e of alr.ents) {
     if (e.kind !== 'unit') continue;
     if (e.owner !== 0 && S[alrTile(e.x, e.z)] < 40) continue;
-    const p = alrGLProject(e.x, e.D.cat === 'inf' ? 0.25 : 0.2, e.z), r = e.D.cat === 'inf' ? 14 : 22, d = Math.hypot(p[0] - px, p[1] - py);
+    const p = alrGLProject(e.x, (e.alt || 0) + (e.D.cat === 'inf' ? 0.25 : 0.2), e.z), r = e.D.cat === 'inf' ? 14 : e.type === 'blimp' ? 40 : 22, d = Math.hypot(p[0] - px, p[1] - py);
     if (d < r && d < bd) { bd = d; best = e; }
   }
   if (best) return best;
@@ -659,9 +784,13 @@ function alrCommand(px, py, forceAM) {
     if (blds.length) { for (const b of blds) b.rally = [g[0], g[1]]; alrPing(g[0], g[1], false); alrSfx('click'); }
     return;
   }
+  // cooks: into a building that isn't yours to take it, into one of yours that's hurt to fix it
+  const cooks = units.filter((u) => u.D.engineer && hit && alrCanCapture(u, hit));
+  if (cooks.length) { for (const u of cooks) alrOrderAttack(u, hit); alrPing(hit.x, hit.z, false); alrSfx('ack'); alrAck(cooks, 'attack'); if (cooks.length === units.length) return; }
   if (hit && hit.owner !== 0) {
-    for (const u of units) if (u.D.weapon) alrOrderAttack(u, hit);
-    alrPing(hit.x, hit.z, true); alrSfx('ack'); alrAck(units, 'attack'); return;
+    const shooters = units.filter((u) => (u.D.weapon || u.D.weapon2) && !u.D.engineer);
+    for (const u of shooters) alrOrderAttack(u, hit);
+    alrPing(hit.x, hit.z, true); alrSfx('ack'); alrAck(shooters.length ? shooters : units, 'attack'); return;
   }
   const harvs = units.filter((u) => u.D.harv), rest = units.filter((u) => !u.D.harv);
   if (harvs.length) {
@@ -693,6 +822,8 @@ function alrPointerDown(e) {
   }
   if (alr.place) {
     const p = alr.place;
+    // a wall: press, drag a straight line, let go
+    if (ALR_BLD[p.type].wall) { p.line = { tx: p.tx, tz: p.tz }; U.ov.setPointerCapture(e.pointerId); return; }
     if (p.ok && alrPlace(alr.players[0], p.type, p.tx, p.tz)) { alr.place = null; alrUISide(); }
     else { alrSfx('error'); alrSay('CANNOT DEPLOY HERE', '#ff8a7a'); }
     return;
@@ -726,14 +857,26 @@ function alrPointerMove(e) {
   else if (mine) cur = 'cell';
   U.ov.style.cursor = cur;
 }
+// the tiles of a wall line: straight along whichever axis you dragged further
+function alrWallLine(p) {
+  const a = p.line || { tx: p.tx, tz: p.tz }, dx = p.tx - a.tx, dz = p.tz - a.tz, out = [];
+  const n = Math.min(24, Math.max(Math.abs(dx), Math.abs(dz)));
+  for (let k = 0; k <= n; k++) out.push(Math.abs(dx) >= Math.abs(dz) ? [a.tx + Math.sign(dx) * k, a.tz] : [a.tx, a.tz + Math.sign(dz) * k]);
+  return out;
+}
 function alrPointerUp(e) {
   const U = alr.ui;
+  if (alr.place && alr.place.line && e.button === 0) {
+    const n = alrPlaceWalls(alr.players[0], alr.place.type, alrWallLine(alr.place));
+    if (n) { alr.place = null; alrUISide(); } else { alr.place.line = null; alrSfx('error'); alrSay('CANNOT DEPLOY HERE', '#ff8a7a'); }
+    return;
+  }
   if (U.pan && e.button === 1) { U.pan = null; return; }
   const d = U.drag; U.drag = null;
   if (!d || e.button !== 0 || alr.phase !== 'play') return;
   if (d.box) {
     const L = Math.min(d.x0, d.x1), R = Math.max(d.x0, d.x1), T = Math.min(d.y0, d.y1), B = Math.max(d.y0, d.y1);
-    const got = alr.ents.filter((u) => u.kind === 'unit' && u.owner === 0 && (() => { const p = alrGLProject(u.x, 0.2, u.z); return p[0] >= L && p[0] <= R && p[1] >= T && p[1] <= B; })());
+    const got = alr.ents.filter((u) => u.kind === 'unit' && u.owner === 0 && (() => { const p = alrGLProject(u.x, 0.2 + (u.alt || 0), u.z); return p[0] >= L && p[0] <= R && p[1] >= T && p[1] <= B; })());
     // a box with soldiers in it leaves the haulers out (unless it's only haulers)
     const army = got.filter((u) => !u.D.harv);
     alr.sel = d.shift ? Array.from(new Set(alr.sel.concat(army.length ? army : got))) : (army.length ? army : got);
@@ -741,6 +884,7 @@ function alrPointerUp(e) {
     return;
   }
   const h = alrPickAt(d.x0, d.y0), now = performance.now();
+  if (h && h.owner === 0 && h.kind === 'bld' && alr.sel.some((s) => s.D.engineer && alrCanCapture(s, h))) { alrCommand(d.x0, d.y0); return; }
   if (h && h.owner === 0) {
     if (now - U.lastClick < 320 && U.lastPick === h && h.kind === 'unit') {
       // double-click: everybody of that type on screen
@@ -787,6 +931,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (k === 'KeyA' && alr.sel.some((s) => s.kind === 'unit' && s.owner === 0)) { alr.mode = 'am'; e.preventDefault(); return; }
+  if (k === 'KeyD') { for (const u of alr.sel) if (u.kind === 'unit' && u.owner === 0 && u.D.deploy) alrDeploy(u); alrSfx('place'); return; }
   if (k === 'KeyS') { for (const u of alr.sel) if (u.kind === 'unit' && u.owner === 0) { u.order = null; u.path = null; u.target = null; u.guardX = u.x; u.guardZ = u.z; } return; }
   if (k === 'KeyQ') { alr.sel = alr.ents.filter((u) => u.kind === 'unit' && u.owner === 0 && u.D.weapon); alrSfx('select'); return; }
   if (k === 'KeyH') { const hq = alrBldsOf(0, 'hq')[0] || alr.ents.find((x) => x.owner === 0); if (hq) { alr.cam.x = hq.x; alr.cam.z = hq.z; } return; }
@@ -821,8 +966,8 @@ function alrUIEnd() {
   const U = alr.ui, R = alr.result, st = alr.stats;
   const m = Math.floor(R.t / 60), s = Math.floor(R.t % 60);
   U.end.innerHTML = `<div class="alr-card-t ${R.won ? 'win' : 'lose'}">${R.won ? 'VICTORY' : 'DEFEAT'}</div>
-    <div class="alr-card-s">${R.won ? 'The Fry Federation has been deep-fried.' : 'The Nugget Alliance has fallen.'}</div>
-    <div class="alr-stats"><span>TIME <b>${m}:${String(s).padStart(2, '0')}</b></span><span>KILLS <b>${st.kills}</b></span><span>LOST <b>${st.lost}</b></span><span>SQUISHED <b>${st.crushed || 0}</b></span><span>HARVESTED <b>$${Math.round(st.harvested)}</b></span></div>
+    <div class="alr-card-s">${R.won ? 'The ' + alr.players[1].team.name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) + ' has been deep-fried.' : 'The ' + alr.players[0].team.name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) + ' has fallen.'}</div>
+    <div class="alr-stats"><span>TIME <b>${m}:${String(s).padStart(2, '0')}</b></span><span>KILLS <b>${st.kills}</b></span><span>LOST <b>${st.lost}</b></span><span>SQUISHED <b>${st.crushed || 0}</b></span><span>CAPTURED <b>${st.captured || 0}</b></span><span>HARVESTED <b>$${Math.round(st.harvested)}</b></span></div>
     <div class="alr-card-n">+${fmt.format(alr.earned)} NUGGETS</div>
     <button type="button" data-act="again">PLAY AGAIN</button><button type="button" data-act="tier">NEW ENEMY</button><button type="button" data-act="leave">LEAVE</button>`;
   setTimeout(() => { if (alr.phase === 'over') U.end.hidden = false; }, 1600);
@@ -830,6 +975,7 @@ function alrUIEnd() {
 
 // ---- the synth ------------------------------------------------------------------------------------------------------------
 const alrA = { ctx: null, master: null, noise: null, muted: false, last: {} };
+const ALR_SFX_SYNTH = { prism: 'zap', flak: 'cannon', bark: 'squish', jet: 'rocket', chrono: 'zap', bomb: 'boomL' };
 function alrAudioWake() {
   if (alrA.ctx) { if (alrA.ctx.state === 'suspended') alrA.ctx.resume(); return; }
   try {
@@ -850,6 +996,7 @@ function alrSfx(name, x, z) {
   if (alrA.last[name] && now - alrA.last[name] < gap) return;
   alrA.last[name] = now;
   if (alrDiscSfx(name, vol)) return;          // the ElevenLabs recording, when it's decoded (js/alertAudio.js)
+  name = ALR_SFX_SYNTH[name] || name;          // (a newer sound without a synth of its own borrows one)
   const out = C.createGain(); out.gain.value = vol; out.connect(alrA.master);
   const env = (node, a, peak, dec, t0) => { const g = C.createGain(); g.gain.setValueAtTime(0.0001, t0 || now); g.gain.exponentialRampToValueAtTime(peak, (t0 || now) + a); g.gain.exponentialRampToValueAtTime(0.0001, (t0 || now) + a + dec); node.connect(g); g.connect(out); return g; };
   const noise = (dur, type, f, q, peak, dec, sweep) => {

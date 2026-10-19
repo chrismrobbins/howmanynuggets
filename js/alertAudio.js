@@ -12,7 +12,7 @@
 // Nothing here is required: with no files (or no network) the game plays exactly as it did, synth and text.
 // Every clip is trimmed of leading silence and loudness-matched at decode (there's no ffmpeg in the pipeline).
 
-const ALR_AUDIO_V = 1;           // bump with a new render (index.json is fetched with it)
+const ALR_AUDIO_V = 3;           // bump with a new render (index.json is fetched with it)
 const alrDisc = { idx: null, bytes: {}, buf: {}, loading: {}, failed: {}, music: null, musicKey: '', want: 'menu', evaQ: [], evaBusy: false,
   ack: null, ackT: 0, lastLine: {}, musicOn: true, duck: 1, fightT: -99 };
 
@@ -72,6 +72,16 @@ function alrDiscOut() {
     const g = C.createGain(); g.gain.value = 0.9;
     bp.connect(ws); ws.connect(g); g.connect(alrA.master);
     alrDisc.radio = bp;
+    // Battle Control's comms: band-limited, a presence lift, driven harder than the units' handsets
+    // (Chris: "make the announcer grittier")
+    const hp = C.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 300; hp.Q.value = 0.7;
+    const lp = C.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3800; lp.Q.value = 0.9;
+    const pr = C.createBiquadFilter(); pr.type = 'peaking'; pr.frequency.value = 1900; pr.Q.value = 1.1; pr.gain.value = 5;
+    const dr = C.createWaveShaper(), c2 = new Float32Array(512); for (let i = 0; i < 512; i++) { const x = i / 256 - 1; c2[i] = Math.tanh(x * 3.4) / Math.tanh(3.4); }
+    dr.curve = c2; dr.oversample = '2x';
+    const eg = C.createGain(); eg.gain.value = 0.8;
+    hp.connect(lp); lp.connect(pr); pr.connect(dr); dr.connect(eg); eg.connect(alrA.master);
+    alrDisc.evaBus = hp;
   }
   return alrDisc.bus;
 }
@@ -105,7 +115,8 @@ function alrEva(text) {
 function alrEvaNext() {
   if (alrDisc.evaBusy || !alrDisc.evaQ.length) return;
   const text = alrDisc.evaQ[0], f = alrDisc.idx.vo['eva|' + text][0];
-  const p = alrDiscPlay(f, 'vo', 1.1);
+  alrDiscOut();
+  const p = alrDiscPlay(f, 'vo', 1.1, 1, alrDisc.evaBus);
   if (!p) {
     // not decoded yet: hold the line for up to ~1.5 s, then let it go rather than speak late
     alrDisc.evaWait = (alrDisc.evaWait || 0) + 1;
@@ -114,8 +125,24 @@ function alrEvaNext() {
     return;
   }
   alrDisc.evaQ.shift(); alrDisc.evaWait = 0;
+  alrEvaStatic(p.dur);
   alrDisc.evaBusy = true; alrDisc.duck = 0.45;
   setTimeout(() => { alrDisc.evaBusy = false; alrDisc.duck = 1; alrEvaNext(); }, p.dur * 1000 + 140);
+}
+
+// the channel opening: a squelch burst, a faint static bed under the line, a squelch as it closes
+function alrEvaStatic(dur) {
+  const C = alrA.ctx; if (!C || !alrA.noise) return;
+  const t = C.currentTime;
+  const burst = (t0, len, lvl, f) => {
+    const s = C.createBufferSource(); s.buffer = alrA.noise; s.playbackRate.value = 1.3;
+    const bp = C.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = 0.8;
+    const g = C.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(lvl, t0 + 0.008); g.gain.setValueAtTime(lvl, t0 + len - 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
+    s.connect(bp); bp.connect(g); g.connect(alrA.master); s.start(t0, Math.random()); s.stop(t0 + len + 0.05);
+  };
+  burst(t - 0.005, 0.07, 0.09, 3000);                    // kssh: the key goes down
+  burst(t, dur + 0.05, 0.012, 2400);                     // the hiss under her
+  burst(t + dur + 0.04, 0.09, 0.07, 2600);               // kssht: and up
 }
 
 // ---- the units ------------------------------------------------------------------------------------------------------
@@ -126,6 +153,7 @@ function alrAck(units, when) {
   if (when === 'select' && now - alrDisc.ackT < 450) return;
   const n = {}; for (const u of units) if (u.kind === 'unit' && u.owner === 0) n[u.type] = (n[u.type] || 0) + 1;
   const type = Object.keys(n).sort((a, b) => n[b] - n[a])[0]; if (!type) return;
+  if (type === 'dog') { alrSfx('bark'); alrDisc.ackT = now; return; }      // the Corn Dog answers the only way it can
   const takes = I.vo[type + ':' + when]; if (!takes || !takes.length) return;
   let f = takes[(Math.random() * takes.length) | 0];
   if (takes.length > 1 && f === alrDisc.lastLine[type + when]) f = takes[(takes.indexOf(f) + 1) % takes.length];

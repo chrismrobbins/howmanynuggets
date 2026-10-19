@@ -1,5 +1,5 @@
 {
- "v": 1792433955,
+ "v": 1792436415,
  "vo": {
   "eva|BATTLE CONTROL ONLINE": [
    "vo/eva-battle-control-online.mp3"
@@ -69,6 +69,18 @@
   ],
   "eva|MISSION FAILED": [
    "vo/eva-mission-failed.mp3"
+  ],
+  "eva|BUILDING CAPTURED": [
+   "vo/eva-building-captured.mp3"
+  ],
+  "eva|OUR BUILDING HAS BEEN CAPTURED": [
+   "vo/eva-our-building-has-been-captured.mp3"
+  ],
+  "eva|UNIT PROMOTED": [
+   "vo/eva-unit-promoted.mp3"
+  ],
+  "eva|BUILDING REPAIRED": [
+   "vo/eva-building-repaired.mp3"
   ],
   "inf:select": [
    "vo/inf-select-0-0.mp3",
@@ -145,6 +157,149 @@
   "harv:attack": [
    "vo/harv-attack-0-0.mp3",
    "vo/harv-attack-1-0.mp3"
+  ],
+  "engineer:select": [
+   "vo/engineer-select-0-0.mp3",
+   "vo/engineer-select-1-0.mp3"
+  ],
+  "engineer:move": [
+   "vo/engineer-move-0-0.mp3",
+   "vo/engineer-move-1-0.mp3"
+  ],
+  "engineer:attack": [
+   "vo/engineer-attack-0-0.mp3"
+  ],
+  "jetpack:select": [
+   "vo/jetpack-select-0-0.mp3",
+   "vo/jetpack-select-1-0.mp3"
+  ],
+  "jetpack:move": [
+   "vo/jetpack-move-0-0.mp3",
+   "vo/jetpack-move-1-0.mp3"
+  ],
+  "jetpack:attack": [
+   "vo/jetpack-attack-0-0.mp3"
+  ],
+  "ifv:select": [
+   "vo/ifv-select-0-0.mp3",
+   "vo/ifv-select-1-0.mp3"
+  ],
+  "ifv:move": [
+   "vo/ifv-move-0-0.mp3",
+   "vo/ifv-move-1-0.mp3"
+  ],
+  "ifv:attack": [
+   "vo/ifv-attack-0-0.mp3"
+  ],
+  "prismtank:select": [
+   "vo/prismtank-select-0-0.mp3",
+   "vo/prismtank-select-1-0.mp3"
+  ],
+  "prismtank:move": [
+   "vo/prismtank-move-0-0.mp3",
+   "vo/prismtank-move-1-0.mp3"
+  ],
+  "prismtank:attack": [
+   "vo/prismtank-attack-0-0.mp3"
+  ],
+  "mirage:select": [
+   "vo/mirage-select-0-0.mp3",
+   "vo/mirage-select-1-0.mp3"
+  ],
+  "mirage:move": [
+   "vo/mirage-move-0-0.mp3",
+   "vo/mirage-move-1-0.mp3"
+  ],
+  "mirage:attack": [
+   "vo/mirage-attack-0-0.mp3"
+  ],
+  "jet:select": [
+   "vo/jet-select-0-0.mp3",
+   "vo/jet-select-1-0.mp3"
+  ],
+  "jet:move": [
+   "vo/jet-move-0-0.mp3",
+   "vo/jet-move-1-0.mp3"
+  ],
+  "jet:attack": [
+   "vo/jet-attack-0-0.mp3"
+  ],
+  "conscript:select": [
+   "vo/conscript-select-0-0.mp3",
+   "vo/conscript-select-1-0.mp3"
+  ],
+  "conscript:move": [
+   "vo/conscript-move-0-0.mp3",
+   "vo/conscript-move-1-0.mp3"
+  ],
+  "conscript:attack": [
+   "vo/conscript-attack-0-0.mp3"
+  ],
+  "zapper:select": [
+   "vo/zapper-select-0-0.mp3",
+   "vo/zapper-select-1-0.mp3"
+  ],
+  "zapper:move": [
+   "vo/zapper-move-0-0.mp3",
+   "vo/zapper-move-1-0.mp3"
+  ],
+  "zapper:attack": [
+   "vo/zapper-attack-0-0.mp3"
+  ],
+  "flaktrack:select": [
+   "vo/flaktrack-select-0-0.mp3",
+   "vo/flaktrack-select-1-0.mp3"
+  ],
+  "flaktrack:move": [
+   "vo/flaktrack-move-0-0.mp3",
+   "vo/flaktrack-move-1-0.mp3"
+  ],
+  "flaktrack:attack": [
+   "vo/flaktrack-attack-0-0.mp3"
+  ],
+  "harvF:select": [
+   "vo/harvF-select-0-0.mp3",
+   "vo/harvF-select-1-0.mp3"
+  ],
+  "harvF:move": [
+   "vo/harvF-move-0-0.mp3",
+   "vo/harvF-move-1-0.mp3"
+  ],
+  "harvF:attack": [
+   "vo/harvF-attack-0-0.mp3"
+  ],
+  "v3:select": [
+   "vo/v3-select-0-0.mp3",
+   "vo/v3-select-1-0.mp3"
+  ],
+  "v3:move": [
+   "vo/v3-move-0-0.mp3",
+   "vo/v3-move-1-0.mp3"
+  ],
+  "v3:attack": [
+   "vo/v3-attack-0-0.mp3"
+  ],
+  "apoc:select": [
+   "vo/apoc-select-0-0.mp3",
+   "vo/apoc-select-1-0.mp3"
+  ],
+  "apoc:move": [
+   "vo/apoc-move-0-0.mp3",
+   "vo/apoc-move-1-0.mp3"
+  ],
+  "apoc:attack": [
+   "vo/apoc-attack-0-0.mp3"
+  ],
+  "blimp:select": [
+   "vo/blimp-select-0-0.mp3",
+   "vo/blimp-select-1-0.mp3"
+  ],
+  "blimp:move": [
+   "vo/blimp-move-0-0.mp3",
+   "vo/blimp-move-1-0.mp3"
+  ],
+  "blimp:attack": [
+   "vo/blimp-attack-0-0.mp3"
   ]
  },
  "music": {
@@ -186,6 +341,12 @@
   "squish": "sfx/squish.mp3",
   "alarm": "sfx/alarm.mp3",
   "build": "sfx/build.mp3",
-  "sell": "sfx/sell.mp3"
+  "sell": "sfx/sell.mp3",
+  "bark": "sfx/bark.mp3",
+  "jet": "sfx/jet.mp3",
+  "prism": "sfx/prism.mp3",
+  "flak": "sfx/flak.mp3",
+  "chrono": "sfx/chrono.mp3",
+  "bomb": "sfx/bomb.mp3"
  }
 }

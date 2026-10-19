@@ -3144,6 +3144,12 @@ render waits for the ElevenLabs key on this machine (`~/.config/elevenlabs.key` 
   acks played, the guns used recordings, build → battle switched, and the loop crossfade re-started
   the song. Nobody has listened yet; Chris should play it with sound on.
 
+- **Grittier Battle Control** (Chris: "make the announcer grittier"). The key has no `voices_read`, so the
+  library couldn't be searched; she stays Alice, re-rendered `[cold, stern, gravelly]` at stability 0.25
+  (385 credits; voices 1,052 / 3,500; the calm takes are in the session scratchpad only). In-game she now
+  runs through a comms chain (`alrDisc.evaBus`: HP 300 / LP 3.8 k / +5 dB at 1.9 k / tanh drive ×3.4) with
+  a squelch burst at each end and a faint static bed (`alrEvaStatic`). `ALR_AUDIO_V` 2.
+
 ## 🚨 NUGGET ALERT: same-day fixes (2026-10-19)
 - **The radar was turned 180°** from the battlefield ("the map is backwards"). The camera's
   screen-right is +z−x and screen-up is +x+z, and the radar now uses the same axes (`alrRadarXY` /
@@ -3232,3 +3238,99 @@ Chris: *"great now fix the trees and landscape"*.
 - Harness gotcha: after filling `shroud` in a test, call `alrGLShroud(ALR_N, shroud)`, or the GPU copy
   stays dark and the frame renders black.
 - The mesh file is now 3.2 MB (1.39 MB gzipped), with ~100k tris across 48 models.
+## 🚨 NUGGET ALERT, PHASE 1: TWO ARMIES AND AIR POWER (2026-10-19)
+
+Chris: *"why are there only 5 building options? we need to have the airplanes, etc. study more of the
+original game"*. Research (RA2's rules.ini plus the C&C wiki) gave both full tech trees, and this is a
+3-phase plan: (1) two armies + air · (2) superweapons + specialists · (3) the navy.
+- **Two armies** (`ALR_SIDES`; `side` on every building and unit; a missing `side` means both build
+  it; `role` lets a requirement name a job: 'power' / 'radar' / 'lab').
+  - Pick the enemy, then the army (`alrOpenSide`); the CPU gets the other one.
+  - Colors are by seat (you're blue). Seat 2 is the neutral oil derricks (`P.neutral`, never auto-targeted).
+- **Alliance:** Grease Plant, Air Nug Command (radar + 4 pads, `ALR_PADS` ±0.95), Test Kitchen,
+  Nug Bunker, Sauce SAM (anti-air only), Prism Fry Tower (each relaying tower +50%, up to 4), Nug Wall.
+  - Units: Nug Trooper (D: sandbags, `rifleD`), Jetpack Nug (flies, hits air), Breaded Tank, Sauce IFV
+    (hits air), Chrono Hauler (blinks home), Prism Fry (the beam bounces 3×), Mirage Nug (a tree after
+    1.2 s still; enemies skip it beyond 1.5), Nug Jet.
+- **Federation:** Fryer Reactor, Sauce Radar, Fry Lab, Nug Gun, Flak Fryer (anti-air only), Tesla Fryer,
+  Fry Wall.
+  - Units: Tater Conscript, Zap Nug (can't be squished), Rocket Nug (now the flak trooper: hits air),
+    Deep Fryer, Flak Track, War Hauler (armed, 1000 load), Sauce V3 (range 14, min 3, a high arc with
+    splash), Family Size (twin guns + `weapon2` AA, heals), Gravy Blimp (bombs what's under it; when
+    it falls, it lands on whoever is underneath).
+- **Both:** Dip & Fix (repairs parked vehicles for money), Fry Cook (captures, or repairs your own;
+  not defenses or walls), Corn Dog (one bite per soldier; can't touch vehicles), walls (drag a line;
+  only `ALR_WALL_KINDS` damage them).
+- **Weapons:** `air` means it can shoot aircraft, `ground: false` means anti-air only, and `alrCanHit`
+  decides. Parked jets count as ground targets.
+- **Movement:** aircraft fly straight (path = [[x, z]]) and skip passability and separation.
+- **Jets** (`alrJetStep`): pad → out (one pass, 2 missiles at 4.5) → home → land → pad (rearm 5 s,
+  repair). With no free pad they crash after 5 s. They're built at the Air Nug Command, max 4 per
+  command (counting the queue).
+- **Veterancy:** promoted at 3× its own cost in kills, then 6×. `ALR_RANK` sets damage / ROF /
+  armor / speed; elite heals; chevrons are drawn on the overlay.
+- **Crates:** money / promotion / repair / map / a free tank.
+- **Derricks:** four, mirrored; $1000 on capture plus $5/s.
+- **Economy:** start cash $7,500. Build time ×0.8 per extra factory (RA2). The queue cap is 29.
+- **CPU commander** (`alrAIStep`): `ALR_AI_ORDER` per side; anti-air once the enemy flies; weighted
+  unit mixes (`ALR_AI_INF` / `ALR_AI_VEH`); cooks sent at the derricks; jet strikes every ~minute;
+  blimps capped at 2.
+  - It used to hold vehicles until it had $1,200 banked. Production pays as it goes, so that never
+    happened and the armies were all infantry. The queues now just stay topped up.
+- **Models:** `js/alertArtP1.js` (a parallel art pass: 33 meshes, each under 6k tris). Pivots are in
+  `ALR_RIG` (js/alertUI.js) and taken from its report. Missing meshes fall back (`ALR_FALLBACK`).
+  - Gotcha: the setup loop has to skip the neutral seat (it has no start position).
+- **Voices:** 14 new units (2 select / 2 move / 1 attack each; the Federation is tagged
+  `[Russian accent]`; the blimp says "Gravy Blimp reporting"), 4 Battle Control lines and 6 sound
+  effects. 731 + 75 credits; voices are at 1,783 / 3,500 and music/sfx at 10,244 / 14,000. The Corn Dog
+  barks instead of talking.
+- **Tested:**
+  - CPU-vs-CPU from both sides on all three tiers: games end in 8–15 minutes with no errors.
+  - A staged showcase plus a live battle (prism relay, V3s, a blimp, jets) at 60 fps.
+  - A jet sortie traced step by step.
+  - The army picker and Federation placement, with clicks.
+  - All 163 audio files decode, and the replies, music and sfx play in game.
+
+## 📌 HANDOFF (2026-10-19): Blender pass on Nugget Alert's PHASE-1 models (for the Blender session)
+
+Chris: *"I'll have the other Claude do this … make a note for the other Claude to do this"*. Phase 1 (two
+armies + air power, notes above) added 33 models that are still PROCEDURAL: built in `js/alertArtP1.js`
+(`alrArtInitP1(A, mk)`, called at the end of `alrArtInit`). They need the same treatment as THE BLENDER MODELS
+passes 1–3: build them in `blender/alertrig.py` under the same contract, with surface classes, drab armour
+and team colour only on markings, no copy-pasted props, and baked AO. Export them under these **exact
+names** so `alrMeshUse()` swaps them in with no game-code change. Buildings are centred on the footprint,
+with the camera-facing detail on local +x/+z; units face +z.
+- **Buildings (`alrArt.b`):**
+  - `powerF` 3×2 (Federation reactor: drum, coils)
+  - `airhq` 3×3 (air base HQ): **4 landing pads at local (±0.95, ±0.95)**, r≈0.48, top y≈0.12, kept
+    clear (jets park on them; `ALR_PADS` in js/alert.js)
+  - `depot` 3×3 (repair depot)
+  - `labA` 3×3 (Alliance lab: dome, glass); `labF` 3×3 (Federation lab: blocky, stacks, dish)
+  - `bunker` 1×1
+  - `sam` 1×1 + `sam_head`: pivot at its origin, mounted at (0, 0.3, 0), tubes up ~35° toward +z
+  - `prism` 1×1 tower ≈1.57 high, crystal at y≈1.36 (the beam leaves from y 1.55)
+  - `flak` 1×1 + `flak_head` (pivot at origin, mounted at (0, 0.3, 0); also used on the Flak Track at scale 0.6)
+  - `wallA_post` / `wallA_bar` / `wallF_post` / `wallF_bar`: the post is centred in its tile; the bar
+    runs x 0 → +0.5 (one is rotated toward each neighbouring wall)
+  - `derrick` 2×2 + `derrick_pump` (mounted at (−0.3, 0.44, 0.45), rocked about x)
+- **Units (`alrArt.u`):**
+  - Infantry bodies without legs (`leg` attaches at (±0.045, 0.13, 0)): `engineer`, `jetpack` (nozzles
+    ≈(±0.055, 0.2, −0.15)), `conscript`, `zapper`.
+  - `dog` + `dog_leg` ×4 at (±0.05, 0.12, ±0.11), pivot at the hip
+  - `ifv` + `ifv_turret` (0, 0.24, −0.04)
+  - `prismtank` + `prismtank_turret` (0, 0.28, −0.03)
+  - `mirage` + `mirage_turret` (0, 0.28, −0.05)
+  - `v3` + `v3_rack` (0, 0.3, −0.3; the origin is the hinge, the 25° raise is built in) + `v3_rocket`
+    (≈0.6 long, centred, nose +z; it sits on the rail at rack × `alrTRS(0, 0.186, 0.222, 0, 1, 1, 1, −0.436)`)
+  - `apoc` (≈1.2 long, double treads) + `apoc_turret` (0, 0.38, −0.04) + `apoc_gun` (turret-local 0, 0.12, 0.2)
+  - `flaktrack` (half-track; the mount ring top is at (0, 0.26, −0.12))
+  - `harvF` (`harv`'s layout: the shared `harv_drum` (0, 0.12, 0.52) and `harv_load` (0, 0.42, −0.2))
+    + `harvF_gun` (0, 0.5, 0.3)
+  - `jet` (origin at the centre of mass, flown at altitude; ≈0.95 long, 0.8 span, missiles under the wings)
+  - `blimp` (origin at the envelope's centre, ≈2.3 long, gondola hanging to y≈−0.65) + `blimp_prop` ×2 at
+    (±0.44, −0.3, −0.63), spinning about z
+  - `crate` (a 0.34 cube, origin on the ground)
+- **Pivots:** all in `ALR_RIG` (js/alertUI.js). If a better model needs a different pivot, change it there.
+- **To check them in context:** `?play=alert`, pick either army; `alertDebug.start(tier, 'A'|'F')`,
+  `alertDebug.auto(true)`, `alertDebug.step(secs)`. A staged showcase of every new piece is easy to set
+  up with `alrSpawnBld` / `alrSpawnUnit` (fill the shroud and call `alrGLShroud(ALR_N, shroud)`).

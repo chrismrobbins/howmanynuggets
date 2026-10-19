@@ -471,6 +471,7 @@ function alrArtInit() {
   // debris and wreck chunks
   A.chunk = mk((mb) => mb.color(ALR_PAL.dark).box(0, 0, 0, 0.05, 0.035, 0.04, 0.01));
   A.rubble = mk((mb) => { let s = 5; const r = () => ((s = (s * 16807) % 2147483647) / 2147483647); for (let k = 0; k < 14; k++) mb.color(k % 2 ? ALR_PAL.concDark : ALR_PAL.padDark).box((r() - 0.5) * 0.9, 0.04, (r() - 0.5) * 0.9, 0.05 + r() * 0.1, 0.03 + r() * 0.05, 0.05 + r() * 0.1, 0.02); });
+  if (typeof alrArtInitP1 === 'function') alrArtInitP1(A, mk);
   A.ok = true;
   alrMeshUse();
 }
