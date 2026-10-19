@@ -60,6 +60,8 @@ PAL = {
     "allyArmor": _m("#7c858b", 5), "allyDark": _m("#5a6268", 5), "paintWhite": _m("#c8cac4", 5),
     "crystal": _m("#a6d6ee", 8, 0, 1), "crateWood": _m("#9a7a4c", 10),
     # 17 liquid: the Gravy Blimp's gravy (glossy, fat-swirled; exempt from AO — it's a wet surface, lit by the sun)
+    "trussPaint": _m("#55604f", 6), "trussDark": _m("#3d4639", 6), "reed": _m("#6b7a3a", 14), "reedDry": _m("#9a8a52", 14),
+    "cattail": _m("#4a3020", 13), "mud": _m("#4c4232", 2),
     "gravyLiquid": _m("#4a2810", 17, 0, 1), "gravyFat": _m("#6c4220", 17, 0, 1), "gravy": _m("#7a4e2a", 13), "gravyLt": _m("#93613a", 13),
     # the landscape: 14 foliage · 15 rock · 16 ore
     "leafA": _m("#46622b", 14), "leafB": _m("#55702f", 14), "leafC": _m("#344d22", 14), "leafD": _m("#617336", 14),
@@ -2550,6 +2552,135 @@ def build_gravy_pool():
     return m
 
 
+# ---- the water maps: bridges (a segment = one tile along local +z, two tiles wide: x ±1; deck top y 0.02),
+#      the repair hut, reeds ----------------------------------------------------------------------------------
+def build_bridge_deck():
+    """One tile of concrete road deck: slab, asphalt with a dashed centre line, kerbs, railings, two box
+    girders underneath."""
+    m = Model("w.bridge_deck")
+    m.box((0, -0.03, 0), (1.96, 0.1, 1.0), "concDark", bev=0.006)
+    m.box((0, 0.022, 0), (1.66, 0.006, 1.0), "tar", bev=0)
+    m.box((0, 0.026, -0.2), (0.04, 0.002, 0.36), "white", bev=0)
+    for s_ in (-1, 1):
+        m.box((s_ * 0.91, 0.04, 0), (0.12, 0.05, 1.0), "concLite", bev=0.006)
+        for k in range(4):
+            z = -0.375 + k * 0.25
+            m.box((s_ * 0.93, 0.12, z), (0.022, 0.12, 0.022), "steel", bev=0)
+        m.box((s_ * 0.93, 0.18, 0), (0.026, 0.02, 1.0), "steel", bev=0.003)
+        m.box((s_ * 0.93, 0.12, 0), (0.016, 0.014, 1.0), "steelDark", bev=0)
+        m.box((s_ * 0.55, -0.14, 0), (0.22, 0.14, 1.0), "concDark", bev=0.008)
+    return m
+
+
+def build_bridge_truss():
+    """One tile of steel through-truss over the deck (long bridges): top + bottom chords, a vertical and a
+    diagonal a side, cross bracing overhead."""
+    m = Model("w.bridge_truss")
+    top = 0.62
+    for s_ in (-1, 1):
+        x = s_ * 1.0
+        m.box((x, top, 0), (0.07, 0.07, 1.0), "trussPaint", bev=0.008)
+        m.box((x, 0.08, 0), (0.07, 0.09, 1.0), "trussPaint", bev=0.008)
+        m.bar((x, 0.1, -0.5), (x, top, -0.5), 0.06, "trussPaint")
+        m.bar((x, 0.1, -0.5), (x, top, 0.5), 0.045, "trussDark")
+        for k in range(3):
+            m.cyl((x + s_ * 0.036, top, -0.4 + k * 0.4), 0.008, 0.01, "trussDark", n=6, axis="x")
+    m.bar((-1.0, top, 0.0), (1.0, top, 0.0), 0.04, "trussPaint")
+    m.bar((-1.0, top, -0.5), (1.0, top, 0.5), 0.026, "trussDark")
+    m.bar((1.0, top, -0.5), (-1.0, top, 0.5), 0.026, "trussDark")
+    return m
+
+
+def build_bridge_portal():
+    """The truss's end frame (the portal) with its sign plate; sits at a truss bridge's two ends."""
+    m = Model("w.bridge_portal")
+    top = 0.62
+    for s_ in (-1, 1):
+        m.bar((s_ * 1.0, 0.08, 0.5), (s_ * 1.0, top, 0.0), 0.08, "trussPaint")
+    m.box((0, top, 0.0), (2.08, 0.1, 0.1), "trussPaint", bev=0.01)
+    m.box((0, top - 0.11, 0.06), (0.9, 0.12, 0.02), "trussDark", bev=0.004)
+    m.box((0, top - 0.11, 0.072), (0.8, 0.08, 0.006), "hazard", bev=0)
+    return m
+
+
+def build_bridge_pier():
+    """A pier under the deck (every other tile): a cutwater wall from the riverbed to a cap beam."""
+    m = Model("w.bridge_pier")
+    pts = [(-0.82, -0.12), (0.82, -0.12)] + [(0.82 + math.cos(a) * 0.12, math.sin(a) * 0.12) for a in [-math.pi / 2 + k * math.pi / 6 for k in range(7)]][1:-1] + \
+          [(0.82, 0.12), (-0.82, 0.12)] + [(-0.82 - math.cos(a) * 0.12, -math.sin(a) * 0.12) for a in [-math.pi / 2 + k * math.pi / 6 for k in range(7)]][1:-1]
+    m.prism_y(pts, -0.62, -0.18, "concDark", bev=0.01)
+    m.box((0, -0.16, 0), (1.9, 0.06, 0.32), "conc", bev=0.008)
+    m.prism_y([(x * 1.08, z * 1.3) for x, z in pts], -0.62, -0.5, "mud", bev=0.006)
+    return m
+
+
+def build_bridge_end():
+    """The abutment on the bank (+z faces the water): the approach slab, a concrete headwall down into the
+    bank under the deck's end, straight wing walls along the deck's sides, two bollards a side."""
+    m = Model("w.bridge_end")
+    m.box((0, -0.01, 0.0), (2.0, 0.06, 1.0), "concDark", bev=0.006)
+    m.box((0, 0.022, 0.0), (1.66, 0.006, 1.0), "tar", bev=0)
+    m.box((0, -0.24, 0.47), (2.16, 0.48, 0.12), "conc", bev=0.01)
+    for s_ in (-1, 1):
+        m.box((s_ * 1.04, -0.12, 0.1), (0.1, 0.3, 0.84), "conc", bev=0.01)
+        m.box((s_ * 1.04, 0.04, 0.1), (0.13, 0.03, 0.86), "concLite", bev=0.006)
+        for z in (-0.2, 0.3):
+            m.cyl((s_ * 0.9, 0.08, z), 0.032, 0.12, "concLite", n=10, bev=0.004)
+    return m
+
+
+def build_bridge_ruin():
+    """A broken deck section: a slab snapped at one end, kerb and railing torn, rebar sticking out."""
+    m = Model("w.bridge_ruin")
+    pts = [(-0.98, -0.5), (0.98, -0.5), (0.98, 0.2), (0.6, 0.34), (0.2, 0.18), (-0.15, 0.42), (-0.55, 0.22), (-0.98, 0.36)]
+    m.prism_y(pts, -0.08, 0.02, "concDark", bev=0.008)
+    m.box((0, 0.022, -0.15), (1.6, 0.006, 0.66), "tar", bev=0)
+    for x in (-0.8, -0.4, 0.0, 0.35, 0.7):
+        m.push(x, -0.03, 0.3 + (x * 0.1), 0, 0.3 + x * 0.2, x * 0.4)
+        m.cyl((0, 0, 0.08), 0.008, 0.18, "rust", n=5, axis="z")
+        m.pop()
+    m.box((0.91, 0.04, -0.15), (0.12, 0.05, 0.7), "concLite", bev=0.006)
+    m.bar((0.93, 0.12, -0.45), (0.95, 0.2, 0.25), 0.022, "steel")
+    m.box((-0.55, -0.14, -0.1), (0.22, 0.14, 0.8), "concDark", bev=0.008)
+    return m
+
+
+def build_bhut():
+    """The bridge repair hut (1×1, neutral): a small concrete control house with a steel door, a warning
+    sign, a cable mast."""
+    m = Model("b.bhut")
+    small_pad(m)
+    top = wall_block(m, (0, 0.08, 0), (0.62, 0.34, 0.56), band=0.82)
+    m.prism_x([(-0.31, top), (-0.31, top + 0.03), (0.31, top + 0.08), (0.31, top)], -0.33, 0.33, "roofDark", bev=0.004)
+    m.box((0, 0.22, 0.285), (0.18, 0.26, 0.02), "steelDark", bev=0.004)
+    m.box((0.06, 0.22, 0.298), (0.016, 0.016, 0.01), "steel", bev=0)
+    m.box((0.2, 0.35, 0.29), (0.14, 0.1, 0.012), "hazard", bev=0.003)
+    m.box((0.2, 0.35, 0.297), (0.1, 0.02, 0.004), "black", bev=0)
+    m.windows((0.315, -0.1), (0.315, 0.1), 0.3, 1, 0.12, 0.08, "x", lit=0)
+    m.cyl((-0.22, top + 0.25, -0.18), 0.01, 0.5, "dark", n=6)
+    m.cyl((-0.22, top + 0.5, -0.18), 0.018, 0.02, "red", n=8)
+    m.box((-0.24, 0.12, 0.3), (0.12, 0.08, 0.1), "steelDark", bev=0.008)
+    return m
+
+
+def build_reeds():
+    """A clump of reeds and cattails for the banks."""
+    m = Model("w.reeds", smooth_deg=60)
+    rnd = random.Random(808)
+    for k in range(16):
+        a, d = rnd.uniform(0, TAU), rnd.uniform(0, 0.16)
+        x, z = math.cos(a) * d, math.sin(a) * d
+        h = rnd.uniform(0.22, 0.42)
+        lean = (rnd.uniform(-0.08, 0.08), rnd.uniform(-0.08, 0.08))
+        m.loft([[(x - 0.008, 0, z), (x + 0.008, 0, z), (x, 0, z + 0.01)], [(x + lean[0], h, z + lean[1])] * 3], "reed" if k % 3 else "reedDry", cap0=False, cap1=False)
+        if k % 4 == 0:
+            m.cyl((x + lean[0] * 0.8, h * 0.85, z + lean[1] * 0.8), 0.014, 0.07, "cattail", n=6)
+    return m
+
+
+WATERWORKS = [build_bridge_deck, build_bridge_truss, build_bridge_portal, build_bridge_pier, build_bridge_end,
+              build_bridge_ruin, build_bhut, build_reeds]
+
 PHASE1 = [build_gravy_stream, build_gravy_pool, build_powerF, build_airhq, build_depot, build_labA, build_labF, build_bunker, build_sam, build_sam_head,
           build_prism, build_flak, build_flak_head, build_wallA_post, build_wallA_bar, build_wallF_post, build_wallF_bar,
           build_derrick, build_derrick_pump, build_engineer, build_jetpack, build_conscript, build_zapper, build_dog,
@@ -2685,7 +2816,7 @@ PHASE2 = [build_spysat, build_spysat_dish]
 MODELS = [build_hq, build_hq_crane, build_power, build_refinery, build_barracks, build_barracks_flag, build_factory,
           build_factory_door, build_radar, build_radar_dish, build_turret, build_turret_head, build_tesla,
           build_tank, build_tank_turret, build_tank_gun, build_heavy, build_heavy_turret, build_heavy_gun,
-          build_harv, build_harv_drum, build_harv_load, lambda: build_inf("rifle"), lambda: build_inf("rocket"), build_leg] + LANDSCAPE + PHASE1 + PHASE2
+          build_harv, build_harv_drum, build_harv_load, lambda: build_inf("rifle"), lambda: build_inf("rocket"), build_leg] + LANDSCAPE + PHASE1 + PHASE2 + WATERWORKS
 
 # the game draws a building's part parented to its body: give the AO bake the body as an occluder
 OCCLUDERS = {"b.hq_crane": "b.hq", "b.radar_dish": "b.radar", "b.turret_head": "b.turret", "b.factory_door": None,
@@ -2701,7 +2832,7 @@ PART_AT = {"b.hq_crane": (-1.05, 0, -1.0), "b.radar_dish": (0.45, 0.78, -0.45), 
            "u.harvF_gun": (0, 0.5, 0.3), "b.spysat_dish": SPYSAT_DISH_AT, "u.leg": (0.045, 0.13, 0), "u.dog_leg": (0.05, 0.12, 0.11),
            "u.tank_gun": (0, 0.365, 0.12), "u.heavy_gun": (0, 0.43, 0.15), "u.harv_load": (0, 0.42, -0.2)}
 SUBDIV = {"u.crate": 0.09}   # small models whose big faces sit in corner pieces (AO would grey the whole face)
-NO_GROUND = {"u.gravy_stream", "u.gravy_pool", "u.jet", "u.blimp", "u.blimp_prop", "u.v3_rocket", "b.factory_door", "b.barracks_flag"}
+NO_GROUND = {"w.bridge_deck", "w.bridge_truss", "w.bridge_portal", "w.bridge_pier", "w.bridge_ruin", "u.gravy_stream", "u.gravy_pool", "u.jet", "u.blimp", "u.blimp_prop", "u.v3_rocket", "b.factory_door", "b.barracks_flag"}
 
 
 # =========================================================================================================

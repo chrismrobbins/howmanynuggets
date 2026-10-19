@@ -61,6 +61,10 @@ const ALR_BLD = {
   wallF:    { name: 'FRY WALL', side: 'F', w: 1, h: 1, hp: 300, cost: 100, power: 0, cat: 'def', req: ['barracks'], time: 1.5, sight: 1, wall: true, blurb: 'drag to lay a line' },
   // neutral: an engineer takes it (cash on capture, then a trickle)
   derrick:  { name: 'FRY OIL DERRICK', w: 2, h: 2, hp: 800, cost: 1000, power: 0, sight: 3, tech: true, income: 5 },
+  // the water maps' bridges (RA2): neutral, crossed by everyone, brought down only by heavy hits (force-fire:
+  // ctrl-click), rebuilt by an engineer walking into the repair hut at either end (the huts can't be hurt)
+  bridge:   { name: 'BRIDGE', w: 1, h: 1, hp: 2400, cost: 0, power: 0, sight: 0, bridge: true, noCapture: true },
+  bhut:     { name: 'BRIDGE REPAIR HUT', w: 1, h: 1, hp: 9999, cost: 0, power: 0, sight: 2, bhut: true },
 };
 // infantry are cat 'inf', everything from the factory (tanks, jets, the blimp) is cat 'veh', like RA2's tabs
 const ALR_UNIT = {
@@ -203,6 +207,11 @@ const ALR_MAPS = [
     blurb: 'four corners, an open middle, oil on every side.' },
   { key: 'ridges', name: 'THE GREASE RIDGES', N: 104, seed: 31337, ring: [4, 40, Math.PI * 0.5], trees: 0.7, ridges: true, emoji: '⛰️',
     blurb: 'rock ridges split the map: two passes between every pair of bases.' },
+  // water maps (RA2's rivers and islands): water blocks the ground; bridges cross it and can be dropped
+  { key: 'river', name: 'THE FRYER RIVER', N: 80, seed: 5150, ring: [2, 30, Math.PI], trees: 0.64, water: 'river', emoji: '🌉',
+    blurb: 'a river between you and them. three bridges. drop one, hold one, fix one.' },
+  { key: 'isles', name: 'SAUCE ISLES', N: 104, seed: 2468, ring: [4, 36, 0], trees: 0.66, water: 'isles', centre: 1, emoji: '🏝️',
+    blurb: 'an island each, ore and oil on the middle one, a long bridge to it. lose the bridge, lose the war.' },
   { key: 'plains', name: 'GRAND FRYER PLAINS', N: 128, seed: 6060, ring: [5, 50, Math.PI * 0.5], trees: 0.63, centre: 2, emoji: '⭐',
     blurb: 'five bases, a sea of grass, a huge contested centre. bring a lot of tanks.' },
 ];
@@ -213,6 +222,7 @@ function alrMakeMap(def) {
   const M = {
     N, seed, key: def.key, block: new Uint8Array(N * N), bld: new Int32Array(N * N), ore: new Float32Array(N * N), oreMax: new Float32Array(N * N),
     dirt: new Float32Array(N * N), trees: [], rocks: [], tracks: [], starts: [], derricks: [], oreVer: 0,
+    water: new Uint8Array(N * N), bridges: [], wet: !!def.water,
   };
   const at = (x, z) => z * N + x;
   const inside = (x, z) => x >= 1 && z >= 1 && x < N - 1 && z < N - 1;
@@ -246,21 +256,54 @@ function alrMakeMap(def) {
       }
     }
   }
-  // the tracks: from every base into the middle, bent the same way
+  // ---- the water --------------------------------------------------------------------------------------------
+  // river: a meandering river through the centre on the line between the two bases' halves. sin() is odd, so
+  // the river is its own 180° rotation — both bases get the same banks. isles: everything is sea except an
+  // island round every base and one in the middle.
+  const W = M.water, crossings = [];
+  if (def.water === 'river') {
+    const ab = A0 + Math.PI / 2, dx = Math.cos(ab), dz = Math.sin(ab), nx = -dz, nz = dx, amp = 4.5, f = 0.11;
+    const P = (t) => [c + dx * t + nx * amp * Math.sin(t * f), c + dz * t + nz * amp * Math.sin(t * f)];
+    const pts = []; for (let t = -N; t <= N; t += 0.5) pts.push(P(t));
+    for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
+      let d = 1e9, tt = 0; for (let q = 0; q < pts.length; q++) { const e = Math.hypot(pts[q][0] - x - 0.5, pts[q][1] - z - 0.5); if (e < d) { d = e; tt = q * 0.5 - N; } }
+      if (d < 2.3 + 0.6 * Math.cos(tt * 0.21)) W[at(x, z)] = 1;
+    }
+    for (const t of [0, -0.55 * c, 0.55 * c]) crossings.push(P(t));
+  } else if (def.water === 'isles') {
+    const nzI = alrNoise(seed + 3);
+    const land = (x, z) => {
+      let v = Math.max(0, 1 - Math.hypot(x - c, z - c) / 11.5);
+      for (const [sx, sz] of M.starts) v = Math.max(v, 1 - Math.hypot(x - sx, z - sz) / 14.5);
+      // the shoreline wobble is sampled in sector 0's frame, so every island has the same coast
+      const th = Math.atan2(z - c, x - c), i = ((Math.round((th - A0) / (TAU / K)) % K) + K) % K, [qx, qz] = rot([x, z], -i);
+      return v > 0 ? v + (nzI(qx * 0.2, qz * 0.2) - 0.5) * 0.18 : -1;     // (the wobble only bends coasts; open sea stays sea)
+    };
+    for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) if (land(x + 0.5, z + 0.5) <= 0.02) W[at(x, z)] = 1;
+  }
+  // the tracks: from every base into the middle, bent the same way (straight on the isles: the bridge is on it)
   const onTrack = new Uint8Array(N * N);
-  const P0 = [S0, L(R * 0.5, bend), [c, c]];
+  const P0 = [S0, L(R * 0.5, def.water === 'isles' ? 0 : bend), [c, c]];
   for (let i = 0; i < K; i++) {
     const path = [];
     for (let q = 0; q < P0.length - 1; q++) { const a = rot(P0[q], i), b = rot(P0[q + 1], i); for (let k = 0; k <= 30; k++) { const t = k / 30; path.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); } }
     M.tracks.push(path);
     for (const [px, pz] of path) disk(px, pz, 2.2, (ii, jj, d) => { onTrack[at(ii, jj)] = 1; ridge[at(ii, jj)] = 0; M.dirt[at(ii, jj)] = Math.max(M.dirt[at(ii, jj)], alrClamp((2.2 - d) / 1.4, 0, 1) * 0.85); });
   }
+  // the river's flank bridges get roads too: from each base to both of them (rotated, so both bases reach both)
+  if (def.water === 'river') for (const q of crossings.slice(1)) for (let i = 0; i < K; i++) {
+    const a = rot(S0, i), b = [q[0] + (a[0] < c ? -3 : 3), q[1]], path = [];
+    const m1 = [a[0] + (b[0] - a[0]) * 0.55, a[1] + (b[1] - a[1]) * 0.9];
+    for (const [u0, u1] of [[a, m1], [m1, b], [b, q]]) for (let k = 0; k <= 24; k++) { const t = k / 24; path.push([u0[0] + (u1[0] - u0[0]) * t, u0[1] + (u1[1] - u0[1]) * t]); }
+    M.tracks.push(path);
+    for (const [px, pz] of path) disk(px, pz, 1.8, (ii, jj, d) => { if (W[at(ii, jj)]) return; onTrack[at(ii, jj)] = 1; M.dirt[at(ii, jj)] = Math.max(M.dirt[at(ii, jj)], alrClamp((1.8 - d) / 1.2, 0, 1) * 0.8); });
+  }
   // the ore: two fields by every base, one between every pair of bases, and a big field in the middle on some maps
   const field = (fx, fz, rad, rich) => disk(fx, fz, rad + 1.2, (i, j, d) => {
     const k = at(i, j);
     M.dirt[k] = Math.max(M.dirt[k], 0.55 * alrClamp((rad + 1.2 - d) / 1.2, 0, 1));
     ridge[k] = 0;
-    if (d <= rad && alrHash(i, j, seed) < 0.92) { const v = (140 + (1 - d / rad) * 200 + alrHash(j, i, seed) * 60) * (rich || 1); M.ore[k] = Math.max(M.ore[k], v); M.oreMax[k] = M.ore[k]; }
+    if (d <= rad && !M.water[k] && alrHash(i, j, seed) < 0.92) { const v = (140 + (1 - d / rad) * 200 + alrHash(j, i, seed) * 60) * (rich || 1); M.ore[k] = Math.max(M.ore[k], v); M.oreMax[k] = M.ore[k]; }
   });
   const nearA = L(9 + r() * 2, 7 + r() * 2), nearB = L(3 + r() * 2, -10 - r() * 2), r1 = 2.9 + r() * 0.8, r2 = 2.6 + r() * 0.8;
   each(nearA, ([x, z]) => field(x, z, r1)); each(nearB, ([x, z]) => field(x, z, r2));
@@ -269,17 +312,37 @@ function alrMakeMap(def) {
   if (def.centre) field(c, c, 3.5 + def.centre * 1.5, 1.3);
   // the oil derricks: one in the pass between every pair of bases, one off every base's road on the big maps
   const derrick = (x, z) => {
+    if (M.water[at(alrClamp(Math.round(x), 0, N - 1), alrClamp(Math.round(z), 0, N - 1))]) {     // in the water: walk to the nearest land
+      let bd = 1e9, bx = x, bz = z;
+      disk(x, z, 9, (i, j, d) => { if (!M.water[at(i, j)] && d < bd && [[-1, -1], [2, 2], [-1, 2], [2, -1]].every(([a, b]) => inside(i + a, j + b) && !M.water[at(i + a, j + b)])) { bd = d; bx = i + 0.5; bz = j + 0.5; } });
+      if (bd > 1e8) return;
+      x = bx; z = bz;
+    }
     const tx = Math.round(x - 1), tz = Math.round(z - 1);
     for (let j = -1; j <= 2; j++) for (let i = -1; i <= 2; i++) { const k = at(alrClamp(tx + i, 1, N - 2), alrClamp(tz + j, 1, N - 2)); M.ore[k] = 0; M.oreMax[k] = 0; ridge[k] = 0; M.dirt[k] = Math.max(M.dirt[k], 0.6); }
     M.derricks.push([alrClamp(tx, 2, N - 4), alrClamp(tz, 2, N - 4)]);
   };
-  each([c + Math.cos(A0 + Math.PI / K) * R * 0.4, c + Math.sin(A0 + Math.PI / K) * R * 0.4], ([x, z]) => derrick(x, z));
-  if (K === 2 || N >= 96) each(L(R * 0.62, -6.5), ([x, z]) => derrick(x, z));
+  if (def.water === 'isles') each([c + Math.cos(A0 + Math.PI / K) * 5.5, c + Math.sin(A0 + Math.PI / K) * 5.5], ([x, z]) => derrick(x, z));   // the oil is on the middle island
+  else each([c + Math.cos(A0 + Math.PI / K) * R * 0.4, c + Math.sin(A0 + Math.PI / K) * R * 0.4], ([x, z]) => derrick(x, z));
+  if ((K === 2 || N >= 96) && def.water !== 'isles') each(L(R * 0.62, -6.5), ([x, z]) => derrick(x, z));
   // the ridges go down as rock: two big boulder groups a tile, on stony ground, so a ridge reads as a wall
   for (let k = 0; k < N * N; k++) if (ridge[k] && !onTrack[k]) {
     M.block[k] = 1;
     M.dirt[k] = Math.max(M.dirt[k], 0.45);
     for (let q = 0; q < 2; q++) M.rocks.push({ x: k % N + 0.5 + (alrHash(k, 1 + q * 9, seed) - 0.5) * 0.7, z: ((k / N) | 0) + 0.5 + (alrHash(k, 2 + q * 9, seed) - 0.5) * 0.7, v: (alrHash(k, 3 + q * 9, seed) * 6) | 0, yaw: alrHash(k, 4 + q * 9, seed) * 6.28, s: 1.6 + alrHash(k, 5 + q * 9, seed) * 0.8 });
+  }
+  // ---- water goes down: blocked for the ground; the bridges open strips across it ------------------------------
+  if (def.water) {
+    for (let k = 0; k < N * N; k++) if (W[k]) { M.block[k] = 1; M.dirt[k] = 0; M.ore[k] = 0; M.oreMax[k] = 0; }
+    // a bridge wherever a road meets water (the isles) or at the river's three crossings: straight along the
+    // axis the road runs, two tiles wide, from the last land tile to the next
+    const want = [];
+    if (def.water === 'river') for (const q of crossings) want.push([q[0], q[1], 'x']);
+    else for (const path of M.tracks) for (let q = 1; q < path.length; q++) {
+      const [x0, z0] = path[q - 1], [x1, z1] = path[q];
+      if (!W[at(Math.floor(x0), Math.floor(z0))] && W[at(Math.floor(x1), Math.floor(z1))]) want.push([x1, z1, Math.abs(x1 - x0) >= Math.abs(z1 - z0) ? 'x' : 'z']);
+    }
+    for (const [qx, qz, axis] of want) alrMapBridge(M, qx, qz, axis);
   }
   // trees and rocks: clumps by noise, sampled in sector 0 so every sector grows the same forest
   const nz = alrNoise(seed + 99);
@@ -289,7 +352,8 @@ function alrMakeMap(def) {
   };
   const free = (i, j) => {
     const k = at(i, j);
-    if (onTrack[k] || M.block[k] || M.ore[k] > 0 || M.dirt[k] > 0.15) return false;
+    if (onTrack[k] || M.block[k] || M.ore[k] > 0 || M.dirt[k] > 0.15 || M.water[k]) return false;
+    for (const B of M.bridges) for (const [hx, hz] of B.huts) if (Math.abs(i - hx) <= 1 && Math.abs(j - hz) <= 1) return false;
     for (const [x, z] of M.starts) if (Math.hypot(i + 0.5 - x, j + 0.5 - z) < 10) return false;
     for (const [x, z] of M.derricks) if (Math.hypot(i - x - 1, j - z - 1) < 3) return false;
     return true;
@@ -308,6 +372,28 @@ function alrMakeMap(def) {
   // the map's edge
   for (let k = 0; k < N; k++) { M.block[at(k, 0)] = M.block[at(k, N - 1)] = M.block[at(0, k)] = M.block[at(N - 1, k)] = 1; }
   return M;
+}
+// a bridge across the water at (qx, qz) along 'x' or 'z': walk both ways to land, two tiles wide; a repair hut
+// on the bank at each end, beside the road
+function alrMapBridge(M, qx, qz, axis) {
+  const N = M.N, at = (x, z) => z * N + x, W = M.water;
+  const ax = axis === 'x', px = Math.floor(ax ? qz : qx) - 1;          // across: tiles px, px + 1
+  const tile = (along, across) => (ax ? at(along, across) : at(across, along));
+  let a = Math.floor(ax ? qx : qz);
+  const wet = (t) => W[tile(t, px)] || W[tile(t, px + 1)];
+  if (!wet(a)) { let k = 0; while (k < 4 && !wet(a + k) && !wet(a - k)) k++; a = wet(a + k) ? a + k : a - k; if (!wet(a)) return; }
+  let lo = a, hi = a;
+  while (lo > 1 && wet(lo - 1)) lo--;
+  while (hi < N - 2 && wet(hi + 1)) hi++;
+  if (lo <= 1 || hi >= N - 2 || hi - lo + 1 > 16) return;              // no far bank, or too long
+  for (const B of M.bridges) if (B.axis === axis && Math.abs(B.across - px) < 3 && B.lo <= hi && lo <= B.hi) return;   // already one here
+  const tiles = [];
+  for (let t = lo; t <= hi; t++) for (const q of [px, px + 1]) { const k = tile(t, q); tiles.push(k); M.block[k] = 0; }
+  // the banks at the ends: clear and stamped as road
+  for (const t of [lo - 1, lo - 2, hi + 1, hi + 2]) for (const q of [px - 1, px, px + 1, px + 2]) { const k = tile(t, q); if (!W[k]) { M.block[k] = 0; M.dirt[k] = Math.max(M.dirt[k], 0.7); M.ore[k] = 0; M.oreMax[k] = 0; } }
+  const huts = [];
+  for (const [t, side] of [[lo - 2, px - 2], [hi + 2, px + 3]]) { const x = ax ? t : side, z = ax ? side : t; if (x > 1 && z > 1 && x < N - 2 && z < N - 2 && !W[at(x, z)]) huts.push([x, z]); }
+  M.bridges.push({ i: M.bridges.length, axis, across: px, lo, hi, tiles, huts, down: false, long: hi - lo + 1 >= 7 });
 }
 // a stable 0..1 hash of two integers (+ a salt), for placement that has to match across sectors
 function alrHash(a, b, salt) { let h = (a * 374761393 + b * 668265263 + (salt | 0) * 2147483647) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
@@ -363,6 +449,7 @@ function alrNewGame(tier, side, mapKey, nAI) {
       }
     }
     for (const [tx, tz] of alr.M.derricks) alrSpawnBld('derrick', alr.NEU, tx, tz, true);
+    for (const B of alr.M.bridges) { alrSpawnBridge(B); for (const [hx, hz] of B.huts) { const h = alrSpawnBld('bhut', alr.NEU, hx, hz, true); h.bridgeIdx = B.i; } }
     alrPowerAll();
     { const [sx, sz] = alr.M.starts[alr.players[0].start], c = ALR_N / 2; alr.cam.x = sx + (c - sx) * 0.12; alr.cam.z = sz + (c - sz) * 0.12; }
     alrRevealAll();
@@ -391,6 +478,37 @@ function alrSpawnBld(type, owner, tx, tz, instant) {
     h.order = { type: 'harvest' };
   }
   return e;
+}
+// the bridge as a target: one neutral entity over its whole span, NOT in M.bld (everyone drives across it)
+function alrSpawnBridge(B) {
+  const ax = B.axis === 'x', L = B.hi - B.lo + 1;
+  const tx = ax ? B.lo : B.across, tz = ax ? B.across : B.lo, w = ax ? L : 2, h = ax ? 2 : L;
+  const e = alrSpawnBld('bridge', alr.NEU, tx, tz, true);
+  alr.M.bld[tz * ALR_N + tx] = 0;
+  const hp = 500 + L * 80;          // one tank ~45 s on a short bridge; a squad ~10-15 s
+  Object.assign(e, { w, h, x: tx + w / 2, z: tz + h / 2, hp, max: hp, bridgeIdx: B.i });
+  B.ent = e.id;
+  return e;
+}
+// down it goes: the strip is water again, whoever was on it goes in, every route gets re-planned
+function alrBridgeDown(t) {
+  const M = alr.M, B = M.bridges[t.bridgeIdx];
+  B.down = true; B.downT = alr.t; B.ent = null;
+  for (const k of B.tiles) M.block[k] = 1;
+  for (const q of alr.ents.slice()) if (q.kind === 'unit' && !alrAirborne(q) && q.hp > 0 && B.tiles.includes(alrTile(q.x, q.z))) { q.hp = 0; q.sunk = true; alrKill(q, null); }
+  for (const q of alr.ents) if (q.kind === 'unit' && q.path) { q.path = null; q.repathT = 0; }
+  if (typeof alrFxBridgeDown === 'function') alrFxBridgeDown(B);
+  alrSfx('boomL', t.x, t.z);
+  alrSay('BRIDGE DESTROYED', '#ffb07a');
+  alrRemove(t, false);
+}
+function alrBridgeUp(B) {
+  const M = alr.M;
+  B.down = false;
+  for (const k of B.tiles) M.block[k] = 0;
+  alrSpawnBridge(B);
+  for (const q of alr.ents) if (q.kind === 'unit' && q.path) { q.path = null; q.repathT = 0; }
+  alrSay('BRIDGE REPAIRED', '#9bff9b');
 }
 function alrSpawnUnit(type, owner, x, z) {
   const D = ALR_UNIT[type];
@@ -558,7 +676,7 @@ function alrCanPlace(P, type, tx, tz) {
   if (tx < 1 || tz < 1 || tx + D.w > ALR_N - 1 || tz + D.h > ALR_N - 1) return false;
   for (let j = 0; j < D.h; j++) for (let i = 0; i < D.w; i++) {
     const k = (tz + j) * ALR_N + tx + i;
-    if (M.block[k] || M.bld[k] || M.ore[k] > 0) return false;
+    if (M.block[k] || M.bld[k] || M.ore[k] > 0 || (M.water && M.water[k])) return false;
     if (P.human && !P.shroud[k]) return false;
   }
   // nobody standing there
@@ -745,7 +863,8 @@ function alrCanHit(W, t) {
   if (air ? !W.air : W.ground === false) return false;
   const v = W.vs[alrArmor(t)];
   if (v === 0 || (air && v == null)) return false;
-  if (t.kind === 'bld' && t.D.wall && !ALR_WALL_KINDS[W.kind]) return false;
+  if (t.kind === 'bld' && (t.D.wall || t.D.bridge) && !ALR_WALL_KINDS[W.kind]) return false;
+  if (t.kind === 'bld' && t.D.bhut) return false;
   return true;
 }
 // rank: 0 rookie · 1 veteran · 2 elite (RA2: promoted after kills worth 3× your own price, and again)
@@ -946,6 +1065,8 @@ function alrJetStep(u, dt) {
 // walls can't be taken (RA2's rule). The cook is spent either way.
 function alrCanCapture(u, t) {
   if (!t || t.kind !== 'bld' || t.hp <= 0 || t.build < 1) return false;
+  if (t.D.bhut) { const B = alr.M.bridges[t.bridgeIdx]; return !!(B && B.down); }   // into the hut: fix the bridge
+  if (t.D.bridge) return false;
   if (t.owner === u.owner) return t.hp < t.max - 1;
   return !(t.D.cat === 'def' || t.D.wall || t.D.noCapture);
 }
@@ -966,6 +1087,7 @@ function alrEngineerStep(u, dt) {
   if (u.moving) u.walk += dt * u.D.speed * 7;
 }
 function alrCapture(u, t) {
+  if (t.D.bhut) { const B = alr.M.bridges[t.bridgeIdx]; alrFxSpark(t.x, 0.6, t.z, 14); alrSfx('place', t.x, t.z); if (B && B.down) alrBridgeUp(B); alrRemove(u, false); return; }
   const was = t.owner;
   alrFxSpark(t.x, 0.6, t.z, 14);
   if (t.owner === u.owner) { t.hp = t.max; t.flash = 0.3; if (u.owner === 0) alrSay('BUILDING REPAIRED', '#9bff9b'); }
@@ -1334,7 +1456,8 @@ function alrPoolsStep(dt) {
 }
 function alrHit(t, W, from, mul) {
   if (!alrAlive(t)) return;
-  if (t.kind === 'bld' && t.D.wall && !ALR_WALL_KINDS[W.kind]) return;
+  if (t.kind === 'bld' && (t.D.wall || t.D.bridge) && !ALR_WALL_KINDS[W.kind]) return;
+  if (t.kind === 'bld' && t.D.bhut) return;
   const armor = alrArmor(t), v = W.vs[armor] == null ? (armor === 'air' ? 0 : 1) : W.vs[armor];
   const fr = from && from.kind === 'unit' ? ALR_RANK[from.rank || 0].dmg : 1, tr = t.kind === 'unit' ? ALR_RANK[t.rank || 0].armor : 1;
   t.hp -= W.dmg * v * (mul || 1) * fr * tr;
@@ -1360,12 +1483,13 @@ function alrKill(t, from, W) {
     const need = 3 * Math.max(300, k.D.cost);
     if (k.rank < 2 && k.xp >= need * (k.rank + 1)) alrPromote(k);
   }
+  if (t.kind === 'bld' && t.D.bridge) { alrBridgeDown(t); return; }
   if (t.kind === 'unit') {
     // scalded by the gravy: a scream (three takes), and the nugget goes under in a gravy splat
     const gravied = t.D.cat === 'inf' && W && W.gravy;
     if (gravied) { alrSfx('scream' + (1 + ((Math.random() * 3) | 0)), t.x, t.z); if (typeof alrFxGravyDeath === 'function') alrFxGravyDeath(t.x, t.z); }
     else if (t.D.cat === 'inf') { alrFxCrumbs(t.x, t.z); if (t.crushed) alrFxSquish(t.x, t.z); }
-    else { alrFxBoom(t.x, 0.3 + (t.alt || 0), t.z, t.type === 'blimp' ? 2.4 : 1); if (!t.D.air) alr.decor.push({ kind: 'wreck', type: t.type, D: t.D, cargo: 0, x: t.x, z: t.z, yaw: t.yaw, tYaw: t.tYaw, t: 0, T: 9, owner: t.owner, alt: 0, rank: 0 }); }
+    else { alrFxBoom(t.x, 0.3 + (t.alt || 0), t.z, t.type === 'blimp' ? 2.4 : 1); if (!t.D.air && !t.sunk) alr.decor.push({ kind: 'wreck', type: t.type, D: t.D, cargo: 0, x: t.x, z: t.z, yaw: t.yaw, tYaw: t.tYaw, t: 0, T: 9, owner: t.owner, alt: 0, rank: 0 }); }
     // a blimp coming down lands on whoever is under it
     if (t.type === 'blimp') for (const q of alr.ents.slice()) if (q !== t && q.hp > 0 && !alrAirborne(q) && alrDistTo(t.x, t.z, q) < 1.3) alrHit(q, ALR_WPN.bomb, from, 0.6);
     if (!gravied) alrSfx(t.D.cat === 'inf' ? 'squish' : 'boomL', t.x, t.z);
@@ -1517,7 +1641,8 @@ function alrAIStep(P, dt) {
   const harvs = mine.filter((e) => e.D.harv).length, refs = alrBldsOf(me, 'refinery').length;
   const queued = (q, t) => q.filter((x) => x.type === t).length;
   if (alrCanBuild(P, hv) && harvs + queued(P.q.veh, hv) < Math.min(refs * 1.5 + 0.5, 4) && P.credits > 800) alrQueue(P, hv);
-  const neutral = alr.ents.filter((e) => e.kind === 'bld' && e.D.tech && e.owner === alr.NEU);
+  // (a downed bridge's repair hut counts as a job for a cook, like a neutral derrick)
+  const neutral = alr.ents.filter((e) => e.kind === 'bld' && e.owner === alr.NEU && (e.D.tech || (e.D.bhut && alr.M.bridges[e.bridgeIdx] && alr.M.bridges[e.bridgeIdx].down)));
   const cooks = mine.filter((e) => e.D.engineer).length + queued(P.q.inf, 'engineer');
   if (neutral.length && cooks < Math.min(2, neutral.length) && alrCanBuild(P, 'engineer') && P.credits > 700) alrQueue(P, 'engineer');
   // (production pays as it goes, so the queues just stay topped up; nothing has to be saved for first)

@@ -198,7 +198,7 @@ precision highp float; precision highp sampler2DShadow; precision highp sampler2
 in vec3 vN; in vec4 vC; in vec3 vW; in vec4 vL; in vec2 vUV; in vec3 vP; in vec3 vON;
 uniform sampler2DShadow uShadow; uniform sampler2D uTex; uniform sampler2D uShroud; uniform sampler2D uDetail;
 // the Blender models' surfaces (js/alertArt.js alrMatLayers): uv.x = surface class (0 = none), uv.y = grime
-uniform sampler2DArray uMat; uniform float uMatOn; uniform float uMatS[20]; uniform float uMatSpec[20];
+uniform sampler2DArray uMat; uniform float uMatOn; uniform float uMatS[20]; uniform float uMatSpec[20]; uniform float uTime;
 uniform vec3 uSun, uSunCol, uSky, uGround, uTeam, uView, uAdd;
 uniform float uUseTex, uSpec, uAlpha, uN, uTexel, uNoShroud, uDesat;
 out vec4 o;
@@ -224,7 +224,23 @@ void main() {
   float lum = dot(vC.rgb, vec3(0.3, 0.59, 0.11));
   base = mix(base, uTeam * (0.25 + 1.05 * lum), vC.a);
   float mspec = 1.0;
-  if (uUseTex > 0.5) {
+  vec3 nOff = vec3(0.0);
+  if (uMatOn > 0.5 && vUV.x > 17.5 && vUV.x < 18.5) {
+    // WATER (class 18): two drifting swells and a fine chop bend the normal (the sun's glints move), the colour
+    // gets the sky mirrored in it toward the horizon (fresnel), a little texture keeps it from going flat
+    vec2 p = vW.xz;
+    float t = uTime;
+    float sw = sin(p.x * 1.7 + p.y * 0.9 + t * 1.1) + sin(p.x * -0.8 + p.y * 2.1 + t * 0.8);
+    float ch = vnoise(vec3(p * 6.0 + vec2(t * 0.5, t * 0.35), t * 0.6)) - 0.5;
+    float ch2 = vnoise(vec3(p.yx * 9.0 - vec2(t * 0.4, -t * 0.3), t * 0.9 + 3.0)) - 0.5;
+    nOff = vec3(cos(p.x * 1.7 + p.y * 0.9 + t * 1.1) * 0.06 + ch * 0.35, 0.0, cos(p.x * -0.8 + p.y * 2.1 + t * 0.8) * 0.07 + ch2 * 0.35);
+    vec3 tx = texture(uMat, vec3(p * uMatS[18] + vec2(t * 0.02, 0.0), 17.0)).rgb;
+    base *= tx * 2.0;
+    base *= 0.95 + 0.05 * sw;
+    float fr = pow(1.0 - clamp(dot(normalize(uView), vec3(0.0, 1.0, 0.0)), 0.0, 1.0), 3.0);
+    base = mix(base, uSky * 0.75, 0.25 + 0.4 * fr);
+    mspec = uMatSpec[18];
+  } else if (uUseTex > 0.5) {
     vec3 tc = texture(uTex, vUV).rgb;
     base = tc * vC.rgb;
     // the close-up grain: soil grit (r) on earth, grass blades (g) on grass, chosen by the paint's own hue
@@ -257,6 +273,7 @@ void main() {
   }
   vec3 n = normalize(vN);
   if (!gl_FrontFacing) n = -n;
+  n = normalize(n + nOff);
   float ndl = max(dot(n, uSun), 0.0);
   float sh = shade();
   vec3 amb = mix(uGround, uSky, n.y * 0.5 + 0.5);
@@ -333,6 +350,7 @@ function alrGLBindMat(U) {
   const gl = alrGL.gl, G = alrGL;
   gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D_ARRAY, G.mat || null); if (U.uMat) gl.uniform1i(U.uMat, 4);
   if (U.uMatOn) gl.uniform1f(U.uMatOn, G.mat ? 1 : 0);
+  if (U.uTime) gl.uniform1f(U.uTime, (performance.now() / 1000) % 1000);
   if (G.mat && U['uMatS[0]']) { gl.uniform1fv(U['uMatS[0]'], G.matS); gl.uniform1fv(U['uMatSpec[0]'], G.matSpec); }
 }
 

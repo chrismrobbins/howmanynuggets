@@ -3522,3 +3522,53 @@ option in Red Alert 2"*. It was: the Allied **Spy Satellite Uplink**, after the 
   deselect. Right-click on the battlefield still deselects.
 - **Not done:** an EVA voice line for "satellite online" (it's text plus a sound for now). That needs an
   ElevenLabs call (~10 voice credits), so ask Chris first.
+
+## 🌉 NUGGET ALERT: WATER MAPS AND BRIDGES (2026-10-19)
+Chris: *"make more detailed maps … let's get water based maps and bridges. study the old red alert 2. there
+used to be bridges people would have to cross to get to other bases. make it so these can also be destroyed"*.
+- **Maps** (`ALR_MAPS`, `def.water`):
+  - **THE FRYER RIVER** (`river`, 80², 2 players): a meandering river through the centre. Its line is
+    `c + d·t + n·A·sin(f·t)`, and because sin is odd the river is its own 180° rotation, so both bases
+    get the same banks. Three bridges (centre + two flanks at t = ±0.55c), each with its own roads in.
+  - **SAUCE ISLES** (`isles`, 104², up to 4): sea, with an island per base (r 14.5) and a middle island
+    (r 11.5) carrying the rich ore and the four derricks. An 11-tile truss bridge links each base to the
+    middle. The coast wobble is sampled in sector 0's frame (every island gets the same coast) and only
+    bends coasts (`v > 0`); otherwise the noise raised land all over the sea.
+- **Data:** `M.water` (tiles; blocked for the ground) and `M.bridges[]` (`axis`, `across` = its two
+  tiles are across and across + 1, `lo..hi` along, `tiles`, `huts`, `down`, `long` ≥ 7 → truss).
+  `alrMapBridge` walks from a crossing point to land both ways (≤ 16 tiles) and clears the banks.
+  Water tiles never take ore, buildings (`alrCanPlace`) or trees. Derricks that land in water walk
+  to the nearest land.
+- **Bridges in play:**
+  - Each bridge is a neutral entity (`ALR_BLD.bridge`, `alrSpawnBridge`) spanning the strip but NOT in
+    `M.bld`, because everyone drives over it. HP is 500 + 80/tile: one tank ~45 s, three ~15 s.
+  - Only `ALR_WALL_KINDS` (heavy) weapons hurt it, as with walls. Splash never touches neutrals.
+  - A plain click on a bridge passes through it (a move across). `alrPickAt` only returns a bridge
+    under force-fire (`alr.ui.force`, the Ctrl/⌘ flag from the force-fire commit), so Ctrl+click = attack.
+  - At 0 HP, `alrBridgeDown`: the strip is blocked again, ground units on it sink (`sunk`: no floating
+    wreck), every path is dropped so routes re-plan, and "BRIDGE DESTROYED" plays.
+- **Repair:** a repair hut at each end (`bhut`, neutral, can't be hurt). An engineer ordered into it
+  (`alrCanCapture` is true only while its bridge is down) rebuilds the bridge (`alrBridgeUp`) and is
+  used up. The CPU counts a downed bridge's hut as a cook job (like a neutral derrick). With every
+  river bridge dropped, the two CPU commanders had all three rebuilt within ~60 s.
+- **The look:**
+  - With water, the ground is a height grid (`alrTerrainMesh`, 2 verts/tile). Its heights come from
+    a blurred water field (`alrWaterBlur`, `alrGroundY`: down to −0.42).
+  - One water sheet sits at `ALR_WATER_Y` −0.08 (`alrWaterMesh`, alpha 0.88), and the banks poke
+    through it. It uses surface class 18 in the lit shader: two drifting swells + fine chop bend the
+    normal (moving glints; `uTime`), and the sky is mirrored in with fresnel.
+  - The terrain paint has sand → wet mud → a darkening riverbed, plus a pale foam line at the
+    waterline. Reeds grow on bank tiles (`shrubs` with `reed`).
+  - Blender pieces (`w.*` → `alrArt.w`): `bridge_deck` (1 tile × 2 wide, deck top y 0.02),
+    `bridge_truss` + `bridge_portal` (long bridges), `bridge_pier` (every other tile), `bridge_end`
+    (the abutment, +z faces the water), `bridge_ruin`, `reeds`, and `b.bhut`. There are procedural
+    stand-ins (`alrWaterworksInit`) until the mesh file lands.
+  - A downed bridge: abutments + piers stay, the end spans hang into the water, a few slabs lie sunk.
+    The collapse walks explosions along the span, then splashes (`alrFxBridgeDown`, `alrFxSplash`).
+  - The map picker's thumbnails show water + bridges.
+- **Tested:**
+  - Both maps generate: the bases reach each other with the bridges up and are cut off with all down;
+    an engineer at a hut reconnects them.
+  - Ctrl+click picks the bridge and a plain click doesn't; 3 tanks drop one in ~15 s; the CPU repairs.
+  - Full CPU-vs-CPU games end on the river (both armies) and on the isles (4 players).
+  - Regression on Fryer Valley + the gravy test.

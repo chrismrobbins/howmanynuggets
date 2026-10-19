@@ -127,9 +127,22 @@ function alrUIBuildWorld() {
       for (let j = 0; j < n; j++) if (r() < 0.5) U.shrubs.push({ x: x + 0.15 + r() * 0.7, z: z + 0.15 + r() * 0.7, v: (r() * 4) | 0, yaw: r() * 6.28, s: 0.7 + r() * 0.6 });
     }
   }
+  // the banks: reed clumps on the land tiles that touch water
+  if (M.wet) {
+    let s2 = M.seed * 29 + 1; const r2 = () => ((s2 = (s2 * 16807) % 2147483647) / 2147483647);
+    for (let z = 1; z < ALR_N - 1; z++) for (let x = 1; x < ALR_N - 1; x++) {
+      const k = z * ALR_N + x;
+      if (M.water[k] || M.block[k] || M.ore[k] > 0) continue;
+      if (!(M.water[k - 1] || M.water[k + 1] || M.water[k - ALR_N] || M.water[k + ALR_N])) continue;
+      if (M.bridges.some((B) => B.tiles.includes(k) || Math.abs((B.axis === 'x' ? z : x) - B.across - 0.5) < 2.5 && ((B.axis === 'x' ? x : z) >= B.lo - 3 && (B.axis === 'x' ? x : z) <= B.hi + 3))) continue;
+      for (let j = 0; j < 2; j++) if (r2() < 0.6) U.shrubs.push({ x: x + 0.15 + r2() * 0.7, z: z + 0.15 + r2() * 0.7, v: 0, yaw: r2() * 6.28, s: 0.8 + r2() * 0.6, reed: true });
+    }
+  }
   if (U.terrTex) alrGL.gl.deleteTexture(U.terrTex);
   U.terrTex = alrGLTexCanvas(tcv, true);
-  if (!U.terrMesh || U.terrN !== ALR_N) {
+  U.waterMesh = M.wet ? alrWaterMesh(M) : null;
+  if (M.wet) { U.terrMesh = alrTerrainMesh(M); U.terrN = -1; }       // a height grid: the riverbeds dip under the water
+  else if (!U.terrMesh || U.terrN !== ALR_N) {
     U.terrN = ALR_N;
     const mb = new AlrMB(); mb.color('#ffffff');
     mb.face([[0, 0, 0], [0, 0, ALR_N], [ALR_N, 0, ALR_N], [ALR_N, 0, 0]], [[0, 0], [0, 1], [1, 1], [1, 0]]);
@@ -305,6 +318,48 @@ function alrFxBoom(x, y, z, s) {
   alr.fx.push({ kind: 'decal', x, z, s: s * 1.2, t: 0, T: 60, rot: Math.random() * 6 });
   alr.shake = Math.max(alr.shake || 0, 0.15 * s);
 }
+// ---- the bridges: deck tiles, piers, a truss on the long ones, abutments; ruins once they're down -------------
+function alrDrawBridges(onScreen, seen) {
+  const W = alrArt.w || {}, M = alr.M;
+  for (const B of M.bridges) {
+    const ax = B.axis === 'x', ac = B.across + 1, yaw = ax ? Math.PI / 2 : 0;
+    const P = (t) => (ax ? [t + 0.5, ac] : [ac, t + 0.5]);
+    const mid = P((B.lo + B.hi) / 2);
+    if (!onScreen(mid[0], mid[1], 300) || !seen(mid[0], mid[1])) continue;
+    // the abutments (they survive): +z of the piece faces the water
+    for (const [t, y2] of [[B.lo - 1, 0], [B.hi + 1, Math.PI]]) { const [x, z] = P(t); if (W.bridge_end) alrGLDraw(W.bridge_end, alrTRS(x, 0, z, yaw + y2), { spec: 0.2 }); }
+    for (let t = B.lo; t <= B.hi; t++) {
+      const [x, z] = P(t), h = alrHash(t, B.i, 77);
+      if ((t - B.lo) % 2 === 1 && t < B.hi && W.bridge_pier) alrGLDraw(W.bridge_pier, alrTRS(x, 0, z, yaw), { spec: 0.15 });
+      if (!B.down) {
+        if (W.bridge_deck) alrGLDraw(W.bridge_deck, alrTRS(x, 0, z, yaw), { spec: 0.2 });
+        if (B.long && W.bridge_truss) alrGLDraw(W.bridge_truss, alrTRS(x, 0, z, yaw), { spec: 0.5 });
+      } else if (W.bridge_ruin && (t === B.lo || t === B.hi || h < 0.35)) {
+        // what's left: the end spans hang from the abutments into the water, a few slabs lie sunk mid-river
+        const end = t === B.lo ? 1 : t === B.hi ? -1 : 0;
+        const tilt = end ? end * 0.35 : (h - 0.17) * 2, drop = end ? -0.12 : -0.3 - h * 0.2;
+        alrGLDraw(W.bridge_ruin, alrTRS(x, drop, z, yaw + (end < 0 || (!end && h > 0.2) ? Math.PI : 0), 1, 1, 1, Math.abs(tilt), (h - 0.17) * 0.5), { spec: 0.2 });
+      }
+    }
+    if (!B.down && B.long && W.bridge_portal) for (const [t, y2] of [[B.lo - 0.5, 0], [B.hi + 0.5, Math.PI]]) { const [x, z] = P(t); alrGLDraw(W.bridge_portal, alrTRS(x, 0, z, yaw + y2), { spec: 0.5 }); }
+    // a badly hurt bridge smokes
+    const e = !B.down && B.ent && alr.byId.get(B.ent);
+    if (e && e.hp < e.max * 0.5 && Math.random() < 0.08) { const [x, z] = P(B.lo + Math.floor(Math.random() * (B.hi - B.lo + 1))); alrFxSmoke(x, 0.2, z, 0.3, 1.8, true); }
+  }
+}
+function alrFxSplash(x, z, s) {
+  s = s || 1;
+  for (let k = 0; k < 14 * s; k++) { const a = Math.random() * 6.283, sp = alrRnd(0.3, 1.4) * s; alrP({ x, y: ALR_WATER_Y + 0.02, z, vx: Math.cos(a) * sp, vy: alrRnd(1.5, 3.6) * s, vz: Math.sin(a) * sp, s: alrRnd(0.05, 0.12) * s, T: alrRnd(0.6, 1.0), r: 0.82, g: 0.9, b: 0.95, a: 0.85, cell: 0, grav: 9 }); }
+  alrP({ x, y: ALR_WATER_Y + 0.05, z, vx: 0, vy: 0.2, vz: 0, s: 0.8 * s, gs: 1.2, T: 0.9, r: 0.85, g: 0.9, b: 0.92, a: 0.4, cell: 1 });
+}
+// a bridge comes down: explosions walk along the span, each piece throws up a splash
+function alrFxBridgeDown(B) {
+  const ax = B.axis === 'x', ac = B.across + 1;
+  for (let t = B.lo; t <= B.hi; t++) {
+    const x = ax ? t + 0.5 : ac, z = ax ? ac : t + 0.5, d = (t - B.lo) * 0.09;
+    alr.later = (alr.later || []).concat([{ t: alr.t + d, fn: () => { alrFxBoom(x, 0.15, z, 0.9); } }, { t: alr.t + d + 0.35, fn: () => alrFxSplash(x, z, 1.2) }]);
+  }
+}
 // ---- the gravy (the Gravy Blimp's pour): splash, death, the stream + the pools --------------------------------
 const ALR_GRAVY = [0.36, 0.2, 0.09];
 function alrFxGravy(x, z) {
@@ -448,6 +503,7 @@ function alrUIRender(dt) {
   const S = alr.players[0].shroud, seen = (x, z) => S[alrTile(alrClamp(x, 0, ALR_N - 1), alrClamp(z, 0, ALR_N - 1))] > 8;
   // the ground
   alrGLDraw(U.terrMesh, alrM4(), { tex: U.terrTex, spec: 0.0, noCast: true });
+  if (U.waterMesh) { alrGLDraw(U.waterMesh, alrM4(), { spec: 1.0, alpha: 0.88, noCast: true }); alrDrawBridges(onScreen, seen); }
   // the ore and its stain, the trees, the rocks
   for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
     const k = z * ALR_N + x, v = M.ore[k];
@@ -465,6 +521,7 @@ function alrUIRender(dt) {
   if (A.shrubs && U.shrubs) for (const sh of U.shrubs) {
     if (sh.x < x0 || sh.x > x1 + 1 || sh.z < z0 || sh.z > z1 + 1 || !seen(sh.x, sh.z)) continue;
     const k = alrTile(sh.x, sh.z); if (M.bld[k] || M.ore[k] > 0) continue;
+    if (sh.reed) { if (alrArt.w && alrArt.w.reeds) alrGLDraw(alrArt.w.reeds, alrTRS(sh.x, 0, sh.z, sh.yaw, sh.s), { spec: 0.1 }); continue; }
     alrGLDraw(A.shrubs[sh.v % A.shrubs.length], alrTRS(sh.x, 0, sh.z, sh.yaw, sh.s), { spec: 0.05 });
   }
   for (const rk of M.rocks) if (seen(rk.x, rk.z) && rk.x >= x0 && rk.x <= x1 + 1 && rk.z >= z0 && rk.z <= z1 + 1) alrGLDraw(A.rocks[rk.v % A.rocks.length], alrTRS(rk.x, 0, rk.z, rk.yaw, rk.s), { spec: 0.1 });
@@ -953,8 +1010,10 @@ function alrPickAt(px, py) {
     if (d < r && d < bd) { bd = d; best = e; }
   }
   if (best) return best;
+  const force = alr.ui && alr.ui.force;     // (Ctrl / ⌘ held: force-fire — the only way a click lands on a bridge)
   for (const e of alr.ents) {
     if (e.kind !== 'bld') continue;
+    if (e.D.bridge && !force) continue;
     if (e.owner !== 0 && S[alrTile(e.x, e.z)] < 40) continue;
     const pts = [];
     for (const [dx, dz] of [[0.1, 0.1], [e.w - 0.1, 0.1], [0.1, e.h - 0.1], [e.w - 0.1, e.h - 0.1]]) for (const y of [0, e.type === 'tesla' ? 1.3 : 0.8]) pts.push(alrGLProject(e.tx + dx, y, e.tz + dz));
@@ -1308,7 +1367,10 @@ function alrMapPreview(def, size, marks, seats) {
   for (let k = 0; k < N * N; k++) {
     let r = 92, g = 116, b = 62;
     const d = M.dirt[k]; r += (138 - r) * d; g += (112 - g) * d; b += (78 - b) * d;
-    if (M.ore[k] > 0) { r = 214; g = 166; b = 58; }
+    const onBridge = M.bridges && M.bridges.some((B) => B.tiles.includes(k));
+    if (onBridge) { r = 70; g = 70; b = 72; }
+    else if (M.water && M.water[k]) { r = 42; g = 82; b = 104; }
+    else if (M.ore[k] > 0) { r = 214; g = 166; b = 58; }
     else if (trees[k]) { r = 46; g = 74; b = 38; }
     else if (M.block[k]) { r = 118; g = 112; b = 102; }
     const o = k * 4; id.data[o] = r; id.data[o + 1] = g; id.data[o + 2] = b; id.data[o + 3] = 255;

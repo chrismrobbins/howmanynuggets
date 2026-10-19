@@ -402,6 +402,9 @@ function alrTerrainCanvas(M, ppt) {
     return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + e * tx) * ty;
   };
   const mix3 = (A, B, t) => [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t];
+  const WB = M.wet ? alrWaterBlur(M) : null;
+  const wAt = (x, y) => alrWaterAt(M, WB, x / ppt, y / ppt);
+  const BED = [52, 62, 54], MUD = [86, 74, 54], SANDY = [158, 142, 104];
   const GRASS = [84, 98, 50], LUSH = [58, 80, 38], DRY = [124, 118, 70], EARTH = [116, 97, 72], DAMP = [88, 74, 56], SAND = [146, 128, 96];
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
     const u = x / ppt, v = y / ppt;
@@ -422,6 +425,16 @@ function alrTerrainCanvas(M, ppt) {
     e = [e[0] + eg, e[1] + eg * 0.9, e[2] + eg * 0.7];
     c = mix3(c, DRY, fringe * 0.45);
     c = mix3(c, e, k);
+    if (WB) {
+      // the banks: sand, then wet mud at the waterline, then the riverbed going dark with depth; a pale foam line
+      const w = wAt(x, y) + (fine - 0.5) * 0.06;
+      if (w > 0.12) {
+        const sand = Math.min(1, (w - 0.12) / 0.14), wetm = Math.min(1, Math.max(0, (w - 0.3) / 0.12)), deep = Math.min(1, Math.max(0, (w - 0.45) / 0.4));
+        c = mix3(c, SANDY, sand * 0.85); c = mix3(c, MUD, wetm); c = mix3(c, BED, deep);
+        const foam = Math.max(0, 1 - Math.abs(w - 0.41) / 0.025);
+        c = mix3(c, [196, 200, 190], foam * 0.55);
+      }
+    }
     const gr = (Math.random() - 0.5) * 8;
     const o = (y * S + x) * 4;
     d[o] = Math.max(0, Math.min(255, c[0] + gr)); d[o + 1] = Math.max(0, Math.min(255, c[1] + gr)); d[o + 2] = Math.max(0, Math.min(255, c[2] + gr * 0.6)); d[o + 3] = 255;
@@ -452,6 +465,61 @@ function alrTerrainCanvas(M, ppt) {
   return cv;
 }
 
+// ---- the water maps: a blurred water field, the height grid, the water sheet -------------------------------------
+// M.water is per tile; the banks want a soft field (a box blur, 2 passes), sampled bilinearly anywhere
+function alrWaterBlur(M) {
+  if (M._wb) return M._wb;
+  const N = M.N; let a = new Float32Array(N * N), b = new Float32Array(N * N);
+  for (let k = 0; k < N * N; k++) a[k] = M.water[k];
+  for (let pass = 0; pass < 2; pass++) {
+    for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) { let t = 0, n = 0; for (let d = -1; d <= 1; d++) { const q = x + d; if (q >= 0 && q < N) { t += a[z * N + q]; n++; } } b[z * N + x] = t / n; }
+    for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) { let t = 0, n = 0; for (let d = -1; d <= 1; d++) { const q = z + d; if (q >= 0 && q < N) { t += b[q * N + x]; n++; } } a[z * N + x] = t / n; }
+  }
+  return (M._wb = a);
+}
+function alrWaterAt(M, WB, x, z) {
+  const N = M.N, fx = Math.max(0, Math.min(N - 1.001, x - 0.5)), fz = Math.max(0, Math.min(N - 1.001, z - 0.5));
+  const ix = Math.floor(fx), iz = Math.floor(fz), tx = fx - ix, tz = fz - iz, i2 = Math.min(N - 1, ix + 1), j2 = Math.min(N - 1, iz + 1);
+  return (WB[iz * N + ix] * (1 - tx) + WB[iz * N + i2] * tx) * (1 - tz) + (WB[j2 * N + ix] * (1 - tx) + WB[j2 * N + i2] * tx) * tz;
+}
+const ALR_WATER_Y = -0.08;          // the water's surface; the riverbed goes to -0.42
+function alrGroundY(M, WB, x, z) { const w = alrWaterAt(M, WB, x, z), t = Math.max(0, Math.min(1, (w - 0.28) / 0.42)); return -0.42 * t * t * (3 - 2 * t); }
+// the ground as a height grid (2 verts a tile) where there's water; flat everywhere else is the same picture
+function alrTerrainMesh(M) {
+  const N = M.N, WB = alrWaterBlur(M), R = 2, V = N * R + 1;
+  const p = new Float32Array(V * V * 3), n = new Float32Array(V * V * 3), c = new Float32Array(V * V * 4).fill(1), u = new Float32Array(V * V * 2);
+  const H = new Float32Array(V * V);
+  for (let j = 0; j < V; j++) for (let i = 0; i < V; i++) H[j * V + i] = alrGroundY(M, WB, i / R, j / R);
+  for (let j = 0; j < V; j++) for (let i = 0; i < V; i++) {
+    const k = j * V + i, x = i / R, z = j / R;
+    p[k * 3] = x; p[k * 3 + 1] = H[k]; p[k * 3 + 2] = z;
+    const hl = H[j * V + Math.max(0, i - 1)], hr = H[j * V + Math.min(V - 1, i + 1)], hd = H[Math.max(0, j - 1) * V + i], hu = H[Math.min(V - 1, j + 1) * V + i];
+    const nx = (hl - hr) * R / 2, nz = (hd - hu) * R / 2, l = Math.hypot(nx, 1, nz);
+    n[k * 3] = nx / l; n[k * 3 + 1] = 1 / l; n[k * 3 + 2] = nz / l;
+    c[k * 4 + 3] = 0;
+    u[k * 2] = x / N; u[k * 2 + 1] = z / N;
+  }
+  const idx = new Uint32Array((V - 1) * (V - 1) * 6);
+  let q = 0;
+  for (let j = 0; j < V - 1; j++) for (let i = 0; i < V - 1; i++) { const a = j * V + i, b = a + 1, d = a + V, e = d + 1; idx[q++] = a; idx[q++] = d; idx[q++] = b; idx[q++] = b; idx[q++] = d; idx[q++] = e; }
+  return alrGLMesh({ p, n, c, u, i: idx });
+}
+// the water: one sheet over the map at ALR_WATER_Y (the banks poke through it); surface class 18 moves its normals
+function alrWaterMesh(M) {
+  const N = M.N, mb = new AlrMB(); mb.color('#1e3f44');
+  mb.face([[0, ALR_WATER_Y, 0], [0, ALR_WATER_Y, N], [N, ALR_WATER_Y, N], [N, ALR_WATER_Y, 0]], [[18, 0], [18, 0], [18, 0], [18, 0]]);
+  return mb.bake();
+}
+// procedural stand-ins for the bridge pieces until the Blender set lands (same frames as blender/alertrig.py)
+function alrWaterworksInit(mk) {
+  const W = alrArt.w = alrArt.w || {};
+  W.bridge_deck = mk((mb) => { mb.color(ALR_PAL.concDark).box(0, -0.03, 0, 0.98, 0.05, 0.5, 0.01); mb.color(ALR_PAL.black).box(0, 0.022, 0, 0.83, 0.004, 0.5, 0); for (const s of [-1, 1]) mb.color(ALR_PAL.steel).box(s * 0.93, 0.12, 0, 0.015, 0.06, 0.5, 0); });
+  W.bridge_pier = mk((mb) => mb.color(ALR_PAL.concDark).box(0, -0.38, 0, 0.85, 0.22, 0.12, 0.03));
+  W.bridge_end = mk((mb) => mb.color(ALR_PAL.conc).box(0, -0.2, 0.35, 1.1, 0.23, 0.15, 0.02));
+  W.bridge_ruin = mk((mb) => mb.color(ALR_PAL.concDark).box(0, -0.03, 0, 0.98, 0.05, 0.45, 0.01));
+  alrArt.b.bhut = alrArt.b.bhut || mk((mb) => { mb.color(ALR_PAL.conc).box(0, 0.25, 0, 0.3, 0.17, 0.28, 0.03); mb.color(ALR_PAL.gold).box(0.2, 0.35, 0.29, 0.07, 0.05, 0.006, 0); });
+}
+
 // ---- build it all once ------------------------------------------------------------------------------------
 function alrArtInit() {
   if (alrArt.ok) return;
@@ -472,6 +540,7 @@ function alrArtInit() {
   A.chunk = mk((mb) => mb.color(ALR_PAL.dark).box(0, 0, 0, 0.05, 0.035, 0.04, 0.01));
   A.rubble = mk((mb) => { let s = 5; const r = () => ((s = (s * 16807) % 2147483647) / 2147483647); for (let k = 0; k < 14; k++) mb.color(k % 2 ? ALR_PAL.concDark : ALR_PAL.padDark).box((r() - 0.5) * 0.9, 0.04, (r() - 0.5) * 0.9, 0.05 + r() * 0.1, 0.03 + r() * 0.05, 0.05 + r() * 0.1, 0.02); });
   if (typeof alrArtInitP1 === 'function') alrArtInitP1(A, mk);
+  alrWaterworksInit(mk);
   A.ok = true;
   alrMeshUse();
 }
@@ -480,7 +549,7 @@ function alrArtInit() {
 // The procedural models above draw first and stay as the fallback. The Blender set (~1 MB gzipped) is
 // injected the first time the game opens, then swapped in by name: 'b.hq' → alrArt.b.hq, 'u.tank' → alrArt.u.tank.
 // Everything draws through alrArt lookups each frame, so the swap is live; the sidebar cameos are re-shot.
-const ALR_MESH_SRC = 'js/alertMeshData.js?v=6';
+const ALR_MESH_SRC = 'js/alertMeshData.js?v=7';
 function alrMeshUse() {
   const D = window.ALR_MESH_DATA;
   if (!D) {
@@ -510,7 +579,9 @@ function alrMeshUse() {
     const mesh = alrGLMesh({ p, n, c, u, i });
     // b.* buildings, u.* units by name; t / s / r / o = trees, shrubs, rocks, ore by index
     const LIST = { t: 'trees', s: 'shrubs', r: 'rocks', o: 'ore' };
-    if (LIST[grp]) { (alrArt[LIST[grp]] = alrArt[LIST[grp]] || [])[+key] = mesh; } else (grp === 'b' ? alrArt.b : alrArt.u)[key] = mesh;
+    if (LIST[grp]) { (alrArt[LIST[grp]] = alrArt[LIST[grp]] || [])[+key] = mesh; }
+    else if (grp === 'w') (alrArt.w = alrArt.w || {})[key] = mesh;            // waterworks: bridge pieces, reeds
+    else (grp === 'b' ? alrArt.b : alrArt.u)[key] = mesh;
   }
   alrArt.mesh = true;
   if (!alrGL.mat) { const L = alrMatLayers(256); alrGLMatTex(256, L.layers, ALR_MAT_SCALE, ALR_MAT_SPEC); }
@@ -523,8 +594,8 @@ function alrMeshUse() {
 // colour unchanged; the shader multiplies by 2×) with its own physical logic: formwork seams + tie holes on cast
 // concrete, slab joints + cracks + oil on the aprons, gravel on roofs, ribs + rust runs on corrugated sheet, weld
 // seams + chipped paint on armour, rivet rows + rust weeping on silos. Scales are repeats per tile.
-const ALR_MAT_SCALE = [0, 2.0, 1.0, 2.2, 3.0, 3.2, 3.0, 8.0, 2.0, 7.0, 5.0, 2.5, 6.0, 3.0, 5.0, 3.0, 9.0, 2.5];
-const ALR_MAT_SPEC = [1, 0.15, 0.08, 0.25, 0.7, 0.75, 1.1, 0.12, 2.2, 0.05, 0.1, 0.6, 0.3, 0.08, 0.12, 0.2, 0.9, 2.4];
+const ALR_MAT_SCALE = [0, 2.0, 1.0, 2.2, 3.0, 3.2, 3.0, 8.0, 2.0, 7.0, 5.0, 2.5, 6.0, 3.0, 5.0, 3.0, 9.0, 2.5, 0.6];
+const ALR_MAT_SPEC = [1, 0.15, 0.08, 0.25, 0.7, 0.75, 1.1, 0.12, 2.2, 0.05, 0.1, 0.6, 0.3, 0.08, 0.12, 0.2, 0.9, 2.4, 2.6];
 function alrMatLayers(S) {
   const hash = (x, y, s) => { let h = (x * 374761393 + y * 668265263 + s * 2147483647) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
   // tileable value noise: `cells` lattice cells across the tile, wrapped
@@ -629,5 +700,7 @@ function alrMatLayers(S) {
     each(L, (x, y) => { const w = fbm(x, y, 3, 3, 40); const sw = Math.sin((x + w * 140) / 22 + Math.cos((y + w * 90) / 30) * 2); return [sw * 9 + (w - 0.5) * 22, sw * 6 + (w - 0.5) * 16, sw * 3 + (w - 0.5) * 10]; });
     for (let k = 0; k < 20; k++) blob(L, rnd() * S | 0, rnd() * S | 0, 6 + rnd() * 14 | 0, 18, [1.1, 0.85, 0.55]);
   });
+  // 18 water: soft swell + fine chop (the shader moves the normals too; this keeps the colour from going flat)
+  make((L) => { each(L, (x, y) => { const v = (fbm(x, y, 4, 4, 50) - 0.5) * 26 + (vn(x, y, 24, 51) - 0.5) * 10; return [v * 0.6, v * 0.9, v]; }); });
   return { layers };
 }
