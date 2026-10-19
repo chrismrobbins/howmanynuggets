@@ -3377,3 +3377,74 @@ neither ever arrived. **Fix** (`alrHarvStep` / `alrFindOre`):
 Result: 0 stalls with 5 or 8 haulers. Income per 4 min went $12.0k → $31.7k (5 War Haulers) and
 $0.7k → $34.9k (5 Chrono Haulers). The CPU's economy got the same boost: CPU-vs-CPU games still end
 (14–15 min) with bigger armies (peak ~100 units).
+## 🚨 NUGGET ALERT: BIGGER MAPS, 1–4 CPU OPPONENTS (2026-10-19)
+
+Chris: *"making the map bigger now. make it so you can decide how many AI to play against as well 2, 3, or 4
+AI. Make several maps that can support different sizes … use its graphics as you extend"*.
+- **Maps** (`ALR_MAPS` in js/alert.js), each a fixed seed with k-fold rotational symmetry (`ring: [starts,
+  radius, angle]`):
+
+  | Map | Size | Starts |
+  |---|---|---|
+  | FRYER VALLEY | 64 | 2 |
+  | THREE-SAUCE CROSSING | 88 | 3, centre ore |
+  | NUGGET SQUARE | 96 | 4, centre ore |
+  | THE GREASE RIDGES | 104 | 4, rock ridges with two passes each |
+  | GRAND FRYER PLAINS | 128 | 5, a huge centre |
+
+  - `alrMakeMap(def)` lays out sector 0 in a frame facing the centre: the base clearing, a bent track
+    in, two ore fields by the base, one between neighbours, oil derricks (one per pass, plus one by each
+    road on the big maps), and ridges. It then rotates all of that into every sector.
+  - Trees and rocks are sampled in sector 0 (`canon()`), and the placement randoms are `alrHash` of the
+    canonical tile, so every seat gets the same forest. All the landscape art is the Blender session's;
+    nothing new was modelled.
+- **`ALR_N` is a `let`** (set per game). The pathfinder's buffers reset with it, the ground mesh rebuilds
+  when the size changes (`U.terrN`), and the painted ground drops to 18 / 14 px a tile on the big maps
+  (≤1.8k px a side).
+- **Seats:** you plus 1–4 CPUs, spread round the ring (`floor(i·K/m)`), with a random rotation. The
+  first CPU plays the other army; the rest are random. Colors by seat: blue / red / green / gold /
+  purple. The neutral seat is `alr.NEU` (the last one); never hard-code 2.
+- **Free-for-all:** each CPU fights its nearest rival (`alrAIEnemy`, re-picked every 2–3 minutes or when
+  that rival falls). You win when every CPU has lost. A CPU's defeat is announced. Kills pay more with
+  more rivals (`alr.payMul` = 1 + 0.25 × (CPUs − 1)).
+- **Lobby** (`alrOpenSetup`, alertUI.js + css): the map list with previews in the radar's diamond, a big
+  preview with the starts marked, opponent count (capped by the map), army, difficulty, the seat list,
+  START. The choices are remembered (`nugAlertSetup`). It replaces the two ArcadeKit pickers.
+- **Scale fixes:**
+  - `alrFindOre`: a lookup of taken tiles instead of a scan of every unit per tile (~8M checks a
+    search on the plains).
+  - The radar draws one N×N image a refresh instead of a polygon per unexplored tile.
+  - `alrSeparate` uses a tile grid.
+  - `alrNewGame` sets phase `loading` first, so the old game stops at once.
+- **Tested:**
+  - All five maps at full seats, CPU in every chair: games ran to an end in 8–17 minutes; the
+    five-army plains simulates ~170× realtime; no errors.
+  - The lobby clicked through.
+  - 60 fps mid-war on every map, with ~100 units on the plains.
+  - Harness gotcha: zsh doesn't word-split `$var`, so `node ffa.js $job` passed one argument.
+
+## 🚨 NUGGET ALERT: THE RADAR'S SCALE, ORDERS FROM THE RADAR, RA2's GREEN / RED ORDERS (2026-10-19)
+
+Chris: *"the radar was very out of scale … make it so you can have your tanks and troops be given commands from
+the radar … make it obvious … a green type button … the attack command obvious as well. this was in RA2 with a
+red and green command type interface"*.
+- **Scale:** the battlefield is seen at pitch 0.58, so the ground diamond is flattened on screen to sin(pitch)
+  ≈ 0.55 of its width. The radar drew it square. `alrRadarXY` / `alrRadarInv` / the ground transform now use
+  `alrRadarK()` (letterboxed in the 420² canvas), and the camera box comes out a true rectangle. The lobby's
+  previews (`alrMapPreview`) use the same shape.
+- **Radar orders** (`alrRadarDown/Move/Up`): with units (or a factory, for its rally point) selected, a click
+  is an order: an enemy building on that tile, or an enemy unit within 1.4 tiles, means attack, otherwise
+  a move (attack-move in A mode). A drag, or a click with nothing selected, moves the camera. A right-click
+  deselects or cancels.
+- **One order path:** `alrCommand(px, py)` → `alrCommandAt([x, z], hit, am)` (the battlefield and the radar
+  both). Every order calls `alrCmdFx(kind, x, z, target, units)`; kinds are move (green) / amove (orange) /
+  attack (red) / capture (gold), set in `ALR_CMD_COL`.
+- **Feedback** (`alrCmdMarks` for the 3D ground marks, `alrOverlay` for the lines):
+  - For 1.4 s, a line from every unit you sent to where it's going (or to the target), and a ring closing
+    in with four arrows on the spot. On a target: a pulsing ring and a reticle that closes in.
+  - Before you click (your units selected): a faint green ring under the cursor, or a red (gold for a
+    cook) ring locked on the enemy under it.
+  - Cursors (`ALR_CURSOR`, inline SVG with keyword fallbacks): move = four green arrows, attack = a red
+    reticle, attack-move = an orange reticle, capture, $ sell, a wrench for repair, no-go.
+- **Harness gotcha:** a test enemy placed near the screen edge gets edge-scrolled away under a hovering
+  mouse; put targets mid-screen.

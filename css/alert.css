@@ -100,3 +100,44 @@ body.alert-mode #alertWorld { display: block; }
 /* the arcade's storm pill sits over the battlefield, not over the sidebar */
 body.alert-mode .storm-hud { right: 250px; }
 @media (max-width: 900px) { .alr-side { width: 196px; } .alr-tabs button i { display: none; } body.alert-mode .storm-hud { right: 210px; } }
+
+/* ---- the skirmish setup (alrOpenSetup): maps down the left, the chosen one big on the right ---- */
+.alr-setup { position: absolute; inset: 0; z-index: 7; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;
+  background: radial-gradient(ellipse at 50% 30%, rgba(40,52,66,0.55), rgba(0,0,0,0.92)), #07090c; }
+.alr-setup[hidden] { display: none; }
+.alr-setup-panel { width: min(940px, 100%); max-height: 100%; display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; box-sizing: border-box; color: #dfe7f0;
+  background: linear-gradient(#232b35, #151a20); border: 2px solid #4a5868; border-radius: 6px; box-shadow: 0 0 0 1px #000, 0 20px 60px rgba(0,0,0,0.75); }
+.alr-setup-title { font: 900 26px Impact, "Arial Black", sans-serif; letter-spacing: 0.08em; color: #ff5a3a; text-shadow: 0 0 10px rgba(255,80,40,0.45); font-style: italic; }
+.alr-setup-title span { color: #ffcf4a; font-style: normal; font-size: 18px; margin-left: 8px; text-shadow: none; }
+.alr-setup-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; min-height: 0; }
+.alr-maps { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; min-height: 0; padding-right: 4px; }
+.alr-mapcard { display: flex; align-items: center; gap: 10px; padding: 6px; border: 1px solid #0b0e12; border-radius: 4px; cursor: pointer; text-align: left; color: inherit;
+  background: linear-gradient(#2a333e, #1c232b); box-shadow: inset 0 1px 0 #46525f; }
+.alr-mapcard canvas { width: 72px; height: 72px; flex: none; border-radius: 3px; background: #05070a; }
+.alr-mapcard:hover { box-shadow: inset 0 0 0 1px #9fc6ff; }
+.alr-mapcard.on { background: linear-gradient(#3d5a78, #263c52); box-shadow: inset 0 0 0 1px #9fc6ff, 0 0 10px rgba(120,180,255,0.35); }
+.alr-mapinfo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.alr-mapinfo b { font: 900 15px Impact, sans-serif; letter-spacing: 0.05em; color: #fff; }
+.alr-mapinfo span { font-size: 12px; color: #9fb0c2; letter-spacing: 0.04em; }
+.alr-setup-right { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.alr-setup-preview { align-self: center; border: 2px solid #0b0e12; border-radius: 4px; box-shadow: inset 0 0 0 1px #3a4652; line-height: 0; }
+.alr-setup-preview canvas { width: 220px; height: 220px; }
+.alr-setup-name { font: 900 16px Impact, sans-serif; letter-spacing: 0.05em; color: #ffcf4a; text-align: center; }
+.alr-setup-blurb { font-size: 12.5px; color: #b8c6d6; text-align: center; min-height: 2.6em; }
+.alr-opt { display: flex; flex-direction: column; gap: 3px; }
+.alr-opt label { font: 700 10px "Arial Narrow", sans-serif; letter-spacing: 0.14em; color: #8fa2b6; }
+.alr-seg { display: flex; gap: 3px; }
+.alr-seg button { flex: 1; height: 30px; border: 1px solid #0b0e12; border-radius: 3px; cursor: pointer; font: 700 11.5px "Arial Narrow", sans-serif; letter-spacing: 0.05em; color: #dfe7f0;
+  background: linear-gradient(#3a4552, #252d36); box-shadow: inset 0 1px 0 #56636f; }
+.alr-seg button.on { background: linear-gradient(#a8781e, #6a4808); box-shadow: inset 0 1px 0 #e0b050, 0 0 8px rgba(255,190,60,0.4); color: #fff; }
+.alr-seg button:disabled { opacity: 0.35; cursor: not-allowed; }
+.alr-seats { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.alr-seat { display: flex; align-items: center; gap: 7px; padding: 2px 4px; background: rgba(0,0,0,0.25); border-radius: 2px; }
+.alr-seat i { width: 12px; height: 12px; border-radius: 2px; box-shadow: 0 0 0 1px #000; }
+.alr-seat b { width: 44px; letter-spacing: 0.06em; }
+.alr-seat span { color: #9fb0c2; letter-spacing: 0.04em; }
+.alr-go { height: 42px; margin-top: 4px; border: 1px solid #0b0e12; border-radius: 4px; cursor: pointer; font: 900 20px Impact, sans-serif; letter-spacing: 0.12em; color: #fff;
+  background: linear-gradient(#3fa34e, #1f6a2c); box-shadow: inset 0 1px 0 #7fe08c, 0 0 12px rgba(80,220,100,0.35); }
+.alr-go:hover { background: linear-gradient(#4fb85e, #267a34); }
+.alr-setup-note { font-size: 11px; letter-spacing: 0.12em; color: #7e8fa2; text-align: center; }
+@media (max-width: 720px) { .alr-setup-body { grid-template-columns: 1fr; } .alr-setup-preview canvas { width: 160px; height: 160px; } }

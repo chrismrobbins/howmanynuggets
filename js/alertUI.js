@@ -78,7 +78,7 @@ function alrUIInit() {
     else if (act === 'keys') U.keysBox.hidden = !U.keysBox.hidden;
     else if (act === 'surrender') { alrPause(false); alr.players[0].lost = true; for (const e of alr.ents.slice()) if (e.owner === 0) e.hp = 0; alrCheckEnd(); }
     else if (act === 'leave') { alrPause(false); if (typeof stopStorm === 'function') stopStorm(); }
-    else if (act === 'again') { U.end.hidden = true; alrNewGame(alr.cfg); }
+    else if (act === 'again') { U.end.hidden = true; alrNewGame(alr.cfg, alr.side, alr.mapKey, alr.nAI); }
     else if (act === 'tier') { U.end.hidden = true; alrOpenTier(); }
   });
   // the battlefield's mouse
@@ -90,8 +90,10 @@ function alrUIInit() {
   // scrolling read the stale 0,0 as 'at the left edge')
   U.ov.addEventListener('contextmenu', (e) => e.preventDefault());
   U.ov.addEventListener('wheel', (e) => { e.preventDefault(); alr.cam.zoom = alrClamp(alr.cam.zoom * (e.deltaY > 0 ? 1.1 : 0.9), 9, 30); }, { passive: false });
-  U.radar.addEventListener('pointerdown', alrRadarClick);
-  U.radar.addEventListener('pointermove', (e) => { if (e.buttons & 1) alrRadarClick(e); });
+  U.radar.addEventListener('pointerdown', alrRadarDown);
+  U.radar.addEventListener('pointermove', alrRadarMove);
+  U.radar.addEventListener('pointerup', alrRadarUp);
+  U.radar.addEventListener('contextmenu', (e) => e.preventDefault());
   window.addEventListener('resize', () => { if (alr.on) alrLayout(); });
 }
 function alrUINoGL() { alr.ui.nogl.hidden = false; alr.phase = 'nogl'; }
@@ -112,7 +114,8 @@ function alrPause(on) {
 // the world's static pieces: the terrain texture + mesh, the cameos
 function alrUIBuildWorld() {
   const M = alr.M, U = alr.ui;
-  const tcv = alrTerrainCanvas(M, 24);
+  // (the painted ground keeps to ~1.8k px a side on the big maps; the shader's detail texture carries the close-up grain)
+  const tcv = alrTerrainCanvas(M, ALR_N <= 64 ? 24 : ALR_N <= 96 ? 18 : 14);
   // scatter bushes on open grass: off the dirt, the ore, the tracks, anything solid; denser near the woods
   U.shrubs = [];
   { let s = M.seed * 17 + 3; const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
@@ -126,7 +129,8 @@ function alrUIBuildWorld() {
   }
   if (U.terrTex) alrGL.gl.deleteTexture(U.terrTex);
   U.terrTex = alrGLTexCanvas(tcv, true);
-  if (!U.terrMesh) {
+  if (!U.terrMesh || U.terrN !== ALR_N) {
+    U.terrN = ALR_N;
     const mb = new AlrMB(); mb.color('#ffffff');
     mb.face([[0, 0, 0], [0, 0, ALR_N], [ALR_N, 0, ALR_N], [ALR_N, 0, 0]], [[0, 0], [0, 1], [1, 1], [1, 0]]);
     U.terrMesh = mb.bake();
@@ -134,7 +138,7 @@ function alrUIBuildWorld() {
   // the radar's picture of the ground (the shroud and the dots go on top each refresh)
   const rc = document.createElement('canvas'); rc.width = rc.height = 128;
   rc.getContext('2d').drawImage(tcv, 0, 0, 128, 128);
-  U.radarGround = rc;
+  U.radarGround = rc; U.radarLayer = null;          // (the radar's tile layer rebuilds for the new map)
   alrGLShroud(ALR_N, alr.players[0].shroud);
   if (!U.cameosBuilt) { alrBuildCameos(); U.cameosBuilt = true; }
   if (!U.sandbags) {
@@ -462,6 +466,8 @@ function alrUIRender(dt) {
     else if (f.kind === 'ring') alrGLGround(f.x, f.z, f.s * u, f.s * u, 0, 1, 0.8, 0.5, (1 - u) * 0.8, 4, true, 0.05);
     else if (f.kind === 'chunk') alrGLDraw(alrArt.chunk, alrTRS(f.x, f.y, f.z, f.ry, f.s, f.s, f.s, f.rx), { spec: 0.1, team: [0.3, 0.3, 0.3] });
   }
+  // RA2's green / red: the order you just gave, and the one you're about to
+  alrCmdMarks(dt, S);
   // the placement ghost
   if (alr.place && U.mouse.in) {
     const D = ALR_BLD[alr.place.type], g = alrGLPick(U.mouse.x, U.mouse.y);
@@ -485,6 +491,40 @@ function alrUIRender(dt) {
   alrOverlay();
   alr.uiT = (alr.uiT || 0) - dt;
   if (alr.uiT <= 0) { alr.uiT = 0.12; alrUISide(); alrRadar(); }
+}
+// where you sent them: a green ring closing in with four arrows pointing at the spot (attack-move: orange);
+// what you sent them at: a red ring locked on it, pulsing. And before you click, the same, faint, under the cursor.
+function alrCmdMarks(dt, S) {
+  const U = alr.ui, C = U.cmd;
+  const ring = (x, z, r, col, a, y) => alrGLGround(x, z, r, r, 0, col[0], col[1], col[2], a, 4, true, y || 0.04);
+  const arrows = (x, z, r, col, a, spin) => { for (let k = 0; k < 4; k++) { const ang = spin + k * Math.PI / 2; alrGLGround(x + Math.cos(ang) * r, z + Math.sin(ang) * r, 0.22, 0.07, ang + Math.PI, col[0], col[1], col[2], a, 6, true, 0.045); } };
+  if (C && C.t < C.T) {
+    C.t += dt || 1 / 60;
+    const u = C.t / C.T, col = ALR_CMD_COL[C.kind] || ALR_CMD_COL.move, fade = Math.min(1, (1 - u) * 2.5);
+    const t = C.tid && alr.byId.get(C.tid);
+    if (t) {
+      const r = (t.kind === 'bld' ? Math.max(t.w, t.h) * 0.62 : t.D.r * 1.6 + 0.15), pulse = 1 + Math.sin(C.t * 14) * 0.08;
+      ring(t.x, t.z, r * pulse, col, 0.9 * fade); ring(t.x, t.z, r * (1.5 - u * 0.5), col, 0.5 * fade);
+      arrows(t.x, t.z, r * (1.9 - u * 0.6), col, 0.85 * fade, Math.PI / 4);
+    } else {
+      const r = 0.25 + (1 - Math.min(1, u * 2.2)) * 0.9;
+      ring(C.x, C.z, r, col, 0.95 * fade); ring(C.x, C.z, 0.22, col, 0.7 * fade);
+      arrows(C.x, C.z, r + 0.25, col, 0.9 * fade, Math.PI / 4);
+      alrGLSprite(C.x, 0.08, C.z, 0.5, 0, col[0], col[1], col[2], 0.5 * fade, 0, true);
+    }
+  }
+  // the preview: with your units selected, under the cursor
+  if (!U.mouse.in || alr.place || alr.mode === 'sell' || alr.mode === 'repair' || U.drag && U.drag.box) return;
+  if (!alr.sel.some((e) => e.kind === 'unit' && e.owner === 0)) return;
+  const h = U.hover, wob = 1 + Math.sin(alr.t * 6) * 0.06;
+  if (h && h.owner !== 0) {
+    const cook = alr.sel.some((e) => e.D.engineer && alrCanCapture(e, h)), col = cook ? ALR_CMD_COL.capture : ALR_CMD_COL.attack;
+    const r = (h.kind === 'bld' ? Math.max(h.w, h.h) * 0.62 : h.D.r * 1.6 + 0.15) * wob;
+    ring(h.x, h.z, r, col, 0.7); arrows(h.x, h.z, r + 0.3, col, 0.6, Math.PI / 4 + alr.t * 0.8);
+  } else if (!h || h.owner !== 0) {
+    const g = alrGLPick(U.mouse.x, U.mouse.y), col = alr.mode === 'am' ? ALR_CMD_COL.amove : ALR_CMD_COL.move;
+    if (alrIn(g[0], g[1])) { ring(g[0], g[1], 0.32 * wob, col, 0.55); ring(g[0], g[1], 0.08, col, 0.6); }
+  }
 }
 function alrFxZapMini(a, b) { alr.fx.push({ kind: 'zapm', a, b, t: 0, T: 0.12, seed: Math.random() * 1000 }); }
 // a jagged bolt: midpoint displacement, three strands (a bright core and two faint)
@@ -548,7 +588,7 @@ function alrBldParts(b) {
   if (t === 'hq') add('hq_crane', alrTRS(-1.05, 0, -1.0, 0.7 + Math.sin(an * 0.25) * 1.2));
   if (t === 'factory') { const op = alrClamp(b.door > 0 ? Math.min(1, (1.6 - b.door) * 4, b.door * 2) : 0, 0, 1); add('factory_door', alrTRS(0, 0.42 + op * 0.38, 0.86, 0, 1, 1 - op * 0.75, 1)); }
   if (t === 'barracks') add('barracks_flag', alrTRS(0.72, 1.02, -0.65, 0.5 + Math.sin(an * 2.1) * 0.25));
-  if (t === 'derrick') { const p = R.derrick_pump; add('derrick_pump', alrTRS(p[0], p[1], p[2], 0, 1, 1, 1, Math.sin(an * (b.owner === 2 ? 0.6 : 1.8)) * 0.35)); }
+  if (t === 'derrick') { const p = R.derrick_pump; add('derrick_pump', alrTRS(p[0], p[1], p[2], 0, 1, 1, 1, Math.sin(an * (b.owner === alr.NEU ? 0.6 : 1.8)) * 0.35)); }
   return parts;
 }
 // a unit's parts, posed: legs walk, a turret turns, a gun recoils, the hauler's drum spins, a jet banks
@@ -674,12 +714,29 @@ function alrOverlay() {
       if (sel && e.rally) { const a = alrGLProject(e.x, 0, e.z), r = alrGLProject(e.rally[0], 0, e.rally[1]); g.strokeStyle = 'rgba(120,255,120,0.6)'; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(r[0], r[1]); g.stroke(); g.setLineDash([]); g.fillStyle = '#7aff7a'; g.fillRect(r[0] - 3, r[1] - 3, 6, 6); }
     }
   }
-  // move targets: a quick green flash where you clicked
-  if (U.ping && U.ping.t > 0) {
-    const p = alrGLProject(U.ping.x, 0, U.ping.z), k = U.ping.t / 0.5;
-    g.strokeStyle = U.ping.att ? `rgba(255,80,60,${k})` : `rgba(120,255,120,${k})`; g.lineWidth = 2;
-    g.beginPath(); g.ellipse(p[0], p[1], 14 * (1.4 - k * 0.4), 7 * (1.4 - k * 0.4), 0, 0, 7); g.stroke();
-    U.ping.t -= 1 / 60;
+  // the order's lines: from every unit you sent to where it's going (green) or to what it's going for (red)
+  const C = U.cmd;
+  if (C && C.t < C.T) {
+    const u = C.t / C.T, col = ALR_CMD_COL[C.kind] || ALR_CMD_COL.move, a = Math.min(1, (1 - u) * 2.2);
+    const css = `rgba(${(col[0] * 255) | 0},${(col[1] * 255) | 0},${(col[2] * 255) | 0},`;
+    const t = C.tid && alr.byId.get(C.tid);
+    const to = t ? alrGLProject(t.x, t.kind === 'bld' ? 0.3 : (t.alt || 0) + 0.2, t.z) : alrGLProject(C.x, 0.02, C.z);
+    g.lineCap = 'round';
+    for (const id of C.ids) {
+      const e = alr.byId.get(id); if (!e) continue;
+      const f = alrGLProject(e.x, (e.alt || 0) + 0.15, e.z);
+      g.strokeStyle = `rgba(0,0,0,${0.5 * a})`; g.lineWidth = 4; g.beginPath(); g.moveTo(f[0], f[1]); g.lineTo(to[0], to[1]); g.stroke();
+      g.strokeStyle = css + (0.9 * a) + ')'; g.lineWidth = 2; g.beginPath(); g.moveTo(f[0], f[1]); g.lineTo(to[0], to[1]); g.stroke();
+      g.fillStyle = css + a + ')'; g.beginPath(); g.arc(f[0], f[1], 3, 0, 7); g.fill();
+    }
+    if (t) {
+      // the reticle: four corner ticks and a cross, closing in on it
+      const R = 18 + (1 - Math.min(1, u * 3)) * 16;
+      g.strokeStyle = `rgba(0,0,0,${0.6 * a})`; g.lineWidth = 4;
+      const ret = () => { g.beginPath(); for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { g.moveTo(to[0] + sx * R, to[1] + sy * R * 0.6 - sy * 8); g.lineTo(to[0] + sx * R, to[1] + sy * R * 0.6); g.lineTo(to[0] + sx * R - sx * 8, to[1] + sy * R * 0.6); } g.moveTo(to[0] - 6, to[1]); g.lineTo(to[0] + 6, to[1]); g.moveTo(to[0], to[1] - 6); g.lineTo(to[0], to[1] + 6); g.stroke(); };
+      ret(); g.strokeStyle = css + a + ')'; g.lineWidth = 2; ret();
+    }
+    g.lineCap = 'butt';
   }
   if (U.drag && U.drag.box) {
     const d = U.drag;
@@ -700,8 +757,13 @@ function alrOverlay() {
 // The map as RA2 showed it: a diamond, turned to match the camera. The camera's screen-right is the world's
 // +z−x and its screen-up is +x+z (alrGLCamera, yaw 45°), so the radar uses the same axes. (It used +x−z and
 // x+z downward — the whole map turned 180° from the battlefield — "the map is backwards", Chris.)
-function alrRadarXY(x, z) { const W = 420, N = ALR_N; return [((z - x) / N + 1) * W / 2, (2 - (x + z) / N) * W / 2]; }
-function alrRadarInv(u, v) { const W = 420, N = ALR_N; const a = (u / (W / 2) - 1) * N, b = (2 - v / (W / 2)) * N; return [(b - a) / 2, (a + b) / 2]; }
+// In the camera's own shape: the battlefield is seen at a pitch, so the ground diamond is flattened on screen to
+// sin(pitch) of its width (~0.55). The radar used to draw it square, so the map and the camera box on it were out
+// of scale with what you see (Chris: "the radar was very out of scale"); now it's the same diamond, letterboxed
+// in the square, and the camera box comes out a true rectangle — as RA2's radar did.
+function alrRadarK() { return Math.sin(alr.cam.pitch); }
+function alrRadarXY(x, z) { const N = ALR_N, K = alrRadarK(); return [210 + (z - x) / N * 210, 210 - ((x + z) / N - 1) * 210 * K]; }
+function alrRadarInv(u, v) { const N = ALR_N, K = alrRadarK(); const a = (u - 210) / 210 * N, b = N * (1 + (210 - v) / (210 * K)); return [(b - a) / 2, (a + b) / 2]; }
 function alrRadar() {
   const U = alr.ui, g = U.rg, P = alr.players[0];
   const on = alrHas(0, 'radar') && !P.low;
@@ -715,21 +777,31 @@ function alrRadar() {
     g.putImageData(id, 0, 0); g.drawImage(U.radar, 0, 0, 105, 105, 0, 0, 420, 420);
     return;
   }
-  // the ground, turned into a diamond
-  g.save();
-  const s = 420 / 2 / ALR_N;
-  g.setTransform(-s, -s, s, -s, 210, 420);           // texture (x, z) → the radar's (u, v), the same map as alrRadarXY
-  g.drawImage(U.radarGround, 0, 0, ALR_N, ALR_N);
-  g.restore();
-  const N = ALR_N, cell = 420 / N;
-  // ore
-  for (let k = 0; k < N * N; k++) if (alr.M.ore[k] > 0) { const [u, v] = alrRadarXY(k % N + 0.5, ((k / N) | 0) + 0.5); g.fillStyle = '#e8b030'; g.fillRect(u - cell * 0.4, v - cell * 0.3, cell * 0.8, cell * 0.6); }
-  // the shroud
-  for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
-    if (P.shroud[z * N + x] > 40) continue;
-    const a = alrRadarXY(x, z), b = alrRadarXY(x + 1, z), c = alrRadarXY(x + 1, z + 1), d = alrRadarXY(x, z + 1);
-    g.fillStyle = '#000'; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.closePath(); g.fill();
+  // the ground, the ore and the shroud as ONE N×N picture (a pixel a tile), turned into the diamond. (It used
+  // to be a polygon per unexplored tile: 16k paths ten times a second on the big maps.)
+  const N = ALR_N;
+  if (!U.radarLayer || U.radarLayer.width !== N) {
+    U.radarLayer = document.createElement('canvas'); U.radarLayer.width = U.radarLayer.height = N;
+    const gc = document.createElement('canvas'); gc.width = gc.height = N; gc.getContext('2d').drawImage(U.radarGround, 0, 0, N, N);
+    U.radarGroundPx = gc.getContext('2d').getImageData(0, 0, N, N).data;
+    U.radarImg = U.radarLayer.getContext('2d').createImageData(N, N);
   }
+  const src = U.radarGroundPx, dst = U.radarImg.data, ore = alr.M.ore, sh = P.shroud;
+  for (let k = 0; k < N * N; k++) {
+    const o = k * 4;
+    if (sh[k] <= 40) { dst[o] = dst[o + 1] = dst[o + 2] = 0; }
+    else if (ore[k] > 0) { dst[o] = 232; dst[o + 1] = 176; dst[o + 2] = 48; }
+    else { dst[o] = src[o]; dst[o + 1] = src[o + 1]; dst[o + 2] = src[o + 2]; }
+    dst[o + 3] = 255;
+  }
+  U.radarLayer.getContext('2d').putImageData(U.radarImg, 0, 0);
+  g.save();
+  const s = 420 / 2 / N, sk = s * alrRadarK();
+  g.setTransform(-s, -sk, s, -sk, 210, 210 + sk * N);  // tile (x, z) → the radar's (u, v), the same map as alrRadarXY
+  g.imageSmoothingEnabled = false;
+  g.drawImage(U.radarLayer, 0, 0, N, N);
+  g.restore();
+  const cell = 420 / N;
   for (const e of alr.ents) {
     if (e.owner !== 0 && P.shroud[alrTile(e.x, e.z)] < 40) continue;
     g.fillStyle = ALR_TEAMS[e.owner].css;
@@ -743,11 +815,39 @@ function alrRadar() {
   const cam = alr.cam, cs = [alrGLPick(0, 0), alrGLPick(cam.w, 0), alrGLPick(cam.w, cam.h), alrGLPick(0, cam.h)].map((c) => alrRadarXY(c[0], c[1]));
   g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.beginPath(); cs.forEach((c, i) => (i ? g.lineTo(c[0], c[1]) : g.moveTo(c[0], c[1]))); g.closePath(); g.stroke();
 }
-function alrRadarClick(e) {
-  if (alr.phase !== 'play' || !alrHas(0, 'radar')) return;
+// the radar takes orders (RA2): with your units selected, a click sends them there (onto an enemy: attack);
+// a drag, or a click with nothing selected, moves the camera; a right-click lets go of the selection
+function alrRadarAt(e) {
   const r = alr.ui.radar.getBoundingClientRect(), u = (e.clientX - r.left) / r.width * 420, v = (e.clientY - r.top) / r.height * 420;
   const [x, z] = alrRadarInv(u, v);
-  alr.cam.x = alrClamp(x, 0, ALR_N); alr.cam.z = alrClamp(z, 0, ALR_N);
+  return [alrClamp(x, 0.5, ALR_N - 0.5), alrClamp(z, 0.5, ALR_N - 0.5)];
+}
+function alrRadarOn() { return alr.phase === 'play' && alrHas(0, 'radar') && !alr.players[0].low; }
+function alrRadarPan(e) { const [x, z] = alrRadarAt(e); alr.cam.x = x; alr.cam.z = z; }
+function alrRadarDown(e) {
+  if (!alrRadarOn()) return;
+  alrAudioWake();
+  const U = alr.ui;
+  if (e.button === 2) { if (alr.place || alr.mode) { alr.place = null; alr.mode = ''; alrUIButtons(); } else alr.sel = []; return; }
+  U.rdrag = { x: e.clientX, y: e.clientY, moved: false, order: alr.sel.some((s) => s.owner === 0 && (s.kind === 'unit' || s.D.makes)) };
+  U.radar.setPointerCapture(e.pointerId);
+  if (!U.rdrag.order) alrRadarPan(e);
+}
+function alrRadarMove(e) {
+  const d = alr.ui.rdrag;
+  if (!d || !(e.buttons & 1)) return;
+  if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 5) d.moved = true;
+  if (d.moved || !d.order) alrRadarPan(e);
+}
+function alrRadarUp(e) {
+  const U = alr.ui, d = U.rdrag; U.rdrag = null;
+  if (!d || d.moved || !d.order || e.button !== 0) return;
+  const [x, z] = alrRadarAt(e);
+  // whose is it, there? an enemy building's tile, or the nearest enemy you can see within a tile
+  const S = alr.players[0].shroud, b = alr.byId.get(alr.M.bld[alrTile(x, z)]);
+  let hit = b && b.owner !== 0 && S[alrTile(x, z)] > 40 ? b : null;
+  if (!hit) { let bd = 1.4; for (const q of alr.ents) if (q.kind === 'unit' && q.owner !== 0 && q.owner !== alr.NEU && S[alrTile(q.x, q.z)] > 40) { const dd = Math.hypot(q.x - x, q.z - z); if (dd < bd) { bd = dd; hit = q; } } }
+  alrCommandAt([x, z], hit, alr.mode === 'am');
 }
 
 // ---- picking + commands ---------------------------------------------------------------------------------------------
@@ -776,35 +876,41 @@ function alrPickAt(px, py) {
   }
   return best;
 }
-function alrCommand(px, py, forceAM) {
+function alrCommand(px, py, forceAM) { alrCommandAt(alrGLPick(px, py), alrPickAt(px, py), forceAM); }
+function alrCommandAt(g, hit, forceAM) {
   const units = alr.sel.filter((e) => e.kind === 'unit' && e.owner === 0);
   const blds = alr.sel.filter((e) => e.kind === 'bld' && e.owner === 0 && (e.D.makes));
-  const hit = alrPickAt(px, py), g = alrGLPick(px, py);
   if (!units.length) {
-    if (blds.length) { for (const b of blds) b.rally = [g[0], g[1]]; alrPing(g[0], g[1], false); alrSfx('click'); }
+    if (blds.length) { for (const b of blds) b.rally = [g[0], g[1]]; alrCmdFx('move', g[0], g[1], null, blds); alrSfx('click'); }
     return;
   }
   // cooks: into a building that isn't yours to take it, into one of yours that's hurt to fix it
   const cooks = units.filter((u) => u.D.engineer && hit && alrCanCapture(u, hit));
-  if (cooks.length) { for (const u of cooks) alrOrderAttack(u, hit); alrPing(hit.x, hit.z, false); alrSfx('ack'); alrAck(cooks, 'attack'); if (cooks.length === units.length) return; }
+  if (cooks.length) { for (const u of cooks) alrOrderAttack(u, hit); alrCmdFx('capture', hit.x, hit.z, hit, cooks); alrSfx('ack'); alrAck(cooks, 'attack'); if (cooks.length === units.length) return; }
   if (hit && hit.owner !== 0) {
     const shooters = units.filter((u) => (u.D.weapon || u.D.weapon2) && !u.D.engineer);
     for (const u of shooters) alrOrderAttack(u, hit);
-    alrPing(hit.x, hit.z, true); alrSfx('ack'); alrAck(shooters.length ? shooters : units, 'attack'); return;
+    alrCmdFx('attack', hit.x, hit.z, hit, shooters.length ? shooters : units); alrSfx('ack'); alrAck(shooters.length ? shooters : units, 'attack'); return;
   }
   const harvs = units.filter((u) => u.D.harv), rest = units.filter((u) => !u.D.harv);
   if (harvs.length) {
     const k = alrTile(g[0], g[1]);
     if (hit && hit.type === 'refinery') for (const h of harvs) { h.order = { type: 'harvest' }; h.hstate = 'home'; h.path = null; }
-    else if (alrIn(g[0], g[1]) && alr.M.ore[k] > 0) { for (const h of harvs) { h.order = { type: 'harvest' }; h.hstate = 'seek'; h.path = null; h.oreAt = [g[0], g[1]]; } if (!rest.length) { alrAck(harvs, 'attack'); alrSfx('ack'); return; } }
+    else if (alrIn(g[0], g[1]) && alr.M.ore[k] > 0) { for (const h of harvs) { h.order = { type: 'harvest' }; h.hstate = 'seek'; h.path = null; h.oreAt = [g[0], g[1]]; } if (!rest.length) { alrCmdFx('move', g[0], g[1], null, harvs); alrAck(harvs, 'attack'); alrSfx('ack'); return; } }
     else for (const h of harvs) alrOrderMove(h, g[0], g[1], false);
   }
   if (rest.length) alrGroupMove(rest, g[0], g[1], forceAM || alr.mode === 'am');
-  alrPing(g[0], g[1], forceAM || alr.mode === 'am');
+  alrCmdFx(forceAM || alr.mode === 'am' ? 'amove' : 'move', g[0], g[1], null, units);
   alrSfx('ack'); alrAck(units, forceAM || alr.mode === 'am' ? 'attack' : 'move');
   alr.mode = '';
 }
-function alrPing(x, z, att) { alr.ui.ping = { x, z, t: 0.5, att }; }
+function alrPing(x, z, att) { alrCmdFx(att ? 'amove' : 'move', x, z, null, []); }
+// an order's feedback (RA2's green / red): lines from each unit to where it was sent (green) or to what it was sent
+// at (red), a marker where they're going, a reticle on the target — for a second and a bit
+function alrCmdFx(kind, x, z, target, units) {
+  alr.ui.cmd = { kind, x, z, tid: target ? target.id : 0, ids: units.map((u) => u.id), t: 0, T: 1.4 };
+}
+const ALR_CMD_COL = { move: [0.35, 1, 0.4], amove: [1, 0.55, 0.2], attack: [1, 0.22, 0.15], capture: [1, 0.85, 0.25] };
 
 function alrPointerDown(e) {
   const U = alr.ui;
@@ -849,14 +955,34 @@ function alrPointerMove(e) {
   U.hover = h;
   const mine = alr.sel.some((s) => s.kind === 'unit' && s.owner === 0);
   let cur = 'default';
+  const cook = h && alr.sel.some((s) => s.owner === 0 && s.D.engineer && alrCanCapture(s, h));
   if (alr.place) cur = 'copy';
-  else if (alr.mode === 'sell' || alr.mode === 'repair') cur = h && h.kind === 'bld' && h.owner === 0 ? 'pointer' : 'not-allowed';
-  else if (alr.mode === 'am') cur = 'crosshair';
-  else if (h && h.owner !== 0 && mine) cur = 'crosshair';
+  else if (alr.mode === 'sell') cur = h && h.kind === 'bld' && h.owner === 0 && !h.D.tech ? ALR_CURSOR.sell : ALR_CURSOR.nogo;
+  else if (alr.mode === 'repair') cur = h && h.kind === 'bld' && h.owner === 0 && h.hp < h.max ? ALR_CURSOR.repair : ALR_CURSOR.nogo;
+  else if (cook) cur = ALR_CURSOR.capture;
+  else if (alr.mode === 'am') cur = ALR_CURSOR.amove;
+  else if (h && h.owner !== 0 && mine) cur = ALR_CURSOR.attack;
   else if (h && h.owner === 0) cur = 'pointer';
-  else if (mine) cur = 'cell';
+  else if (mine) cur = ALR_CURSOR.move;
   U.ov.style.cursor = cur;
 }
+// the cursors (SVG, drawn here; hot spot in the middle): move = four green arrows, attack = a red reticle,
+// attack-move = an orange reticle with arrows, capture = a gold arrow into a box, sell = $, repair = a wrench
+const ALR_CURSOR = (() => {
+  const svg = (body) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>${body}</svg>`)}") 16 16`;
+  const arrow = (c) => [0, 90, 180, 270].map((a) => `<path transform='rotate(${a} 16 16)' d='M16 2 L21 9 L18 9 L18 12 L14 12 L14 9 L11 9 Z' fill='${c}' stroke='#000' stroke-width='1.2'/>`).join('');
+  const ret = (c) => `<circle cx='16' cy='16' r='9' fill='none' stroke='#000' stroke-width='4'/><circle cx='16' cy='16' r='9' fill='none' stroke='${c}' stroke-width='2'/>` +
+    ['M16 1 V9', 'M16 23 V31', 'M1 16 H9', 'M23 16 H31'].map((d) => `<path d='${d}' stroke='#000' stroke-width='4'/><path d='${d}' stroke='${c}' stroke-width='2'/>`).join('') + `<circle cx='16' cy='16' r='2' fill='${c}' stroke='#000'/>`;
+  return {
+    move: svg(arrow('#5cff6a') + `<circle cx='16' cy='16' r='2.5' fill='#5cff6a' stroke='#000'/>`) + ', cell',
+    attack: svg(ret('#ff3a2a')) + ', crosshair',
+    amove: svg(ret('#ff9a2a') + arrow('rgba(255,154,42,0.0)')) + ', crosshair',
+    capture: svg(`<rect x='9' y='13' width='14' height='12' fill='none' stroke='#000' stroke-width='4'/><rect x='9' y='13' width='14' height='12' fill='none' stroke='#ffd23a' stroke-width='2'/><path d='M16 2 L22 9 L18 9 L18 16 L14 16 L14 9 L10 9 Z' fill='#ffd23a' stroke='#000' stroke-width='1.2'/>`) + ', pointer',
+    sell: svg(`<circle cx='16' cy='16' r='12' fill='#1a1a1a' stroke='#ffd23a' stroke-width='2'/><text x='16' y='22' font-size='17' font-family='Arial' font-weight='bold' text-anchor='middle' fill='#ffd23a'>$</text>`) + ', pointer',
+    repair: svg(`<circle cx='16' cy='16' r='12' fill='#1a1a1a' stroke='#5cc8ff' stroke-width='2'/><path d='M10 22 L18 14 M18 14 a4 4 0 1 0 2 -6 l-2 2 l-1 -1 l2 -2 a4 4 0 0 0 -5 5' fill='none' stroke='#5cc8ff' stroke-width='2.4' stroke-linecap='round'/>`) + ', pointer',
+    nogo: svg(`<circle cx='16' cy='16' r='11' fill='none' stroke='#000' stroke-width='5'/><circle cx='16' cy='16' r='11' fill='none' stroke='#ff3a2a' stroke-width='3'/><path d='M8 24 L24 8' stroke='#ff3a2a' stroke-width='3'/>`) + ', not-allowed',
+  };
+})();
 // the tiles of a wall line: straight along whichever axis you dragged further
 function alrWallLine(p) {
   const a = p.line || { tx: p.tx, tz: p.tz }, dx = p.tx - a.tx, dz = p.tz - a.tz, out = [];
@@ -966,10 +1092,10 @@ function alrUIEnd() {
   const U = alr.ui, R = alr.result, st = alr.stats;
   const m = Math.floor(R.t / 60), s = Math.floor(R.t % 60);
   U.end.innerHTML = `<div class="alr-card-t ${R.won ? 'win' : 'lose'}">${R.won ? 'VICTORY' : 'DEFEAT'}</div>
-    <div class="alr-card-s">${R.won ? 'The ' + alr.players[1].team.name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) + ' has been deep-fried.' : 'The ' + alr.players[0].team.name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) + ' has fallen.'}</div>
+    <div class="alr-card-s">${R.won ? (alr.nAI > 1 ? 'Every rival has been deep-fried.' : 'The ' + alr.players[1].team.name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) + ' has been deep-fried.') : 'The ' + alr.players[0].team.name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) + ' has fallen.'}</div>
     <div class="alr-stats"><span>TIME <b>${m}:${String(s).padStart(2, '0')}</b></span><span>KILLS <b>${st.kills}</b></span><span>LOST <b>${st.lost}</b></span><span>SQUISHED <b>${st.crushed || 0}</b></span><span>CAPTURED <b>${st.captured || 0}</b></span><span>HARVESTED <b>$${Math.round(st.harvested)}</b></span></div>
     <div class="alr-card-n">+${fmt.format(alr.earned)} NUGGETS</div>
-    <button type="button" data-act="again">PLAY AGAIN</button><button type="button" data-act="tier">NEW ENEMY</button><button type="button" data-act="leave">LEAVE</button>`;
+    <button type="button" data-act="again">PLAY AGAIN</button><button type="button" data-act="tier">NEW SKIRMISH</button><button type="button" data-act="leave">LEAVE</button>`;
   setTimeout(() => { if (alr.phase === 'over') U.end.hidden = false; }, 1600);
 }
 
@@ -1029,4 +1155,121 @@ function alrSfx(name, x, z) {
     case 'win': [523, 659, 784, 1047].forEach((f, i) => tone('triangle', f, 0, 0.25, 0.5, now + i * 0.16)); break;
     case 'lose': [392, 330, 262, 196].forEach((f, i) => tone('triangle', f, 0, 0.22, 0.6, now + i * 0.22)); break;
   }
+}
+
+// ---- the skirmish setup: map · opponents · army · difficulty ---------------------------------------------------------
+// One screen in place of the card pickers (RA2's skirmish lobby): the maps down the left with their previews, the
+// chosen map big on the right with its starts marked, and the choices under it. Remembered between games.
+function alrSetupLoad() { try { return Object.assign({ map: 'valley', ai: 1, side: 'A', tier: 'rookie' }, JSON.parse(localStorage.getItem('nugAlertSetup') || '{}')); } catch (e) { return { map: 'valley', ai: 1, side: 'A', tier: 'rookie' }; } }
+function alrSetupSave(c) { try { localStorage.setItem('nugAlertSetup', JSON.stringify(c)); } catch (e) { } }
+// a map's picture, turned the way the radar (and the camera) see it, with its starts numbered
+function alrMapPreview(def, size, marks, seats) {
+  const M = alrMakeMap(def), N = M.N, cv = document.createElement('canvas'); cv.width = cv.height = size;
+  const src = document.createElement('canvas'); src.width = src.height = N;
+  const sg = src.getContext('2d'), id = sg.createImageData(N, N);
+  const trees = new Uint8Array(N * N); for (const t of M.trees) trees[Math.floor(t.z) * N + Math.floor(t.x)] = 1;
+  for (let k = 0; k < N * N; k++) {
+    let r = 92, g = 116, b = 62;
+    const d = M.dirt[k]; r += (138 - r) * d; g += (112 - g) * d; b += (78 - b) * d;
+    if (M.ore[k] > 0) { r = 214; g = 166; b = 58; }
+    else if (trees[k]) { r = 46; g = 74; b = 38; }
+    else if (M.block[k]) { r = 118; g = 112; b = 102; }
+    const o = k * 4; id.data[o] = r; id.data[o + 1] = g; id.data[o + 2] = b; id.data[o + 3] = 255;
+  }
+  sg.putImageData(id, 0, 0);
+  // (the radar's shape: the isometric diamond, flattened to sin(pitch), letterboxed in the square)
+  const g = cv.getContext('2d'), s = size / 2 / N, K = Math.sin(alr.cam.pitch), sk = s * K, h = size / 2;
+  g.fillStyle = '#05070a'; g.fillRect(0, 0, size, size);
+  g.save(); g.setTransform(-s, -sk, s, -sk, h, h + sk * N); g.imageSmoothingEnabled = true; g.drawImage(src, 0, 0, N, N); g.restore();
+  const XY = (x, z) => [h + (z - x) / N * h, h - ((x + z) / N - 1) * h * K];
+  for (const [tx, tz] of M.derricks) { const [u, v] = XY(tx + 1, tz + 1); g.fillStyle = '#1a1a1a'; g.fillRect(u - 2, v - 2, 4, 4); }
+  if (marks) M.starts.forEach(([x, z], i) => {
+    const [u, v] = XY(x, z), seat = seats ? seats[i] : null;
+    g.fillStyle = seat ? seat.css : 'rgba(255,255,255,0.85)'; g.strokeStyle = '#000'; g.lineWidth = 2;
+    g.beginPath(); g.arc(u, v, Math.max(6, size / 26), 0, 7); g.fill(); g.stroke();
+    g.fillStyle = seat ? '#fff' : '#111'; g.font = `bold ${Math.max(9, size / 22)}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(seat ? seat.label : String(i + 1), u, v + 0.5);
+  });
+  return cv;
+}
+function alrOpenSetup() {
+  const U = alr.ui;
+  alr.phase = 'tier';
+  if (U) U.root.classList.remove('alr-playing');
+  if (!U.setup) {
+    const d = document.createElement('div'); d.className = 'alr-setup';
+    d.innerHTML = `<div class="alr-setup-panel">
+      <div class="alr-setup-title">🚨 NUGGET ALERT <span>SKIRMISH</span></div>
+      <div class="alr-setup-body">
+        <div class="alr-maps"></div>
+        <div class="alr-setup-right">
+          <div class="alr-setup-preview"></div>
+          <div class="alr-setup-name"></div><div class="alr-setup-blurb"></div>
+          <div class="alr-opt"><label>OPPONENTS</label><div class="alr-seg" data-k="ai"></div></div>
+          <div class="alr-opt"><label>YOUR ARMY</label><div class="alr-seg" data-k="side"></div></div>
+          <div class="alr-opt"><label>DIFFICULTY</label><div class="alr-seg" data-k="tier"></div></div>
+          <div class="alr-seats"></div>
+          <button type="button" class="alr-go">START</button>
+        </div>
+      </div>
+      <div class="alr-setup-note">free-for-all · destroy every rival's base · starts are dealt at random · Enter to start</div>
+    </div>`;
+    U.root.appendChild(d);
+    U.setup = d;
+    U.setupCfg = alrSetupLoad();
+    U.mapThumbs = {};
+    d.addEventListener('click', (e) => {
+      alrAudioWake();
+      const c = U.setupCfg, m = e.target.closest('[data-map]'), o = e.target.closest('[data-v]');
+      if (m) { c.map = m.dataset.map; alrSfx('click'); }
+      else if (o && !o.disabled) { const k = o.parentNode.dataset.k; c[k] = k === 'ai' ? +o.dataset.v : o.dataset.v; alrSfx('click'); }
+      else if (e.target.closest('.alr-go')) { alrSetupGo(); return; }
+      else return;
+      alrSetupRender();
+    });
+    window.addEventListener('keydown', (e) => { if (alr.on && U.setup && !U.setup.hidden && e.code === 'Enter') { e.preventDefault(); alrSetupGo(); } });
+  }
+  U.setup.hidden = false;
+  alrSetupRender();
+}
+function alrSetupRender() {
+  const U = alr.ui, d = U.setup, c = U.setupCfg, def = alrMapDef(c.map), K = def.ring[0];
+  c.ai = alrClamp(c.ai, 1, K - 1);
+  if (c.tier === 'allout' && !alertProWon()) c.tier = 'pro';
+  // the map list (previews made once)
+  const list = d.querySelector('.alr-maps');
+  if (!list.children.length) for (const m of ALR_MAPS) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'alr-mapcard'; b.dataset.map = m.key;
+    b.appendChild(U.mapThumbs[m.key] = alrMapPreview(m, 96, false));
+    const t = document.createElement('div'); t.className = 'alr-mapinfo';
+    t.innerHTML = `<b>${m.emoji} ${m.name}</b><span>${m.N}×${m.N} · up to ${m.ring[0]} players</span>`;
+    b.appendChild(t); list.appendChild(b);
+  }
+  for (const b of list.children) b.classList.toggle('on', b.dataset.map === c.map);
+  // who sits where: you, then the CPUs (the first one fights as the other army; the rest are drawn at random)
+  const m = c.ai + 1, seats = {}, other = c.side === 'A' ? 'F' : 'A';
+  for (let i = 0; i < m; i++) seats[Math.floor(i * K / m)] = { css: ALR_TEAMS[i].css, label: i ? String(i) : '★' };
+  const pv = d.querySelector('.alr-setup-preview'); pv.innerHTML = ''; pv.appendChild(alrMapPreview(def, 260, true, seats));
+  d.querySelector('.alr-setup-name').textContent = def.emoji + ' ' + def.name + ' · ' + def.N + '×' + def.N;
+  d.querySelector('.alr-setup-blurb').textContent = def.blurb;
+  const seg = (k, items) => {
+    const el = d.querySelector(`.alr-seg[data-k="${k}"]`); el.innerHTML = '';
+    for (const it of items) { const b = document.createElement('button'); b.type = 'button'; b.dataset.v = it.v; b.textContent = it.t; b.disabled = !!it.off; b.title = it.title || ''; if (String(c[k]) === String(it.v)) b.classList.add('on'); el.appendChild(b); }
+  };
+  seg('ai', [1, 2, 3, 4].map((n) => ({ v: n, t: String(n), off: n > K - 1, title: n > K - 1 ? 'this map seats ' + K : '' })));
+  seg('side', [{ v: 'A', t: '🔷 ALLIANCE' }, { v: 'F', t: '🔶 FEDERATION' }]);
+  seg('tier', ALR_TIERS.map((t) => ({ v: t.key, t: t.emoji + ' ' + t.name, off: t.key === 'allout' && !alertProWon(), title: t.key === 'allout' && !alertProWon() ? t.lockNote : t.blurb })));
+  const rows = [];
+  for (let i = 0; i < m; i++) {
+    const army = i === 0 ? ALR_SIDES[c.side].name : i === 1 ? ALR_SIDES[other].name : 'RANDOM ARMY';
+    rows.push(`<div class="alr-seat"><i style="background:${ALR_TEAMS[i].css}"></i><b>${i === 0 ? 'YOU' : 'CPU ' + i}</b><span>${army}</span></div>`);
+  }
+  d.querySelector('.alr-seats').innerHTML = rows.join('');
+  alrSetupSave(c);
+}
+function alrSetupGo() {
+  const U = alr.ui, c = U.setupCfg;
+  U.setup.hidden = true;
+  alrSfx('ready');
+  alrNewGame(ALR_TIERS.find((t) => t.key === c.tier) || ALR_TIERS[0], c.side, c.map, c.ai);
 }

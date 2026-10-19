@@ -25,7 +25,8 @@
 // Globals are all alr* / ALR_* / alert*. Test seam: window.alertDebug.
 
 const alertWorld = document.getElementById('alertWorld');
-const ALR_N = 64;
+// the map's size in tiles — per game now (ALR_MAPS), so it's a let; everything reads it live
+let ALR_N = 64;
 const ALR_DT = 1 / 30;           // the sim's fixed step
 
 // ---- the rules ------------------------------------------------------------------------------------------
@@ -128,11 +129,14 @@ const ALR_TIERS = [
   { key: 'allout', emoji: '🔥', name: 'ALL-OUT WAR', mult: 3, cpu: 1.3, firstWave: 170, wave: [8, 13], bonus: 3,
     blurb: 'they build faster, they dig deeper, they never stop.', lockNote: 'win as a COMMANDER' },
 ];
-// colors by seat (you're always blue); the third is the neutral oil derricks
+// colors by seat (you're always blue; up to four CPUs); the last is the neutral oil derricks
 const ALR_TEAMS = [
-  { name: 'NUGGET ALLIANCE', col: [0.25, 0.52, 0.98], css: '#3f86f8' },
-  { name: 'FRY FEDERATION', col: [0.92, 0.2, 0.15], css: '#ea3326' },
-  { name: 'NEUTRAL', col: [0.62, 0.6, 0.55], css: '#9a968a' },
+  { name: 'NUGGET ALLIANCE', tag: 'BLUE', col: [0.25, 0.52, 0.98], css: '#3f86f8' },
+  { name: 'FRY FEDERATION', tag: 'RED', col: [0.92, 0.2, 0.15], css: '#ea3326' },
+  { name: 'GREEN', tag: 'GREEN', col: [0.25, 0.78, 0.3], css: '#3cc24a' },
+  { name: 'GOLD', tag: 'GOLD', col: [0.98, 0.74, 0.12], css: '#f8bc1e' },
+  { name: 'PURPLE', tag: 'PURPLE', col: [0.66, 0.32, 0.95], css: '#a852f2' },
+  { name: 'NEUTRAL', tag: 'NEUTRAL', col: [0.62, 0.6, 0.55], css: '#9a968a' },
 ];
 
 // ---- the state ------------------------------------------------------------------------------------------
@@ -169,151 +173,192 @@ function syncAlert() {
     alrOpenTier();
   } else {
     if (alr.tierPick) { alr.tierPick.close(); alr.tierPick = null; }
+    if (alr.ui && alr.ui.setup) alr.ui.setup.hidden = true;
     alr.phase = 'idle'; alr.paused = false;
     alrMusicStop(); alrSfxStop();
     if (alr.ui) alr.ui.root.classList.remove('alr-playing');
   }
 }
 function alertProWon() { try { return localStorage.getItem('nugAlertPro') === '1'; } catch (e) { return false; } }
-function alrOpenTier() {
-  alr.phase = 'tier';
-  if (alr.ui) alr.ui.root.classList.remove('alr-playing');
-  const tiers = ALR_TIERS.map((t) => (t.key === 'allout' && !alertProWon() ? Object.assign({}, t, { locked: true }) : t));
-  alr.tierPick = ArcadeKit.tierSelect({
-    storeKey: 'alert', title: '🚨 NUGGET ALERT — choose your enemy',
-    note: 'a skirmish vs the CPU · build · harvest · destroy their base · 1 · 2 · 3',
-    tiers, mount: alertWorld,
-    onPick: (key, t) => { alr.tierPick = null; alrAudioWake(); alrOpenSide(t); },
-  });
-}
-// then your army (the CPU gets the other one)
-function alrOpenSide(tier) {
-  alr.phase = 'tier';
-  const cards = Object.keys(ALR_SIDES).map((k) => ({ key: k, emoji: ALR_SIDES[k].emoji, name: ALR_SIDES[k].name, mult: tier.mult, blurb: ALR_SIDES[k].blurb }));
-  alr.tierPick = ArcadeKit.tierSelect({
-    storeKey: 'alertSide', title: '🚨 NUGGET ALERT — choose your army', note: 'the CPU fights as the other one · 1 · 2',
-    tiers: cards, mount: alertWorld,
-    onPick: (key) => { alr.tierPick = null; alrAudioWake(); alrNewGame(tier, key); },
-  });
-}
+// (the old two card pickers — enemy, then army — are now one skirmish screen: alrOpenSetup in alertUI.js)
+function alrOpenTier() { alrOpenSetup(); }
 
-// ---- the map ----------------------------------------------------------------------------------------------
-function alrMakeMap(seed) {
-  const N = ALR_N;
+// ---- the maps ---------------------------------------------------------------------------------------------
+// Hand-set layouts, each a fixed seed (so a map is the same map every time) with k-fold rotational symmetry
+// about its centre: every start gets the same ground, the same two ore fields, the same track in, the same
+// forests. ring: [starts, radius, angle of start 0]. A map plays any number of players up to its starts; fewer
+// players take starts spread around the ring.
+const ALR_MAPS = [
+  { key: 'valley', name: 'FRYER VALLEY', N: 64, seed: 4217, ring: [2, 29, Math.PI * 0.75], trees: 0.66, emoji: '🌄',
+    blurb: 'the classic: two bases, one road, ore at every elbow.' },
+  { key: 'crossing', name: 'THREE-SAUCE CROSSING', N: 88, seed: 77101, ring: [3, 32, Math.PI * 0.5], trees: 0.64, centre: 1, emoji: '🔺',
+    blurb: 'three bases round a rich ore lake. whoever holds the middle eats.' },
+  { key: 'square', name: 'NUGGET SQUARE', N: 96, seed: 9091, ring: [4, 46, Math.PI * 0.75], trees: 0.62, centre: 1, emoji: '🟪',
+    blurb: 'four corners, an open middle, oil on every side.' },
+  { key: 'ridges', name: 'THE GREASE RIDGES', N: 104, seed: 31337, ring: [4, 40, Math.PI * 0.5], trees: 0.7, ridges: true, emoji: '⛰️',
+    blurb: 'rock ridges split the map: two passes between every pair of bases.' },
+  { key: 'plains', name: 'GRAND FRYER PLAINS', N: 128, seed: 6060, ring: [5, 50, Math.PI * 0.5], trees: 0.63, centre: 2, emoji: '⭐',
+    blurb: 'five bases, a sea of grass, a huge contested centre. bring a lot of tanks.' },
+];
+function alrMapDef(key) { return ALR_MAPS.find((m) => m.key === key) || ALR_MAPS[0]; }
+function alrMakeMap(def) {
+  const N = def.N, seed = def.seed, [K, R, A0] = def.ring, c = N / 2, TAU = Math.PI * 2;
   let s = seed >>> 0 || 1; const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
   const M = {
-    N, seed, block: new Uint8Array(N * N), bld: new Int32Array(N * N), ore: new Float32Array(N * N), oreMax: new Float32Array(N * N),
-    dirt: new Float32Array(N * N), trees: [], rocks: [], tracks: [], starts: [[11.5, 52.5], [52.5, 11.5]], oreVer: 0,
+    N, seed, key: def.key, block: new Uint8Array(N * N), bld: new Int32Array(N * N), ore: new Float32Array(N * N), oreMax: new Float32Array(N * N),
+    dirt: new Float32Array(N * N), trees: [], rocks: [], tracks: [], starts: [], derricks: [], oreVer: 0,
   };
   const at = (x, z) => z * N + x;
+  const inside = (x, z) => x >= 1 && z >= 1 && x < N - 1 && z < N - 1;
   const disk = (cx, cz, rad, fn) => {
     for (let z = Math.floor(cz - rad); z <= Math.ceil(cz + rad); z++) for (let x = Math.floor(cx - rad); x <= Math.ceil(cx + rad); x++) {
-      if (x < 0 || z < 0 || x >= N || z >= N) continue;
+      if (!inside(x, z)) continue;
       const d = Math.hypot(x + 0.5 - cx, z + 0.5 - cz);
       if (d <= rad) fn(x, z, d);
     }
   };
+  // rotate a point about the centre by sector i
+  const rot = (p, i) => { const a = i * TAU / K, ca = Math.cos(a), sa = Math.sin(a), dx = p[0] - c, dz = p[1] - c; return [c + dx * ca - dz * sa, c + dx * sa + dz * ca]; };
+  const each = (p, fn) => { for (let i = 0; i < K; i++) fn(rot(p, i), i); };
+  const S0 = [c + Math.cos(A0) * R, c + Math.sin(A0) * R];
+  for (let i = 0; i < K; i++) M.starts.push(rot(S0, i));
+  // sector 0's local frame: u toward the centre, v across
+  const ux = (c - S0[0]) / R, uz = (c - S0[1]) / R, vx = -uz, vz = ux;
+  const L = (a, b) => [S0[0] + ux * a + vx * b, S0[1] + uz * a + vz * b];
+  const bend = (r() - 0.5) * R * 0.35;
   // the bases: bare earth
-  for (const [x, z] of M.starts) disk(x, z, 8.5, (i, j, d) => { M.dirt[at(i, j)] = Math.max(M.dirt[at(i, j)], alrClamp((8.5 - d) / 3, 0, 1)); });
-  // the track between them: a bent line through the middle
-  const mid = [32 + (r() - 0.5) * 10, 32 + (r() - 0.5) * 10];
-  const path = [];
-  const seg = (a, b) => { for (let k = 0; k <= 40; k++) { const t = k / 40; path.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); } };
-  seg(M.starts[0], mid); seg(mid, M.starts[1]);
-  M.tracks.push(path);
-  const onTrack = new Uint8Array(N * N);
-  for (const [px, pz] of path) disk(px, pz, 2.2, (i, j, d) => { onTrack[at(i, j)] = 1; M.dirt[at(i, j)] = Math.max(M.dirt[at(i, j)], alrClamp((2.2 - d) / 1.4, 0, 1) * 0.85); });
-  // ore fields: two near each base, two in the middle, mirrored so it's fair
-  const fields = [];
-  const mir = (p) => [N - p[0], N - p[1]];
-  const near = [[22 + r() * 3, 50 + r() * 4], [13 + r() * 4, 40 + r() * 3]];
-  const midF = [[mid[0] - 7 + r() * 2, mid[1] + 5 + r() * 2]];
-  for (const f of near.concat(midF)) { fields.push(f); fields.push(mir(f)); }
-  for (const [fx, fz] of fields) {
-    const rad = 2.6 + r() * 1.4;
-    disk(fx, fz, rad + 1.2, (i, j, d) => {
-      const k = at(i, j);
-      M.dirt[k] = Math.max(M.dirt[k], 0.55 * alrClamp((rad + 1.2 - d) / 1.2, 0, 1));
-      if (d <= rad && r() < 0.92) { const v = 140 + (1 - d / rad) * 200 + r() * 60; M.ore[k] = Math.max(M.ore[k], v); M.oreMax[k] = M.ore[k]; }
-    });
-  }
-  // the oil derricks: four, off the track either side of the middle, mirrored — something worth an engineer
-  M.derricks = [];
-  {
-    const [ax, az] = M.starts[0], dx = mid[0] - ax, dz = mid[1] - az, L = Math.hypot(dx, dz), px = -dz / L, pz = dx / L;
-    for (const side of [-1, 1]) {
-      const cx = ax + dx * 0.62 + px * 6.5 * side, cz = az + dz * 0.62 + pz * 6.5 * side;
-      for (const [x, z] of [[cx, cz], [N - cx, N - cz]]) {
-        const tx = Math.round(x - 1), tz = Math.round(z - 1);
-        for (let j = -1; j <= 2; j++) for (let i = -1; i <= 2; i++) { const k = at(alrClamp(tx + i, 1, N - 2), alrClamp(tz + j, 1, N - 2)); M.ore[k] = 0; M.oreMax[k] = 0; M.dirt[k] = Math.max(M.dirt[k], 0.6); }
-        M.derricks.push([tx, tz]);
+  each(S0, ([x, z]) => disk(x, z, 8.5, (i, j, d) => { M.dirt[at(i, j)] = Math.max(M.dirt[at(i, j)], alrClamp((8.5 - d) / 3, 0, 1)); }));
+  // the ridges: rock walls on the sector boundaries, broken by two passes (an inner one with oil in it, an outer one with ore)
+  const ridge = new Uint8Array(N * N);
+  if (def.ridges) {
+    const segs = [[0.14, 0.34], [0.47, 0.6], [0.74, 1.6]];      // passes at 0.34–0.47 R (the derrick) and 0.6–0.74 R (the ore)
+    for (let i = 0; i < K; i++) {
+      const a = A0 + (i + 0.5) * TAU / K;
+      for (const [r0, r1] of segs) for (let t = r0 * R; t <= r1 * R; t += 0.45) {
+        const x = c + Math.cos(a) * t, z = c + Math.sin(a) * t;
+        disk(x, z, 1.1 + 0.5 * Math.sin(t * 0.7), (ii, jj) => { ridge[at(ii, jj)] = 1; });
       }
     }
   }
-  // trees and rocks: clumps by noise, off the bases, the track and the ore, mirrored too
+  // the tracks: from every base into the middle, bent the same way
+  const onTrack = new Uint8Array(N * N);
+  const P0 = [S0, L(R * 0.5, bend), [c, c]];
+  for (let i = 0; i < K; i++) {
+    const path = [];
+    for (let q = 0; q < P0.length - 1; q++) { const a = rot(P0[q], i), b = rot(P0[q + 1], i); for (let k = 0; k <= 30; k++) { const t = k / 30; path.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); } }
+    M.tracks.push(path);
+    for (const [px, pz] of path) disk(px, pz, 2.2, (ii, jj, d) => { onTrack[at(ii, jj)] = 1; ridge[at(ii, jj)] = 0; M.dirt[at(ii, jj)] = Math.max(M.dirt[at(ii, jj)], alrClamp((2.2 - d) / 1.4, 0, 1) * 0.85); });
+  }
+  // the ore: two fields by every base, one between every pair of bases, and a big field in the middle on some maps
+  const field = (fx, fz, rad, rich) => disk(fx, fz, rad + 1.2, (i, j, d) => {
+    const k = at(i, j);
+    M.dirt[k] = Math.max(M.dirt[k], 0.55 * alrClamp((rad + 1.2 - d) / 1.2, 0, 1));
+    ridge[k] = 0;
+    if (d <= rad && alrHash(i, j, seed) < 0.92) { const v = (140 + (1 - d / rad) * 200 + alrHash(j, i, seed) * 60) * (rich || 1); M.ore[k] = Math.max(M.ore[k], v); M.oreMax[k] = M.ore[k]; }
+  });
+  const nearA = L(9 + r() * 2, 7 + r() * 2), nearB = L(3 + r() * 2, -10 - r() * 2), r1 = 2.9 + r() * 0.8, r2 = 2.6 + r() * 0.8;
+  each(nearA, ([x, z]) => field(x, z, r1)); each(nearB, ([x, z]) => field(x, z, r2));
+  const mid = [c + Math.cos(A0 + Math.PI / K) * R * 0.63, c + Math.sin(A0 + Math.PI / K) * R * 0.63];
+  each(mid, ([x, z]) => field(x, z, 3.4));
+  if (def.centre) field(c, c, 3.5 + def.centre * 1.5, 1.3);
+  // the oil derricks: one in the pass between every pair of bases, one off every base's road on the big maps
+  const derrick = (x, z) => {
+    const tx = Math.round(x - 1), tz = Math.round(z - 1);
+    for (let j = -1; j <= 2; j++) for (let i = -1; i <= 2; i++) { const k = at(alrClamp(tx + i, 1, N - 2), alrClamp(tz + j, 1, N - 2)); M.ore[k] = 0; M.oreMax[k] = 0; ridge[k] = 0; M.dirt[k] = Math.max(M.dirt[k], 0.6); }
+    M.derricks.push([alrClamp(tx, 2, N - 4), alrClamp(tz, 2, N - 4)]);
+  };
+  each([c + Math.cos(A0 + Math.PI / K) * R * 0.4, c + Math.sin(A0 + Math.PI / K) * R * 0.4], ([x, z]) => derrick(x, z));
+  if (K === 2 || N >= 96) each(L(R * 0.62, -6.5), ([x, z]) => derrick(x, z));
+  // the ridges go down as rock: two big boulder groups a tile, on stony ground, so a ridge reads as a wall
+  for (let k = 0; k < N * N; k++) if (ridge[k] && !onTrack[k]) {
+    M.block[k] = 1;
+    M.dirt[k] = Math.max(M.dirt[k], 0.45);
+    for (let q = 0; q < 2; q++) M.rocks.push({ x: k % N + 0.5 + (alrHash(k, 1 + q * 9, seed) - 0.5) * 0.7, z: ((k / N) | 0) + 0.5 + (alrHash(k, 2 + q * 9, seed) - 0.5) * 0.7, v: (alrHash(k, 3 + q * 9, seed) * 6) | 0, yaw: alrHash(k, 4 + q * 9, seed) * 6.28, s: 1.6 + alrHash(k, 5 + q * 9, seed) * 0.8 });
+  }
+  // trees and rocks: clumps by noise, sampled in sector 0 so every sector grows the same forest
   const nz = alrNoise(seed + 99);
+  const canon = (x, z) => {
+    const th = Math.atan2(z - c, x - c), i = ((Math.round((th - A0) / (TAU / K)) % K) + K) % K;
+    return rot([x, z], -i);
+  };
   const free = (i, j) => {
     const k = at(i, j);
-    if (onTrack[k] || M.ore[k] > 0 || M.dirt[k] > 0.15) return false;
+    if (onTrack[k] || M.block[k] || M.ore[k] > 0 || M.dirt[k] > 0.15) return false;
     for (const [x, z] of M.starts) if (Math.hypot(i + 0.5 - x, j + 0.5 - z) < 10) return false;
+    for (const [x, z] of M.derricks) if (Math.hypot(i - x - 1, j - z - 1) < 3) return false;
     return true;
   };
   for (let j = 1; j < N - 1; j++) for (let i = 1; i < N - 1; i++) {
-    if (i + j > N - 1) continue;                     // one half; the other half mirrors it
-    const v = nz(i * 0.16, j * 0.16);
-    const i2 = N - 1 - i, j2 = N - 1 - j;
-    if (!free(i, j) || !free(i2, j2)) continue;
+    if (!free(i, j)) continue;
+    const [cx, cz] = canon(i + 0.5, j + 0.5), qx = Math.floor(cx), qz = Math.floor(cz);
+    const v = nz(cx * 0.16, cz * 0.16), h = alrHash(qx, qz, seed + 5);
     let what = 0;
-    if (v > 0.66 && r() < 0.75) what = 1; else if (r() < 0.012) what = 2; else if (r() < 0.01) what = 1;
+    if (v > def.trees && h < 0.75) what = 1; else if (h > 0.988) what = 2; else if (h < 0.01) what = 1;
     if (!what) continue;
-    for (const [x, z] of [[i, j], [i2, j2]]) {
-      M.block[at(x, z)] = 1;
-      const item = { x: x + 0.5 + (r() - 0.5) * 0.3, z: z + 0.5 + (r() - 0.5) * 0.3, v: (r() * 6) | 0, yaw: r() * 6.28, s: 0.85 + r() * 0.35 };
-      (what === 1 ? M.trees : M.rocks).push(item);
-    }
+    M.block[at(i, j)] = 1;
+    const item = { x: i + 0.5 + (alrHash(qx, qz, 7) - 0.5) * 0.3, z: j + 0.5 + (alrHash(qz, qx, 7) - 0.5) * 0.3, v: (alrHash(qx, qz, 11) * 6) | 0, yaw: alrHash(qx, qz, 13) * 6.28, s: 0.85 + alrHash(qx, qz, 17) * 0.35 };
+    (what === 1 ? M.trees : M.rocks).push(item);
   }
   // the map's edge
   for (let k = 0; k < N; k++) { M.block[at(k, 0)] = M.block[at(k, N - 1)] = M.block[at(0, k)] = M.block[at(N - 1, k)] = 1; }
   return M;
 }
+// a stable 0..1 hash of two integers (+ a salt), for placement that has to match across sectors
+function alrHash(a, b, salt) { let h = (a * 374761393 + b * 668265263 + (salt | 0) * 2147483647) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
 
 // ---- the game ---------------------------------------------------------------------------------------------
-function alrNewGame(tier, side) {
+function alrNewGame(tier, side, mapKey, nAI) {
+  alr.phase = 'loading';                 // (the old game stops here, not when the new one's ready)
   alr.cfg = tier;
   side = side || alr.side || 'A';
   alr.side = side;
-  const sides = [side, side === 'A' ? 'F' : 'A'];
+  const def = alrMapDef(mapKey || alr.mapKey), K = def.ring[0];
+  alr.mapKey = def.key;
+  nAI = alrClamp(nAI || alr.nAI || 1, 1, K - 1);
+  alr.nAI = nAI;
+  ALR_N = def.N;
+  alr._pg = alr._pf = alr._pp = alr._pm = alr._pc = null;      // the pathfinder's buffers are sized by the map
+  alr.payMul = 1 + 0.25 * (nAI - 1);                           // more rivals, more nuggets per kill
   alr.crates = []; alr.crateT = 40;
   alr.ents = []; alr.byId = new Map(); alr.nid = 1; alr.sel = []; alr.groups = {}; alr.fx = []; alr.shots = []; alr.decor = [];
   alr.t = 0; alr.acc = 0; alr.earned = 0; alr.result = null; alr.msgs = []; alr.place = null; alr.mode = '';
   alr.stats = { kills: 0, lost: 0, built: 0, harvested: 0, crushed: 0, captured: 0 };
-  alr.M = alrMakeMap((Math.random() * 1e9) | 0);
-  alr.players = [0, 1].map((i) => ({
-    id: i, human: i === 0, side: sides[i], team: Object.assign({}, ALR_TEAMS[i], { name: ALR_SIDES[sides[i]].name }),
+  alr.M = alrMakeMap(def);
+  // seats: spread round the ring (two on a four-start map sit opposite), turned at random so you don't always start in the same place
+  const m = nAI + 1, off = (Math.random() * K) | 0, other = side === 'A' ? 'F' : 'A';
+  const slots = [], sides = [side];
+  for (let i = 0; i < m; i++) slots.push((Math.floor(i * K / m) + off) % K);
+  for (let i = 1; i < m; i++) sides.push(i === 1 ? other : Math.random() < 0.5 ? 'A' : 'F');
+  alr.players = slots.map((st, i) => ({
+    id: i, human: i === 0, side: sides[i], start: st,
+    team: Object.assign({}, ALR_TEAMS[i], { name: ALR_SIDES[sides[i]].name + (m > 2 && i > 0 ? ' · ' + ALR_TEAMS[i].tag : '') }),
     credits: 7500, make: 0, use: 0, low: false,
     q: { bld: [], def: [], inf: [], veh: [] }, ready: { bld: null, def: null },
-    shroud: new Uint8Array(ALR_N * ALR_N), ai: i === 1 ? alrAINew(i) : null, lost: false, underAttack: 0,
+    shroud: new Uint8Array(ALR_N * ALR_N), ai: i > 0 ? alrAINew(i) : null, lost: false, underAttack: 0,
   }));
-  // seat 2: the neutral oil derricks (no army, no turn, never the target of an auto-attack)
-  alr.players.push({ id: 2, neutral: true, side: '', team: ALR_TEAMS[2], credits: 0, make: 0, use: 0, low: false, q: { bld: [], def: [], inf: [], veh: [] }, ready: {}, lost: false, underAttack: 0 });
+  // the last seat: the neutral oil derricks (no army, no turn, never the target of an auto-attack)
+  alr.NEU = alr.players.length;
+  alr.players.push({ id: alr.NEU, neutral: true, side: '', team: ALR_TEAMS[ALR_TEAMS.length - 1], credits: 0, make: 0, use: 0, low: false, q: { bld: [], def: [], inf: [], veh: [] }, ready: {}, lost: false, underAttack: 0 });
   alrUILoading(true);
   // let the loading card paint before the terrain texture is baked
   setTimeout(() => {
     alrUIBuildWorld();
     for (const P of alr.players) {
       if (P.neutral) continue;
-      const [sx, sz] = alr.M.starts[P.id];
+      const [sx, sz] = alr.M.starts[P.start];
       alrSpawnBld('hq', P.id, Math.round(sx - 1.5), Math.round(sz - 1.5), true);
-      const d = P.id === 0 ? 1 : -1;
+      // the starting army stands between the yard and the middle of the map
+      const c = ALR_N / 2, dl = Math.hypot(c - sx, c - sz) || 1, ux = (c - sx) / dl, uz = (c - sz) / dl;
       let n = 0;
       for (const [type, count] of ALR_SIDES[P.side].start) for (let k = 0; k < count; k++, n++) {
-        if (ALR_UNIT[type].cat === 'inf') alrSpawnUnit(type, P.id, sx + d * (2.6 + k * 0.4), sz - d * (2.4 - k * 0.3));
-        else alrSpawnUnit(type, P.id, sx + d * (2.8 + k * 0.9), sz - d * 0.4);
+        const inf = ALR_UNIT[type].cat === 'inf', a = inf ? 2.8 : 3.6, b = (k - (count - 1) / 2) * (inf ? 0.45 : 1.0) + (inf ? 1.2 : -1.2);
+        const u = alrSpawnUnit(type, P.id, sx + ux * a - uz * b, sz + uz * a + ux * b);
+        u.yaw = u.tYaw = Math.atan2(ux, uz);
       }
     }
-    for (const [tx, tz] of alr.M.derricks) alrSpawnBld('derrick', 2, tx, tz, true);
-    alrPower(alr.players[0]); alrPower(alr.players[1]);
-    alr.cam.x = alr.M.starts[0][0] + 3; alr.cam.z = alr.M.starts[0][1] - 3;
+    for (const [tx, tz] of alr.M.derricks) alrSpawnBld('derrick', alr.NEU, tx, tz, true);
+    alrPowerAll();
+    { const [sx, sz] = alr.M.starts[alr.players[0].start], c = ALR_N / 2; alr.cam.x = sx + (c - sx) * 0.12; alr.cam.z = sz + (c - sz) * 0.12; }
     alrRevealAll();
     alrUILoading(false);
     alr.phase = 'play';
@@ -394,9 +439,10 @@ function alrPower(P) {
     P.radarWas = radar;
   }
 }
+function alrPowerAll() { for (const P of alr.players) if (!P.neutral) alrPower(P); }
 function alrEarn(units, why) {
   if (units <= 0 || !alr.cfg) return 0;
-  const worth = Math.max(1, Math.round(storm.perFlyer * units * alr.cfg.mult));
+  const worth = Math.max(1, Math.round(storm.perFlyer * units * alr.cfg.mult * (alr.payMul || 1)));
   storm.caught += worth; alr.earned += worth;
   if (why) alrFloat('+' + fmt.format(worth) + ' ' + why);
   return worth;
@@ -456,7 +502,7 @@ function alrProduce(P, dt) {
     const nf = cat === 'inf' ? alrBldsOf(P.id, 'barracks').length : cat === 'veh' ? alrBldsOf(P.id, 'factory').length : 1;
     // (RA2: each extra factory of the kind multiplies the build time by 0.8)
     let rate = D.cost / D.time / Math.pow(0.8, Math.max(0, nf - 1)) * (P.low ? 0.5 : 1);
-    if (!P.human || alr.auto) rate *= P.id === 1 ? alr.cfg.cpu : 1;
+    if (!P.human) rate *= alr.cfg.cpu;
     let pay = Math.min(rate * dt, D.cost - it.spent, P.credits);
     if (pay <= 0 && it.spent < D.cost) { if (P.human && !P.broke) { P.broke = true; alrSay('INSUFFICIENT FUNDS', '#ff8a7a'); alrSfx('error'); } continue; }
     P.broke = false;
@@ -666,7 +712,7 @@ function alrSim(dt) {
     else if (alr.auto && P.id === 0) { P.ai = P.ai || alrAINew(0); alrAIStep(P, dt); }
     if (P.underAttack > 0) P.underAttack -= dt;
   }
-  if (((alr.t * 4) | 0) !== (((alr.t - dt) * 4) | 0)) { alrPower(alr.players[0]); alrPower(alr.players[1]); alrRevealAll(); }
+  if (((alr.t * 4) | 0) !== (((alr.t - dt) * 4) | 0)) { alrPowerAll(); alrRevealAll(); }
   for (const e of alr.ents.slice()) {
     if (!alr.byId.has(e.id)) continue;
     if (e.kind === 'unit') alrUnitStep(e, dt); else alrBldStep(e, dt);
@@ -820,7 +866,7 @@ function alrAim(u, t, dt, W, keepMoving) {
 function alrAcquire(u, range, W) {
   let best = null, bd = 1e9;
   for (const e of alr.ents) {
-    if (e.owner === u.owner || e.owner === 2 || e.hp <= 0 || e.sell) continue;
+    if (e.owner === u.owner || e.owner === alr.NEU || e.hp <= 0 || e.sell) continue;
     if (e.kind === 'bld' && e.D.wall) continue;                 // nobody shoots at walls on their own
     if (W && !alrCanHit(W, e)) continue;
     if (u.owner === 0 && !alr.players[0].shroud[alrTile(e.x, e.z)]) continue;
@@ -921,7 +967,7 @@ function alrCapture(u, t) {
     if (t.D.tech) alr.players[u.owner].credits += t.D.cost;        // a derrick pays on the spot, then keeps paying
     if (u.owner === 0) { alr.stats.captured++; alrSay('BUILDING CAPTURED', '#9bff9b'); alrEarn(t.D.tech ? 6 : 10, ''); }
     if (was === 0) alrSay('OUR BUILDING HAS BEEN CAPTURED', '#ff6a5a');
-    alrPower(alr.players[0]); alrPower(alr.players[1]);
+    alrPowerAll();
   }
   alrSfx('place', t.x, t.z);
   alrRemove(u, false);
@@ -942,7 +988,7 @@ function alrCrates(dt) {
   }
   for (const c of alr.crates) c.t += dt;
   for (const c of alr.crates.slice()) {
-    const u = alr.ents.find((e) => e.kind === 'unit' && e.owner < 2 && e.D.air !== 'jet' && !(e.D.air && e.alt > 1.2) && Math.hypot(e.x - c.x, e.z - c.z) < 0.5);
+    const u = alr.ents.find((e) => e.kind === 'unit' && e.owner !== alr.NEU && e.D.air !== 'jet' && !(e.D.air && e.alt > 1.2) && Math.hypot(e.x - c.x, e.z - c.z) < 0.5);
     if (u) alrCrate(u, c);
   }
 }
@@ -967,7 +1013,7 @@ function alrCrush() {
     if (v.kind !== 'unit' || !v.D.crush || !v.moving || v.hp <= 0) continue;
     const fx = Math.sin(v.yaw), fz = Math.cos(v.yaw), half = v.D.r * 1.15, wide = v.D.r * 0.8;
     for (const s of alr.ents) {
-      if (s.kind !== 'unit' || s.owner === v.owner || s.D.cat !== 'inf' || s.hp <= 0 || s.D.noCrush || s.D.air || s.owner === 2) continue;
+      if (s.kind !== 'unit' || s.owner === v.owner || s.D.cat !== 'inf' || s.hp <= 0 || s.D.noCrush || s.D.air || s.owner === alr.NEU) continue;
       const dx = s.x - v.x, dz = s.z - v.z;
       if (Math.abs(dx) > 1 || Math.abs(dz) > 1) continue;
       // inside the hull's footprint (along the treads, not just a circle)
@@ -983,8 +1029,19 @@ function alrCrush() {
 // soft separation: units don't stack (infantry can share a tile, vehicles can't; aircraft pass over everything)
 function alrSeparate(dt) {
   const U = alr.ents.filter((e) => e.kind === 'unit' && !e.D.air && !e.deployed);
-  for (let i = 0; i < U.length; i++) for (let j = i + 1; j < U.length; j++) {
-    const a = U[i], b = U[j], dx = b.x - a.x, dz = b.z - a.z, rr = a.D.r + b.D.r;
+  // a tile grid, so each unit only looks at its neighbours (five armies on the big maps made every-pair too slow)
+  const grid = new Map();
+  for (const u of U) { const k = Math.floor(u.x) * 4096 + Math.floor(u.z); let c = grid.get(k); if (!c) grid.set(k, (c = [])); c.push(u); }
+  const pairs = [];
+  for (const a of U) {
+    const gx = Math.floor(a.x), gz = Math.floor(a.z);
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+      const c = grid.get((gx + dx) * 4096 + gz + dz); if (!c) continue;
+      for (const b of c) if (b.id > a.id) pairs.push(a, b);
+    }
+  }
+  for (let q = 0; q < pairs.length; q += 2) {
+    const a = pairs[q], b = pairs[q + 1], dx = b.x - a.x, dz = b.z - a.z, rr = a.D.r + b.D.r;
     if (Math.abs(dx) > rr || Math.abs(dz) > rr) continue;
     if (a.owner !== b.owner && ((a.D.crush && b.D.cat === 'inf' && !b.D.noCrush) || (b.D.crush && a.D.cat === 'inf' && !a.D.noCrush))) continue;
     const d = Math.hypot(dx, dz) || 0.01;
@@ -1076,6 +1133,9 @@ function alrFindOre(x, z, near, maxR, self) {
   const M = alr.M, N = ALR_N;
   let best = -1, bd = 1e9;
   const cx = near ? near[0] : x, cz = near ? near[1] : z;
+  // the other haulers, gathered ONCE (the per-tile check below used to walk every unit on the map: on the
+  // 128² map with five armies that was ~8 million checks a search)
+  const hv = alr.ents.filter((e) => e.D.harv && e !== self && !(!self && Math.hypot(e.x - x, e.z - z) <= 0.1));
   for (let k = 0; k < N * N; k++) {
     if (M.ore[k] <= 20) continue;
     const d = Math.hypot(k % N + 0.5 - cx, ((k / N) | 0) + 0.5 - cz);
@@ -1084,8 +1144,7 @@ function alrFindOre(x, z, near, maxR, self) {
     // NEXT to another hauler's target (or to where it sits) is as jammed as the same tile
     let pen = 0;
     const kx = k % N + 0.5, kz = ((k / N) | 0) + 0.5;
-    for (const e of alr.ents) {
-      if (!e.D.harv || e === self || (!self && Math.hypot(e.x - x, e.z - z) <= 0.1)) continue;
+    for (const e of hv) {
       if (e.oreTile != null && Math.hypot((e.oreTile % N) + 0.5 - kx, ((e.oreTile / N) | 0) + 0.5 - kz) < 1.5) pen += 3;
       if (Math.hypot(e.x - kx, e.z - kz) < 1.1) pen += 2;
     }
@@ -1107,14 +1166,14 @@ function alrBldStep(b, dt) {
   const P = alr.players[b.owner];
   if (b.flash > 0) b.flash -= dt;
   b.anim += dt;
-  if (b.build < 1) { b.build = Math.min(1, b.build + dt / (b.D.wall ? 0.5 : 1.6)); if (b.build >= 1 && b.owner < 2) alrPower(P); return; }
+  if (b.build < 1) { b.build = Math.min(1, b.build + dt / (b.D.wall ? 0.5 : 1.6)); if (b.build >= 1 && b.owner !== alr.NEU) alrPower(P); return; }
   if (b.sell) {
     b.sell += dt / 1.0;
     if (b.sell >= 2) { alrRemove(b, true); alrPower(P); }
     return;
   }
   if (b.door > 0) b.door -= dt;
-  if (b.owner === 2) return;                                    // a neutral derrick just stands there
+  if (b.owner === alr.NEU) return;                              // a neutral derrick just stands there
   if (b.D.income) P.credits += b.D.income * dt;                  // a captured derrick pumps money
   if (b.repair && b.hp < b.max) {
     // RA2: repairing costs a share of the price spread over the hit points
@@ -1199,7 +1258,7 @@ function alrFire(e, t, W) {
           let cur = t; const hit = [t];
           for (let k = 0; k < W.bounce; k++) {
             let nb = null, nd = 2.2;
-            for (const q of alr.ents) if (q.owner !== e.owner && q.owner !== 2 && !hit.includes(q) && q.hp > 0 && alrCanHit(W, q) && !(q.kind === 'bld' && q.D.wall)) { const d = Math.hypot(q.x - cur.x, q.z - cur.z); if (d < nd) { nd = d; nb = q; } }
+            for (const q of alr.ents) if (q.owner !== e.owner && q.owner !== alr.NEU && !hit.includes(q) && q.hp > 0 && alrCanHit(W, q) && !(q.kind === 'bld' && q.D.wall)) { const d = Math.hypot(q.x - cur.x, q.z - cur.z); if (d < nd) { nd = d; nb = q; } }
             if (!nb) break;
             alrFxPrism(alrAimPoint(cur), alrAimPoint(nb), 0.6); alrHit(nb, W, e, 0.5); hit.push(nb); cur = nb;
           }
@@ -1232,7 +1291,7 @@ function alrShotsStep(dt) {
       const t = alr.byId.get(s.tid), from = alr.byId.get(s.from) || { owner: s.owner, id: s.from };
       if (alrAlive(t) && alrDistTo(s.x, s.z, t) < 0.8 + (s.W.splash ? 0.4 : 0)) alrHit(t, s.W, from, s.mul);
       // splash: everything else of theirs near the blast takes half
-      if (s.W.splash) for (const q of alr.ents.slice()) if (q !== t && q.owner !== s.owner && q.owner !== 2 && q.hp > 0 && !alrAirborne(q) && alrDistTo(s.x, s.z, q) < s.W.splash) alrHit(q, s.W, from, 0.5 * s.mul);
+      if (s.W.splash) for (const q of alr.ents.slice()) if (q !== t && q.owner !== s.owner && q.owner !== alr.NEU && q.hp > 0 && !alrAirborne(q) && alrDistTo(s.x, s.z, q) < s.W.splash) alrHit(q, s.W, from, 0.5 * s.mul);
       if (s.kind === 'v3' || s.kind === 'bomb') alrFxBoom(s.x, 0.2, s.z, s.kind === 'bomb' ? 1.1 : 0.9);
       else if (alrAirborne(t || {})) alrFxFlak([s.x, s.y, s.z]);
       else alrFxBlast(s.x, s.y, s.z, s.kind === 'rocket' ? 0.55 : 0.45);
@@ -1247,7 +1306,7 @@ function alrHit(t, W, from, mul) {
   const fr = from && from.kind === 'unit' ? ALR_RANK[from.rank || 0].dmg : 1, tr = t.kind === 'unit' ? ALR_RANK[t.rank || 0].armor : 1;
   t.hp -= W.dmg * v * (mul || 1) * fr * tr;
   t.flash = 0.08; t.lastHit = alr.t;
-  if (t.owner === 2) { if (t.hp <= 0) alrKill(t, from); return; }
+  if (t.owner === alr.NEU) { if (t.hp <= 0) alrKill(t, from); return; }
   const P = alr.players[t.owner];
   if (P.underAttack <= 0 && t.owner === 0) { alrSay(t.kind === 'bld' ? 'OUR BASE IS UNDER ATTACK' : t.D.harv ? 'HARVESTER UNDER ATTACK' : 'UNIT UNDER ATTACK', '#ff6a5a'); alrSfx('alarm'); alr.lastAlarm = [t.x, t.z]; }
   alrMusicFight(t.x, t.z);
@@ -1272,7 +1331,7 @@ function alrKill(t, from) {
     // a blimp coming down lands on whoever is under it
     if (t.type === 'blimp') for (const q of alr.ents.slice()) if (q !== t && q.hp > 0 && !alrAirborne(q) && alrDistTo(t.x, t.z, q) < 1.3) alrHit(q, ALR_WPN.bomb, from, 0.6);
     alrSfx(t.D.cat === 'inf' ? 'squish' : 'boomL', t.x, t.z);
-    if (killer === 0 && t.owner === 1) { alr.stats.kills++; alrEarn(t.D.cat === 'inf' ? 2 : t.D.air ? 8 : 5, ''); }
+    if (killer === 0 && t.owner !== 0 && t.owner !== alr.NEU) { alr.stats.kills++; alrEarn(t.D.cat === 'inf' ? 2 : t.D.air ? 8 : 5, ''); }
     if (t.owner === 0) { alr.stats.lost++; alrSay('UNIT LOST', '#ff8a7a'); }
   } else {
     alrFxBoom(t.x, 0.4, t.z, t.D.wall ? 0.6 : 1.6 + t.w * 0.25);
@@ -1282,7 +1341,7 @@ function alrKill(t, from) {
     if (t.owner === 0 && !t.D.wall) alrSay('BUILDING LOST', '#ff6a5a');
   }
   alrRemove(t, false);
-  if (t.owner < 2) alrPower(alr.players[t.owner]);
+  if (t.owner !== alr.NEU) alrPower(alr.players[t.owner]);
 }
 function alrRemove(e, sold) {
   alr.byId.delete(e.id);
@@ -1290,7 +1349,7 @@ function alrRemove(e, sold) {
   if (e.kind === 'bld') {
     for (let j = 0; j < e.h; j++) for (let k = 0; k < e.w; k++) { const q = (e.tz + j) * ALR_N + e.tx + k; if (alr.M.bld[q] === e.id) alr.M.bld[q] = 0; }
     // a sold building pops out its crew: the side's basic soldier
-    if (sold && !e.D.wall && e.owner < 2) { const P = alr.players[e.owner]; for (let k = 0; k < 3; k++) alrSpawnUnit(P.side === 'F' ? 'conscript' : 'inf', e.owner, e.x + alrRnd(-0.5, 0.5), e.tz - 0.35); }
+    if (sold && !e.D.wall && e.owner !== alr.NEU) { const P = alr.players[e.owner]; for (let k = 0; k < 3; k++) alrSpawnUnit(P.side === 'F' ? 'conscript' : 'inf', e.owner, e.x + alrRnd(-0.5, 0.5), e.tz - 0.35); }
   }
   alr.sel = alr.sel.filter((s) => s !== e);
   for (const g of Object.keys(alr.groups)) alr.groups[g] = alr.groups[g].filter((id) => id !== e.id);
@@ -1312,16 +1371,22 @@ function alrRevealAll() { const P = alr.players[0]; for (const e of alr.ents) if
 function alrCheckEnd() {
   if (alr.result) return;
   for (const P of alr.players) {
-    if (P.neutral) continue;
+    if (P.neutral || P.lost) continue;
     // beaten: no building left that counts (walls and derricks don't) and nothing left that can shoot
     const alive = alr.ents.some((e) => e.owner === P.id && (e.kind === 'bld' ? !e.D.wall && !e.D.tech : !!e.D.weapon));
-    if (!alive) P.lost = true;
+    if (!alive) {
+      P.lost = true;
+      // what's left of theirs (walls, the odd hauler) goes quiet; a rival is announced as gone
+      if (P.id !== 0) { alrSay(P.team.name + ' DEFEATED', '#9bff9b'); alrSfx('ready'); }
+    }
   }
-  if (alr.players[1].lost || alr.players[0].lost) {
-    const won = alr.players[1].lost && !alr.players[0].lost;
+  // free-for-all: you win when every CPU is gone, you lose when you are
+  const you = alr.players[0], rivals = alr.players.filter((P) => !P.neutral && P.id !== 0);
+  if (you.lost || rivals.every((P) => P.lost)) {
+    const won = !you.lost;
     alr.result = { won, t: alr.t };
     if (won) {
-      alrEarn(200, 'VICTORY');
+      alrEarn(200 * (1 + 0.5 * (rivals.length - 1)), 'VICTORY');
       if (alr.cfg.key === 'pro') { try { localStorage.setItem('nugAlertPro', '1'); } catch (e) { } }
       if (alr.cfg.key === 'allout') { try { localStorage.setItem('nugAlertChamp', '1'); } catch (e) { } }
     }
@@ -1354,16 +1419,36 @@ function alrAIPick(P, list, enemyAir) {
   for (let i = 0; i < ok.length; i++) { r -= w[i]; if (r <= 0) return ok[i][0]; }
   return ok[0][0];
 }
+// free-for-all: who this CPU is fighting — the nearest rival still standing, looked at again every couple of
+// minutes (or the moment that rival falls), so the map doesn't all pile onto one player
+function alrAIEnemy(P, hq) {
+  const A = P.ai, cur = A.enemy != null && alr.players[A.enemy];
+  if (cur && !cur.lost && alr.t < (A.enemyT || 0)) return A.enemy;
+  let best = null, bd = 1e9;
+  for (const Q of alr.players) {
+    if (Q === P || Q.neutral || Q.lost) continue;
+    const q = alrBldsOf(Q.id, 'hq')[0] || alr.ents.find((e) => e.owner === Q.id && e.kind === 'bld');
+    const [qx, qz] = q ? [q.x, q.z] : alr.M.starts[Q.start];
+    const d = Math.hypot(qx - hq.x, qz - hq.z) * (0.85 + Math.random() * 0.3);
+    if (d < bd) { bd = d; best = Q.id; }
+  }
+  if (best !== A.enemy) A.rally = null;
+  A.enemy = best; A.enemyT = alr.t + 120 + Math.random() * 60;
+  return best;
+}
+function alrRival(o) { const P = alr.players[o]; return P && !P.neutral; }
 function alrAIStep(P, dt) {
   const A = P.ai;
   if ((A.think -= dt) > 0) return;
   A.think = 0.5;
-  const me = P.id, cfg = alr.cfg, enemy = 1 - me, side = P.side;
-  if (A.waveT == null) A.waveT = me === 1 ? cfg.firstWave : 200;
-  if (cfg.bonus && me === 1) P.credits += cfg.bonus * 0.5 * 4;
+  const me = P.id, cfg = alr.cfg, side = P.side;
+  if (A.waveT == null) A.waveT = cfg.firstWave * (0.9 + Math.random() * 0.25);
+  if (cfg.bonus) P.credits += cfg.bonus * 0.5 * 4;
   const hq = alrBldsOf(me, 'hq')[0];
   if (!hq) return;
-  const enemyAir = alr.ents.some((e) => e.owner === enemy && (e.kind === 'unit' ? !!e.D.air : e.type === 'airhq'));
+  const enemy = alrAIEnemy(P, hq);
+  if (enemy == null) return;
+  const enemyAir = alr.ents.some((e) => e.owner !== me && alrRival(e.owner) && (e.kind === 'unit' ? !!e.D.air : e.type === 'airhq'));
   // 1) the build order (it skips what it can't build yet, and rebuilds what it lost)
   if (!P.q.bld.length && !P.ready.bld) {
     const have = {}; for (const e of alr.ents) if (e.kind === 'bld' && e.owner === me) have[e.type] = (have[e.type] || 0) + 1;
@@ -1394,7 +1479,7 @@ function alrAIStep(P, dt) {
   const harvs = mine.filter((e) => e.D.harv).length, refs = alrBldsOf(me, 'refinery').length;
   const queued = (q, t) => q.filter((x) => x.type === t).length;
   if (alrCanBuild(P, hv) && harvs + queued(P.q.veh, hv) < Math.min(refs * 1.5 + 0.5, 4) && P.credits > 800) alrQueue(P, hv);
-  const neutral = alr.ents.filter((e) => e.kind === 'bld' && e.D.tech && e.owner === 2);
+  const neutral = alr.ents.filter((e) => e.kind === 'bld' && e.D.tech && e.owner === alr.NEU);
   const cooks = mine.filter((e) => e.D.engineer).length + queued(P.q.inf, 'engineer');
   if (neutral.length && cooks < Math.min(2, neutral.length) && alrCanBuild(P, 'engineer') && P.credits > 700) alrQueue(P, 'engineer');
   // (production pays as it goes, so the queues just stay topped up; nothing has to be saved for first)
@@ -1416,14 +1501,14 @@ function alrAIStep(P, dt) {
     A.jetT = 45 + Math.random() * 30;
     const jets = mine.filter((u) => u.D.air === 'jet' && u.jet === 'pad' && u.ammo > 0);
     if (jets.length >= 2) {
-      const tg = alr.ents.filter((e) => e.owner === enemy && (e.D.harv || e.D.role === 'power' || e.type === 'factory' || e.type === 'refinery') && alr.players[me].shroud && true);
+      const tg = alr.ents.filter((e) => e.owner === enemy && (e.D.harv || e.D.role === 'power' || e.type === 'factory' || e.type === 'refinery'));
       const t = tg.length ? alrPick(tg) : null;
       if (t) for (const j of jets) alrOrderAttack(j, t);
     }
   }
   // 5) the army
   const army = mine.filter((e) => e.D.weapon && !e.D.harv && e.D.air !== 'jet');
-  if (!A.rally) { const [ex, ez] = alr.M.starts[enemy], d = Math.hypot(ex - hq.x, ez - hq.z); A.rally = [hq.x + (ex - hq.x) / d * 7, hq.z + (ez - hq.z) / d * 7]; }
+  if (!A.rally) { const [ex, ez] = alr.M.starts[alr.players[enemy].start], d = Math.hypot(ex - hq.x, ez - hq.z) || 1; A.rally = [hq.x + (ex - hq.x) / d * 7, hq.z + (ez - hq.z) / d * 7]; }
   // defend: the base is hit — everybody home
   if (P.underAttack > 0 && P.attackedAt && Math.hypot(P.attackedAt[0] - hq.x, P.attackedAt[1] - hq.z) < 14) {
     for (const u of army) if (!u.order || u.order.type !== 'attack' || Math.random() < 0.1) { if (Math.hypot(u.x - hq.x, u.z - hq.z) < 22) alrOrderMove(u, P.attackedAt[0] + alrRnd(-1, 1), P.attackedAt[1] + alrRnd(-1, 1), true); }
@@ -1451,7 +1536,11 @@ function alrAIStep(P, dt) {
 }
 // where to put a building: a spiral out from the yard, a gap of one tile kept clear, defenses toward the enemy
 function alrAISpot(P, type, hq) {
-  const D = ALR_BLD[type], enemy = alr.M.starts[1 - P.id];
+  // (defenses face the nearest rival's start)
+  let enemy = null, ed = 1e9;
+  for (const Q of alr.players) if (Q !== P && !Q.neutral && !Q.lost) { const st = alr.M.starts[Q.start], d = Math.hypot(st[0] - hq.x, st[1] - hq.z); if (d < ed) { ed = d; enemy = st; } }
+  enemy = enemy || [ALR_N / 2, ALR_N / 2];
+  const D = ALR_BLD[type];
   const def = D.cat === 'def';
   let best = null, bs = 1e9;
   for (let r = 2; r < 13; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
@@ -1498,7 +1587,7 @@ window.alertDebug = {
       units: alr.ents.filter((e) => e.kind === 'unit' && e.owner === P.id).map((e) => e.type) })),
     stats: alr.stats,
   }),
-  start: (i, side) => { if (alr.tierPick) { alr.tierPick.close(); alr.tierPick = null; } alrNewGame(ALR_TIERS[i || 0], side || 'A'); },
+  start: (i, side, map, nAI) => { if (alr.tierPick) { alr.tierPick.close(); alr.tierPick = null; } if (alr.ui && alr.ui.setup) alr.ui.setup.hidden = true; alrNewGame(ALR_TIERS[i || 0], side || 'A', map || 'valley', nAI || 1); },
   auto: (v) => { alr.auto = v !== false; },
   step: (secs) => { const n = Math.round(secs / ALR_DT); for (let k = 0; k < n && alr.phase === 'play'; k++) alrSim(ALR_DT); return window.alertDebug.state(); },
   queue: (t) => alrQueue(alr.players[0], t), place: (t, x, z) => alrPlace(alr.players[0], t, x, z),
