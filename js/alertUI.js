@@ -512,6 +512,81 @@ function alrFxStep(dt) {
   }
   alr.decor = alr.decor.filter((d) => d.t < d.T);
   for (const u of alr.ents) if (u.kind === 'unit' && u.moving && u.D.cat === 'veh' && Math.random() < dt * 5) alrFxDust(u.x - Math.sin(u.yaw) * 0.35, u.z - Math.cos(u.yaw) * 0.35);
+  for (const u of alr.ents) if (u.kind === 'unit') alrAnimStep(u, dt);
+}
+// ---- a body: how it went down, then a few seconds lying there, then it sinks into the ground ------------------------
+function alrDrawCorpse(d, team) {
+  const e = d.t;
+  let x = d.x, z = d.z, y = 0, pitch = 0, roll = 0, sy = 1, add = null;
+  if (d.mode === 'fall') {                      // topples back, a little bounce, lies still
+    const k = Math.min(1, e / 0.42); pitch = -d.side * 1.42 * k * k;
+    if (e > 0.42 && e < 0.62) pitch += d.side * 0.16 * Math.sin((e - 0.42) / 0.2 * Math.PI);
+  } else if (d.mode === 'blast') {              // thrown: an arc, tumbling, then flat on its back
+    const f = Math.min(e, 0.7), sp = 1.1;
+    x += Math.cos(d.dir) * sp * f; z += Math.sin(d.dir) * sp * f;
+    y = Math.max(0, 2.4 * f - 3.6 * f * f);
+    pitch = e < 0.7 ? e * 10 * d.side : -d.side * 1.5; roll = e < 0.7 ? e * 4 : 0.3;
+    add = [-0.1, -0.1, -0.1];
+  } else if (d.mode === 'sink') { y = -Math.min(1, e / 1.6) * 0.34; pitch = d.side * 0.35 * Math.min(1, e / 0.5); add = [-0.12, -0.17, -0.2]; }
+  else if (d.mode === 'flat') { sy = 0.12; }
+  if (e > d.T - 2.5) y -= (e - (d.T - 2.5)) * 0.13;          // and it's gone
+  const C = alrTRS(x, y, z, d.yaw, 1, sy, 1, pitch, roll);
+  const stub = { type: d.type, D: d.D, x: 0, z: 0, yaw: 0, tYaw: 0, alt: 0, moving: false, walk: 0, owner: d.owner, id: 0 };
+  const o = { team: team(d.owner), spec: 0.15, desat: 0.25, add };
+  for (const p of alrUnitParts(stub)) alrGLDraw(p.mesh, alrMul(C, p.M), o);
+}
+// a blown-off turret: ballistic, tumbling, bounces once, settles where it lands and smokes
+function alrDrawPart(d) {
+  const m = alrArt.u[d.mesh]; if (!m) return;
+  const dt = Math.min(0.05, d.t - (d.lt || 0)); d.lt = d.t;
+  if (!d.rest) {
+    d.vy -= 9.5 * dt; d.x += d.vx * dt; d.z += d.vz * dt; d.y += d.vy * dt; d.roll += d.spin * dt;
+    if (d.y < 0.06) { d.y = 0.06; if (Math.abs(d.vy) < 1.2) { d.rest = true; d.roll = Math.round(d.roll / Math.PI) * Math.PI + 0.25; } else { d.vy *= -0.3; d.vx *= 0.5; d.vz *= 0.5; d.spin *= 0.4; alrFxDust(d.x, d.z); } }
+  } else if (d.t < 6 && Math.random() < 0.15) alrFxSmoke(d.x, d.y + 0.1, d.z, 0.18, 1.4, true);
+  const fade = Math.min(1, (d.T - d.t) / 2);
+  alrGLDraw(m, alrTRS(d.x, d.y, d.z, d.yaw, 1.1, 1.1, 1.1, 0, d.roll), { team: [0.18, 0.17, 0.16], desat: 0.85, add: [-0.08, -0.08, -0.08], spec: 0.05, alpha: fade < 1 ? fade : undefined });
+}
+// ---- the life in them ---------------------------------------------------------------------------------------------
+// Visual-only state per unit (u.va), measured from what the sim did: speed and acceleration (a hull pitches as it
+// starts and stops), turn rate (it leans into a turn), the shot (a spring kicks it back), an order (a soldier's
+// little hop), being shot at (soldiers crouch and brace), idling (they glance about). The era's RTS units were
+// never still — this is that.
+function alrAnimStep(u, dt) {
+  const a = u.va || (u.va = { px: u.x, pz: u.z, py: u.yaw, v: 0, acc: 0, yr: 0, kick: 0, kv: 0, rc: 0, look: 0, lookTo: 0, lookT: Math.random() * 3, ord: u.order, hop: 0, crouch: 0 });
+  if (!(dt > 0)) return;
+  const v = Math.hypot(u.x - a.px, u.z - a.pz) / dt;
+  let dy = u.yaw - a.py; while (dy > Math.PI) dy -= 6.2832; while (dy < -Math.PI) dy += 6.2832;
+  a.acc += ((v - a.v) / dt - a.acc) * Math.min(1, dt * 5);
+  a.v += (v - a.v) * Math.min(1, dt * 8);
+  a.yr += (dy / dt - a.yr) * Math.min(1, dt * 6);
+  a.px = u.x; a.pz = u.z; a.py = u.yaw;
+  if ((u.recoil || 0) > a.rc + 0.4) a.kv -= 3.2;                         // a shot: kick the spring
+  a.rc = u.recoil || 0;
+  a.kv += (-a.kick * 140 - a.kv * 13) * dt; a.kick += a.kv * dt;
+  if (u.order !== a.ord) { if (u.order && u.owner === 0) a.hop = 1; a.ord = u.order; }
+  a.hop = Math.max(0, a.hop - dt * 3.5);
+  const idle = !u.moving && !u.target;
+  if (idle) { if ((a.lookT -= dt) <= 0) { a.lookT = 1.5 + Math.random() * 4; a.lookTo = Math.random() < 0.3 ? 0 : (Math.random() - 0.5) * 1.5; } } else a.lookTo = 0;
+  a.look += (a.lookTo - a.look) * Math.min(1, dt * 3);
+  const hot = u.lastHit && alr.t - u.lastHit < 2.5 && !u.moving;
+  a.crouch += ((hot ? 1 : 0) - a.crouch) * Math.min(1, dt * 6);
+  if (u.D.cat === 'veh' && !u.D.air) {
+    const f = u.hp / u.max, back = (k) => [u.x - Math.sin(u.yaw) * k, u.z - Math.cos(u.yaw) * k];
+    if (u.moving && Math.random() < dt * (a.acc > 0.3 ? 6 : 1.5)) { const [x, z] = back(0.3); alrP({ x, y: 0.34, z, vx: alrRnd(-0.1, 0.1), vy: 0.5, vz: alrRnd(-0.1, 0.1), s: 0.12, gs: 0.35, T: 0.9, r: 0.22, g: 0.22, b: 0.22, a: 0.45, cell: 1 }); }   // exhaust
+    if (f < 0.5 && Math.random() < dt * (f < 0.25 ? 7 : 3)) { const [x, z] = back(0.15); alrFxSmoke(x, 0.38, z, f < 0.25 ? 0.3 : 0.2, 1.6, true); }
+    if (f < 0.25 && Math.random() < dt * 6) { const [x, z] = back(0.1); alrFxFire(x + alrRnd(-0.08, 0.08), 0.32, z + alrRnd(-0.08, 0.08), 0.18); }
+  }
+}
+// a vehicle's hull, posed by that state: pitch with acceleration and the shot's kick, roll into turns, a faint
+// idle shudder — one matrix about the unit's own ground point, applied to every part
+function alrHullRock(u) {
+  const a = u.va;
+  if (!a || u.D.cat !== 'veh' || u.D.air) return null;
+  const pitch = alrClamp(-a.acc * 0.022, -0.07, 0.07) + alrClamp(a.kick, -0.08, 0.08) * 0.9;
+  const roll = alrClamp(-a.yr * a.v * 0.025, -0.06, 0.06);
+  const idle = !u.moving ? Math.sin((alr.t || 0) * 47 + u.id) * 0.0025 : 0;
+  if (Math.abs(pitch) + Math.abs(roll) + Math.abs(idle) < 1e-4) return null;
+  return alrMul(alrMul(alrTRS(u.x, idle, u.z, u.yaw, 1, 1, 1, pitch, roll), alrTRS(0, 0, 0, -u.yaw)), alrTRS(-u.x, 0, -u.z, 0));
 }
 
 // ---- the render -----------------------------------------------------------------------------------------------------
@@ -555,7 +630,8 @@ function alrUIRender(dt) {
   // stands of one kind: broadleaf (0-2) or pine (3-5) by a slow wave over the map, so woods read as woods
   for (const tr of M.trees) if (seen(tr.x, tr.z) && tr.x >= x0 && tr.x <= x1 + 1 && tr.z >= z0 && tr.z <= z1 + 1) {
     const sp = A.trees.length >= 6 ? (tr.v % 3) + (Math.sin(tr.x * 0.19 + 1.3) + Math.cos(tr.z * 0.23) > 0.2 ? 3 : 0) : tr.v % A.trees.length;
-    alrGLDraw(A.trees[sp], alrTRS(tr.x, 0, tr.z, tr.yaw, tr.s), { spec: 0.05 });
+    const wt = alr.t || 0, gust = 0.6 + 0.4 * Math.sin(wt * 0.23 + tr.x * 0.05);   // a breeze that comes and goes across the map
+    alrGLDraw(A.trees[sp], alrTRS(tr.x, 0, tr.z, tr.yaw, tr.s, tr.s, tr.s, Math.sin(wt * 1.3 + tr.x * 0.7) * 0.022 * gust, Math.cos(wt * 1.1 + tr.z * 0.6) * 0.018 * gust), { spec: 0.05 });
   }
   // bushes (visual only: never block, skipped under buildings and ore)
   if (A.shrubs && U.shrubs) for (const sh of U.shrubs) {
@@ -573,8 +649,11 @@ function alrUIRender(dt) {
     if (d.kind === 'wreck') {
       const fade = Math.min(1, (d.T - d.t) / 2);
       const o = { team: [0.18, 0.17, 0.16], desat: 0.85, add: [-0.08, -0.08, -0.08], spec: 0.05, alpha: fade < 1 ? fade : undefined };
-      for (const p of alrUnitParts(d)) alrGLDraw(p.mesh, p.M, o);
+      const gone = d.tossed ? [A.u[d.type + '_turret'], A.u[d.type + '_gun']] : null;
+      for (const p of alrUnitParts(d)) if (!gone || !gone.includes(p.mesh)) alrGLDraw(p.mesh, p.M, o);
     }
+    if (d.kind === 'corpse') alrDrawCorpse(d, team);
+    if (d.kind === 'part') alrDrawPart(d);
   }
   for (const f of alr.fx) if (f.kind === 'decal') {
     const a = Math.min(1, (f.T - f.t) / 4) * (f.sauce ? 0.7 : 0.85);
@@ -800,7 +879,10 @@ function alrBldParts(b) {
 const ALR_DRAW_SCALE = { inf: 1.3, rocket: 1.3, conscript: 1.3, engineer: 1.3, zapper: 1.3, jetpack: 1.3, dog: 1.25, tank: 1.15, heavy: 1.12, harv: 1.1, harvF: 1.1, ifv: 1.12, prismtank: 1.12, mirage: 1.12, flaktrack: 1.12, v3: 1.1, apoc: 1.05, sniper: 1.3, greaser: 1.3, bomber: 1.3, teslaspud: 1.12 };
 const ALR_INF_BODY = { inf: 'inf', rocket: 'rocket', conscript: 'conscript', engineer: 'engineer', zapper: 'zapper', jetpack: 'jetpack', sniper: 'sniper', greaser: 'greaser', bomber: 'bomber' };
 function alrUnitParts(u) {
-  const parts = alrUnitParts0(u), k = ALR_DRAW_SCALE[u.type] || 1;
+  let parts = alrUnitParts0(u);
+  const rock = alrHullRock(u);
+  if (rock) parts = parts.map((p) => ({ mesh: p.mesh, M: alrMul(rock, p.M) }));
+  const k = ALR_DRAW_SCALE[u.type] || 1;
   if (k === 1) return parts;
   const S = alrMul(alrMul(alrTRS(u.x, 0, u.z, 0), alrTRS(0, 0, 0, 0, k)), alrTRS(-u.x, 0, -u.z, 0));
   return parts.map((p) => ({ mesh: p.mesh, M: alrMul(S, p.M) }));
@@ -809,12 +891,19 @@ function alrUnitParts0(u) {
   const A = alrArt.u, t = u.type, R = ALR_RIG, parts = [], alt = u.alt || 0;
   const add = (k, M) => { const m = A[k] || (k === t ? A[ALR_FALLBACK[k]] : null); if (m) parts.push({ mesh: m, M }); };
   if (ALR_INF_BODY[t]) {
-    const fly = u.D && u.D.air;
-    const sw = u.moving ? Math.sin(u.walk) * (fly ? 0.25 : 0.7) : fly ? 0.15 : 0, bob = fly ? Math.sin((u.walk || 0) * 0.4 + u.id) * 0.03 : u.moving ? Math.abs(Math.cos(u.walk)) * 0.02 : 0;
-    const B = alrTRS(u.x, alt + bob, u.z, u.yaw);
+    const fly = u.D && u.D.air, a = u.va || {}, tt = alr.t || 0, ph = (u.id || 0) * 1.7;
+    // a stride (lean in, sway with the step, bob on it), breathing at rest, a glance about when idle, a lurch back
+    // on the shot, a crouch under fire (one knee forward), a hop when ordered
+    const sw = u.moving ? Math.sin(u.walk) * (fly ? 0.25 : 0.75) : fly ? 0.15 : 0;
+    const bob = fly ? Math.sin((u.walk || 0) * 0.4 + u.id) * 0.03 : u.moving ? Math.abs(Math.cos(u.walk)) * 0.03 : 0;
+    const c = fly ? 0 : a.crouch || 0, hop = a.hop ? Math.sin(a.hop * Math.PI) * 0.045 : 0;
+    const lean = (u.moving && !fly ? 0.13 : 0.03 * c) + alrClamp(a.kick || 0, -0.1, 0.1) * 2.2;
+    const sway = u.moving && !fly ? Math.sin(u.walk) * 0.07 : 0;
+    const sy = (u.moving ? 1 : 1 + Math.sin(tt * 2.1 + ph) * 0.014) * (1 - 0.1 * c);
+    const B = alrTRS(u.x, alt + bob + hop - 0.025 * c, u.z, u.yaw + (a.look || 0), 1, sy, 1, lean, sway);
     if (A[ALR_INF_BODY[t]]) add(ALR_INF_BODY[t], B); else if (A.inf) parts.push({ mesh: A.inf, M: B });
-    add('leg', alrMul(B, alrTRS(0.045, 0.13, 0, 0, 1, 1, 1, sw)));
-    add('leg', alrMul(B, alrTRS(-0.045, 0.13, 0, 0, 1, 1, 1, -sw)));
+    add('leg', alrMul(B, alrTRS(0.045, 0.13, 0, 0, 1, 1, 1, sw + 0.7 * c)));
+    add('leg', alrMul(B, alrTRS(-0.045, 0.13, 0, 0, 1, 1, 1, -sw - 0.25 * c)));
     return parts;
   }
   if (t === 'dog') {

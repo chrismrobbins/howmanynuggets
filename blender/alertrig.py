@@ -66,7 +66,7 @@ PAL = {
     # the landscape: 14 foliage · 15 rock · 16 ore
     "leafA": _m("#46622b", 14), "leafB": _m("#55702f", 14), "leafC": _m("#344d22", 14), "leafD": _m("#617336", 14),
     "pineA": _m("#2f4a2c", 14), "pineB": _m("#3a5532", 14), "bark": _m("#4d3e2e", 10), "barkDark": _m("#3a2f24", 10),
-    "rockA": _m("#6f6a60", 15), "rockB": _m("#5c5850", 15), "rockC": _m("#7b766b", 15),
+    "rockA": _m("#5a554c", 15), "rockB": _m("#47443e", 15), "rockC": _m("#665f54", 15),
     # the gem fields: glossy sauce crystals (glass class, no AO — they catch the light, as RA2's gems did)
     "gemKetchup": _m("#d4302a", 8, 0, 1), "gemMustard": _m("#e6b324", 8, 0, 1), "gemBlue": _m("#3d86e0", 8, 0, 1),
     "gemPickle": _m("#46b85a", 8, 0, 1), "gemRanch": _m("#dfe7ee", 8, 0, 1), "gemRock": _m("#4c4a46", 15), "gemRockLite": _m("#5f5c56", 15),

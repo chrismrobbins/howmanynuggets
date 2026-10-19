@@ -3905,3 +3905,32 @@ tiles in 10 s** and were "moving" 52% of frames. There were three causes, all fi
 After: parked rally crowd **0 tiles / 0 moving frames**. Group move settled. All 21 ordered onto ONE point:
 every order finished, about 0.02 tiles per tank per second of residual nudging. Solo arrival unchanged.
 Regression games on valley / plains / river, and the helicopter test, all pass.
+
+## 🫀 NUGGET ALERT: THE LIFE IN THEM (2026-10-19)
+Chris: *"the characters and items in the game still just don't really feel alive or like they have soul … look at
+other RTS games of the era"*. RA2 / Generals / Tiberian Sun / StarCraft units were never still. This pass is that,
+all visual (the sim is untouched; a CPU-vs-CPU game plays out the same):
+- **`alrAnimStep(u, dt)`** (alertUI.js, run from `alrFxStep`) keeps a per-unit visual state `u.va`, measured from
+  what the sim did:
+  - speed + smoothed acceleration
+  - turn rate
+  - a spring kicked by each shot (`u.recoil` jumping)
+  - an order hop (yours only)
+  - an idle glance target every 1.5–5.5 s
+  - a crouch while `lastHit` < 2.5 s and standing
+  - vehicles also get exhaust puffs (more on acceleration), smoke below 50% HP, and fire below 25%
+- **Infantry pose** (the `ALR_INF_BODY` branch of `alrUnitParts0`):
+  - walking: a forward lean, a sway with the stride and a bigger bob
+  - at rest: breathing (y-scale) and the idle glance (yaw offset)
+  - a lurch back on the shot
+  - a crouch under fire (lower, one knee forward)
+  - a hop when ordered
+- **Vehicles:** `alrHullRock(u)` is one matrix about the unit's ground point: pitch from acceleration + the shot's
+  kick, roll into turns, a faint idle shudder. `alrUnitParts` applies it to every part, before the draw scale.
+- **Deaths** (alert.js `alrKill` pushes decor; alertUI draws it):
+  - `corpse` (infantry, 8 s): `fall` (bullets: topples back with a bounce), `blast` (splash / shell / rocket / V3 /
+    bomb: thrown in a tumbling arc), `flat` (crushed), `sink` (gravy). All sink into the ground over the last 2.5 s.
+  - Vehicles with a `<type>_turret` mesh lose the turret 55% of the time: a `part` decor (ballistic, tumbles,
+    bounces once, settles, smokes). The wreck is drawn without its turret and gun (`tossed`).
+- **Trees** sway in a breeze that comes and goes across the map. **Rocks** are darker weathered stone (they read as
+  pale "turtles" before).

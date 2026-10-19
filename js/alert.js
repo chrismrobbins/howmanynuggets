@@ -1755,6 +1755,19 @@ function alrKill(t, from, W) {
     if (gravied) { alrSfx('scream' + (1 + ((Math.random() * 3) | 0)), t.x, t.z); if (typeof alrFxGravyDeath === 'function') alrFxGravyDeath(t.x, t.z); }
     else if (t.D.cat === 'inf') { alrFxCrumbs(t.x, t.z); if (t.crushed) alrFxSquish(t.x, t.z); }
     else { alrFxBoom(t.x, 0.3 + (t.alt || 0), t.z, t.type === 'blimp' ? 2.4 : 1); if (!t.D.air && !t.sunk) alr.decor.push({ kind: 'wreck', type: t.type, D: t.D, cargo: 0, x: t.x, z: t.z, yaw: t.yaw, tYaw: t.tYaw, t: 0, T: 9, owner: t.owner, alt: 0, rank: 0 }); }
+    // the body stays a moment (RA2's infantry never just vanished): toppled by bullets, thrown by blasts,
+    // flattened under treads, gone under in gravy — drawn by alertUI (decor 'corpse'), then it sinks away
+    if (t.D.cat === 'inf' && !t.D.air && !t.sunk) {
+      const blast = W && (W.splash || /shell|rocket|v3|bomb|boom/.test(W.kind || ''));
+      alr.decor.push({ kind: 'corpse', type: t.type, D: t.D, owner: t.owner, x: t.x, z: t.z, yaw: t.yaw, t: 0, T: 8, mode: gravied ? 'sink' : t.crushed ? 'flat' : blast ? 'blast' : 'fall', dir: Math.random() * 6.283, side: Math.random() < 0.5 ? -1 : 1 });
+    }
+    // a big hit can blow the turret clean off: it tumbles away and the wreck burns without it
+    const tw = t.D.cat === 'veh' && !t.D.air && !t.sunk && alr.decor[alr.decor.length - 1];
+    if (tw && tw.kind === 'wreck' && typeof alrArt !== 'undefined' && alrArt.u[t.type + '_turret'] && Math.random() < 0.55) {
+      tw.tossed = true;
+      const a = Math.random() * 6.283, sp = 0.6 + Math.random() * 1.0;
+      alr.decor.push({ kind: 'part', mesh: t.type + '_turret', owner: t.owner, x: t.x, z: t.z, y: 0.35, vx: Math.cos(a) * sp, vz: Math.sin(a) * sp, vy: 3.2 + Math.random() * 1.6, yaw: t.tYaw || t.yaw, spin: (Math.random() - 0.5) * 14, roll: 0, t: 0, T: 9 });
+    }
     // a blimp coming down lands on whoever is under it
     if (t.type === 'blimp') for (const q of alr.ents.slice()) if (q !== t && q.hp > 0 && !alrAirborne(q) && alrDistTo(t.x, t.z, q) < 1.3) alrHit(q, ALR_WPN.bomb, from, 0.6);
     if (!gravied) alrSfx(t.D.cat === 'inf' ? 'squish' : 'boomL', t.x, t.z);
