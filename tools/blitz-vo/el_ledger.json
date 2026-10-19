@@ -1,6 +1,6 @@
 {
  "cap": 10000,
- "spent": 10244.5,
+ "spent": 10329.5,
  "calls": [
   {
    "t": "2026-10-09 15:34",
@@ -593,6 +593,46 @@
    "secs": 1.8,
    "credits": 18.0,
    "file": "bomb.mp3"
+  },
+  {
+   "t": "2026-10-19 12:43",
+   "kind": "sfx",
+   "what": "A huge torrent of thick hot gravy glugging and pouring from a height, heavy viscous liquid stream, video game",
+   "secs": 2.5,
+   "credits": 25.0,
+   "file": "pour.mp3"
+  },
+  {
+   "t": "2026-10-19 12:43",
+   "kind": "sfx",
+   "what": "Thick brown gravy splattering onto the ground in a big wet sloppy splash with bubbling, video game",
+   "secs": 1.5,
+   "credits": 15.0,
+   "file": "splat.mp3"
+  },
+  {
+   "t": "2026-10-19 12:43",
+   "kind": "sfx",
+   "what": "Soldier death scream, short agonized yell cut off by a wet gargle, war video game",
+   "secs": 1.5,
+   "credits": 15.0,
+   "file": "scream1.mp3"
+  },
+  {
+   "t": "2026-10-19 12:43",
+   "kind": "sfx",
+   "what": "Infantryman screaming in panic as he is drowned in hot liquid, short, war video game",
+   "secs": 1.5,
+   "credits": 15.0,
+   "file": "scream2.mp3"
+  },
+  {
+   "t": "2026-10-19 12:43",
+   "kind": "sfx",
+   "what": "Short high falsetto death shriek of a soldier, gurgling at the end, war video game",
+   "secs": 1.5,
+   "credits": 15.0,
+   "file": "scream3.mp3"
   }
  ]
 }
