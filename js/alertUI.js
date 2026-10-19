@@ -324,8 +324,11 @@ function alrDrawBridges(onScreen, seen) {
   for (const B of M.bridges) {
     const ax = B.axis === 'x', ac = B.across + 1, yaw = ax ? Math.PI / 2 : 0;
     const P = (t) => (ax ? [t + 0.5, ac] : [ac, t + 0.5]);
-    const mid = P((B.lo + B.hi) / 2);
-    if (!onScreen(mid[0], mid[1], 300) || !seen(mid[0], mid[1])) continue;
+    // drawn once ANY of it is on screen and explored (an end on the bank is what you see first). It used to be
+    // the span's middle, out over the river: the bridge only appeared once you were right on top of it (Chris)
+    let vis = false, near = false;
+    for (let t = B.lo - 1; t <= B.hi + 1 && !(vis && near); t++) { const [x, z] = P(t); if (!near && onScreen(x, z, 160)) near = true; if (!vis && seen(x, z)) vis = true; }
+    if (!vis || !near) continue;
     // the abutments (they survive): +z of the piece faces the water
     for (const [t, y2] of [[B.lo - 1, 0], [B.hi + 1, Math.PI]]) { const [x, z] = P(t); if (W.bridge_end) alrGLDraw(W.bridge_end, alrTRS(x, 0, z, yaw + y2), { spec: 0.2 }); }
     for (let t = B.lo; t <= B.hi; t++) {

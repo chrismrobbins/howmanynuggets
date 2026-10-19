@@ -737,8 +737,12 @@ function alrPassable(k, self) {
 function alrPath(sx, sz, gx, gz, self) {
   const N = ALR_N, M = alr.M;
   let s = alrTile(sx, sz), g = alrTile(alrClamp(gx, 0, N - 1), alrClamp(gz, 0, N - 1));
+  // a click in the water / off the map / on a building: go to the nearest ground you can stand on — and END
+  // there (the last waypoint used to be the click itself, out in the river: the unit walked on the spot forever)
+  const g0 = g;
   if (!alrPassable(g, self)) g = alrNearestFree(g, self);
   if (g < 0) return null;
+  if (g !== g0) { gx = g % N + 0.5; gz = ((g / N) | 0) + 0.5; }
   if (s === g) return [[gx, gz]];
   const G = alr._pg || (alr._pg = new Float32Array(N * N)), F = alr._pf || (alr._pf = new Float32Array(N * N));
   const from = alr._pp || (alr._pp = new Int32Array(N * N)), mark = alr._pm || (alr._pm = new Uint32Array(N * N));
@@ -1061,7 +1065,14 @@ function alrFollow(u, dt) {
   const nx = u.x + Math.sin(u.yaw) * sp * dt, nz = u.z + Math.cos(u.yaw) * sp * dt;
   const k = alrTile(nx, nz);
   if (air ? (nx > 0.5 && nz > 0.5 && nx < ALR_N - 0.5 && nz < ALR_N - 0.5) : (alrIn(nx, nz) && alrPassable(k, u))) { u.vx = (nx - u.x) / dt; u.vz = (nz - u.z) / dt; u.x = nx; u.z = nz; u.stuck = Math.max(0, u.stuck - dt); }
-  else { u.stuck += dt * 2; u.vx = u.vz = 0; if (u.stuck > 1 && !air) { u.path = alrPath(u.x, u.z, u.path[u.path.length - 1][0], u.path[u.path.length - 1][1], u); u.pi = 0; u.stuck = 0; } }
+  else {
+    // blocked: stand still (no walking on the spot), re-plan once; still blocked after that, give up
+    u.stuck += dt * 2; u.vx = u.vz = 0; u.blocked = (u.blocked || 0) + dt;
+    if (u.blocked > 2.5) { u.path = null; u.blocked = 0; return false; }
+    if (u.stuck > 1 && !air) { u.path = alrPath(u.x, u.z, u.path[u.path.length - 1][0], u.path[u.path.length - 1][1], u); u.pi = 0; u.stuck = 0; }
+    return false;
+  }
+  u.blocked = 0;
   return true;
 }
 function alrTurretTo(u, ang, dt) {

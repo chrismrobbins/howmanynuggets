@@ -3639,3 +3639,16 @@ was already taken: it's the harvesters' ore.)
 - In the UI: the board cursor showed, a click gave the board orders, the troopers were aboard by 11 s, the unload
   cursor showed over the selected carrier, and a click put all 3 back out.
 - Regression games on Sauce Isles (4 players) and Fryer Valley.
+
+### Fixes: bridges popping in late; units walking on the spot at the water / map edge (2026-10-19)
+Chris: *"the bridge doesn't show up until you are right on top of it. also if you have a character walk into a
+section out of bounds, like the end of the map or the water, their feet just keep moving … make them stop"*.
+- **Bridges** (`alrDrawBridges`): the whole bridge was culled by its span's middle, which is out over the
+  water, so it only appeared once something of yours could see mid-river. Now it draws when ANY of its
+  tiles (abutments included) is explored and on screen; the shroud still fades the unexplored part.
+  Checked on the 11-tile Sauce Isles truss with only its bank end explored.
+- **Walking on the spot** (`alrPath`): a goal in the water / off the map / on a building is swapped for the
+  nearest free tile, but the LAST waypoint was then set back to the click itself, out in the river. The unit
+  reached the bank, couldn't step in, and re-planned the same path forever. Now the path ends on the free tile.
+  As a backstop, `alrFollow` returns "not moving" while blocked (so the walk cycle stops), and it gives up
+  the path after 2.5 s blocked (`u.blocked`).
