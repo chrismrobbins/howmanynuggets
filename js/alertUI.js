@@ -839,11 +839,12 @@ function alrOverlay() {
 // The map as RA2 showed it: a diamond, turned to match the camera. The camera's screen-right is the world's
 // +z−x and its screen-up is +x+z (alrGLCamera, yaw 45°), so the radar uses the same axes. (It used +x−z and
 // x+z downward — the whole map turned 180° from the battlefield — "the map is backwards", Chris.)
-// In the camera's own shape: the battlefield is seen at a pitch, so the ground diamond is flattened on screen to
-// sin(pitch) of its width (~0.55). The radar used to draw it square, so the map and the camera box on it were out
-// of scale with what you see (Chris: "the radar was very out of scale"); now it's the same diamond, letterboxed
-// in the square, and the camera box comes out a true rectangle — as RA2's radar did.
-function alrRadarK() { return Math.sin(alr.cam.pitch); }
+// Filling the box: the diamond's four corners touch the radar's four sides, so the map's edge is the radar's edge.
+// (It was drawn flattened to sin(pitch), the camera's own squash: a thin diamond in the middle of the square, the
+// rest black like the shroud — at the edge of the map the box looked 60% of the way across. Chris: "I'm at the edge
+// of the map but the radar only shows me like 60% up and to the right".) The map's outline is always drawn, so
+// where the map ends shows even before it's explored.
+function alrRadarK() { return 1; }
 function alrRadarXY(x, z) { const N = ALR_N, K = alrRadarK(); return [210 + (z - x) / N * 210, 210 - ((x + z) / N - 1) * 210 * K]; }
 function alrRadarInv(u, v) { const N = ALR_N, K = alrRadarK(); const a = (u - 210) / 210 * N, b = N * (1 + (210 - v) / (210 * K)); return [(b - a) / 2, (a + b) / 2]; }
 function alrRadar() {
@@ -883,7 +884,11 @@ function alrRadar() {
   g.imageSmoothingEnabled = false;
   g.drawImage(U.radarLayer, 0, 0, N, N);
   g.restore();
-  const cell = 420 / N;
+  // the map's edge: the four corners outside it in the panel's colour, the diamond outlined
+  g.fillStyle = '#10151c'; g.beginPath(); g.rect(0, 0, 420, 420);
+  g.moveTo(210, 0); g.lineTo(0, 210); g.lineTo(210, 420); g.lineTo(420, 210); g.closePath(); g.fill('evenodd');
+  g.strokeStyle = 'rgba(150, 190, 230, 0.55)'; g.lineWidth = 2; g.beginPath();
+  g.moveTo(210, 1); g.lineTo(419, 210); g.lineTo(210, 419); g.lineTo(1, 210); g.closePath(); g.stroke();
   for (const e of alr.ents) {
     if (e.owner !== 0 && P.shroud[alrTile(e.x, e.z)] < 40) continue;
     g.fillStyle = ALR_TEAMS[e.owner].css;
@@ -1259,8 +1264,8 @@ function alrMapPreview(def, size, marks, seats) {
     const o = k * 4; id.data[o] = r; id.data[o + 1] = g; id.data[o + 2] = b; id.data[o + 3] = 255;
   }
   sg.putImageData(id, 0, 0);
-  // (the radar's shape: the isometric diamond, flattened to sin(pitch), letterboxed in the square)
-  const g = cv.getContext('2d'), s = size / 2 / N, K = Math.sin(alr.cam.pitch), sk = s * K, h = size / 2;
+  // (the radar's shape: the isometric diamond, filling the square)
+  const g = cv.getContext('2d'), s = size / 2 / N, K = alrRadarK(), sk = s * K, h = size / 2;
   g.fillStyle = '#05070a'; g.fillRect(0, 0, size, size);
   g.save(); g.setTransform(-s, -sk, s, -sk, h, h + sk * N); g.imageSmoothingEnabled = true; g.drawImage(src, 0, 0, N, N); g.restore();
   const XY = (x, z) => [h + (z - x) / N * h, h - ((x + z) / N - 1) * h * K];

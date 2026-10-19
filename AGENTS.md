@@ -3428,10 +3428,14 @@ AI. Make several maps that can support different sizes … use its graphics as y
 Chris: *"the radar was very out of scale … make it so you can have your tanks and troops be given commands from
 the radar … make it obvious … a green type button … the attack command obvious as well. this was in RA2 with a
 red and green command type interface"*.
-- **Scale:** the battlefield is seen at pitch 0.58, so the ground diamond is flattened on screen to sin(pitch)
-  ≈ 0.55 of its width. The radar drew it square. `alrRadarXY` / `alrRadarInv` / the ground transform now use
-  `alrRadarK()` (letterboxed in the 420² canvas), and the camera box comes out a true rectangle. The lobby's
-  previews (`alrMapPreview`) use the same shape.
+- **Scale:** the radar's diamond fills the 420² canvas — its four corners touch the four sides
+  (`alrRadarK()` returns 1), so the map's edge is the radar's edge. The map's outline is always drawn and the
+  corners outside it are panel-coloured, so where the map ends shows even under shroud. (First try: flattened
+  to sin(pitch) ≈ 0.55, the camera's own squash, letterboxed. Mathematically right, but the diamond used a
+  quarter of the box and the black letterbox looked like shroud — Chris, at the map's edge: *"the radar only
+  shows me like 60% up and to the right"*. Don't flatten it again.) The camera box comes out a bit taller than
+  the screen's aspect; that's the trade. `alrRadarXY` / `alrRadarInv` / the ground transform / the lobby's
+  previews (`alrMapPreview`) all go through `alrRadarK()`.
 - **Radar orders** (`alrRadarDown/Move/Up`): with units (or a factory, for its rally point) selected, a click
   is an order: an enemy building on that tile, or an enemy unit within 1.4 tiles, means attack, otherwise
   a move (attack-move in A mode). A drag, or a click with nothing selected, moves the camera. A right-click
