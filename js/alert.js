@@ -42,8 +42,8 @@ const ALR_BLD = {
 const ALR_UNIT = {
   inf:    { name: 'NUG TROOPER', cost: 200, hp: 125, speed: 1.3, cat: 'inf', time: 4, weapon: 'rifle', armor: 'inf', sight: 5, req: ['barracks'], r: 0.13 },
   rocket: { name: 'ROCKET NUG', cost: 400, hp: 125, speed: 1.15, cat: 'inf', time: 6, weapon: 'rocket', armor: 'inf', sight: 6, req: ['barracks'], r: 0.13 },
-  tank:   { name: 'BREADED TANK', cost: 700, hp: 420, speed: 2.3, cat: 'veh', time: 9, weapon: 'cannon', armor: 'veh', sight: 6, req: ['factory'], turret: true, turn: 3.2, r: 0.36 },
-  heavy:  { name: 'DEEP FRYER', cost: 1100, hp: 700, speed: 1.65, cat: 'veh', time: 13, weapon: 'heavy', armor: 'veh', sight: 6, req: ['factory', 'radar'], turret: true, turn: 2.2, r: 0.42 },
+  tank:   { name: 'BREADED TANK', cost: 700, hp: 420, speed: 2.3, cat: 'veh', time: 9, weapon: 'cannon', armor: 'veh', sight: 6, req: ['factory'], turret: true, turn: 3.2, r: 0.36, crush: true },
+  heavy:  { name: 'DEEP FRYER', cost: 1100, hp: 700, speed: 1.65, cat: 'veh', time: 13, weapon: 'heavy', armor: 'veh', sight: 6, req: ['factory', 'radar'], turret: true, turn: 2.2, r: 0.42, crush: true },
   harv:   { name: 'SAUCE HAULER', cost: 1400, hp: 1000, speed: 1.6, cat: 'veh', time: 14, armor: 'veh', sight: 4, req: ['factory', 'refinery'], harv: true, cap: 700, turn: 2.0, r: 0.4 },
 };
 const ALR_WPN = {
@@ -101,11 +101,12 @@ function syncAlert() {
     if (!alr.ui.gl) { alrUINoGL(); return; }
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     alrLayout();
+    alrDiscManifest();     // start downloading the recordings now, before the first click makes a sound
     alrOpenTier();
   } else {
     if (alr.tierPick) { alr.tierPick.close(); alr.tierPick = null; }
     alr.phase = 'idle'; alr.paused = false;
-    alrSfxStop();
+    alrMusicStop(); alrSfxStop();
     if (alr.ui) alr.ui.root.classList.remove('alr-playing');
   }
 }
@@ -118,7 +119,7 @@ function alrOpenTier() {
     storeKey: 'alert', title: '🚨 NUGGET ALERT — choose your enemy',
     note: 'skirmish vs the FRY FEDERATION · build · harvest · destroy their base · 1 · 2 · 3',
     tiers, mount: alertWorld,
-    onPick: (key, t) => { alr.tierPick = null; alrNewGame(t); },
+    onPick: (key, t) => { alr.tierPick = null; alrAudioWake(); alrNewGame(t); },
   });
 }
 
@@ -279,6 +280,11 @@ function alrPower(P) {
   const was = P.low;
   P.low = use > mk;
   if (P.human && P.low && !was) { alrSay('LOW POWER', '#ffb43a'); alrSfx('alarm'); }
+  if (P.human) {
+    const radar = alrHas(P.id, 'radar') && !P.low;
+    if (P.radarWas != null && radar !== P.radarWas && alr.phase === 'play') alrSay(radar ? 'RADAR ONLINE' : 'RADAR OFFLINE', '#9be7ff');
+    P.radarWas = radar;
+  }
 }
 function alrEarn(units, why) {
   if (units <= 0 || !alr.cfg) return 0;
@@ -520,6 +526,7 @@ function alrSim(dt) {
     if (!alr.byId.has(e.id)) continue;
     if (e.kind === 'unit') alrUnitStep(e, dt); else alrBldStep(e, dt);
   }
+  alrCrush();
   alrSeparate(dt);
   alrShotsStep(dt);
   alrOreGrow(dt);
@@ -629,12 +636,33 @@ function alrAcquire(u, range) {
   return best;
 }
 
+// THE SQUISH: a moving tank runs over the enemy soldiers it drives through (Chris: "make it so tanks will
+// squish enemy infantry (but not your own)"). Your own soldiers get shoved aside by alrSeparate instead.
+function alrCrush() {
+  for (const v of alr.ents) {
+    if (v.kind !== 'unit' || !v.D.crush || !v.moving || v.hp <= 0) continue;
+    const fx = Math.sin(v.yaw), fz = Math.cos(v.yaw), half = v.D.r * 1.15, wide = v.D.r * 0.8;
+    for (const s of alr.ents) {
+      if (s.kind !== 'unit' || s.owner === v.owner || s.D.cat !== 'inf' || s.hp <= 0) continue;
+      const dx = s.x - v.x, dz = s.z - v.z;
+      if (Math.abs(dx) > 1 || Math.abs(dz) > 1) continue;
+      // inside the hull's footprint (along the treads, not just a circle)
+      const along = dx * fx + dz * fz, side = dx * fz - dz * fx;
+      if (Math.abs(along) > half || Math.abs(side) > wide) continue;
+      s.crushed = true;
+      alrKill(s, v);
+      if (v.owner === 0) { alr.stats.crushed = (alr.stats.crushed || 0) + 1; alrFloatAt(s.x, s.z, 'SQUISHED!', '#ffd23a'); }
+    }
+  }
+}
+
 // soft separation: units don't stack (infantry can share a tile, vehicles can't)
 function alrSeparate(dt) {
   const U = alr.ents.filter((e) => e.kind === 'unit');
   for (let i = 0; i < U.length; i++) for (let j = i + 1; j < U.length; j++) {
     const a = U[i], b = U[j], dx = b.x - a.x, dz = b.z - a.z, rr = a.D.r + b.D.r;
     if (Math.abs(dx) > rr || Math.abs(dz) > rr) continue;
+    if (a.owner !== b.owner && ((a.D.crush && b.D.cat === 'inf') || (b.D.crush && a.D.cat === 'inf'))) continue;
     const d = Math.hypot(dx, dz) || 0.01;
     if (d >= rr) continue;
     const push = (rr - d) * 0.5 * Math.min(1, dt * 8), nx = dx / d * push, nz = dz / d * push;
@@ -815,7 +843,8 @@ function alrHit(t, W, from) {
   t.hp -= W.dmg * (W.vs[armor] == null ? 1 : W.vs[armor]);
   t.flash = 0.08; t.lastHit = alr.t;
   const P = alr.players[t.owner];
-  if (P.underAttack <= 0 && t.owner === 0) { alrSay(t.kind === 'bld' ? 'OUR BASE IS UNDER ATTACK' : 'UNIT UNDER ATTACK', '#ff6a5a'); alrSfx('alarm'); alr.lastAlarm = [t.x, t.z]; }
+  if (P.underAttack <= 0 && t.owner === 0) { alrSay(t.kind === 'bld' ? 'OUR BASE IS UNDER ATTACK' : t.D.harv ? 'HARVESTER UNDER ATTACK' : 'UNIT UNDER ATTACK', '#ff6a5a'); alrSfx('alarm'); alr.lastAlarm = [t.x, t.z]; }
+  alrMusicFight(t.x, t.z);
   P.underAttack = 8; P.attackedAt = [t.x, t.z]; P.attacker = from && from.id;
   // hit back: an idle unit that's shot at goes for the shooter
   if (t.kind === 'unit' && t.D.weapon && !t.order && from && from.id && alrAlive(alr.byId.get(from.id))) t.target = alr.byId.get(from.id);
@@ -824,16 +853,16 @@ function alrHit(t, W, from) {
 function alrKill(t, from) {
   const killer = from ? from.owner : -1;
   if (t.kind === 'unit') {
-    if (t.D.cat === 'inf') alrFxCrumbs(t.x, t.z); else { alrFxBoom(t.x, 0.3, t.z, 1); alr.decor.push({ kind: 'wreck', type: t.type, D: t.D, cargo: 0, x: t.x, z: t.z, yaw: t.yaw, tYaw: t.tYaw, t: 0, T: 9, owner: t.owner }); }
+    if (t.D.cat === 'inf') { alrFxCrumbs(t.x, t.z); if (t.crushed) alrFxSquish(t.x, t.z); } else { alrFxBoom(t.x, 0.3, t.z, 1); alr.decor.push({ kind: 'wreck', type: t.type, D: t.D, cargo: 0, x: t.x, z: t.z, yaw: t.yaw, tYaw: t.tYaw, t: 0, T: 9, owner: t.owner }); }
     alrSfx(t.D.cat === 'inf' ? 'squish' : 'boomL', t.x, t.z);
     if (killer === 0 && t.owner === 1) { alr.stats.kills++; alrEarn(t.D.cat === 'inf' ? 2 : 5, ''); }
-    if (t.owner === 0) alr.stats.lost++;
+    if (t.owner === 0) { alr.stats.lost++; alrSay('UNIT LOST', '#ff8a7a'); }
   } else {
     alrFxBoom(t.x, 0.4, t.z, 1.6 + t.w * 0.25);
     alr.decor.push({ kind: 'chain', x: t.x, z: t.z, w: t.w, h: t.h, t: 0, T: 1.4 });
     alr.decor.push({ kind: 'rubble', x: t.x, z: t.z, w: t.w, h: t.h, t: 0, T: 1e9 });
     alrSfx('boomL', t.x, t.z);
-    if (killer === 0 && t.owner === 1) alrEarn(12, t.D.name + ' DESTROYED');
+    if (killer === 0 && t.owner === 1) { alrEarn(12, t.D.name + ' DESTROYED'); alrEva('ENEMY BUILDING DESTROYED'); }
     if (t.owner === 0) alrSay('BUILDING LOST', '#ff6a5a');
   }
   alrRemove(t, false);
@@ -880,6 +909,7 @@ function alrCheckEnd() {
     try { ArcadeKit.saveBest('alert', alr.cfg.key, alr.earned); } catch (e) { }
     alr.phase = 'over';
     alrSfx(won ? 'win' : 'lose');
+    alrSay(won ? 'MISSION ACCOMPLISHED' : 'MISSION FAILED', won ? '#9bff9b' : '#ff6a5a');
     alrUIEnd();
   }
 }
@@ -976,6 +1006,7 @@ function alrAISpot(P, type, hq) {
 function stepAlert(dt, w, h) {
   syncAlert();
   if (!alr.on || !alr.ui || !alr.ui.gl) return;
+  alrMusicStep();
   dt = Math.min(dt, 0.1);
   if (alr.phase === 'play' && !alr.paused) {
     alrUIInput(dt);

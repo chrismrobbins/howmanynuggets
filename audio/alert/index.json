@@ -1,0 +1,191 @@
+{
+ "v": 1792433955,
+ "vo": {
+  "eva|BATTLE CONTROL ONLINE": [
+   "vo/eva-battle-control-online.mp3"
+  ],
+  "eva|BUILDING": [
+   "vo/eva-building.mp3"
+  ],
+  "eva|CONSTRUCTION COMPLETE": [
+   "vo/eva-construction-complete.mp3"
+  ],
+  "eva|TRAINING": [
+   "vo/eva-training.mp3"
+  ],
+  "eva|UNIT READY": [
+   "vo/eva-unit-ready.mp3"
+  ],
+  "eva|LOW POWER": [
+   "vo/eva-low-power.mp3"
+  ],
+  "eva|INSUFFICIENT FUNDS": [
+   "vo/eva-insufficient-funds.mp3"
+  ],
+  "eva|OUR BASE IS UNDER ATTACK": [
+   "vo/eva-our-base-is-under-attack.mp3"
+  ],
+  "eva|UNIT UNDER ATTACK": [
+   "vo/eva-unit-under-attack.mp3"
+  ],
+  "eva|HARVESTER UNDER ATTACK": [
+   "vo/eva-harvester-under-attack.mp3"
+  ],
+  "eva|BUILDING LOST": [
+   "vo/eva-building-lost.mp3"
+  ],
+  "eva|UNIT LOST": [
+   "vo/eva-unit-lost.mp3"
+  ],
+  "eva|ON HOLD": [
+   "vo/eva-on-hold.mp3"
+  ],
+  "eva|CANCELED": [
+   "vo/eva-canceled.mp3"
+  ],
+  "eva|BUILDING SOLD": [
+   "vo/eva-building-sold.mp3"
+  ],
+  "eva|REPAIRING": [
+   "vo/eva-repairing.mp3"
+  ],
+  "eva|CANNOT DEPLOY HERE": [
+   "vo/eva-cannot-deploy-here.mp3"
+  ],
+  "eva|NEW CONSTRUCTION OPTIONS": [
+   "vo/eva-new-construction-options.mp3"
+  ],
+  "eva|RADAR ONLINE": [
+   "vo/eva-radar-online.mp3"
+  ],
+  "eva|RADAR OFFLINE": [
+   "vo/eva-radar-offline.mp3"
+  ],
+  "eva|ENEMY BUILDING DESTROYED": [
+   "vo/eva-enemy-building-destroyed.mp3"
+  ],
+  "eva|MISSION ACCOMPLISHED": [
+   "vo/eva-mission-accomplished.mp3"
+  ],
+  "eva|MISSION FAILED": [
+   "vo/eva-mission-failed.mp3"
+  ],
+  "inf:select": [
+   "vo/inf-select-0-0.mp3",
+   "vo/inf-select-1-0.mp3",
+   "vo/inf-select-2-0.mp3",
+   "vo/inf-select-3-0.mp3"
+  ],
+  "inf:move": [
+   "vo/inf-move-0-0.mp3",
+   "vo/inf-move-1-0.mp3",
+   "vo/inf-move-2-0.mp3",
+   "vo/inf-move-3-0.mp3"
+  ],
+  "inf:attack": [
+   "vo/inf-attack-0-0.mp3",
+   "vo/inf-attack-1-0.mp3",
+   "vo/inf-attack-2-0.mp3"
+  ],
+  "rocket:select": [
+   "vo/rocket-select-0-0.mp3",
+   "vo/rocket-select-1-0.mp3",
+   "vo/rocket-select-2-0.mp3"
+  ],
+  "rocket:move": [
+   "vo/rocket-move-0-0.mp3",
+   "vo/rocket-move-1-0.mp3",
+   "vo/rocket-move-2-0.mp3"
+  ],
+  "rocket:attack": [
+   "vo/rocket-attack-0-0.mp3",
+   "vo/rocket-attack-1-0.mp3",
+   "vo/rocket-attack-2-0.mp3"
+  ],
+  "tank:select": [
+   "vo/tank-select-0-0.mp3",
+   "vo/tank-select-1-0.mp3",
+   "vo/tank-select-2-0.mp3"
+  ],
+  "tank:move": [
+   "vo/tank-move-0-0.mp3",
+   "vo/tank-move-1-0.mp3",
+   "vo/tank-move-2-0.mp3"
+  ],
+  "tank:attack": [
+   "vo/tank-attack-0-0.mp3",
+   "vo/tank-attack-1-0.mp3",
+   "vo/tank-attack-2-0.mp3"
+  ],
+  "heavy:select": [
+   "vo/heavy-select-0-0.mp3",
+   "vo/heavy-select-1-0.mp3",
+   "vo/heavy-select-2-0.mp3"
+  ],
+  "heavy:move": [
+   "vo/heavy-move-0-0.mp3",
+   "vo/heavy-move-1-0.mp3",
+   "vo/heavy-move-2-0.mp3"
+  ],
+  "heavy:attack": [
+   "vo/heavy-attack-0-0.mp3",
+   "vo/heavy-attack-1-0.mp3",
+   "vo/heavy-attack-2-0.mp3"
+  ],
+  "harv:select": [
+   "vo/harv-select-0-0.mp3",
+   "vo/harv-select-1-0.mp3",
+   "vo/harv-select-2-0.mp3"
+  ],
+  "harv:move": [
+   "vo/harv-move-0-0.mp3",
+   "vo/harv-move-1-0.mp3",
+   "vo/harv-move-2-0.mp3"
+  ],
+  "harv:attack": [
+   "vo/harv-attack-0-0.mp3",
+   "vo/harv-attack-1-0.mp3"
+  ]
+ },
+ "music": {
+  "menu": {
+   "file": "music/menu.mp3",
+   "loop": true
+  },
+  "build": {
+   "file": "music/build.mp3",
+   "loop": true
+  },
+  "battle": {
+   "file": "music/battle.mp3",
+   "loop": true
+  },
+  "final": {
+   "file": "music/final.mp3",
+   "loop": true
+  },
+  "victory": {
+   "file": "music/victory.mp3",
+   "loop": false
+  },
+  "defeat": {
+   "file": "music/defeat.mp3",
+   "loop": false
+  }
+ },
+ "sfx": {
+  "rifle": "sfx/rifle.mp3",
+  "cannon": "sfx/cannon.mp3",
+  "heavy": "sfx/heavy.mp3",
+  "rocket": "sfx/rocket.mp3",
+  "zap": "sfx/zap.mp3",
+  "boomS": "sfx/boomS.mp3",
+  "boomL": "sfx/boomL.mp3",
+  "place": "sfx/place.mp3",
+  "cash": "sfx/cash.mp3",
+  "squish": "sfx/squish.mp3",
+  "alarm": "sfx/alarm.mp3",
+  "build": "sfx/build.mp3",
+  "sell": "sfx/sell.mp3"
+ }
+}

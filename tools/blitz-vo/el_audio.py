@@ -7,7 +7,8 @@ import os, json, time, urllib.request, urllib.error
 HERE = os.path.dirname(os.path.abspath(__file__))
 LEDGER = os.path.join(HERE, 'el_ledger.json')
 KEY = open(os.path.expanduser('~/.config/elevenlabs.key')).read().strip()
-CAP = 10000                 # credits for music + sound effects, agreed with Chris
+CAP = 14000                 # credits for music + sound effects: 10,000 agreed with Chris (2026-10-09),
+                            # raised to 14,000 for Nugget Alert's soundtrack (Chris, 2026-10-19)
 MUSIC_PER_SEC = 12.5        # measured, see above
 SFX_PER_SEC = 10            # measured: 2 s = 20 credits
 

@@ -3116,3 +3116,42 @@ mcnugget arcade … hidden behind a URL"*, then *"try to get graphics quality to
   place → box-select → move), and a staged fight was filmed. 60 fps at 1440×860.
 - **Stage 2 ideas:** two real factions with their own trees, original unit voices (the Blitz ElevenLabs
   pipeline), music, missions, superweapons, phone controls, online play over net.js.
+
+## 🚨 NUGGET ALERT: THE RECORDINGS (2026-10-19)
+
+Chris: *"do the voices and music first using elevenlabs"* (music/sfx cap raised to 14,000, "you
+choose" the voices, tone "straight RA2, nugget words"). The tooling and runtime are in place; the
+render waits for the ElevenLabs key on this machine (`~/.config/elevenlabs.key` was missing).
+- `tools/alert-vo/render.py` (see its README): 23 Battle Control lines, 5 unit types × select / move /
+  attack, a 6-piece soundtrack (menu, build, battle, final, victory, defeat), 13 sound effects. Est.
+  ~4,700 credits (voices ~1,700, music ~2,860, sfx ~180).
+- `js/alertAudio.js`: the manifest is fetched when the game opens. Short clips decode as soon as sound
+  is on (a lazy decode made the first "Building." silent); songs decode when wanted. Battle Control
+  speaks from a 3-deep queue (urgent lines jump it), holds a line ≤1.5 s while it decodes, and ducks the
+  music. Units answer on select / order through a radio chain (bandpass + tanh drive). The soundtrack
+  follows the game (menu → build → battle when there's fighting within 12 tiles of your stuff in the
+  last 20 s or your base is hit → final after 15 min → victory/defeat) and changes only once the new
+  song has decoded. N toggles music, M everything.
+- Tested with generated WAV stand-ins routed in Playwright (no files in the repo): decode, trim, gain,
+  the queue, acks, sfx samples and the build→battle switch. With no files, a full CPU-vs-CPU game runs
+  as before.
+- **Rendered** (same day, after the key: the first file held the key's ID, not its `sk_` secret; every
+  call 400'd and nothing was charged; the renderer now stops at the first auth error): 88 files, 0
+  failures, 4.9 MB. Voices cost 667 (the estimate was 1,678) and music + sfx 3,040, so the shared
+  ledger is at 10,170 / 14,000. Every file decoded in a browser and the lengths are right. The small
+  explosion is one bang plus silence, so gain is capped by peak (≤0.95) as well as matched by RMS.
+  In-game with the real files: Battle Control held "Battle control online" until it decoded, then spoke;
+  acks played, the guns used recordings, build → battle switched, and the loop crossfade re-started
+  the song. Nobody has listened yet; Chris should play it with sound on.
+
+## 🚨 NUGGET ALERT: same-day fixes (2026-10-19)
+- **The radar was turned 180°** from the battlefield ("the map is backwards"). The camera's
+  screen-right is +z−x and screen-up is +x+z, and the radar now uses the same axes (`alrRadarXY` /
+  `alrRadarInv` / the ground image transform). Checked with 200 random point pairs (screen and radar
+  directions agree) and clicks round-trip exactly.
+- **Right-click deselects** (RA2): it cancels a placement / sell / repair / attack-move first, then
+  drops the selection. Orders are left-click only.
+- **Tanks squish infantry** (`alrCrush`, the `crush` flag on the tank and Deep Fryer): a moving tank
+  kills enemy soldiers inside its hull footprint, and separation between it and enemy infantry is
+  skipped so it rolls over them instead of nudging them. Your own soldiers are shoved aside. The CPU's
+  tanks squish yours too. Tested: 4 / 4 enemies squished, 4 / 4 own soldiers alive.

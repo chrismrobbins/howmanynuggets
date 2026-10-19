@@ -1,0 +1,489 @@
+{
+ "cap": 3500,
+ "spent": 667.0,
+ "calls": [
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Battle control online.",
+   "credits": 12.0,
+   "file": "eva-battle-control-online.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Building.",
+   "credits": 6.0,
+   "file": "eva-building.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Construction complete.",
+   "credits": 12.0,
+   "file": "eva-construction-complete.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Training.",
+   "credits": 6.0,
+   "file": "eva-training.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Unit ready.",
+   "credits": 7.0,
+   "file": "eva-unit-ready.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Low power.",
+   "credits": 7.0,
+   "file": "eva-low-power.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Insufficient funds.",
+   "credits": 10.0,
+   "file": "eva-insufficient-funds.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Our base is under attack.",
+   "credits": 13.0,
+   "file": "eva-our-base-is-under-attack.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Unit under attack.",
+   "credits": 10.0,
+   "file": "eva-unit-under-attack.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Sauce hauler under attack.",
+   "credits": 13.0,
+   "file": "eva-harvester-under-attack.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Building lost.",
+   "credits": 8.0,
+   "file": "eva-building-lost.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Unit lost.",
+   "credits": 7.0,
+   "file": "eva-unit-lost.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] On hold.",
+   "credits": 6.0,
+   "file": "eva-on-hold.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Canceled.",
+   "credits": 6.0,
+   "file": "eva-canceled.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Building sold.",
+   "credits": 8.0,
+   "file": "eva-building-sold.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Repairing.",
+   "credits": 7.0,
+   "file": "eva-repairing.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Cannot deploy here.",
+   "credits": 10.0,
+   "file": "eva-cannot-deploy-here.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] New construction options.",
+   "credits": 13.0,
+   "file": "eva-new-construction-options.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Radar online.",
+   "credits": 8.0,
+   "file": "eva-radar-online.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Radar offline.",
+   "credits": 8.0,
+   "file": "eva-radar-offline.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Enemy structure destroyed.",
+   "credits": 13.0,
+   "file": "eva-enemy-building-destroyed.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Mission accomplished. The Fry Federation has been deep-fried.",
+   "credits": 27.0,
+   "file": "eva-mission-accomplished.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "Xb7hH8MSUJpSbSDYk0k2",
+   "text": "[calm] Mission failed.",
+   "credits": 9.0,
+   "file": "eva-mission-failed.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "DGzg6RaUqxGRTHSBjfgF",
+   "text": "[eager] Nug Trooper, reporting!",
+   "credits": 12.0,
+   "file": "inf-select-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "DGzg6RaUqxGRTHSBjfgF",
+   "text": "[eager] Breaded and ready!",
+   "credits": 10.0,
+   "file": "inf-select-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "DGzg6RaUqxGRTHSBjfgF",
+   "text": "[eager] Yes, sir!",
+   "credits": 7.0,
+   "file": "inf-select-2-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "DGzg6RaUqxGRTHSBjfgF",
+   "text": "[eager] Standing by!",
+   "credits": 8.0,
+   "file": "inf-select-3-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "DGzg6RaUqxGRTHSBjfgF",
+   "text": "[eager] Moving out!",
+   "credits": 8.0,
+   "file": "inf-move-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "DGzg6RaUqxGRTHSBjfgF",
+   "text": "[eager] On the double!",
+   "credits": 9.0,
+   "file": "inf-move-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "DGzg6RaUqxGRTHSBjfgF",
+   "text": "[eager] Roger that!",
+   "credits": 8.0,
+   "file": "inf-move-2-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "DGzg6RaUqxGRTHSBjfgF",
+   "text": "[eager] Going crispy!",
+   "credits": 8.0,
+   "file": "inf-move-3-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "DGzg6RaUqxGRTHSBjfgF",
+   "text": "[eager] Open fire!",
+   "credits": 7.0,
+   "file": "inf-attack-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "DGzg6RaUqxGRTHSBjfgF",
+   "text": "[eager] Light 'em up!",
+   "credits": 8.0,
+   "file": "inf-attack-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "DGzg6RaUqxGRTHSBjfgF",
+   "text": "[eager] Fry 'em!",
+   "credits": 6.0,
+   "file": "inf-attack-2-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "IRHApOXLvnW57QJPQH2P",
+   "text": "[confident] Rocket Nug.",
+   "credits": 9.0,
+   "file": "rocket-select-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "IRHApOXLvnW57QJPQH2P",
+   "text": "[confident] Got a sauce rocket with your name on it.",
+   "credits": 21.0,
+   "file": "rocket-select-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "IRHApOXLvnW57QJPQH2P",
+   "text": "[confident] Ready to launch.",
+   "credits": 11.0,
+   "file": "rocket-select-2-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "IRHApOXLvnW57QJPQH2P",
+   "text": "[confident] On my way.",
+   "credits": 9.0,
+   "file": "rocket-move-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "IRHApOXLvnW57QJPQH2P",
+   "text": "[confident] Repositioning.",
+   "credits": 10.0,
+   "file": "rocket-move-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "IRHApOXLvnW57QJPQH2P",
+   "text": "[confident] Copy that.",
+   "credits": 9.0,
+   "file": "rocket-move-2-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "IRHApOXLvnW57QJPQH2P",
+   "text": "[confident] Target locked.",
+   "credits": 10.0,
+   "file": "rocket-attack-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:17",
+   "voice": "IRHApOXLvnW57QJPQH2P",
+   "text": "[confident] Rocket away!",
+   "credits": 10.0,
+   "file": "rocket-attack-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "IRHApOXLvnW57QJPQH2P",
+   "text": "[confident] Dip this!",
+   "credits": 8.0,
+   "file": "rocket-attack-2-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "2EiwWnXFnvU5JabPnv8n",
+   "text": "[gruff] Breaded Tank, ready to roll.",
+   "credits": 14.0,
+   "file": "tank-select-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "2EiwWnXFnvU5JabPnv8n",
+   "text": "[gruff] Armor's extra crispy.",
+   "credits": 12.0,
+   "file": "tank-select-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "2EiwWnXFnvU5JabPnv8n",
+   "text": "[gruff] Tank here.",
+   "credits": 7.0,
+   "file": "tank-select-2-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "2EiwWnXFnvU5JabPnv8n",
+   "text": "[gruff] Rolling out.",
+   "credits": 8.0,
+   "file": "tank-move-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "2EiwWnXFnvU5JabPnv8n",
+   "text": "[gruff] Moving.",
+   "credits": 6.0,
+   "file": "tank-move-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "2EiwWnXFnvU5JabPnv8n",
+   "text": "[gruff] Treads turning.",
+   "credits": 9.0,
+   "file": "tank-move-2-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "2EiwWnXFnvU5JabPnv8n",
+   "text": "[gruff] Fire!",
+   "credits": 5.0,
+   "file": "tank-attack-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "2EiwWnXFnvU5JabPnv8n",
+   "text": "[gruff] Target acquired.",
+   "credits": 10.0,
+   "file": "tank-attack-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "2EiwWnXFnvU5JabPnv8n",
+   "text": "[gruff] Main gun, fire!",
+   "credits": 9.0,
+   "file": "tank-attack-2-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "Bj9UqZbhQsanLzgalpEG",
+   "text": "[menacing] Deep Fryer online.",
+   "credits": 12.0,
+   "file": "heavy-select-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "Bj9UqZbhQsanLzgalpEG",
+   "text": "[menacing] The oil is hot.",
+   "credits": 10.0,
+   "file": "heavy-select-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "Bj9UqZbhQsanLzgalpEG",
+   "text": "[menacing] Heavy armor, ready.",
+   "credits": 12.0,
+   "file": "heavy-select-2-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "Bj9UqZbhQsanLzgalpEG",
+   "text": "[menacing] Advancing.",
+   "credits": 8.0,
+   "file": "heavy-move-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "Bj9UqZbhQsanLzgalpEG",
+   "text": "[menacing] Heavy armor moving.",
+   "credits": 12.0,
+   "file": "heavy-move-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "Bj9UqZbhQsanLzgalpEG",
+   "text": "[menacing] Clear the road.",
+   "credits": 10.0,
+   "file": "heavy-move-2-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "Bj9UqZbhQsanLzgalpEG",
+   "text": "[menacing] Deep fry them.",
+   "credits": 10.0,
+   "file": "heavy-attack-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "Bj9UqZbhQsanLzgalpEG",
+   "text": "[menacing] Both barrels!",
+   "credits": 10.0,
+   "file": "heavy-attack-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "Bj9UqZbhQsanLzgalpEG",
+   "text": "[menacing] Into the fryer!",
+   "credits": 10.0,
+   "file": "heavy-attack-2-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "Av4Fi2idMFuA8kTbVZgv",
+   "text": "[relaxed] Sauce Hauler.",
+   "credits": 9.0,
+   "file": "harv-select-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "Av4Fi2idMFuA8kTbVZgv",
+   "text": "[relaxed] Ready to haul.",
+   "credits": 10.0,
+   "file": "harv-select-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "Av4Fi2idMFuA8kTbVZgv",
+   "text": "[relaxed] Load's riding light, boss.",
+   "credits": 14.0,
+   "file": "harv-select-2-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "Av4Fi2idMFuA8kTbVZgv",
+   "text": "[relaxed] Heading out.",
+   "credits": 9.0,
+   "file": "harv-move-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "Av4Fi2idMFuA8kTbVZgv",
+   "text": "[relaxed] Gotcha.",
+   "credits": 7.0,
+   "file": "harv-move-1-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "Av4Fi2idMFuA8kTbVZgv",
+   "text": "[relaxed] On the road.",
+   "credits": 9.0,
+   "file": "harv-move-2-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "Av4Fi2idMFuA8kTbVZgv",
+   "text": "[relaxed] Hauling sauce.",
+   "credits": 10.0,
+   "file": "harv-attack-0-0.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "voice": "Av4Fi2idMFuA8kTbVZgv",
+   "text": "[relaxed] Back to the field.",
+   "credits": 11.0,
+   "file": "harv-attack-1-0.mp3"
+  }
+ ]
+}

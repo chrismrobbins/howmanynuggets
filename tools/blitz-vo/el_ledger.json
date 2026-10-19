@@ -1,6 +1,6 @@
 {
  "cap": 10000,
- "spent": 7130.0,
+ "spent": 10169.5,
  "calls": [
   {
    "t": "2026-10-09 15:34",
@@ -393,6 +393,158 @@
    "secs": 40,
    "credits": 500.0,
    "file": "match-psych-b.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "kind": "music",
+   "what": "Brooding industrial electronic instrumental, slow heavy analog synth bass, distant marching snare, low metallic hits, mi",
+   "secs": 40,
+   "credits": 500.0,
+   "file": "menu.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "kind": "music",
+   "what": "Driving mid-tempo industrial electro-rock instrumental, pulsing synth bass, tight drum machine, muted distorted guitar c",
+   "secs": 55,
+   "credits": 687.5,
+   "file": "build.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "kind": "music",
+   "what": "Aggressive industrial metal instrumental, chugging heavily distorted guitars, pounding marching drums, synth stabs and a",
+   "secs": 55,
+   "credits": 687.5,
+   "file": "battle.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "kind": "music",
+   "what": "Relentless fast industrial techno-metal instrumental, double-kick drums, screaming synth leads, heavy guitars, epic fina",
+   "secs": 55,
+   "credits": 687.5,
+   "file": "final.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "kind": "music",
+   "what": "Triumphant short military industrial rock fanfare, big drums and power chords, a heroic ending",
+   "secs": 12,
+   "credits": 150.0,
+   "file": "victory.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "kind": "music",
+   "what": "Short somber industrial ending, slow low synth drone, a single distant snare roll, defeat",
+   "secs": 12,
+   "credits": 150.0,
+   "file": "defeat.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "kind": "sfx",
+   "what": "Short burst of three rifle shots, outdoor, punchy, video game",
+   "secs": 0.6,
+   "credits": 6.0,
+   "file": "rifle.mp3"
+  },
+  {
+   "t": "2026-10-19 11:18",
+   "kind": "sfx",
+   "what": "Tank cannon firing, deep boom with a sharp crack, outdoor, video game",
+   "secs": 1.2,
+   "credits": 12.0,
+   "file": "cannon.mp3"
+  },
+  {
+   "t": "2026-10-19 11:19",
+   "kind": "sfx",
+   "what": "Two heavy tank cannons firing one after the other, huge booming blasts, video game",
+   "secs": 1.5,
+   "credits": 15.0,
+   "file": "heavy.mp3"
+  },
+  {
+   "t": "2026-10-19 11:19",
+   "kind": "sfx",
+   "what": "Shoulder-fired rocket launch, whoosh and hiss, video game",
+   "secs": 1.2,
+   "credits": 12.0,
+   "file": "rocket.mp3"
+  },
+  {
+   "t": "2026-10-19 11:19",
+   "kind": "sfx",
+   "what": "Tesla coil electric discharge, crackling high-voltage lightning zap with a buzzing hum, video game",
+   "secs": 1.5,
+   "credits": 15.0,
+   "file": "zap.mp3"
+  },
+  {
+   "t": "2026-10-19 11:19",
+   "kind": "sfx",
+   "what": "Small explosion, shell impact on the ground with debris, video game",
+   "secs": 1.5,
+   "credits": 15.0,
+   "file": "boomS.mp3"
+  },
+  {
+   "t": "2026-10-19 11:19",
+   "kind": "sfx",
+   "what": "Large vehicle explosion, fiery blast with metal debris raining down, video game",
+   "secs": 2.5,
+   "credits": 25.0,
+   "file": "boomL.mp3"
+  },
+  {
+   "t": "2026-10-19 11:19",
+   "kind": "sfx",
+   "what": "Heavy prefabricated building slamming into place, deep metal clank and hydraulic hiss, video game",
+   "secs": 1.2,
+   "credits": 12.0,
+   "file": "place.mp3"
+  },
+  {
+   "t": "2026-10-19 11:19",
+   "kind": "sfx",
+   "what": "Coins and credits counted into a register, quick digital cash ding, video game",
+   "secs": 1.0,
+   "credits": 10.0,
+   "file": "cash.mp3"
+  },
+  {
+   "t": "2026-10-19 11:19",
+   "kind": "sfx",
+   "what": "Short soft crunchy splat, a chicken nugget being squashed, cartoon, video game",
+   "secs": 0.8,
+   "credits": 8.0,
+   "file": "squish.mp3"
+  },
+  {
+   "t": "2026-10-19 11:19",
+   "kind": "sfx",
+   "what": "Military base alarm klaxon, two short blasts, video game",
+   "secs": 2.0,
+   "credits": 20.0,
+   "file": "alarm.mp3"
+  },
+  {
+   "t": "2026-10-19 11:19",
+   "kind": "sfx",
+   "what": "Construction sparks, welding and power tools, short, video game",
+   "secs": 1.5,
+   "credits": 15.0,
+   "file": "build.mp3"
+  },
+  {
+   "t": "2026-10-19 11:19",
+   "kind": "sfx",
+   "what": "Mechanical deconstruction, metal panels unbolting and lowering, video game",
+   "secs": 1.2,
+   "credits": 12.0,
+   "file": "sell.mp3"
   }
  ]
 }
