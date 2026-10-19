@@ -3334,3 +3334,29 @@ with the camera-facing detail on local +x/+z; units face +z.
 - **To check them in context:** `?play=alert`, pick either army; `alertDebug.start(tier, 'A'|'F')`,
   `alertDebug.auto(true)`, `alertDebug.step(secs)`. A staged showcase of every new piece is easy to set
   up with `alrSpawnBld` / `alrSpawnUnit` (fill the shroud and call `alrGLShroud(ALR_N, shroud)`).
+
+### ✅ Done (2026-10-19, the Blender session): the PHASE-1 models are Blender-built
+All 33 handoff models (42 meshes with their parts) are built in `blender/alertrig.py` (`PHASE1`, after
+`LANDSCAPE`) under the exact names above. `alrMeshUse()` swaps them in, and the `js/alertArtP1.js` procedural
+versions stay as the fallback. No pivot changed, so `ALR_RIG` is untouched.
+- **Look:** Alliance kit is pale grey-blue paint (`allyArmor` / `allyDark`) with white (`paintWhite`).
+  Federation kit is olive drab (`armor` / `armorDark`). Team colour is the markings (turret roofs,
+  stripes, bands, the pad centres, the collar).
+  - The procedural versions' hazard stripes, corner lamps and stray drums are gone. The airbase's pads
+    are octagonal slabs with a painted ring, a team disc and edge lights; the taxiway has white dashes.
+  - Highlights: the dome lab is a ribbed glass/panel dome with a curtain-wall lab block; the Fry Lab is
+    stepped brutalist concrete with buttresses, slit windows, three stacks and a fixed big dish; the
+    reactor is a riveted rust drum with a glowing core ring and a toroid coil; the derrick is a rusted
+    lattice tower; the depot has yellow industrial robot arms; the super-tank has four track pods; the
+    blimp is a fabric gravy boat; the crate is a braced plank crate with a stencilled nugget.
+- **Exporter changes:**
+  - A part's ground plane now sits at `-PART_AT.y`, its real ground (before, a turret's contact
+    shadow cut through its middle).
+  - `NO_GROUND` (jet, blimp, prop, V3 rocket, door, flag) skips the ground entirely.
+  - `SUBDIV` gives small models a subdivision limit (the crate's faces were four corner vertices
+    buried in steel corner blocks, so the whole crate baked near-black).
+  - The building subdivision limit went 0.24 → 0.32 tiles to hold the payload.
+- **Payload:** 90 meshes, ~190k tris, `js/alertMeshData.js` 6.3 MB (2.66 MB gzipped). It loads after
+  the game opens (procedural first), so it never blocks.
+- **Tested:** a staged showcase of every piece (buildings, defences + both wall kinds, vehicles,
+  infantry, jet + blimp + crate) and CPU-vs-CPU games from both armies to the end with no errors.
