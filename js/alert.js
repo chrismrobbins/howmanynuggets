@@ -87,6 +87,12 @@ const ALR_UNIT = {
   v3:       { name: 'SAUCE V3', side: 'F', cost: 800, hp: 150, speed: 1.6, cat: 'veh', time: 10, weapon: 'v3', armor: 'veh', sight: 6, req: ['factory', 'radar'], turn: 2.5, r: 0.38, blurb: 'long-range rocket artillery' },
   apoc:     { name: 'FAMILY SIZE', side: 'F', cost: 1750, hp: 900, speed: 1.15, cat: 'veh', time: 18, weapon: 'apoc', weapon2: 'apocAA', armor: 'veh', sight: 7, req: ['factory', 'lab'], turret: true, turn: 1.6, r: 0.52, crush: true, heal: 4, blurb: 'twin guns + AA missiles · heals' },
   blimp:    { name: 'GRAVY BLIMP', side: 'F', cost: 2000, hp: 1800, speed: 0.8, cat: 'veh', time: 20, weapon: 'gravy', armor: 'air', sight: 6, req: ['factory', 'lab'], r: 0.9, air: 'blimp', alt: 2.4, turn: 0.7, heal: 3, blurb: 'slow · pours scalding gravy on what\'s under it' },
+  // helicopters: two carriers an army (RA2's Night Hawk, and a heavy lifter for a tank). They fly over water,
+  // bridges or no bridges; landed, they're on the ground (anything can shoot them); in the air only AA can.
+  hawk:     { name: 'NUG HAWK', side: 'A', cost: 900, hp: 220, speed: 3.4, cat: 'veh', time: 10, armor: 'air', sight: 7, req: ['factory', 'radar'], r: 0.42, air: 'heli', alt: 1.7, turn: 2.8, carry: 'inf', cap: 5, blurb: 'carries 5 infantry or dogs · D: unload' },
+  lift:     { name: 'SKY FRYER', side: 'A', cost: 1400, hp: 420, speed: 2.5, cat: 'veh', time: 14, armor: 'air', sight: 6, req: ['factory', 'radar'], r: 0.6, air: 'heli', alt: 2.2, turn: 1.8, carry: 'veh', cap: 1, sling: -0.8, blurb: 'lifts a tank on its sling · D: set it down' },
+  tater:    { name: 'TATER COPTER', side: 'F', cost: 800, hp: 260, speed: 3.1, cat: 'veh', time: 10, armor: 'air', sight: 7, req: ['factory', 'radar'], r: 0.44, air: 'heli', alt: 1.7, turn: 2.6, carry: 'inf', cap: 6, blurb: 'carries 6 infantry or dogs · D: unload' },
+  hog:      { name: 'HOG LIFTER', side: 'F', cost: 1400, hp: 480, speed: 2.3, cat: 'veh', time: 14, armor: 'air', sight: 6, req: ['factory', 'radar'], r: 0.65, air: 'heli', alt: 1.9, turn: 1.6, carry: 'veh', cap: 1, sling: 0.06, blurb: 'clamps a tank between its legs · D: set it down' },
 };
 const ALR_WALL_KINDS = { shell: 1, rocket: 1, v3: 1, bomb: 1, beam: 1, zap: 1, gravy: 1 };
 const ALR_WPN = {
@@ -516,6 +522,7 @@ function alrSpawnUnit(type, owner, x, z) {
     hp: D.hp, max: D.hp, path: null, pi: 0, order: null, target: null, cool: Math.random() * 0.5, flash: 0, walk: Math.random() * 6,
     stuck: 0, repathT: 0, acqT: Math.random() * 0.5, cargo: 0, hstate: '', hT: 0, recoil: 0, lastHit: 0, guardX: x, guardZ: z, vx: 0, vz: 0,
     alt: D.air ? (D.air === 'jet' ? 0.12 : D.alt) : 0, xp: 0, rank: 0, ammo: D.ammo || 0, cool2: 0, still: 0, deployed: false };
+  if (D.carry) { e.load = []; e.rot = Math.random() * 6; e.dropT = 0; }
   e.tYaw = e.yaw;
   alr.ents.push(e); alr.byId.set(e.id, e);
   return e;
@@ -801,6 +808,7 @@ function alrOrderMove(u, x, z, attackMove) {
   u.order = { type: 'move', x, z, am: !!attackMove };
   u.target = null; u.pi = 0; u.stuck = 0;
   u.path = u.D.air === 'jet' ? null : u.D.air ? [[x, z]] : alrPath(u.x, u.z, x, z, u);   // aircraft fly straight there
+  if (u.D.carry) u.parked = false;
   if (u.D.harv) { u.hstate = ''; }
 }
 function alrOrderAttack(u, t) {
@@ -810,7 +818,7 @@ function alrOrderAttack(u, t) {
   u.order = { type: 'attack', t: t.id }; u.target = t; u.path = null; u.repathT = 0;
 }
 // D: dig in (the Nug Trooper's sandbags) / pack up
-function alrDeploy(u) { if (!u.D.deploy) return; u.deployed = !u.deployed; u.order = null; u.path = null; u.target = null; u.guardX = u.x; u.guardZ = u.z; }
+function alrDeploy(u) { if (u.D.carry) { alrOrderUnload(u); return; } if (!u.D.deploy) return; u.deployed = !u.deployed; u.order = null; u.path = null; u.target = null; u.guardX = u.x; u.guardZ = u.z; }
 // a group move: the units keep their spacing around the click (a little formation)
 function alrGroupMove(units, x, z, am) {
   if (!units.length) return;
@@ -826,6 +834,88 @@ function alrGroupMove(units, x, z, am) {
     const lx = (col - (cols - 1) / 2) * gap, lz = -row * gap;
     alrOrderMove(u, x + lx * ca + lz * sa, z - lx * sa + lz * ca, am);
   });
+}
+
+// ---- helicopters: the carriers ---------------------------------------------------------------------------------
+// Select infantry (or a vehicle) and click your carrier: it lands where it is, they walk / drive to it and board
+// (out of the world, into its hold). Select the carrier and press D, or click it: it lands and they come out
+// around it. A troop carrier takes infantry and dogs (not jetpacks: they fly); a lifter takes one ground vehicle.
+// The Sky Fryer hangs it on a sling under the belly; the Hog Lifter clamps it between its legs.
+function alrCanCarry(h, u) {
+  if (!h || !h.D.carry || u === h || u.kind !== 'unit' || h.owner !== u.owner || u.D.air) return false;
+  return h.D.carry === 'inf' ? u.D.cat === 'inf' : u.D.cat === 'veh';
+}
+// spaces left, counting those already on their way in
+function alrRoom(h, but) { return h.D.cap - h.load.length - alr.ents.filter((q) => q !== but && q.order && q.order.type === 'board' && q.order.t === h.id).length; }
+function alrOrderBoard(u, h) {
+  if (!alrCanCarry(h, u) || !alrAlive(h) || alrRoom(h, u) <= 0) return false;
+  u.deployed = false; u.order = { type: 'board', t: h.id }; u.target = null; u.path = null; u.repathT = 0;
+  if (h.order && h.order.type === 'move') { h.order = null; h.path = null; }   // it waits for them
+  return true;
+}
+function alrOrderUnload(h) {
+  if (!h.D.carry || !h.load.length) return;
+  if (!alrLandOk(h.x, h.z, h)) { if (h.owner === 0) { alrSay('CANNOT UNLOAD HERE', '#ff8a7a'); alrSfx('error'); } return; }
+  h.order = { type: 'unload' }; h.path = null; h.dropT = 0.3;
+}
+// the height it sits at on the ground (a sling lifter hovers so the tank under it touches down)
+function alrLandAlt(h) { return h.D.sling < 0 ? -h.D.sling + 0.04 : 0; }
+// somewhere a carrier can come down: dry ground, no building, nothing blocking
+function alrLandOk(x, z, h) {
+  if (!alrIn(x, z)) return false;
+  const k = alrTile(x, z), M = alr.M;
+  return !M.block[k] && !M.bld[k] && !(M.water && M.water[k]);
+}
+function alrHeliStep(u, dt) {
+  const D = u.D, la = alrLandAlt(u);
+  let land = false, moving = false;
+  // someone's coming aboard but it can't come down here (trees, a building, the river): hop to clear ground
+  if (!u.order && u.wantLand > alr.t && !alrLandOk(u.x, u.z, u)) {
+    const k = alrNearestFree(alrTile(u.x, u.z), null);
+    if (k >= 0) u.order = { type: 'move', x: (k % ALR_N) + 0.5, z: Math.floor(k / ALR_N) + 0.5, am: false };
+  }
+  const o = u.order;
+  if (o && o.type === 'unload') land = true;
+  else if (!o && (u.wantLand > alr.t || u.parked) && alrLandOk(u.x, u.z, u)) land = true;   // someone's boarding / it was left down
+  const want = land ? la : D.alt;
+  u.alt += alrClamp(want - u.alt, -1.3 * dt, 1.3 * dt);
+  u.rot = (u.rot || 0) + dt * (u.alt > la + 0.2 || !land ? 30 : 12);
+  if (o && o.type === 'move') {
+    if (u.alt > D.alt * 0.6) { if (!u.path) u.path = [[o.x, o.z]]; moving = alrFollow(u, dt); }
+    else { u.vx = u.vz = 0; }
+    if (!u.path || Math.hypot(u.x - o.x, u.z - o.z) < 0.35) { u.order = null; u.path = null; u.guardX = u.x; u.guardZ = u.z; }
+  } else { u.vx = u.vz = 0; }
+  if (o && o.type === 'unload' && u.alt <= la + 0.03) {
+    if ((u.dropT -= dt) <= 0) { u.dropT = 0.22; const p = u.load.shift(); if (p) alrDisembark(p, u, u.load.length); }
+    if (!u.load.length) { u.order = null; u.parked = true; if (u.owner === 0) alrSfx('click'); }
+  }
+  u.moving = moving;
+}
+function alrBoardStep(u, dt) {
+  const h = alr.byId.get(u.order.t);
+  if (!alrAlive(h) || !alrCanCarry(h, u) || h.load.length >= h.D.cap) { u.order = null; u.path = null; u.moving = false; return; }
+  h.wantLand = alr.t + 0.6;                                   // keep it on the ground while they come
+  const d = Math.hypot(h.x - u.x, h.z - u.z), down = h.alt <= alrLandAlt(h) + 0.06 && !h.order;
+  if (down && d < (u.D.cat === 'veh' ? 0.8 : 0.65)) { alrBoard(u, h); return; }
+  if (!down && d < 0.9) { u.moving = false; u.vx = u.vz = 0; return; }   // there: wait for it to touch down
+  if (!u.path || (u.repathT -= dt) <= 0) { u.repathT = 0.8; u.path = alrPath(u.x, u.z, h.x, h.z, u); u.pi = 0; }
+  u.moving = alrFollow(u, dt);
+  if (u.moving) u.walk += dt * u.D.speed * 7;
+}
+function alrBoard(u, h) {
+  alrRemove(u, false);
+  u.order = null; u.path = null; u.target = null; u.moving = false; u.vx = u.vz = 0; u.deployed = false;
+  h.load.push(u);
+  if (h.owner === 0) alrSfx('click');
+}
+// out of the hold: around the carrier, on the nearest free ground (a vehicle straight down under a lifter)
+function alrDisembark(p, h, i) {
+  let x = h.x, z = h.z;
+  if (p.D.cat !== 'veh') { const a = h.yaw + Math.PI + (i - 2) * 0.7, r = 0.55 + (i % 2) * 0.2; x = h.x + Math.sin(a) * r; z = h.z + Math.cos(a) * r; }
+  let k = alrTile(x, z);
+  if (!alrIn(x, z) || !alrPassable(k, p) || (alr.M.water && alr.M.water[k])) { k = alrNearestFree(alrTile(h.x, h.z), p); if (k < 0) { h.load.unshift(p); return; } x = (k % ALR_N) + 0.5; z = Math.floor(k / ALR_N) + 0.5; }
+  p.x = x; p.z = z; p.yaw = h.yaw; p.tYaw = h.yaw; p.guardX = x; p.guardZ = z; p.order = null; p.path = null; p.target = null;
+  alr.ents.push(p); alr.byId.set(p.id, p);
 }
 
 // ---- the sim -------------------------------------------------------------------------------------------------
@@ -885,6 +975,8 @@ function alrUnitStep(u, dt) {
   // self-repair (the Family Size, the blimp) and the elite's own healing
   if ((D.heal || u.rank === 2) && u.hp < u.max) u.hp = Math.min(u.max, u.hp + ((D.heal || 0) + (u.rank === 2 ? u.max * 0.008 : 0)) * dt);
   if (D.air === 'jet') { alrJetStep(u, dt); return; }
+  if (D.air === 'heli') { alrHeliStep(u, dt); return; }
+  if (u.order && u.order.type === 'board') { alrBoardStep(u, dt); return; }
   if (D.air) u.alt += (D.alt - u.alt) * Math.min(1, dt * 2);
   if (D.engineer) { alrEngineerStep(u, dt); return; }
   const o = u.order, W = alrW(u);
@@ -1495,6 +1587,7 @@ function alrKill(t, from, W) {
     if (!gravied) alrSfx(t.D.cat === 'inf' ? 'squish' : 'boomL', t.x, t.z);
     if (killer === 0 && t.owner !== 0 && t.owner !== alr.NEU) { alr.stats.kills++; alrEarn(t.D.cat === 'inf' ? 2 : t.D.air ? 8 : 5, ''); }
     if (t.owner === 0) { alr.stats.lost++; alrSay('UNIT LOST', '#ff8a7a'); }
+    if (t.load && t.load.length) { if (t.owner === 0) alr.stats.lost += t.load.length; t.load = []; }   // (RA2: nobody gets out of a downed transport)
   } else {
     alrFxBoom(t.x, 0.4, t.z, t.D.wall ? 0.6 : 1.6 + t.w * 0.25);
     if (!t.D.wall) { alr.decor.push({ kind: 'chain', x: t.x, z: t.z, w: t.w, h: t.h, t: 0, T: 1.4 }); alr.decor.push({ kind: 'rubble', x: t.x, z: t.z, w: t.w, h: t.h, t: 0, T: 1e9 }); }

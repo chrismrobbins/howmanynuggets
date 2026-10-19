@@ -2813,26 +2813,639 @@ def build_spysat_dish():
 PHASE2 = [build_spysat, build_spysat_dish]
 
 
+# =========================================================================================================
+# HELICOPTERS: the NUG HAWK, SKY FRYER, TATER COPTER and HOG LIFTER, and their rotors
+# Bodies: origin = the ground-contact point of the gear (y 0 = bottom of the wheels), z 0 under the mast.
+# Rotors: origin = the hub. Main rotors spin about local y, tail rotors about local x. Their pivots on the
+# body are the *_AT constants below (= the game's rotor placement).
+# =========================================================================================================
+HAWK_ROTOR_AT = (0, 0.485, 0.04)
+HAWK_TAIL_AT = (0.05, 0.58, -0.69)       # on the fin's right (+x) face
+LIFT_ROTOR_FRONT_AT = (0, 0.54, 0.52)
+LIFT_ROTOR_REAR_AT = (0, 0.67, -0.52)
+LIFT_HOOK_AT = (0, 0.04, 0)
+TATER_ROTOR_AT = (0, 0.52, 0.02)
+TATER_TAIL_AT = (-0.05, 0.62, -0.735)    # on the fin's left (-x) face
+HOG_ROTOR_AT = (0, 0.94, 0)
+HOG_TAIL_AT = (0.05, 0.72, -1.0)         # on the fin's right (+x) face
+
+
+def _sup(c, e):
+    return math.copysign(abs(c) ** (2.0 / e), c)
+
+
+def _ring(z, hw, y0, y1, n=20, e=2.6):
+    """A rounded-box (superellipse) fuselage section at z: x in ±hw, y in y0..y1."""
+    cy, ry = (y0 + y1) / 2, (y1 - y0) / 2
+    return [(hw * _sup(math.cos(j / n * TAU), e), cy + ry * _sup(math.sin(j / n * TAU), e), z) for j in range(n)]
+
+
+def _fuse(m, secs, mat, n=20, e=2.6, bev=0.0):
+    m.loft([_ring(z, hw, y0, y1, n, e) for z, hw, y0, y1 in secs], mat, bev=bev)
+
+
+def _sec_at(secs, z):
+    """Linear interpolation of (hw, y0, y1) along a section list (sorted either way)."""
+    S = sorted(secs)
+    if z <= S[0][0]:
+        return S[0][1:]
+    for a, b in zip(S, S[1:]):
+        if a[0] <= z <= b[0]:
+            t = (z - a[0]) / max(1e-9, b[0] - a[0])
+            return tuple(a[k] + (b[k] - a[k]) * t for k in (1, 2, 3))
+    return S[-1][1:]
+
+
+def _ang(yc, y0, y1, e):
+    cy, ry = (y0 + y1) / 2, (y1 - y0) / 2
+    t = max(-0.995, min(0.995, (yc - cy) / ry))
+    return math.asin(math.copysign(abs(t) ** (e / 2), t))
+
+
+def _arc(z, hw, y0, y1, a0, a1, k, e, d=0.0):
+    cy, ry = (y0 + y1) / 2, (y1 - y0) / 2
+    return [((hw + d) * _sup(math.cos(a0 + (a1 - a0) * j / k), e), cy + (ry + d) * _sup(math.sin(a0 + (a1 - a0) * j / k), e), z) for j in range(k + 1)]
+
+
+def _skin(m, secs, z0, z1, mat, ycut, upper=True, e=2.6, t=0.005, nz=6, k=12, solid=False):
+    """A shell over the part of a fuselage above (upper) / below ycut, from z0 to z1: canopy glazing, a
+    paint band, a roof or belly. solid=True: the segment itself (arc closed by its chord), not a skin."""
+    rings = []
+    for i in range(nz + 1):
+        z = z0 + (z1 - z0) * i / nz
+        hw, y0, y1 = _sec_at(secs, z)
+        a = _ang(ycut, y0, y1, e)
+        a0, a1 = (a, math.pi - a) if upper else (math.pi - a, TAU + a)
+        if solid:
+            rings.append(_arc(z, hw, y0, y1, a0, a1, k, e))
+        else:
+            rings.append(_arc(z, hw, y0, y1, a0, a1, k, e, t) + list(reversed(_arc(z, hw, y0, y1, a0, a1, k, e, -t))))
+    m.loft(rings, mat)
+
+
+def _frame(m, secs, z0, z1, ang, mat="dark", e=2.6, r=0.005, nz=6, d=0.006):
+    """A canopy frame bar running along z at one angle round the section."""
+    pts = []
+    for i in range(nz + 1):
+        z = z0 + (z1 - z0) * i / nz
+        hw, y0, y1 = _sec_at(secs, z)
+        pts.append(_arc(z, hw, y0, y1, ang, ang, 1, e, d)[0])
+    m.tube(pts, r, mat, n=5)
+
+
+def _hoop(m, secs, z, ycut, mat="dark", e=2.6, r=0.005, d=0.006, upper=True, k=12):
+    """A frame / band hoop round the section at z above (or below) ycut."""
+    hw, y0, y1 = _sec_at(secs, z)
+    a = _ang(ycut, y0, y1, e)
+    a0, a1 = (a, math.pi - a) if upper else (math.pi - a, TAU + a)
+    m.tube(_arc(z, hw, y0, y1, a0, a1, k, e, d), r, mat, n=5)
+
+
+def _rotor(m, nb, R, chord, hub, tip="white", droop=0.035, feather=0.08, blade="dark", phase=0.0, links=True):
+    """A rotor about local y: hub, swashplate + pitch links, blade grips, drooped blades with tip stripes."""
+    m.cyl((0, -hub * 0.55, 0), hub * 0.42, hub * 0.9, "steelDark", n=8)                   # mast stub
+    if links:
+        m.cyl((0, -hub * 0.85, 0), hub * 0.85, hub * 0.18, "steel", n=12)                  # swashplate
+    m.cyl((0, 0, 0), hub, hub * 0.5, "steelDark", n=12)                                    # hub plate
+    m.cyl((0, hub * 0.4, 0), hub * 0.72, hub * 0.32, "steel", n=12, r2=hub * 0.5)          # hub cap
+    m.ball((0, hub * 0.6, 0), hub * 0.42, "steel", u=8, v=4, s=(1, 0.6, 1))
+    t = max(0.008, chord * 0.2)
+    for k in range(nb):
+        a = phase + k / nb * TAU
+        m.push(0, 0, 0, a, 0, -droop)
+        m.box((hub * 1.15, 0, 0), (hub * 0.9, t * 2.2, chord * 0.7), "steel", bev=0)       # grip
+        m.cyl((hub * 0.85, 0, 0), t * 1.3, t * 3.2, "dark", n=5, cap=R > 0.3)              # hinge bolt
+        m.push(0, 0, 0, 0, feather)
+        L = R - hub * 1.5
+        m.box((hub * 1.5 + L / 2, 0, 0), (L, t, chord), blade, bev=t * 0.3 if R > 0.3 else 0)
+        m.box((R - 0.035, 0, 0), (0.05, t + 0.002, chord + 0.002), tip, bev=0)
+        m.pop()
+        m.pop()
+        if links:
+            m.push(0, 0, 0, a + 0.35 / nb * TAU * 0.5)
+            m.bar((hub * 0.75, -hub * 0.8, 0), (hub * 0.9, -t, 0), 0.006, "steelDark")
+            m.pop()
+    return m
+
+
+def _tail_rotor(m, nb, R, chord, hub, side=1, tip="hazard", phase=0.0):
+    """A tail rotor spinning about local x (blades in the yz plane); its hub cap faces outward (side)."""
+    m.push(0, 0, 0, 0, 0, -side * math.pi / 2)   # local y -> world ±x
+    _rotor(m, nb, R, chord, hub, tip=tip, droop=0.0, feather=0.18, phase=phase, links=False)
+    m.pop()
+    return m
+
+
+def _hwheel(m, x, y, z, r, w, rim="steelDark"):
+    """A light aircraft wheel on an axle along x: a rounded tyre, a hubcap, an axle nut."""
+    sg = 1 if x >= 0 else -1
+    m.push(x, y, z, 0, 0, math.pi / 2)
+    m.lathe([(r * 0.6, -w / 2), (r * 0.92, -w / 2), (r, -w * 0.2), (r, w * 0.2), (r * 0.92, w / 2), (r * 0.6, w / 2)], "rubber", n=14, ring=True)
+    m.pop()
+    m.cyl((x + sg * w * 0.2, y, z), r * 0.62, w * 0.62, rim, n=12, axis="x")
+    m.cyl((x + sg * w * 0.5, y, z), r * 0.25, w * 0.12, "dark", n=6, axis="x")
+
+
+def _strut(m, a, b, r=0.009, mat="steelDark"):
+    m.tube([a, b], r, mat, n=6)
+
+
+def _nav_lights(m, x, y, z):
+    m.box((x, y, z), (0.01, 0.014, 0.024), "glassLit", bev=0)
+    m.box((-x, y, z), (0.01, 0.014, 0.024), "red", bev=0)
+
+
+def _star(m, c, r, x0, x1, mat="team", rot=0.0):
+    """A five-point star on a side (in the zy plane), extruded x0..x1."""
+    cz, cy = c
+    pts = []
+    for k in range(10):
+        a = rot + math.pi / 2 + k * math.pi / 5
+        rr = r if k % 2 == 0 else r * 0.42
+        pts.append((cz + math.cos(a) * rr, cy + math.sin(a) * rr))
+    m.prism_x(pts, x0, x1, mat, bev=0)
+
+
+# ---- NUG HAWK (Alliance troop carrier) ------------------------------------------------------------------
+HAWK_NOSE = [(0.375, 0.02, 0.15, 0.19), (0.36, 0.07, 0.11, 0.235), (0.33, 0.105, 0.08, 0.275), (0.28, 0.13, 0.065, 0.315),
+             (0.2, 0.14, 0.06, 0.345), (0.1, 0.14, 0.06, 0.36)]
+HAWK_REAR = [(-0.14, 0.14, 0.06, 0.36), (-0.2, 0.13, 0.075, 0.355), (-0.26, 0.1, 0.11, 0.345), (-0.31, 0.065, 0.17, 0.335),
+             (-0.34, 0.05, 0.21, 0.33)]
+HAWK_BOOM = [(-0.3, 0.05, 0.22, 0.33), (-0.45, 0.036, 0.25, 0.322), (-0.6, 0.028, 0.265, 0.316), (-0.71, 0.022, 0.275, 0.31)]
+HAWK_ALL = HAWK_NOSE + HAWK_REAR
+
+
+def build_hawk():
+    """🚁 NUG HAWK (Alliance): a utility troop helicopter. Glazed nose, open side cargo doors with door
+    gunners, twin engine nacelles, a swept team fin with the tail rotor (u.hawk_tail) on its right, a
+    stabilator, two main wheels + a tail wheel. Main rotor (u.hawk_rotor) at HAWK_ROTOR_AT."""
+    m = Model("u.hawk", smooth_deg=40)
+    E = 2.6
+    _fuse(m, HAWK_NOSE, "allyArmor", e=E)
+    _fuse(m, HAWK_REAR, "allyArmor", e=E)
+    _fuse(m, HAWK_BOOM, "allyArmor", n=14, e=2.3)
+    # the cabin between the bulkheads: roof + belly (the sides are the open doors), dark interior
+    cab = [(0.1, 0.14, 0.06, 0.36), (-0.14, 0.14, 0.06, 0.36)]
+    _skin(m, cab, -0.14, 0.1, "allyArmor", 0.31, True, E, nz=1, solid=True)
+    _skin(m, cab, -0.14, 0.1, "allyArmor", 0.11, False, E, nz=1, solid=True)
+    m.box((0, 0.21, -0.02), (0.2, 0.22, 0.24), "black", bev=0)
+    for s in (-1, 1):
+        # door frame + the slid-back door's rail
+        m.box((s * 0.141, 0.312, -0.02), (0.012, 0.012, 0.25), "allyDark", bev=0)
+        m.box((s * 0.141, 0.108, -0.02), (0.012, 0.012, 0.25), "allyDark", bev=0)
+        for z in (0.1, -0.14):
+            m.box((s * 0.141, 0.21, z), (0.014, 0.21, 0.012), "allyDark", bev=0)
+        m.box((s * 0.15, 0.325, -0.22), (0.008, 0.008, 0.16), "steelDark", bev=0)
+        # door gunner (helmet, torso) + his gun on a pintle
+        m.box((s * 0.11, 0.2, 0.05), (0.04, 0.07, 0.045), "allyDark", bev=0.006)
+        m.ball((s * 0.11, 0.255, 0.05), 0.022, "paintWhite", u=10, v=6)
+        m.box((s * 0.123, 0.255, 0.064), (0.012, 0.01, 0.006), "glass", bev=0)
+        m.bar((s * 0.12, 0.13, 0.07), (s * 0.13, 0.215, 0.07), 0.008, "steelDark")
+        m.bar((s * 0.11, 0.222, 0.07), (s * 0.2, 0.218, 0.085), 0.01, "black")
+        m.cyl((s * 0.125, 0.225, 0.07), 0.012, 0.03, "dark", n=6, axis="x")
+        # troop seats facing out (canvas backs, steel frames) further aft
+        for z in (-0.04, -0.1):
+            m.box((s * 0.075, 0.2, z), (0.012, 0.08, 0.045), "sandDark", bev=0.003)
+            m.box((s * 0.09, 0.155, z), (0.035, 0.008, 0.045), "steelDark", bev=0)
+        m.box((s * 0.095, 0.18, -0.07), (0.02, 0.05, 0.03), "olive", bev=0.004)   # a nugget trooper's kit bag
+        # cockpit door + crew door step, window in the rear fuselage
+        m.box((s * 0.145, 0.07, 0.04), (0.02, 0.006, 0.06), "steelDark", bev=0)
+        m.push(s * 0.124, 0.27, -0.205, s * 0.32)
+        m.box((0, 0, 0), (0.006, 0.04, 0.045), "glass", bev=0)
+        m.pop()
+        # panel lines
+        m.box((s * 0.139, 0.2, 0.17), (0.003, 0.2, 0.004), "allyDark", bev=0)
+        _nav_lights(m, 0.142, 0.13, 0.13) if s > 0 else None
+    # the glazed nose: canopy skin, frames, a team nose band below
+    _skin(m, HAWK_NOSE, 0.15, 0.345, "glass", 0.185, True, E, nz=6)
+    for ang in (math.pi / 2, 0.55, math.pi - 0.55):
+        _frame(m, HAWK_NOSE, 0.15, 0.345, ang, "allyDark", E)
+    for z in (0.15, 0.255):
+        _hoop(m, HAWK_NOSE, z, 0.185, "allyDark", E)
+    _skin(m, HAWK_NOSE, 0.285, 0.322, "team", 0.18, False, E, nz=3)
+    _skin(m, HAWK_ALL, 0.12, 0.14, "bandTeam", 0.13, False, E, nz=1, t=0.004)
+    m.box((0, 0.075, 0.27), (0.04, 0.03, 0.04), "dark", bev=0.006)
+    m.cyl((0, 0.065, 0.29), 0.014, 0.008, "light", n=10, axis="z")             # searchlight
+    m.bar((0.0, 0.24, 0.355), (0, 0.24, 0.42), 0.006, "steelDark")             # pitot probe
+    # the roof: transmission fairing, twin nacelles with intakes + exhausts, mast
+    m.prism_x([(0.22, 0.34), (0.16, 0.4), (-0.12, 0.42), (-0.24, 0.37), (-0.26, 0.345)], -0.07, 0.07, "allyArmor", bev=0.016, seg=2)
+    m.box((0, 0.425, 0.04), (0.11, 0.04, 0.16), "allyDark", bev=0.012)
+    m.cyl((0, 0.455, HAWK_ROTOR_AT[2]), 0.022, 0.06, "steelDark", n=10)
+    for s in (-1, 1):
+        x = s * 0.085
+        m.cyl((x, 0.395, 0.04), 0.042, 0.28, "allyArmor", n=14, axis="z", bev=0.006)
+        m.cyl((x, 0.395, 0.18), 0.043, 0.012, "allyDark", n=14, axis="z")
+        m.cyl((x, 0.395, 0.186), 0.032, 0.008, "black", n=12, axis="z")
+        m.cyl((x, 0.395, 0.192), 0.012, 0.02, "steel", n=8, axis="z", r2=0.004)
+        m.box((x, 0.437, 0.04), (0.03, 0.006, 0.14), "allyDark", bev=0)           # cowl latch strip
+        m.tube([(x, 0.395, -0.09), (s * 0.12, 0.4, -0.15), (s * 0.15, 0.41, -0.18)], 0.026, "dark", n=10)
+        m.cyl((s * 0.152, 0.411, -0.182), 0.021, 0.006, "black", n=10, axis="x")
+        m.box((s * 0.13, 0.36, -0.02), (0.01, 0.03, 0.12), "allyDark", bev=0)    # cowl seam
+    m.box((0.0, 0.47, -0.2), (0.006, 0.04, 0.03), "dark", bev=0)                 # antenna
+    # the tail: fin (team-topped), stabilator, tail-rotor gearbox, tail wheel, beacon
+    fin = [(-0.58, 0.3), (-0.645, 0.66), (-0.715, 0.66), (-0.72, 0.3), (-0.66, 0.29)]
+    m.prism_x(fin, -0.014, 0.014, "allyArmor", bev=0.005)
+    m.prism_x([(-0.6144, 0.49), (-0.645, 0.66), (-0.715, 0.66), (-0.7178, 0.49)], -0.016, 0.016, "team", bev=0)
+    m.prism_x([(-0.6, 0.39), (-0.61, 0.45), (-0.63, 0.45), (-0.625, 0.39)], -0.0155, 0.0155, "allyDark", bev=0)
+    m.cyl((0.022, HAWK_TAIL_AT[1], HAWK_TAIL_AT[2]), 0.022, 0.024, "steelDark", n=10, axis="x", bev=0.003)
+    m.cyl((0.006, HAWK_TAIL_AT[1], HAWK_TAIL_AT[2]), 0.028, 0.012, "allyDark", n=10, axis="x")
+    m.prism_y([(-0.15, -0.62), (0.15, -0.62), (0.15, -0.66), (0.03, -0.68), (-0.03, -0.68), (-0.15, -0.66)], 0.296, 0.31, "allyArmor", bev=0.004)
+    for s in (-1, 1):
+        m.box((s * 0.13, 0.303, -0.64), (0.04, 0.016, 0.042), "team", bev=0)
+    m.ball((0, 0.665, -0.68), 0.01, "red", u=8, v=5)
+    m.ball((0, 0.325, -0.4), 0.01, "red", u=8, v=5)
+    m.box((0, 0.27, -0.45), (0.02, 0.03, 0.03), "allyDark", bev=0.004)
+    _strut(m, (0, 0.26, -0.45), (0, 0.03, -0.49), 0.008)
+    m.box((0, 0.03, -0.49), (0.04, 0.01, 0.01), "steelDark", bev=0)
+    _hwheel(m, 0.0, 0.028, -0.49, 0.028, 0.022)
+    # main gear: wheels on trailing arms + a shock strut to the fuselage side
+    for s in (-1, 1):
+        _hwheel(m, s * 0.17, 0.042, 0.19, 0.042, 0.032)
+        _strut(m, (s * 0.155, 0.042, 0.19), (s * 0.12, 0.08, 0.13), 0.009)
+        _strut(m, (s * 0.155, 0.042, 0.19), (s * 0.145, 0.15, 0.21), 0.007, "steel")
+        m.box((s * 0.142, 0.15, 0.21), (0.014, 0.03, 0.03), "allyDark", bev=0.003)
+    return m
+
+
+def build_hawk_rotor():
+    """The NUG HAWK's main rotor: 4 drooped blades, radius 0.66 (spun about y)."""
+    m = Model("u.hawk_rotor")
+    _rotor(m, 4, 0.66, 0.06, 0.045, tip="white", phase=math.pi / 4)
+    return m
+
+
+def build_hawk_tail():
+    """The NUG HAWK's tail rotor: 4 blades, radius 0.12, spinning about x; the hub cap faces +x."""
+    m = Model("u.hawk_tail")
+    _tail_rotor(m, 4, 0.12, 0.026, 0.018, side=1, tip="white", phase=math.pi / 4)
+    return m
+
+
+# ---- SKY FRYER (Alliance heavy lifter) ------------------------------------------------------------------
+LIFT_SECS = [(0.7, 0.05, 0.17, 0.26), (0.685, 0.11, 0.12, 0.315), (0.645, 0.145, 0.095, 0.365), (0.58, 0.16, 0.085, 0.4),
+             (0.5, 0.16, 0.08, 0.42), (-0.38, 0.16, 0.08, 0.42), (-0.45, 0.16, 0.11, 0.42), (-0.55, 0.155, 0.17, 0.42),
+             (-0.62, 0.15, 0.22, 0.42)]
+
+
+def build_lift():
+    """🚁 SKY FRYER (Alliance): a tandem-rotor heavy lifter. A long boxy fuselage with round windows, a glazed
+    nose, the front pylon over the cockpit and the tall rear pylon with its twin engines, a closed loading
+    ramp, sponsons, four wheels, team stripes, and the cargo hook at LIFT_HOOK_AT (the load hangs there).
+    u.lift_rotor turns at LIFT_ROTOR_FRONT_AT and LIFT_ROTOR_REAR_AT."""
+    m = Model("u.lift", smooth_deg=40)
+    E = 3.2
+    _fuse(m, LIFT_SECS, "allyArmor", n=22, e=E)
+    # nose glazing + chin windows + frames
+    _skin(m, LIFT_SECS, 0.56, 0.69, "glass", 0.215, True, E, nz=5, k=14)
+    for ang in (math.pi / 2, 0.45, math.pi - 0.45):
+        _frame(m, LIFT_SECS, 0.56, 0.69, ang, "allyDark", E, nz=5)
+    _hoop(m, LIFT_SECS, 0.56, 0.215, "allyDark", E, k=14)
+    _hoop(m, LIFT_SECS, 0.63, 0.215, "allyDark", E, k=14)
+    for s in (-1, 1):
+        m.push(s * 0.08, 0.135, 0.665, 0, -0.55)
+        m.box((0, 0, 0), (0.06, 0.05, 0.006), "glass", bev=0)
+        m.pop()
+    _skin(m, LIFT_SECS, 0.5, 0.53, "team", 0.2, False, E, nz=1, k=14)
+    # the pylons (front over the cockpit, rear tall) and the drive-shaft tunnel between
+    m.prism_x([(0.32, 0.40), (0.32, 0.43), (0.42, 0.495), (0.6, 0.495), (0.665, 0.4), (0.665, 0.34)], -0.09, 0.09, "allyArmor", bev=0.018, seg=2)
+    m.prism_x([(-0.22, 0.40), (-0.22, 0.43), (-0.34, 0.57), (-0.42, 0.625), (-0.6, 0.625), (-0.64, 0.56), (-0.64, 0.4)], -0.1, 0.1, "allyArmor", bev=0.018, seg=2)
+    m.box((0, 0.44, 0.04), (0.11, 0.05, 0.62), "allyDark", bev=0.014)
+    for k in range(7):
+        m.box((0, 0.466, -0.2 + k * 0.08), (0.112, 0.004, 0.006), "dark", bev=0)
+    m.cyl((0, 0.515, LIFT_ROTOR_FRONT_AT[2]), 0.024, 0.04, "steelDark", n=10)
+    m.cyl((0, 0.645, LIFT_ROTOR_REAR_AT[2]), 0.026, 0.05, "steelDark", n=10)
+    m.box((0, 0.596, -0.51), (0.204, 0.022, 0.2), "team", bev=0)
+    m.box((0, 0.47, 0.5), (0.184, 0.018, 0.16), "team", bev=0)
+    for s in (-1, 1):
+        m.box((s * 0.1, 0.52, -0.42), (0.006, 0.06, 0.08), "black", bev=0)        # pylon grille
+        for k in range(4):
+            m.box((s * 0.103, 0.495 + k * 0.016, -0.42), (0.004, 0.004, 0.08), "steelDark", bev=0)
+        m.box((s * 0.091, 0.45, 0.5), (0.004, 0.03, 0.06), "black", bev=0)
+    m.ball((0, 0.632, -0.62), 0.012, "red", u=8, v=5)
+    # twin engines on the rear pylon flanks
+    for s in (-1, 1):
+        x = s * 0.185
+        m.cyl((x, 0.5, -0.44), 0.056, 0.3, "allyArmor", n=16, axis="z", bev=0.006)
+        m.cyl((x, 0.5, -0.285), 0.058, 0.014, "allyDark", n=16, axis="z")
+        m.cyl((x, 0.5, -0.29), 0.042, 0.014, "black", n=14, axis="z")
+        m.cyl((x, 0.5, -0.282), 0.018, 0.03, "steel", n=10, axis="z", r2=0.004)
+        m.cyl((x, 0.5, -0.61), 0.046, 0.05, "dark", n=14, axis="z", r2=0.036)
+        m.cyl((x, 0.5, -0.637), 0.032, 0.006, "black", n=12, axis="z")
+        m.box((x, 0.5, -0.44), (0.114, 0.012, 0.03), "team", bev=0)
+        m.box((x, 0.557, -0.44), (0.02, 0.006, 0.2), "allyDark", bev=0)
+        m.box((s * 0.13, 0.48, -0.44), (0.05, 0.03, 0.12), "allyDark", bev=0.008)   # mount pylon
+    # sponsons, round windows, side stripe, doors, ramp
+    for s in (-1, 1):
+        m.prism_x([(-0.32, 0.09), (-0.32, 0.16), (0.2, 0.2), (0.36, 0.15), (0.38, 0.1), (0.36, 0.09)], s * 0.14, s * 0.225, "allyArmor", bev=0.02, seg=2)
+        m.box((s * 0.226, 0.13, -0.05), (0.004, 0.035, 0.4), "allyDark", bev=0)
+        m.cyl((s * 0.226, 0.165, 0.12), 0.012, 0.006, "steel", n=8, axis="x")
+        for k in range(6):
+            z = -0.3 + k * 0.13
+            m.cyl((s * 0.16, 0.3, z), 0.027, 0.012, "allyDark", n=12, axis="x")
+            m.cyl((s * 0.165, 0.3, z), 0.02, 0.008, "glassLit" if k % 3 == 1 else "glass", n=12, axis="x")
+        m.box((s * 0.161, 0.235, 0.06), (0.006, 0.022, 0.86), "team", bev=0)
+        m.box((s * 0.161, 0.37, 0.04), (0.004, 0.004, 0.86), "allyDark", bev=0)
+        for z in (-0.2, 0.25):
+            m.box((s * 0.161, 0.3, z - 0.065), (0.004, 0.12, 0.003), "allyDark", bev=0)
+        _nav_lights(m, 0.165, 0.33, 0.55) if s > 0 else None
+    m.box((0.161, 0.29, 0.44), (0.006, 0.17, 0.08), "allyDark", bev=0)          # crew door (right)
+    m.box((0.165, 0.33, 0.44), (0.004, 0.04, 0.04), "glass", bev=0)
+    m.box((0.164, 0.25, 0.47), (0.004, 0.012, 0.008), "steel", bev=0)
+    m.push(0, 0.08, -0.38, 0, math.atan2(0.14, 0.24))
+    m.box((0, -0.006, -0.14), (0.27, 0.01, 0.27), "allyDark", bev=0.004)
+    m.cyl((0, -0.006, 0.0), 0.012, 0.28, "steelDark", n=8, axis="x")
+    for x in (-0.07, 0.07):
+        m.box((x, -0.013, -0.14), (0.02, 0.006, 0.25), "steelDark", bev=0)
+    m.pop()
+    m.box((0, 0.32, -0.622), (0.26, 0.18, 0.006), "allyDark", bev=0)             # rear bulkhead + a lamp
+    m.box((0, 0.39, -0.627), (0.04, 0.012, 0.006), "light", bev=0)
+    # belly: the cargo hook (hatch, block, hook), antennas, searchlight
+    m.box((0, 0.079, 0.0), (0.09, 0.006, 0.09), "dark", bev=0)
+    m.box((0, 0.062, 0.0), (0.035, 0.03, 0.03), "steelDark", bev=0.004)
+    m.torus((0, 0.042, 0.0), 0.011, 0.004, "hazard", n=10, m=5, axis="z")
+    m.box((0, 0.075, 0.6), (0.05, 0.02, 0.04), "dark", bev=0.005)
+    m.cyl((0, 0.066, 0.61), 0.013, 0.006, "light", n=10)
+    m.box((0, 0.065, -0.2), (0.004, 0.03, 0.04), "dark", bev=0)
+    # four wheels: twin nose wheels on a fork, mains under the sponsons
+    for s in (-1, 1):
+        _hwheel(m, s * 0.175, 0.045, 0.42, 0.045, 0.034)
+        _strut(m, (s * 0.158, 0.045, 0.42), (s * 0.13, 0.1, 0.42), 0.01)
+        _strut(m, (s * 0.158, 0.045, 0.42), (s * 0.12, 0.09, 0.47), 0.007, "steel")
+        _hwheel(m, s * 0.19, 0.045, -0.26, 0.045, 0.036)
+        _strut(m, (s * 0.19, 0.045, -0.26), (s * 0.19, 0.1, -0.26), 0.012)
+    return m
+
+
+def build_lift_rotor():
+    """The SKY FRYER's rotor: 3 broad drooped blades, radius 0.6 (both pylons; spun about y, the two counter-rotate)."""
+    m = Model("u.lift_rotor")
+    _rotor(m, 3, 0.6, 0.068, 0.05, tip="white")
+    return m
+
+
+# ---- TATER COPTER (Federation troop carrier / gunship) --------------------------------------------------
+TATER_SECS = [(0.425, 0.03, 0.14, 0.2), (0.4, 0.08, 0.1, 0.245), (0.36, 0.112, 0.08, 0.275), (0.3, 0.13, 0.075, 0.3),
+              (0.22, 0.14, 0.075, 0.345), (0.12, 0.15, 0.08, 0.385), (-0.05, 0.155, 0.08, 0.4), (-0.2, 0.14, 0.1, 0.39),
+              (-0.28, 0.1, 0.16, 0.37), (-0.34, 0.065, 0.22, 0.355)]
+TATER_BOOM = [(-0.3, 0.06, 0.235, 0.35), (-0.5, 0.042, 0.27, 0.345), (-0.68, 0.03, 0.29, 0.345), (-0.765, 0.024, 0.3, 0.345)]
+
+
+def build_tater():
+    """🚁 TATER COPTER (Federation): a bulbous troop-carrying gunship. Stepped tandem bubble canopies, a chin
+    gun, stub wings with rocket pods, big round engine intakes on top, an exhaust each side, fixed wheels,
+    a team star on the nose and a team tail band; tail rotor (u.tater_tail) on the fin's left."""
+    m = Model("u.tater", smooth_deg=40)
+    E = 2.3
+    _fuse(m, TATER_SECS, "olive", n=20, e=E)
+    _fuse(m, TATER_BOOM, "olive", n=14, e=2.2)
+    # tandem bubbles: the gunner low in front, the pilot higher behind
+    for cy, cz, r, sy, sz in ((0.245, 0.335, 0.072, 0.78, 1.15), (0.33, 0.205, 0.08, 0.72, 1.3)):
+        m.ball((0, cy, cz), r, "glass", u=12, v=7, s=(1.0, sy, sz))
+        ring = [(math.cos(a) * r * 1.02, cy, cz + math.sin(a) * r * sz * 1.02) for a in [k / 12 * TAU for k in range(13)]]
+        m.tube(ring, 0.006, "oliveDark", n=5)
+        m.tube([(0, cy + math.sin(a) * r * sy * 1.03, cz + math.cos(a) * r * sz * 1.03) for a in [k / 6 * math.pi for k in range(7)]], 0.005, "oliveDark", n=5)
+        m.tube([(math.cos(a) * r * 1.03, cy + math.sin(a) * r * sy * 1.03, cz) for a in [k / 6 * math.pi for k in range(7)]], 0.005, "oliveDark", n=5)
+    m.box((0, 0.3, 0.27), (0.11, 0.03, 0.05), "oliveDark", bev=0.008)                # canopy step
+    # chin gun turret + nose sensors, team star on the nose sides
+    m.ball((0, 0.085, 0.38), 0.032, "dark", u=10, v=6)
+    m.cyl((0, 0.075, 0.43), 0.007, 0.08, "black", n=6, axis="z")
+    m.box((0.045, 0.1, 0.395), (0.02, 0.02, 0.03), "dark", bev=0.004)
+    m.box((0.045, 0.1, 0.411), (0.014, 0.014, 0.004), "glassLit", bev=0)
+    m.bar((-0.05, 0.18, 0.4), (-0.06, 0.18, 0.48), 0.006, "steelDark")              # air-data boom
+    for s in (-1, 1):
+        hw, y0, y1 = _sec_at(TATER_SECS, 0.24)
+        _star(m, (0.215, 0.16), 0.036, s * (hw - 0.012), s * (hw + 0.004))
+    # the cabin: doors, windows, step; panel lines
+    for s in (-1, 1):
+        x = s * 0.152
+        m.box((x, 0.21, -0.02), (0.008, 0.2, 0.12), "oliveDark", bev=0.003)
+        m.box((s * 0.155, 0.22, 0.02), (0.006, 0.04, 0.035), "glass", bev=0)
+        m.box((s * 0.155, 0.22, -0.06), (0.006, 0.04, 0.035), "glass", bev=0)
+        m.box((s * 0.155, 0.16, 0.035), (0.004, 0.008, 0.016), "steel", bev=0)
+        for z in (-0.13, -0.19):
+            m.box((s * 0.145, 0.26, z), (0.006, 0.03, 0.03), "glass", bev=0)
+        m.box((s * 0.15, 0.11, -0.02), (0.02, 0.006, 0.07), "steelDark", bev=0)
+        m.box((s * 0.15, 0.3, 0.1), (0.004, 0.16, 0.004), "oliveDark", bev=0)
+        m.box((s * 0.15, 0.32, -0.1), (0.004, 0.004, 0.18), "oliveDark", bev=0)
+    _nav_lights(m, 0.32, 0.18, 0.0)
+    # stub wings (anhedral) with rocket pods and tip rails
+    for s in (-1, 1):
+        m.push(s * 0.13, 0.235, -0.03, 0, 0, -s * 0.16)
+        m.prism_y([(0, 0.075), (s * 0.2, 0.05), (s * 0.2, -0.04), (0, -0.07)], -0.012, 0.012, "olive", bev=0.006)
+        m.box((s * 0.2, -0.0, 0.005), (0.012, 0.03, 0.1), "oliveDark", bev=0.003)
+        for xo in (0.08, 0.16):
+            px = s * xo
+            m.box((px, -0.025, 0.005), (0.014, 0.03, 0.05), "oliveDark", bev=0.003)
+            m.cyl((px, -0.06, 0.01), 0.03, 0.15, "oliveDark", n=12, axis="z")
+            m.cyl((px, -0.06, 0.087), 0.03, 0.008, "armorDark", n=12, axis="z", r2=0.024)
+            m.cyl((px, -0.06, 0.09), 0.023, 0.004, "black", n=10, axis="z")
+            for k in range(5):
+                a = k / 5 * TAU
+                m.cyl((px + math.cos(a) * 0.014, -0.06 + math.sin(a) * 0.014, 0.093), 0.0045, 0.004, "sauce", n=4, axis="z", cap=False)
+            m.cyl((px, -0.06, -0.07), 0.026, 0.02, "armorDark", n=12, axis="z", r2=0.012)
+            m.box((px, -0.06, 0.01), (0.062, 0.006, 0.02), "team", bev=0)
+        m.pop()
+    # engines: two nacelles on the roof, big round intakes with dust domes, exhausts out the sides
+    m.prism_x([(0.17, 0.37), (0.12, 0.42), (-0.16, 0.43), (-0.28, 0.38), (-0.3, 0.355)], -0.075, 0.075, "olive", bev=0.016, seg=2)
+    m.cyl((0, 0.47, TATER_ROTOR_AT[2]), 0.035, 0.06, "oliveDark", n=12, r2=0.024)
+    m.cyl((0, 0.49, TATER_ROTOR_AT[2]), 0.02, 0.04, "steelDark", n=10)
+    for s in (-1, 1):
+        x = s * 0.085
+        m.cyl((x, 0.43, 0.0), 0.05, 0.26, "olive", n=16, axis="z", bev=0.006)
+        m.cyl((x, 0.43, 0.135), 0.054, 0.016, "steelDark", n=16, axis="z")
+        m.cyl((x, 0.43, 0.14), 0.04, 0.008, "black", n=14, axis="z")
+        m.ball((x, 0.43, 0.14), 0.026, "steel", u=10, v=6, s=(1, 1, 0.9))
+        m.box((x, 0.481, -0.02), (0.03, 0.006, 0.16), "oliveDark", bev=0)
+        m.box((s * 0.13, 0.43, 0.0), (0.012, 0.03, 0.1), "black", bev=0)        # louvres
+        for k in range(3):
+            m.box((s * 0.137, 0.42 + k * 0.01, 0.0), (0.004, 0.003, 0.1), "oliveDark", bev=0)
+        m.tube([(x, 0.43, -0.12), (s * 0.13, 0.425, -0.17), (s * 0.18, 0.41, -0.2)], 0.03, "dark", n=10)
+        m.cyl((s * 0.182, 0.41, -0.202), 0.024, 0.006, "black", n=10, axis="x")
+        m.box((s * 0.15, 0.4, -0.19), (0.04, 0.012, 0.03), "armorDark", bev=0)
+    m.box((0.0, 0.45, -0.22), (0.006, 0.05, 0.03), "dark", bev=0)
+    m.ball((0, 0.36, -0.3), 0.01, "red", u=8, v=5)
+    # the tail: team band, fin (team-tipped) with the gearbox on its left, stabiliser, tail skid
+    _skin(m, TATER_BOOM, -0.55, -0.6, "team", 0.27, True, 2.2, nz=1, k=10, t=0.004)
+    _skin(m, TATER_BOOM, -0.55, -0.6, "team", 0.36, False, 2.2, nz=1, k=10, t=0.004)
+    fin = [(-0.64, 0.31), (-0.7, 0.71), (-0.77, 0.71), (-0.775, 0.3), (-0.7, 0.3)]
+    m.prism_x(fin, -0.014, 0.014, "olive", bev=0.005)
+    m.prism_x([(-0.6912, 0.65), (-0.7, 0.71), (-0.77, 0.71), (-0.771, 0.65)], -0.016, 0.016, "team", bev=0)
+    m.cyl((-0.022, TATER_TAIL_AT[1], TATER_TAIL_AT[2]), 0.024, 0.024, "oliveDark", n=10, axis="x", bev=0.003)
+    m.prism_y([(-0.14, -0.6), (0.14, -0.6), (0.14, -0.64), (0.03, -0.66), (-0.03, -0.66), (-0.14, -0.64)], 0.3, 0.314, "olive", bev=0.004)
+    m.ball((0, 0.715, -0.74), 0.01, "red", u=8, v=5)
+    _strut(m, (0, 0.3, -0.7), (0, 0.24, -0.76), 0.007)
+    # fixed gear: twin nose wheels, mains on splayed legs
+    m.box((0, 0.085, 0.29), (0.04, 0.03, 0.04), "oliveDark", bev=0.005)
+    _strut(m, (0, 0.085, 0.29), (0, 0.032, 0.3), 0.008)
+    for s in (-1, 1):
+        _hwheel(m, s * 0.03, 0.032, 0.3, 0.032, 0.022)
+        _hwheel(m, s * 0.21, 0.045, -0.08, 0.045, 0.034)
+        _strut(m, (s * 0.193, 0.045, -0.08), (s * 0.13, 0.13, -0.08), 0.01)
+        _strut(m, (s * 0.193, 0.045, -0.08), (s * 0.13, 0.11, -0.15), 0.007)
+        _strut(m, (s * 0.19, 0.06, -0.08), (s * 0.2, 0.215, -0.04), 0.008, "steel")
+    return m
+
+
+def build_tater_rotor():
+    """The TATER COPTER's main rotor: 5 drooped blades, radius 0.7 (spun about y)."""
+    m = Model("u.tater_rotor")
+    _rotor(m, 5, 0.7, 0.058, 0.05, tip="hazard")
+    return m
+
+
+def build_tater_tail():
+    """The TATER COPTER's tail rotor: 3 blades, radius 0.13, spinning about x; the hub cap faces -x."""
+    m = Model("u.tater_tail")
+    _tail_rotor(m, 3, 0.13, 0.034, 0.02, side=-1, tip="hazard")
+    return m
+
+
+# ---- HOG LIFTER (Federation flying crane) ---------------------------------------------------------------
+HOG_CAB = [(0.79, 0.05, 0.6, 0.665), (0.76, 0.1, 0.535, 0.705), (0.69, 0.13, 0.505, 0.735), (0.58, 0.13, 0.505, 0.745),
+           (0.48, 0.12, 0.53, 0.745), (0.4, 0.11, 0.55, 0.745)]
+HOG_SPINE = [(0.42, 0.11, 0.55, 0.745), (-0.45, 0.11, 0.55, 0.745), (-0.55, 0.08, 0.6, 0.735), (-0.62, 0.06, 0.63, 0.725)]
+HOG_BOOM = [(-0.58, 0.055, 0.635, 0.73), (-0.85, 0.036, 0.66, 0.725), (-1.02, 0.028, 0.672, 0.722)]
+HOG_LEG_TOP = (0.34, 0.58, 0.3)
+HOG_FOOT = (0.42, 0.045, 0.46)
+
+
+def build_hog():
+    """🚁 HOG LIFTER (Federation): a flying crane. A slim spine (underside y 0.55) with a glazed cab, a big
+    engine house on top, four tall splayed legs on outriggers with clamp arms on their inner faces (the
+    tank rides in the gap between them), a tail boom with the fin and tail rotor (u.hog_tail) on its right."""
+    m = Model("u.hog", smooth_deg=40)
+    E = 2.4
+    _fuse(m, HOG_CAB, "olive", n=20, e=E)
+    _fuse(m, HOG_SPINE, "olive", n=20, e=3.0)
+    _fuse(m, HOG_BOOM, "olive", n=14, e=2.2)
+    # the cab glazing (wrapping down at the front), frames, chin windows, team nose band
+    _skin(m, HOG_CAB, 0.5, 0.775, "glass", 0.6, True, E, nz=5, k=12)
+    for ang in (math.pi / 2, 0.5, math.pi - 0.5):
+        _frame(m, HOG_CAB, 0.5, 0.775, ang, "oliveDark", E, nz=4)
+    for z in (0.5, 0.62, 0.71):
+        _hoop(m, HOG_CAB, z, 0.6, "oliveDark", E, k=10)
+    for s in (-1, 1):
+        m.push(s * 0.06, 0.56, 0.745, 0, -0.75)
+        m.box((0, 0, 0), (0.06, 0.05, 0.006), "glass", bev=0)
+        m.pop()
+    _skin(m, HOG_CAB, 0.43, 0.47, "team", 0.6, False, E, nz=1, k=12)
+    m.box((0.0, 0.53, 0.62), (0.05, 0.03, 0.06), "oliveDark", bev=0.006)
+    m.cyl((0.0, 0.512, 0.635), 0.014, 0.006, "light", n=10)
+    for s in (-1, 1):
+        m.box((s * 0.12, 0.61, 0.38), (0.006, 0.07, 0.06), "glass", bev=0)       # aft-facing station's side window
+        m.box((s * 0.111, 0.66, 0.0), (0.004, 0.004, 0.84), "oliveDark", bev=0)
+        m.box((s * 0.111, 0.6, 0.15), (0.004, 0.08, 0.004), "oliveDark", bev=0)
+        m.box((s * 0.111, 0.6, -0.25), (0.004, 0.08, 0.004), "oliveDark", bev=0)
+        m.box((s * 0.112, 0.69, -0.32), (0.006, 0.03, 0.18), "team", bev=0)
+    _nav_lights(m, 0.13, 0.62, 0.55)
+    # the engine house: a big cowling, twin engines with intakes, exhausts, transmission hump, mast
+    m.prism_x([(0.3, 0.74), (0.24, 0.84), (-0.2, 0.86), (-0.36, 0.8), (-0.4, 0.74)], -0.13, 0.13, "olive", bev=0.02, seg=2)
+    m.box((0, 0.875, 0.0), (0.14, 0.05, 0.22), "oliveDark", bev=0.014)
+    m.cyl((0, 0.905, HOG_ROTOR_AT[2]), 0.03, 0.05, "steelDark", n=10)
+    for s in (-1, 1):
+        x = s * 0.15
+        m.cyl((x, 0.8, -0.02), 0.062, 0.42, "olive", n=16, axis="z", bev=0.006)
+        m.cyl((x, 0.8, 0.195), 0.065, 0.014, "steelDark", n=16, axis="z")
+        m.cyl((x, 0.8, 0.2), 0.05, 0.008, "black", n=14, axis="z")
+        m.ball((x, 0.8, 0.2), 0.03, "steel", u=10, v=6, s=(1, 1, 0.9))
+        m.box((x, 0.8, -0.02), (0.128, 0.014, 0.03), "team", bev=0)
+        m.box((x, 0.863, -0.05), (0.03, 0.006, 0.26), "oliveDark", bev=0)
+        m.tube([(x, 0.8, -0.22), (s * 0.18, 0.8, -0.28), (s * 0.22, 0.81, -0.31)], 0.036, "dark", n=10)
+        m.cyl((s * 0.222, 0.81, -0.312), 0.03, 0.006, "black", n=10, axis="x")
+        m.box((s * 0.131, 0.79, 0.08), (0.006, 0.05, 0.12), "black", bev=0)    # louvres
+        for k in range(4):
+            m.box((s * 0.135, 0.772 + k * 0.012, 0.08), (0.004, 0.003, 0.12), "oliveDark", bev=0)
+    m.ball((0, 0.87, -0.3), 0.012, "red", u=8, v=5)
+    # belly: a winch housing + equipment bay under the spine (above the load)
+    m.box((0, 0.535, -0.05), (0.14, 0.03, 0.22), "oliveDark", bev=0.006)
+    m.cyl((0, 0.525, -0.05), 0.02, 0.12, "steelDark", n=10, axis="x")
+    # outriggers + side beams + legs + feet + clamps
+    lx, ly, lz = HOG_LEG_TOP
+    fx, fy, fz = HOG_FOOT
+    for s in (-1, 1):
+        for f in (-1, 1):
+            m.box((s * 0.22, ly, f * lz), (0.26, 0.05, 0.05), "oliveDark", bev=0.01)
+            m.bar((s * 0.11, 0.69, f * lz), (s * (lx - 0.02), ly + 0.02, f * lz), 0.02, "oliveDark")    # tie-rod
+        m.box((s * lx, ly, 0), (0.05, 0.05, 2 * lz + 0.05), "oliveDark", bev=0.01)
+        m.box((s * (lx + 0.026), ly, 0), (0.004, 0.022, 2 * lz - 0.04), "team", bev=0)
+        for f in (-1, 1):
+            top = Vector((s * lx, ly - 0.02, f * lz))
+            foot = Vector((s * fx, fy + 0.02, f * fz))
+            mid = top.lerp(foot, 0.55)
+            m.tube([tuple(top), tuple(mid)], 0.022, "olive", n=8)
+            m.tube([tuple(top.lerp(foot, 0.5)), tuple(foot)], 0.014, "steel", n=6)
+            m.cyl(tuple(mid), 0.026, 0.03, "oliveDark", n=10)
+            m.box(tuple(top.lerp(foot, 0.2)), (0.052, 0.012, 0.052), "hazard", bev=0)
+            m.box((s * fx, fy + 0.02, f * fz), (0.05, 0.02, 0.03), "steelDark", bev=0.004)
+            _hwheel(m, s * (fx + 0.035), 0.045, f * fz, 0.045, 0.032)
+            # the clamp: an arm off the leg, a hydraulic ram below it, a rubber-faced grapple pad
+            at = top.lerp(foot, 0.27)
+            lo = top.lerp(foot, 0.52)
+            pad = Vector((s * 0.272, 0.33, f * 0.31))
+            m.bar(tuple(at), tuple(pad + Vector((s * 0.01, 0.05, 0))), 0.024, "steelDark")
+            m.tube([tuple(lo), tuple(pad + Vector((s * 0.012, -0.04, 0)))], 0.009, "steel", n=6)
+            m.box(tuple(pad + Vector((s * 0.008, 0, 0))), (0.014, 0.16, 0.1), "hazard", bev=0.003)
+            m.box(tuple(pad), (0.012, 0.14, 0.085), "rubber", bev=0.003)
+            m.box(tuple(pad + Vector((s * 0.012, 0.0, 0))), (0.01, 0.04, 0.04), "steelDark", bev=0)
+        for f in (-1, 1):   # side braces: each leg's knee up to the beam's middle
+            knee = Vector((s * lx, ly - 0.02, f * lz)).lerp(Vector((s * fx, fy + 0.02, f * fz)), 0.62)
+            m.bar(tuple(knee + Vector((s * 0.02, 0, 0))), (s * (lx + 0.01), ly - 0.02, f * 0.06), 0.014, "oliveDark")
+    # the tail: team band, fin with the gearbox on its right, stabiliser, beacon, tail bumper
+    _skin(m, HOG_BOOM, -0.72, -0.77, "team", 0.66, True, 2.2, nz=1, k=10, t=0.004)
+    _skin(m, HOG_BOOM, -0.72, -0.77, "team", 0.73, False, 2.2, nz=1, k=10, t=0.004)
+    fin = [(-0.86, 0.71), (-0.96, 0.98), (-1.04, 0.98), (-1.045, 0.68), (-0.95, 0.68)]
+    m.prism_x(fin, -0.016, 0.016, "olive", bev=0.005)
+    m.prism_x([(-0.9378, 0.92), (-0.96, 0.98), (-1.04, 0.98), (-1.0412, 0.92)], -0.018, 0.018, "team", bev=0)
+    m.cyl((0.024, HOG_TAIL_AT[1], HOG_TAIL_AT[2]), 0.028, 0.026, "oliveDark", n=10, axis="x", bev=0.003)
+    m.prism_y([(-0.18, -0.86), (0.18, -0.86), (0.18, -0.91), (0.03, -0.93), (-0.03, -0.93), (-0.18, -0.91)], 0.69, 0.705, "olive", bev=0.004)
+    m.ball((0, 0.985, -1.0), 0.012, "red", u=8, v=5)
+    _strut(m, (0, 0.67, -0.98), (0, 0.6, -1.03), 0.008)
+    return m
+
+
+def build_hog_rotor():
+    """The HOG LIFTER's main rotor: 6 drooped blades, radius 0.85 (spun about y)."""
+    m = Model("u.hog_rotor")
+    _rotor(m, 6, 0.85, 0.066, 0.06, tip="hazard", droop=0.03)
+    return m
+
+
+def build_hog_tail():
+    """The HOG LIFTER's tail rotor: 4 blades, radius 0.16, spinning about x; the hub cap faces +x."""
+    m = Model("u.hog_tail")
+    _tail_rotor(m, 4, 0.16, 0.038, 0.022, side=1, tip="hazard", phase=math.pi / 4)
+    return m
+
+
+HELIS = [build_hawk, build_hawk_rotor, build_hawk_tail, build_lift, build_lift_rotor, build_tater, build_tater_rotor,
+         build_tater_tail, build_hog, build_hog_rotor, build_hog_tail]
+
+
 MODELS = [build_hq, build_hq_crane, build_power, build_refinery, build_barracks, build_barracks_flag, build_factory,
           build_factory_door, build_radar, build_radar_dish, build_turret, build_turret_head, build_tesla,
           build_tank, build_tank_turret, build_tank_gun, build_heavy, build_heavy_turret, build_heavy_gun,
-          build_harv, build_harv_drum, build_harv_load, lambda: build_inf("rifle"), lambda: build_inf("rocket"), build_leg] + LANDSCAPE + PHASE1 + PHASE2 + WATERWORKS
+          build_harv, build_harv_drum, build_harv_load, lambda: build_inf("rifle"), lambda: build_inf("rocket"), build_leg] + LANDSCAPE + PHASE1 + PHASE2 + HELIS + WATERWORKS
 
 # the game draws a building's part parented to its body: give the AO bake the body as an occluder
 OCCLUDERS = {"b.hq_crane": "b.hq", "b.radar_dish": "b.radar", "b.turret_head": "b.turret", "b.factory_door": None,
              "u.tank_turret": "u.tank", "u.heavy_turret": "u.heavy", "u.harv_drum": "u.harv",
              "b.sam_head": "b.sam", "b.flak_head": "b.flak", "b.derrick_pump": "b.derrick", "u.ifv_turret": "u.ifv",
              "u.prismtank_turret": "u.prismtank", "u.mirage_turret": "u.mirage", "u.v3_rack": "u.v3",
-             "u.apoc_turret": "u.apoc", "u.harvF_gun": "u.harvF", "b.spysat_dish": "b.spysat"}
+             "u.apoc_turret": "u.apoc", "u.harvF_gun": "u.harvF", "b.spysat_dish": "b.spysat",
+             "u.hawk_rotor": "u.hawk", "u.hawk_tail": "u.hawk", "u.lift_rotor": "u.lift", "u.tater_rotor": "u.tater",
+             "u.tater_tail": "u.tater", "u.hog_rotor": "u.hog", "u.hog_tail": "u.hog"}
 PART_AT = {"b.hq_crane": (-1.05, 0, -1.0), "b.radar_dish": (0.45, 0.78, -0.45), "b.turret_head": (0, 0.32, 0),
            "u.tank_turret": (0, 0.29, 0), "u.heavy_turret": (0, 0.34, 0), "u.harv_drum": (0, 0.12, 0.52),
            "b.sam_head": (0, 0.3, 0), "b.flak_head": (0, 0.3, 0), "b.derrick_pump": (-0.3, 0.44, 0.45),
            "u.ifv_turret": (0, 0.24, -0.04), "u.prismtank_turret": (0, 0.28, -0.03), "u.mirage_turret": (0, 0.28, -0.05),
            "u.v3_rack": (0, 0.3, -0.3), "u.apoc_turret": (0, 0.38, -0.04), "u.apoc_gun": (0, 0.5, 0.16),
            "u.harvF_gun": (0, 0.5, 0.3), "b.spysat_dish": SPYSAT_DISH_AT, "u.leg": (0.045, 0.13, 0), "u.dog_leg": (0.05, 0.12, 0.11),
-           "u.tank_gun": (0, 0.365, 0.12), "u.heavy_gun": (0, 0.43, 0.15), "u.harv_load": (0, 0.42, -0.2)}
+           "u.tank_gun": (0, 0.365, 0.12), "u.heavy_gun": (0, 0.43, 0.15), "u.harv_load": (0, 0.42, -0.2),
+           "u.hawk_rotor": HAWK_ROTOR_AT, "u.hawk_tail": HAWK_TAIL_AT, "u.lift_rotor": LIFT_ROTOR_FRONT_AT,   # (+ LIFT_ROTOR_REAR_AT)
+           "u.tater_rotor": TATER_ROTOR_AT, "u.tater_tail": TATER_TAIL_AT, "u.hog_rotor": HOG_ROTOR_AT, "u.hog_tail": HOG_TAIL_AT}
 SUBDIV = {"u.crate": 0.09}   # small models whose big faces sit in corner pieces (AO would grey the whole face)
-NO_GROUND = {"w.bridge_deck", "w.bridge_truss", "w.bridge_portal", "w.bridge_pier", "w.bridge_ruin", "u.gravy_stream", "u.gravy_pool", "u.jet", "u.blimp", "u.blimp_prop", "u.v3_rocket", "b.factory_door", "b.barracks_flag"}
+NO_GROUND = {"w.bridge_deck", "w.bridge_truss", "w.bridge_portal", "w.bridge_pier", "w.bridge_ruin", "u.gravy_stream", "u.gravy_pool", "u.jet", "u.blimp", "u.blimp_prop", "u.v3_rocket", "b.factory_door", "b.barracks_flag"} | \
+    {"u.hawk", "u.hawk_rotor", "u.hawk_tail", "u.lift", "u.lift_rotor", "u.tater", "u.tater_rotor", "u.tater_tail", "u.hog", "u.hog_rotor", "u.hog_tail"}
 
 
 # =========================================================================================================

@@ -166,7 +166,7 @@ function alrBuildCameos() {
   for (const k of all) {
     const B = ALR_BLD[k];
     const UD = ALR_UNIT[k];
-    const zoom = B ? (B.w >= 3 ? 4.1 : B.w === 2 ? 3.0 : B.wall ? 1.6 : 2.3) : (UD.cat === 'inf' ? 0.85 : k === 'blimp' ? 2.8 : k === 'apoc' ? 1.8 : 1.45);
+    const zoom = B ? (B.w >= 3 ? 4.1 : B.w === 2 ? 3.0 : B.wall ? 1.6 : 2.3) : (UD.cat === 'inf' ? 0.85 : k === 'blimp' ? 2.8 : k === 'apoc' ? 1.8 : UD.air === 'heli' ? (UD.carry === 'veh' ? 2.5 : 2.0) : 1.45);
     const lift = B ? -0.35 : UD.cat === 'inf' ? -0.2 : -0.12;
     const parts = alrModelParts(k).filter((p) => p.mesh).map((p) => ({ mesh: p.mesh, M: alrMul(alrTRS(0, lift, 0, B ? ALR_BLD_YAW : Math.PI * 1.15), p.M) }));
     if (!parts.length) continue;
@@ -656,7 +656,10 @@ function alrCmdMarks(dt, S) {
   if (!U.mouse.in || alr.place || alr.mode === 'sell' || alr.mode === 'repair' || U.drag && U.drag.box) return;
   if (!alr.sel.some((e) => e.kind === 'unit' && e.owner === 0)) return;
   const h = U.hover, wob = 1 + Math.sin(alr.t * 6) * 0.06;
-  if (h && (h.owner !== 0 || alrForceOn(h))) {
+  if (h && h.owner === 0 && h.D.carry && !alrForceOn(h) && alr.sel.some((e) => alrCanCarry(h, e))) {
+    const r = h.D.r * 1.5 * wob, col = alrRoom(h) > 0 ? ALR_CMD_COL.move : ALR_CMD_COL.attack;
+    ring(h.x, h.z, r, col, 0.7); arrows(h.x, h.z, r + 0.3, col, 0.6, Math.PI / 4 - alr.t * 0.8);
+  } else if (h && (h.owner !== 0 || alrForceOn(h))) {
     const cook = h.owner !== 0 && alr.sel.some((e) => e.D.engineer && alrCanCapture(e, h)), col = cook ? ALR_CMD_COL.capture : ALR_CMD_COL.attack;
     const r = (h.kind === 'bld' ? Math.max(h.w, h.h) * 0.62 : h.D.r * 1.6 + 0.15) * wob;
     ring(h.x, h.z, r, col, 0.7); arrows(h.x, h.z, r + 0.3, col, 0.6, Math.PI / 4 + alr.t * 0.8);
@@ -695,6 +698,9 @@ const ALR_RIG = {
   ifv_turret: [0, 0.24, -0.04], prismtank_turret: [0, 0.28, -0.03], mirage_turret: [0, 0.28, -0.05], v3_rack: [0, 0.3, -0.3],
   apoc_turret: [0, 0.38, -0.04], apoc_gun: [0, 0.12, 0.2], flaktrack_head: [0, 0.26, -0.12, 0.6], harvF_gun: [0, 0.5, 0.3],
   spysat_dish: [-0.25, 0.4, -0.25],
+  // the helicopters' rotors (blender/alertrig.py *_ROTOR_AT): main rotors spin about y, tail rotors about x
+  hawk_rotor: [0, 0.485, 0.04], hawk_tail: [0.05, 0.58, -0.69], lift_rotor: [[0, 0.54, 0.52], [0, 0.67, -0.52]],
+  tater_rotor: [0, 0.52, 0.02], tater_tail: [-0.05, 0.62, -0.735], hog_rotor: [0, 0.94, 0], hog_tail: [0.05, 0.72, -1.0],
   blimp_prop: [[0.44, -0.3, -0.63], [-0.44, -0.3, -0.63]], dog_leg: [[0.05, 0.12, 0.11], [-0.05, 0.12, 0.11], [0.05, 0.12, -0.11], [-0.05, 0.12, -0.11]],
 };
 // a point on the hull (local x, z) in the world, for a turret that sits off-center
@@ -760,6 +766,22 @@ function alrUnitParts0(u) {
     R.dog_leg.forEach(([x, y, z], i) => add('dog_leg', alrMul(B, alrTRS(x, y, z, 0, 1, 1, 1, u.moving ? Math.sin(u.walk * 1.6 + (i % 2 ? Math.PI : 0) + (i > 1 ? Math.PI / 2 : 0)) * 0.8 : 0))));
     return parts;
   }
+  if (u.D && u.D.air === 'heli') {
+    // a helicopter: the body dips its nose as it picks up speed; the rotors spin (a tandem lifter's two
+    // counter-rotate); a lifter's tank rides along — on the sling under the Sky Fryer, between the Hog's legs
+    const sp = Math.min(1, Math.hypot(u.vx || 0, u.vz || 0) / u.D.speed), rot = u.rot || 0;
+    const B = alrTRS(u.x, alt, u.z, u.yaw, 1, 1, 1, sp * 0.14);
+    add(t, B);
+    const rr = R[t + '_rotor'];
+    if (rr) (Array.isArray(rr[0]) ? rr : [rr]).forEach((p, i) => add(t + '_rotor', alrMul(B, alrTRS(p[0], p[1], p[2], i ? 0.5 - rot : rot))));
+    const tr = R[t + '_tail'];
+    if (tr) add(t + '_tail', alrMul(B, alrTRS(tr[0], tr[1], tr[2], 0, 1, 1, 1, rot * 1.7)));
+    if (u.D.carry === 'veh' && u.load && u.load[0]) {
+      const c = u.load[0], lift = alrTRS(0, alt + u.D.sling, 0, 0);
+      for (const q of alrUnitParts0({ ...c, x: u.x, z: u.z, yaw: u.yaw, tYaw: u.yaw, alt: 0, moving: false, recoil: 0 })) parts.push({ mesh: q.mesh, M: alrMul(lift, q.M) });
+    }
+    return parts;
+  }
   const H = alrTRS(u.x, alt, u.z, u.yaw);
   if (t === 'jet') { add('jet', alrTRS(u.x, alt, u.z, u.yaw, 1, 1, 1, 0, -(u.bank || 0))); return parts; }
   if (t === 'blimp') {
@@ -801,7 +823,7 @@ function alrUnitParts0(u) {
   return parts;
 }
 // until a model exists, borrow a close one (so nothing is ever invisible)
-const ALR_FALLBACK = { conscript: 'inf', engineer: 'inf', zapper: 'inf', jetpack: 'inf', ifv: 'tank', prismtank: 'tank', mirage: 'tank', apoc: 'heavy', flaktrack: 'tank', harvF: 'harv', v3: 'tank', jet: 'tank', blimp: 'harv', dog: 'leg' };
+const ALR_FALLBACK = { conscript: 'inf', engineer: 'inf', zapper: 'inf', jetpack: 'inf', ifv: 'tank', prismtank: 'tank', mirage: 'tank', apoc: 'heavy', flaktrack: 'tank', harvF: 'harv', v3: 'tank', jet: 'tank', blimp: 'harv', dog: 'leg', hawk: 'jet', tater: 'jet', lift: 'harv', hog: 'harv' };
 
 // ---- the overlay: selection brackets, health pips, the drag box, floating text --------------------------------------
 function alrOverlay() {
@@ -825,6 +847,16 @@ function alrOverlay() {
       g.strokeStyle = e.rank === 2 ? '#ffd23a' : '#d8e2ee'; g.lineWidth = 1.8; g.stroke();
     }
   }
+  // the Sky Fryer's sling: four cables from the belly hook down to the corners of the tank it's carrying
+  g.strokeStyle = 'rgba(30, 32, 34, 0.85)'; g.lineWidth = 1.3;
+  for (const e of alr.ents) {
+    if (e.kind !== 'unit' || !e.D.carry || !(e.D.sling < 0) || !e.load || !e.load[0]) continue;
+    if (e.owner !== 0 && !S[alrTile(e.x, e.z)]) continue;
+    const hk = alrGLProject(e.x, e.alt + 0.04, e.z), c = Math.cos(e.yaw), sn = Math.sin(e.yaw), y = e.alt + e.D.sling + 0.3;
+    g.beginPath();
+    for (const [lx, lz] of [[0.2, 0.26], [-0.2, 0.26], [0.2, -0.26], [-0.2, -0.26]]) { const q = alrGLProject(e.x + c * lx + sn * lz, y, e.z - sn * lx + c * lz); g.moveTo(hk[0], hk[1]); g.lineTo(q[0], q[1]); }
+    g.stroke();
+  }
   for (const e of alr.ents) {
     const sel = alr.sel.includes(e);
     const hover = U.hover === e;
@@ -837,6 +869,11 @@ function alrOverlay() {
       if (sel || hover) bar(top[0] - w / 2, top[1] - 8, w, e.hp / e.max, e.D.cat === 'inf' ? 5 : 8);
       if (e.D.harv && sel) { g.fillStyle = '#ffd23a'; g.fillRect(top[0] - w / 2, top[1] - 2, w * e.cargo / e.D.cap, 2); }
       if (e.D.air === 'jet' && sel) { g.fillStyle = e.ammo > 0 ? '#ffd23a' : '#555'; g.fillRect(top[0] - 4, top[1] - 2, 8, 3); }
+      if (e.D.carry && (sel || hover)) {
+        // one pip a seat: lit for each aboard
+        const n = e.D.cap, pw = n > 1 ? 5 : 12, x0 = top[0] - (n * (pw + 2) - 2) / 2;
+        for (let k = 0; k < n; k++) { g.fillStyle = '#000'; g.fillRect(x0 + k * (pw + 2) - 1, top[1] - 1, pw + 2, 5); g.fillStyle = k < e.load.length ? '#5cff6a' : '#2b3a2e'; g.fillRect(x0 + k * (pw + 2), top[1], pw, 3); }
+      }
     } else {
       // the bracket around a building's box on screen
       const pts = [];
@@ -1006,7 +1043,7 @@ function alrPickAt(px, py) {
   for (const e of alr.ents) {
     if (e.kind !== 'unit') continue;
     if (e.owner !== 0 && S[alrTile(e.x, e.z)] < 40) continue;
-    const p = alrGLProject(e.x, (e.alt || 0) + (e.D.cat === 'inf' ? 0.25 : 0.2), e.z), r = e.D.cat === 'inf' ? 14 : e.type === 'blimp' ? 40 : 22, d = Math.hypot(p[0] - px, p[1] - py);
+    const p = alrGLProject(e.x, (e.alt || 0) + (e.D.cat === 'inf' ? 0.25 : 0.2), e.z), r = e.D.cat === 'inf' ? 14 : e.type === 'blimp' ? 40 : e.D.air === 'heli' ? (e.D.carry === 'veh' ? 34 : 28) : 22, d = Math.hypot(p[0] - px, p[1] - py);
     if (d < r && d < bd) { bd = d; best = e; }
   }
   if (best) return best;
@@ -1042,6 +1079,13 @@ function alrCommandAt(g, hit, forceAM, force) {
     for (const u of shooters) alrOrderAttack(u, hit);
     alrCmdFx('attack', hit.x, hit.z, hit, shooters); alrSfx('ack'); alrAck(shooters, 'attack');
     alr.mode = ''; return;
+  }
+  // into a carrier: whoever fits boards it (as many as there's room for)
+  if (hit && hit.owner === 0 && hit.D.carry) {
+    const go = units.filter((u) => alrCanCarry(hit, u) && alrOrderBoard(u, hit));
+    if (go.length) { alrCmdFx('board', hit.x, hit.z, hit, go); alrSfx('ack'); alrAck(go, 'move'); }
+    else alrSfx('error');
+    return;
   }
   // cooks: into a building that isn't yours to take it, into one of yours that's hurt to fix it
   const cooks = units.filter((u) => u.D.engineer && hit && alrCanCapture(u, hit));
@@ -1108,7 +1152,7 @@ function alrPointerDown(e) {
     return;
   }
   if (alr.mode === 'am') { alrCommand(x, y, true); return; }
-  U.drag = { x0: x, y0: y, x1: x, y1: y, box: false, shift: e.shiftKey };
+  U.drag = { x0: x, y0: y, x1: x, y1: y, box: false, shift: e.shiftKey, force: U.force };
   U.ov.setPointerCapture(e.pointerId);
 }
 function alrPointerMove(e) {
@@ -1133,6 +1177,8 @@ function alrUICursorPick() {
   else if (alr.mode === 'repair') cur = h && h.kind === 'bld' && h.owner === 0 && h.hp < h.max ? ALR_CURSOR.repair : ALR_CURSOR.nogo;
   else if (cook) cur = ALR_CURSOR.capture;
   else if (alrForceOn(h)) cur = ALR_CURSOR.attack;   // force-fire on your own: the red reticle, so you know
+  else if (h && h.owner === 0 && h.D.carry && alr.sel.some((s) => alrCanCarry(h, s))) cur = alrRoom(h) > 0 ? ALR_CURSOR.board : ALR_CURSOR.nogo;
+  else if (h && h.owner === 0 && h.D.carry && alr.sel.includes(h) && h.load.length) cur = alrLandOk(h.x, h.z, h) ? ALR_CURSOR.unload : ALR_CURSOR.nogo;
   else if (alr.mode === 'am') cur = ALR_CURSOR.amove;
   else if (h && h.owner !== 0 && mine) cur = ALR_CURSOR.attack;
   else if (h && h.owner === 0) cur = 'pointer';
@@ -1166,6 +1212,11 @@ const ALR_CURSOR = (() => {
     move: frames((p) => svg(arrow('#5cff6a', p * 4, 1 - p * 0.18) + `<circle cx='16' cy='16' r='${(2.5 + p).toFixed(2)}' fill='#5cff6a' stroke='#000'/>`) + ', cell'),
     attack: frames((p) => svg(ret('#ff3a2a', 9 - p * 3)) + ', crosshair'),
     amove: frames((p) => svg(ret('#ff9a2a', 9 - p * 3)) + ', crosshair'),
+    // board: a green arrow dropping into the hold's bracket; unload: arrows popping out of it
+    board: frames((p) => svg(`<path d='M6 18 V27 H26 V18' fill='none' stroke='#000' stroke-width='5'/><path d='M6 18 V27 H26 V18' fill='none' stroke='#5cff6a' stroke-width='2.5'/>` +
+      `<path transform='translate(0 ${(p * 5).toFixed(2)})' d='M16 21 L22 13 L18.5 13 L18.5 2 L13.5 2 L13.5 13 L10 13 Z' fill='#5cff6a' stroke='#000' stroke-width='1.3'/>`) + ', pointer'),
+    unload: frames((p) => svg(`<rect x='10' y='10' width='12' height='12' fill='none' stroke='#000' stroke-width='5'/><rect x='10' y='10' width='12' height='12' fill='none' stroke='#5cff6a' stroke-width='2.5'/>` +
+      [0, 90, 180, 270].map((a) => `<path transform='rotate(${a} 16 16) translate(0 ${(-p * 3).toFixed(2)})' d='M16 1 L20.5 6.5 L18 6.5 L18 8.5 L14 8.5 L14 6.5 L11.5 6.5 Z' fill='#5cff6a' stroke='#000' stroke-width='1.1'/>`).join('')) + ', pointer'),
     capture: svg(`<rect x='9' y='13' width='14' height='12' fill='none' stroke='#000' stroke-width='4'/><rect x='9' y='13' width='14' height='12' fill='none' stroke='#ffd23a' stroke-width='2'/><path d='M16 2 L22 9 L18 9 L18 16 L14 16 L14 9 L10 9 Z' fill='#ffd23a' stroke='#000' stroke-width='1.2'/>`) + ', pointer',
     sell: svg(`<circle cx='16' cy='16' r='12' fill='#1a1a1a' stroke='#ffd23a' stroke-width='2'/><text x='16' y='22' font-size='17' font-family='Arial' font-weight='bold' text-anchor='middle' fill='#ffd23a'>$</text>`) + ', pointer',
     repair: svg(`<circle cx='16' cy='16' r='12' fill='#1a1a1a' stroke='#5cc8ff' stroke-width='2'/><path d='M10 22 L18 14 M18 14 a4 4 0 1 0 2 -6 l-2 2 l-1 -1 l2 -2 a4 4 0 0 0 -5 5' fill='none' stroke='#5cc8ff' stroke-width='2.4' stroke-linecap='round'/>`) + ', pointer',
@@ -1199,6 +1250,11 @@ function alrPointerUp(e) {
     return;
   }
   const h = alrPickAt(d.x0, d.y0), now = performance.now();
+  if (h && h.owner === 0 && h.D.carry && !d.force) {
+    // with troops (or a tank) selected: they board it; the carrier itself selected and loaded: it unloads
+    if (alr.sel.some((s) => alrCanCarry(h, s))) { alrCommandAt([h.x, h.z], h); return; }
+    if (alr.sel.includes(h) && h.load.length) { alrOrderUnload(h); if (h.order) { alrCmdFx('unload', h.x, h.z, h, [h]); alrSfx('ack'); } return; }
+  }
   if (h && h.owner === 0 && h.kind === 'bld' && alr.sel.some((s) => s.D.engineer && alrCanCapture(s, h))) { alrCommand(d.x0, d.y0); return; }
   if (h && h.owner === 0) {
     if (now - U.lastClick < 320 && U.lastPick === h && h.kind === 'unit') {
@@ -1247,7 +1303,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (k === 'KeyA' && alr.sel.some((s) => s.kind === 'unit' && s.owner === 0)) { alr.mode = 'am'; e.preventDefault(); return; }
-  if (k === 'KeyD') { for (const u of alr.sel) if (u.kind === 'unit' && u.owner === 0 && u.D.deploy) alrDeploy(u); alrSfx('place'); return; }
+  if (k === 'KeyD') { for (const u of alr.sel) if (u.kind === 'unit' && u.owner === 0 && (u.D.deploy || u.D.carry)) alrDeploy(u); alrSfx('place'); return; }
   if (k === 'KeyS') { for (const u of alr.sel) if (u.kind === 'unit' && u.owner === 0) { u.order = null; u.path = null; u.target = null; u.guardX = u.x; u.guardZ = u.z; } return; }
   if (k === 'KeyQ') { alr.sel = alr.ents.filter((u) => u.kind === 'unit' && u.owner === 0 && u.D.weapon); alrSfx('select'); return; }
   if (k === 'KeyH') { const hq = alrBldsOf(0, 'hq')[0] || alr.ents.find((x) => x.owner === 0); if (hq) { alr.cam.x = hq.x; alr.cam.z = hq.z; } return; }

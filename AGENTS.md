@@ -3572,3 +3572,70 @@ used to be bridges people would have to cross to get to other bases. make it so 
   - Ctrl+click picks the bridge and a plain click doesn't; 3 tanks drop one in ~15 s; the CPU repairs.
   - Full CPU-vs-CPU games end on the river (both armies) and on the isles (4 players).
   - Regression on Fryer Valley + the gravy test.
+
+## 🚁 NUGGET ALERT: HELICOPTERS — TROOP CARRIERS AND TANK LIFTERS (2026-10-19)
+
+Chris: *"let's add helicopters as well. we want to be able to transport infantry and dogs. make it so there are
+different types of carriers. troop carriers and carriers that are able to take in tanks"*. With the new water
+maps they're the way across a river whose bridges are down, and the way onto the Sauce Isles.
+
+**The four helicopters.** All four are `ALR_UNIT`, `cat: 'veh'` (built at the factory), `req: ['factory', 'radar']`,
+`air: 'heli'` and unarmed.
+
+| Unit | Army | Carries | Notes |
+|---|---|---|---|
+| `hawk` NUG HAWK | Alliance | 5 infantry or dogs | Black Hawk-style, $900 |
+| `lift` SKY FRYER | Alliance | 1 ground vehicle | Chinook-style tandem rotor, $1400. The tank hangs on a sling, `sling: −0.8` below the belly hook |
+| `tater` TATER COPTER | Federation | 6 infantry or dogs | Mi-8/Hind-style, $800 |
+| `hog` HOG LIFTER | Federation | 1 ground vehicle | Skycrane-style, $1400. The tank is clamped between its tall legs (`sling: +0.06`) |
+
+`D.carry` is `'inf'` or `'veh'`, `D.cap` is the number of seats, and `u.load` is the passenger list. (`u.cargo`
+was already taken: it's the harvesters' ore.)
+
+**Boarding.** `alrOrderBoard`, order type `'board'`, stepped by `alrBoardStep`.
+- In the UI: select troops (or a tank) and click your carrier. The cursor is a green arrow dropping into a
+  bracket (`ALR_CURSOR.board`), and you get a green ring around the carrier. If it's full, you get the no-go
+  cursor and a red ring.
+- The carrier lands where it is (`wantLand`). If it can't land there (trees, a building, water), it hops to the
+  nearest clear tile first.
+- Boarders walk or drive to it and get in within 0.65 tiles (0.8 for a vehicle). Boarding takes them out of the
+  world through `alrRemove`.
+- `alrCanCarry`: same owner, not airborne, the right category. Jetpacks don't board because they fly.
+  `alrRoom` counts boarders already on their way.
+
+**Unloading.** `alrOrderUnload`.
+- D (`alrDeploy`), or click the selected carrier while it's loaded (`ALR_CURSOR.unload`: arrows popping out of
+  a box).
+- It's refused over water, buildings or blocked tiles ("CANNOT UNLOAD HERE").
+- The carrier lands, and `alrDisembark` places passengers in a ring around it every 0.22 s, or straight down for
+  a vehicle, on free ground. Afterwards it stays parked (`parked`) until it's given a move order.
+
+**Flight.** `alrHeliStep`.
+- It cruises at `D.alt` and lands at `alrLandAlt`: 0, or for the Sky Fryer hovering so the slung tank touches down.
+- It climbs or descends at 1.3 tiles/s and only flies once it's above 60% of cruise height.
+- It's airborne by the usual rule (`alt > 0.5`), so in the air only AA can hit it. Landed, it's a target for anything.
+- If it's shot down, everyone aboard dies (RA2) and is counted as lost.
+- The AI doesn't build helicopters (`ALR_AI_VEH` is explicit).
+
+**Looks.**
+- The models are Blender-built: the `HELIS` list in `alertrig.py`, made by a helper agent. Each body's origin is the
+  bottom of its landing gear (y = 0 means landed). Rotors are separate parts.
+- `ALR_RIG.*_rotor` / `*_tail` hold the pivots. `lift_rotor` has two pivots, front and rear, and they counter-rotate.
+- In `alrUnitParts0`, the nose dips as the helicopter picks up speed (pitch = 0.14 × speed fraction). Main
+  rotors spin about y and tail rotors about x, at 30 rad/s flying or 12 on the ground.
+- A carried vehicle is drawn at true size (`alrUnitParts0`, not the battle-zoom-enlarged one, so it fits the
+  Hog's legs), shifted up to `alt + sling`.
+- The overlay draws the Sky Fryer's four sling cables, and one pip per seat over a selected or hovered carrier.
+- The click target is bigger on screen (28 px, or 34 for the lifters).
+- When packing, a stale `render_alert/b.spysat*.json` didn't match the packed copy, so the merge changed it. It
+  was put back from the pre-merge file. Check with a before/after diff whenever you `--merge`.
+
+**Tested.**
+- In the sim, on the river map:
+  - 3 troopers boarded within 4 s.
+  - The carrier flew over the water, refused to unload there, and unloaded on the far bank, all on dry ground.
+  - A tank was lifted, flown and set down.
+  - A carrier shot down with a passenger counted 2 lost.
+- In the UI: the board cursor showed, a click gave the board orders, the troopers were aboard by 11 s, the unload
+  cursor showed over the selected carrier, and a click put all 3 back out.
+- Regression games on Sauce Isles (4 players) and Fryer Valley.
