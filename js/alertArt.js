@@ -549,7 +549,7 @@ function alrArtInit() {
 // The procedural models above draw first and stay as the fallback. The Blender set (~1 MB gzipped) is
 // injected the first time the game opens, then swapped in by name: 'b.hq' → alrArt.b.hq, 'u.tank' → alrArt.u.tank.
 // Everything draws through alrArt lookups each frame, so the swap is live; the sidebar cameos are re-shot.
-const ALR_MESH_SRC = 'js/alertMeshData.js?v=8';
+const ALR_MESH_SRC = 'js/alertMeshData.js?v=9';
 function alrMeshUse() {
   const D = window.ALR_MESH_DATA;
   if (!D) {

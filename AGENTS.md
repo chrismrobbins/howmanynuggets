@@ -3709,3 +3709,84 @@ reload doesn't reset it.
 - A fresh page loaded the same save from the skirmish screen.
 - Delete works.
 - Nuggets: 12,640 earned → save → 25,280 more → load → replaying 25,280 paid 0 → the next ones paid.
+
+## 🏳️ NUGGET ALERT: SIX FACTIONS (2026-10-19)
+
+Chris: *"create more factions … similar to how you could play as France, UK, Russia, etc in RA2. Make different
+factions with different strengths … 3 of them part of the Alliance or the Federation … each individual faction
+should have some of their own interesting advantages (and disadvantages)"*. These are RA2's countries in our
+world: each faction keeps its army's core kit (the Alliance's or the Federation's buildings and units) and adds
+**one thing of its own**, a strength and a weakness.
+
+| Faction | Army | Its own | + | − |
+|---|---|---|---|---|
+| 🦅 NUGGET REPUBLIC `republic` | Alliance | **SKY DROP** (power: 6 troopers by parachute, anywhere explored, every 4 min, first at 2:30) | aircraft −20% cost | tanks −10% hp |
+| 👑 BREADCRUMB CROWN `crown` | Alliance | **CRUMB SNIPER** (`sniper`, 9-tile rifle, 130 dmg, near-useless vs armour) | infantry +15% hp, +2 sight | vehicles +15% cost |
+| 🥖 GOLDEN COAST `coast` | Alliance | **GRAND FRYER** (`grandfryer`, 2×2 defense, 14-tile lobbed shell, needs power) | buildings +25% hp, defenses −15% cost | every unit −10% speed |
+| 🥔 TATER UNION `union` | Federation | **TESLA SPUD** (`teslaspud`, a Tesla coil on tracks) | vehicles +15% hp | infantry +20% cost |
+| 🌶️ HASH BROWN HORDE `horde` | Federation | **GREASE GUNNER** (`greaser`, grease spray with splash; D digs in: `greaseD`, wider splash) | infantry −25% cost, train 25% faster | buildings −20% hp |
+| 🌀 CURLY CARTEL `cartel` | Federation | **FRY BOMBER** (`bomber`, fast, runs in and blows up: 420 dmg, splash 1.7, hurts walls and bridges) | every unit +15% speed | every unit −12% hp |
+
+**How it's wired** (`js/alert.js`)
+- `ALR_FACTIONS` + `ALR_FACTION_OF` (three to an army). `P.faction` is set for every player in
+  `alrNewGame`, which now takes a faction key in place of the side (an army letter still works and means its
+  first faction). The human picks a faction; CPU 1 fights as the other army; every CPU's faction is random within
+  its army. Each player's team name is its faction's name.
+- `D.faction` on a unit or building means only that faction can build it (`alrCanBuild`).
+- **Mods** (`alrMod(owner, D, what)`):
+  - Mods multiply by class (`alrModCat`: inf / veh / air (jets and helicopters) / bld / def), for cost, hp,
+    speed and build time; sight is added.
+  - Cost goes through `alrCost(P, D)` everywhere money moves: production, refunds, the jet-pad refund, selling,
+    and the sidebar's price and progress.
+  - hp and sight are applied at spawn (`e.max`, `e.sight`), speed as `u.spd` (used in `alrFollow`), and build
+    time in `alrProduce`.
+- **New weapon kinds**: `grease` (instant spray with splash), `kaboom` (the bomber's single blast: it kills the
+  bomber; `ALR_WALL_KINDS` includes it), and `W.lob`, a high arc for a shell (the Grand Fryer).
+- **The Sky Drop** (`alrSkyDrop`, `alrDropsStep`, `alr.drops`): a cargo plane flies in from 0.75·N tiles out,
+  along the line from the player's start to the drop point, at 7 tiles/s. Over the point it drops 6 troopers of
+  the army's basic type, each with `u.chute`. A parachuting trooper descends at 1.1 tiles/s from alt 3 and does
+  nothing else until it lands. `P.power = {kind, t}` counts down in `alrSim`.
+- **The AI**: the factions' own units are in `ALR_AI_INF` / `ALR_AI_VEH` (alrAIPick skips what a CPU's faction
+  can't build). A Golden Coast CPU builds a Grand Fryer once it has a defense, plus one more every 7 min. A
+  Republic CPU drops onto trouble at home, otherwise 9 tiles short of its rival's yard.
+
+**The UI** (`js/alertUI.js`, `css/alert.css`)
+- **Skirmish screen**:
+  - Three columns: maps | the match | YOUR FACTION. The six cards are grouped by army and show ★ special,
+    + strength, − weakness.
+  - A detail panel under the cards shows the selected faction.
+  - The setup is saved with `faction`; a setup saved before factions maps to its army's first faction.
+- **The Sky Drop button** (`.alr-sdrop`, above SELL / FIX) shows a countdown, then a green blinking SKY DROP.
+  Click it, then the map; it only drops onto explored ground. (The class was first `.alr-power`, which is the
+  POWER BAR's class: the countdown overwrote the power bar. Don't reuse it.)
+- **Faction banners**: every building 2×2 or bigger flies its owner's faction banner (`b.flag_<faction>`) on the
+  pad's camera-side corner, swaying.
+- **Parachutes**: `u.chute`, drawn over a trooper in the drop. The plane is `u.paraplane`.
+- **Fallbacks** (`ALR_FALLBACK`, `ALR_BLD_FALLBACK`, and the infantry-body fallback) keep everything visible if
+  the mesh file hasn't loaded.
+
+**Saves**: `P.faction` and `P.power` ride along (alertSave.js picks up new fields automatically). A save from
+before factions loads with no faction mods.
+
+**Tested** (CPU-vs-CPU, 15 min each, every faction as player 0, 4 players)
+- No errors.
+- Each faction's own thing was built and used:
+  - snipers 20 built / 553 shots
+  - Tesla Spuds 4 / 42 shots
+  - Grease Gunners 17 / 61 shots
+  - bombers blew up
+  - Grand Fryers 2 built / 10 shells
+  - Sky Drops on their timer
+- Union vehicles: hp 518 against the base 450.
+- The Sky Drop through the real button: countdown → READY → click → plane → 6 troopers on parachutes → the
+  next drop at 4:00.
+- **Models** (Blender, `FACTIONS` in `alertrig.py`, built by a helper agent):
+  - units: `u.sniper`, `u.greaser`, `u.bomber`, `u.teslaspud` + `_turret` (pivot (0, 0.3, −0.03))
+  - buildings: `b.grandfryer` + `_gun` (pivot (0, 0.42, 0); the muzzle at z 1.59, raised 12°)
+  - the drop: `u.paraplane`, `u.chute` (lines meet at the origin; the rim is at y 0.48)
+  - banners: `b.flag_<faction>` × 6 (base plate at y 0.10, drawn at ×1.35)
+  - All 113 earlier models were byte-identical after the `--merge`.
+  - **Rig note:** `bmesh.ops.bevel` gives new bevel faces material 0, so a bevelled edge takes the model's
+    *first* material colour (the orange breading rims on infantry vests). It's fixed opt-in:
+    `Model.bevel_mat` / `FModel()`, used by the faction models. The older models still rebuild exactly as
+    before; switching it on for them would change their look.

@@ -24,6 +24,7 @@ function alrUIInit() {
         </div>
       </div>
       <div class="alr-btns">
+        <button type="button" data-act="power" class="alr-sdrop" hidden title="the Sky Drop: six troopers by parachute (click it, then the map)">🪂 SKY DROP</button>
         <button type="button" data-act="sell" title="sell a building (click it)">$ SELL</button>
         <button type="button" data-act="repair" title="repair a building (click it)">🔧 FIX</button>
         <button type="button" data-act="menu" title="menu (Esc)">☰</button>
@@ -74,6 +75,7 @@ function alrUIInit() {
     const a = e.target.closest('[data-act]'); if (!a) return;
     const act = a.dataset.act;
     alrAudioWake();
+    if (act === 'power') { const P = alr.players[0]; if (alrPowerReady(P)) { alr.mode = alr.mode === 'para' ? '' : 'para'; alr.place = null; alrSfx('click'); alrUIButtons(); if (alr.mode) alrSay('SKY DROP: CLICK WHERE', '#9be7ff'); } else alrSfx('error'); return; }
     if (act === 'sell' || act === 'repair') { alr.mode = alr.mode === act ? '' : act; alr.place = null; alrSfx('click'); alrUIButtons(); }
     else if (act === 'menu') alrPause(true);
     else if (act === 'resume') alrPause(false);
@@ -81,7 +83,7 @@ function alrUIInit() {
     else if (act === 'savegame' || act === 'loadgame') { alrSavesOpen(act === 'savegame' ? 'save' : 'load'); alrSfx('click'); }
     else if (act === 'surrender') { alrPause(false); alr.players[0].lost = true; for (const e of alr.ents.slice()) if (e.owner === 0) e.hp = 0; alrCheckEnd(); }
     else if (act === 'leave') { alrPause(false); if (typeof stopStorm === 'function') stopStorm(); }
-    else if (act === 'again') { U.end.hidden = true; alrNewGame(alr.cfg, alr.side, alr.mapKey, alr.nAI); }
+    else if (act === 'again') { U.end.hidden = true; alrNewGame(alr.cfg, alr.faction || alr.side, alr.mapKey, alr.nAI); }
     else if (act === 'tier') { U.end.hidden = true; alrOpenTier(); }
   });
   // the battlefield's mouse
@@ -197,6 +199,9 @@ function alrUISide(rebuild) {
   const U = alr.ui, P = alr.players[0];
   if (!P) return;
   U.cash.textContent = '$ ' + Math.floor(P.credits);
+  // the faction's power: a countdown, then READY
+  { const pb = U.side.querySelector('.alr-sdrop'), on = !!P.power;
+    if (pb) { pb.hidden = !on; if (on) { const t = Math.max(0, Math.ceil(P.power.t)); pb.textContent = t > 0 ? `🪂 ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}` : '🪂 SKY DROP'; pb.classList.toggle('ready', t <= 0); } } }
   // the power bar: green fill = made, the marker = used; red when you're short
   const cap = Math.max(200, P.make, P.use) * 1.1;
   U.powMake.style.height = (P.make / cap * 100) + '%';
@@ -217,8 +222,8 @@ function alrUISide(rebuild) {
     for (const t of types) {
       const D = ALR_BLD[t] || ALR_UNIT[t];
       const c = document.createElement('button'); c.type = 'button'; c.className = 'alr-cameo'; c.dataset.type = t;
-      c.title = D.name + ' · $' + D.cost + (D.blurb ? ' · ' + D.blurb : '') + (D.power ? ' · power ' + (D.power > 0 ? '+' : '') + D.power : '');
-      c.innerHTML = `<img alt="" src="${U.cameos[t] || ''}"><div class="alr-wipe"></div><span class="alr-cn">${D.name}</span><span class="alr-cc">$${D.cost}</span><span class="alr-cq"></span><span class="alr-cs"></span>`;
+      c.title = D.name + ' · $' + alrCost(P, D) + (D.blurb ? ' · ' + D.blurb : '') + (D.power ? ' · power ' + (D.power > 0 ? '+' : '') + D.power : '');
+      c.innerHTML = `<img alt="" src="${U.cameos[t] || ''}"><div class="alr-wipe"></div><span class="alr-cn">${D.name}</span><span class="alr-cc">$${alrCost(P, D)}</span><span class="alr-cq"></span><span class="alr-cs"></span>`;
       c.addEventListener('click', () => alrCameoClick(t));
       c.addEventListener('contextmenu', (e) => { e.preventDefault(); alrUnqueue(alr.players[0], t); alrUISide(); });
       U.grid.appendChild(c);
@@ -230,7 +235,7 @@ function alrUISide(rebuild) {
     c.classList.toggle('off', !can);
     const mine = q.filter((it) => it.type === t), head = q[0] && q[0].type === t ? q[0] : null;
     const ready = P.ready[D.cat] === t;
-    const p = ready ? 1 : head ? head.spent / D.cost : 0;
+    const p = ready ? 1 : head ? head.spent / alrCost(P, D) : 0;
     c.querySelector('.alr-wipe').style.background = head || ready ? `conic-gradient(rgba(0,0,0,0) ${p}turn, rgba(0,0,0,0.62) ${p}turn)` : 'none';
     c.querySelector('.alr-cq').textContent = mine.length > 1 ? mine.length : '';
     c.querySelector('.alr-cs').textContent = ready ? 'READY' : head && head.hold ? 'ON HOLD' : '';
@@ -276,6 +281,13 @@ function alrFloatAt(x, z, text, color) { alr.fx.push({ kind: 'text', x, y: 0.9, 
 
 // ---- effects ------------------------------------------------------------------------------------------------------
 // particles: { x,y,z, vx,vy,vz, t,T, s (size), gs (growth), r,g,b,a, cell, add, rot, vr, grav, fade }
+function alrFxGrease(m, a, splash) {
+  for (let k = 0; k < 14; k++) {
+    const f = Math.random(), x = m[0] + (a[0] - m[0]) * f, y = m[1] + (a[1] - m[1]) * f, z = m[2] + (a[2] - m[2]) * f;
+    alrP({ x, y, z, vx: alrRnd(-0.4, 0.4), vy: alrRnd(0.2, 1.0), vz: alrRnd(-0.4, 0.4), s: alrRnd(0.04, 0.09), T: alrRnd(0.35, 0.6), r: 0.78, g: 0.52, b: 0.16, a: 0.9, cell: 0, grav: 6 });
+  }
+  for (let k = 0; k < 6; k++) { const ang = Math.random() * 6.283, r = Math.random() * (splash || 0.8); alrP({ x: a[0] + Math.cos(ang) * r, y: 0.08, z: a[2] + Math.sin(ang) * r, vy: 0.3, s: 0.18, gs: 0.6, T: 0.7, r: 0.6, g: 0.4, b: 0.12, a: 0.55, cell: 1 }); }
+}
 function alrP(o) { if (alr.fx.length < 2500) alr.fx.push(Object.assign({ kind: 'p', t: 0, vx: 0, vy: 0, vz: 0, rot: Math.random() * 6, vr: 0, gs: 0, grav: 0, a: 1 }, o)); }
 function alrFxSmoke(x, y, z, s, T, dark) {
   const g = dark ? 0.16 + Math.random() * 0.08 : 0.55 + Math.random() * 0.2;
@@ -572,6 +584,9 @@ function alrUIRender(dt) {
     const o = { team: team(b.owner), spec: 0.3, add };
     const base = alrTRS(b.x, 0, b.z, ALR_BLD_YAW, 1, sy, 1);
     for (const p of alrBldParts(b)) alrGLDraw(p.mesh, alrMul(base, p.M), o);
+    // every building of a faction flies its banner, on the pad's camera-side corner
+    const fac = b.w >= 2 && alr.players[b.owner] && alr.players[b.owner].faction, flag = fac && alrArt.b['flag_' + fac];
+    if (flag && b.build >= 1) alrGLDraw(flag, alrMul(base, alrTRS(b.w / 2 - 0.22, 0, b.h / 2 - 0.22, Math.sin(alr.t * 0.9 + b.id) * 0.25, 1.35)), o);
     if (b.type === 'prism' && b.charge > 0.2 && !alr.players[b.owner].low) alrGLSprite(b.x, 1.55, b.z, 0.35 + b.charge * 0.5, alr.t * 2, 0.75, 0.92, 1, 0.45 + b.charge * 0.4, 0, true);
     if (b.type === 'tesla' && b.charge > 0.2 && !alr.players[b.owner].low) {
       alrGLSprite(b.x, 1.35, b.z, 0.5 + b.charge * 0.7, alr.t * 3, 0.55, 0.75, 1, 0.5 + b.charge * 0.4, 0, true);
@@ -591,9 +606,17 @@ function alrUIRender(dt) {
     } else for (const p of alrUnitParts(u)) alrGLDraw(p.mesh, p.M, o);
     // dug in: the sandbags around him
     if (u.deployed && U.sandbags) alrGLDraw(U.sandbags, alrTRS(u.x, 0, u.z, u.yaw), { spec: 0.05 });
+    // coming down under a parachute (the Sky Drop)
+    if (u.chute && alrArt.u.chute) alrGLDraw(alrArt.u.chute, alrTRS(u.x, u.alt + 0.42, u.z, u.yaw, 1.3, 1.3, 1.3, Math.sin(alr.t * 2 + u.id) * 0.08), o);
     // the jetpack's exhaust
     if (u.D.air === 'hover' && Math.random() < 0.8) { for (const sx of [-0.07, 0.07]) { const [nx, nz] = alrHullAt(u, sx * 1.3, -0.2); alrGLSprite(nx, u.alt + 0.2, nz, 0.13, 0, 1, 0.65, 0.25, 0.9, 0, true); } if (Math.random() < 0.15) alrFxSmoke(u.x, u.alt + 0.1, u.z, 0.12, 0.6); }
     if (alr.sel.includes(u)) alrGLGround(u.x, u.z, u.D.r * 1.35 + 0.06, u.D.r * 1.35 + 0.06, 0, 0.55, 1, 0.55, 0.85, 4, true, 0.02);
+  }
+  // the Sky Drop's cargo plane, crossing high
+  for (const d of alr.drops || []) {
+    if (!onScreen(d.x, d.z, 300)) continue;
+    const m = alrArt.u.paraplane || alrArt.u.jet;
+    if (m) alrGLDraw(m, alrTRS(d.x, 3.3, d.z, Math.atan2(d.ux, d.uz), alrArt.u.paraplane ? 1 : 1.8), { team: team(d.owner), spec: 0.5 });
   }
   // crates: bobbing, turning, glinting
   for (const c of alr.crates || []) {
@@ -718,6 +741,8 @@ const ALR_RIG = {
   ifv_turret: [0, 0.24, -0.04], prismtank_turret: [0, 0.28, -0.03], mirage_turret: [0, 0.28, -0.05], v3_rack: [0, 0.3, -0.3],
   apoc_turret: [0, 0.38, -0.04], apoc_gun: [0, 0.12, 0.2], flaktrack_head: [0, 0.26, -0.12, 0.6], harvF_gun: [0, 0.5, 0.3],
   spysat_dish: [-0.25, 0.4, -0.25],
+  // the factions' own parts (blender/alertrig.py FACTIONS)
+  teslaspud_turret: [0, 0.3, -0.03], grandfryer_gun: [0, 0.42, 0],
   // the helicopters' rotors (blender/alertrig.py *_ROTOR_AT): main rotors spin about y, tail rotors about x
   hawk_rotor: [0, 0.485, 0.04], hawk_tail: [0.05, 0.58, -0.69], lift_rotor: [[0, 0.54, 0.52], [0, 0.67, -0.52]],
   tater_rotor: [0, 0.52, 0.02], tater_tail: [-0.05, 0.62, -0.735], hog_rotor: [0, 0.94, 0], hog_tail: [0.05, 0.72, -1.0],
@@ -734,7 +759,7 @@ function alrModelParts(type) {
 function alrBldParts(b) {
   const A = alrArt.b, t = b.type, P = alr.players[b.owner] || {}, an = b.anim || 0, R = ALR_RIG;
   const ty = (b.tYaw || 0) - ALR_BLD_YAW;          // (tYaw is a world angle; the base is turned)
-  const parts = [], add = (k, M) => { if (A[k]) parts.push({ mesh: A[k], M: M || alrM4() }); };
+  const parts = [], add = (k, M) => { const m = A[k] || (ALR_BLD_FALLBACK[k] && A[ALR_BLD_FALLBACK[k]]); if (m) parts.push({ mesh: m, M: M || alrM4() }); };
   if (b.D && b.D.wall) {
     // a wall is a post, plus a bar toward each neighboring wall of the same owner (the line joins up)
     add(t + '_post');
@@ -750,6 +775,7 @@ function alrBldParts(b) {
   if (t === 'turret') add('turret_head', alrTRS(0, 0.32, 0, ty));
   if (t === 'sam') add('sam_head', alrTRS(R.sam_head[0], R.sam_head[1], R.sam_head[2], ty));
   if (t === 'flak') add('flak_head', alrTRS(R.flak_head[0], R.flak_head[1], R.flak_head[2], ty));
+  if (t === 'grandfryer') { const g = R.grandfryer_gun; add('grandfryer_gun', alrTRS(g[0], g[1], g[2], ty)); }
   if (t === 'radar') add('radar_dish', alrTRS(0.45, 0.78, -0.45, P.low ? 0.8 : an * 1.3));
   if (t === 'spysat') { const p = R.spysat_dish; add('spysat_dish', alrTRS(p[0], p[1], p[2], P.low ? 0.4 : 0.4 + Math.sin(an * 0.12) * 1.6)); }   // slewing, slowly, across the sky
   if (t === 'hq') add('hq_crane', alrTRS(-1.05, 0, -1.0, 0.7 + Math.sin(an * 0.25) * 1.2));
@@ -760,8 +786,8 @@ function alrBldParts(b) {
 }
 // a unit's parts, posed: legs walk, a turret turns, a gun recoils, the hauler's drum spins, a jet banks
 // (drawn a size up from their footprint so a soldier reads at battle zoom, the way RA2's sprites did)
-const ALR_DRAW_SCALE = { inf: 1.3, rocket: 1.3, conscript: 1.3, engineer: 1.3, zapper: 1.3, jetpack: 1.3, dog: 1.25, tank: 1.15, heavy: 1.12, harv: 1.1, harvF: 1.1, ifv: 1.12, prismtank: 1.12, mirage: 1.12, flaktrack: 1.12, v3: 1.1, apoc: 1.05 };
-const ALR_INF_BODY = { inf: 'inf', rocket: 'rocket', conscript: 'conscript', engineer: 'engineer', zapper: 'zapper', jetpack: 'jetpack' };
+const ALR_DRAW_SCALE = { inf: 1.3, rocket: 1.3, conscript: 1.3, engineer: 1.3, zapper: 1.3, jetpack: 1.3, dog: 1.25, tank: 1.15, heavy: 1.12, harv: 1.1, harvF: 1.1, ifv: 1.12, prismtank: 1.12, mirage: 1.12, flaktrack: 1.12, v3: 1.1, apoc: 1.05, sniper: 1.3, greaser: 1.3, bomber: 1.3, teslaspud: 1.12 };
+const ALR_INF_BODY = { inf: 'inf', rocket: 'rocket', conscript: 'conscript', engineer: 'engineer', zapper: 'zapper', jetpack: 'jetpack', sniper: 'sniper', greaser: 'greaser', bomber: 'bomber' };
 function alrUnitParts(u) {
   const parts = alrUnitParts0(u), k = ALR_DRAW_SCALE[u.type] || 1;
   if (k === 1) return parts;
@@ -775,7 +801,7 @@ function alrUnitParts0(u) {
     const fly = u.D && u.D.air;
     const sw = u.moving ? Math.sin(u.walk) * (fly ? 0.25 : 0.7) : fly ? 0.15 : 0, bob = fly ? Math.sin((u.walk || 0) * 0.4 + u.id) * 0.03 : u.moving ? Math.abs(Math.cos(u.walk)) * 0.02 : 0;
     const B = alrTRS(u.x, alt + bob, u.z, u.yaw);
-    add(ALR_INF_BODY[t], B);
+    if (A[ALR_INF_BODY[t]]) add(ALR_INF_BODY[t], B); else if (A.inf) parts.push({ mesh: A.inf, M: B });
     add('leg', alrMul(B, alrTRS(0.045, 0.13, 0, 0, 1, 1, 1, sw)));
     add('leg', alrMul(B, alrTRS(-0.045, 0.13, 0, 0, 1, 1, 1, -sw)));
     return parts;
@@ -824,7 +850,7 @@ function alrUnitParts0(u) {
     if (f > 0.02) add('harv_load', alrMul(H, alrTRS(0, 0.36 + f * 0.08, -0.2, 0, 1, Math.max(0.2, f), 1)));
     return parts;
   }
-  if (t === 'ifv' || t === 'prismtank' || t === 'mirage') { const r = R[t + '_turret'], [tx, tz] = alrHullAt(u, r[0], r[2]); add(t, H); add(t + '_turret', alrTRS(tx, r[1], tz, u.tYaw)); return parts; }
+  if (t === 'ifv' || t === 'prismtank' || t === 'mirage' || t === 'teslaspud') { const r = R[t + '_turret'], [tx, tz] = alrHullAt(u, r[0], r[2]); add(t, H); add(t + '_turret', alrTRS(tx, r[1], tz, u.tYaw)); return parts; }
   if (t === 'flaktrack') { add(t, H); const f = R.flaktrack_head, [tx, tz] = alrHullAt(u, f[0], f[2]); if (alrArt.b.flak_head) parts.push({ mesh: alrArt.b.flak_head, M: alrTRS(tx, f[1], tz, u.tYaw, f[3]) }); return parts; }
   if (t === 'apoc') {
     const r = R.apoc_turret, [tx, tz] = alrHullAt(u, r[0], r[2]);
@@ -843,7 +869,8 @@ function alrUnitParts0(u) {
   return parts;
 }
 // until a model exists, borrow a close one (so nothing is ever invisible)
-const ALR_FALLBACK = { conscript: 'inf', engineer: 'inf', zapper: 'inf', jetpack: 'inf', ifv: 'tank', prismtank: 'tank', mirage: 'tank', apoc: 'heavy', flaktrack: 'tank', harvF: 'harv', v3: 'tank', jet: 'tank', blimp: 'harv', dog: 'leg', hawk: 'jet', tater: 'jet', lift: 'harv', hog: 'harv' };
+const ALR_FALLBACK = { conscript: 'inf', engineer: 'inf', zapper: 'inf', jetpack: 'inf', ifv: 'tank', prismtank: 'tank', mirage: 'tank', apoc: 'heavy', flaktrack: 'tank', harvF: 'harv', v3: 'tank', jet: 'tank', blimp: 'harv', dog: 'leg', hawk: 'jet', tater: 'jet', lift: 'harv', hog: 'harv', sniper: 'inf', greaser: 'inf', bomber: 'inf', teslaspud: 'heavy' };
+const ALR_BLD_FALLBACK = { grandfryer: 'turret', grandfryer_gun: 'turret_head' };
 
 // ---- the overlay: selection brackets, health pips, the drag box, floating text --------------------------------------
 function alrOverlay() {
@@ -1164,6 +1191,12 @@ function alrPointerDown(e) {
     else { alrSfx('error'); alrSay('CANNOT DEPLOY HERE', '#ff8a7a'); }
     return;
   }
+  if (alr.mode === 'para') {
+    const g = alrGLPick(x, y), S = alr.players[0].shroud;
+    if (alrIn(g[0], g[1]) && S[alrTile(g[0], g[1])] > 40 && alrSkyDrop(alr.players[0], g[0], g[1])) { alr.mode = ''; alrUIButtons(); alrCmdFx('move', g[0], g[1], null, []); }
+    else { alrSfx('error'); alrSay('CAN\'T DROP THERE (UNEXPLORED)', '#ff8a7a'); }
+    return;
+  }
   if (alr.mode === 'sell' || alr.mode === 'repair') {
     const h = alrPickAt(x, y);
     if (h && h.kind === 'bld' && h.owner === 0) { if (alr.mode === 'sell') alrSell(h); else { h.repair = !h.repair; alrSfx('click'); if (h.repair) alrSay('REPAIRING', '#9be7ff'); } }
@@ -1193,6 +1226,7 @@ function alrUICursorPick() {
   let cur = 'default';
   const cook = h && alr.sel.some((s) => s.owner === 0 && s.D.engineer && alrCanCapture(s, h));
   if (alr.place) cur = 'copy';
+  else if (alr.mode === 'para') cur = ALR_CURSOR.move;
   else if (alr.mode === 'sell') cur = h && h.kind === 'bld' && h.owner === 0 && !h.D.tech ? ALR_CURSOR.sell : ALR_CURSOR.nogo;
   else if (alr.mode === 'repair') cur = h && h.kind === 'bld' && h.owner === 0 && h.hp < h.max ? ALR_CURSOR.repair : ALR_CURSOR.nogo;
   else if (cook) cur = ALR_CURSOR.capture;
@@ -1435,7 +1469,12 @@ function alrSfx(name, x, z) {
 // ---- the skirmish setup: map · opponents · army · difficulty ---------------------------------------------------------
 // One screen in place of the card pickers (RA2's skirmish lobby): the maps down the left with their previews, the
 // chosen map big on the right with its starts marked, and the choices under it. Remembered between games.
-function alrSetupLoad() { try { return Object.assign({ map: 'valley', ai: 1, side: 'A', tier: 'rookie' }, JSON.parse(localStorage.getItem('nugAlertSetup') || '{}')); } catch (e) { return { map: 'valley', ai: 1, side: 'A', tier: 'rookie' }; } }
+function alrSetupLoad() {
+  let c; try { c = Object.assign({ map: 'valley', ai: 1, side: 'A', tier: 'rookie' }, JSON.parse(localStorage.getItem('nugAlertSetup') || '{}')); } catch (e) { c = { map: 'valley', ai: 1, side: 'A', tier: 'rookie' }; }
+  if (!ALR_FACTIONS[c.faction]) c.faction = ALR_FACTION_OF[c.side === 'F' ? 'F' : 'A'][0];   // (a setup saved before factions: its army's first)
+  c.side = ALR_FACTIONS[c.faction].side;
+  return c;
+}
 function alrSetupSave(c) { try { localStorage.setItem('nugAlertSetup', JSON.stringify(c)); } catch (e) { } }
 // a map's picture, turned the way the radar (and the camera) see it, with its starts numbered
 function alrMapPreview(def, size, marks, seats) {
@@ -1484,7 +1523,7 @@ function alrOpenSetup() {
           <div class="alr-setup-preview"></div>
           <div class="alr-setup-name"></div><div class="alr-setup-blurb"></div>
           <div class="alr-opt"><label>OPPONENTS</label><div class="alr-seg" data-k="ai"></div></div>
-          <div class="alr-opt"><label>YOUR ARMY</label><div class="alr-seg" data-k="side"></div></div>
+          <div class="alr-opt alr-opt-fac"><label>YOUR FACTION</label><div class="alr-facs"></div></div>
           <div class="alr-opt"><label>DIFFICULTY</label><div class="alr-seg" data-k="tier"></div></div>
           <div class="alr-seats"></div>
           <button type="button" class="alr-go">START</button>
@@ -1500,7 +1539,9 @@ function alrOpenSetup() {
     d.addEventListener('click', (e) => {
       alrAudioWake();
       const c = U.setupCfg, m = e.target.closest('[data-map]'), o = e.target.closest('[data-v]');
-      if (m) { c.map = m.dataset.map; alrSfx('click'); }
+      const fc = e.target.closest('[data-fac]');
+      if (fc) { c.faction = fc.dataset.fac; c.side = ALR_FACTIONS[c.faction].side; alrSfx('click'); }
+      else if (m) { c.map = m.dataset.map; alrSfx('click'); }
       else if (o && !o.disabled) { const k = o.parentNode.dataset.k; c[k] = k === 'ai' ? +o.dataset.v : o.dataset.v; alrSfx('click'); }
       else if (e.target.closest('.alr-go')) { alrSetupGo(); return; }
       else return;
@@ -1536,11 +1577,21 @@ function alrSetupRender() {
     for (const it of items) { const b = document.createElement('button'); b.type = 'button'; b.dataset.v = it.v; b.textContent = it.t; b.disabled = !!it.off; b.title = it.title || ''; if (String(c[k]) === String(it.v)) b.classList.add('on'); el.appendChild(b); }
   };
   seg('ai', [1, 2, 3, 4].map((n) => ({ v: n, t: String(n), off: n > K - 1, title: n > K - 1 ? 'this map seats ' + K : '' })));
-  seg('side', [{ v: 'A', t: '🔷 ALLIANCE' }, { v: 'F', t: '🔶 FEDERATION' }]);
+  { const fx = d.querySelector('.alr-facs'), h = [];
+    for (const sd of ['A', 'F']) {
+      h.push(`<div class="alr-fac-h">${ALR_SIDES[sd].emoji} ${ALR_SIDES[sd].name}</div>`);
+      for (const k of ALR_FACTION_OF[sd]) { const F = ALR_FACTIONS[k]; h.push(`<button type="button" class="alr-fac${c.faction === k ? ' on' : ''}" data-fac="${k}" title="${F.special}: ${F.what}"><b>${F.emoji} ${F.name}</b><span class="sp">★ ${F.special}</span><span class="pl">+ ${F.plus}</span><span class="mi">− ${F.minus}</span></button>`); }
+    }
+    const F = ALR_FACTIONS[c.faction], S = ALR_SIDES[F.side];
+    h.push(`<div class="alr-fac-detail"><div class="fd-t">${F.emoji} ${F.name} <span>${S.emoji} ${S.name}</span></div>
+      <div class="fd-sp">★ ${F.special} — ${F.what}</div>
+      <div class="pl">+ ${F.plus}</div><div class="mi">− ${F.minus}</div>
+      <div class="fd-core">and the ${S.name.toLowerCase()}'s core: ${S.blurb}</div></div>`);
+    fx.innerHTML = h.join(''); }
   seg('tier', ALR_TIERS.map((t) => ({ v: t.key, t: t.emoji + ' ' + t.name, off: t.key === 'allout' && !alertProWon(), title: t.key === 'allout' && !alertProWon() ? t.lockNote : t.blurb })));
   const rows = [];
   for (let i = 0; i < m; i++) {
-    const army = i === 0 ? ALR_SIDES[c.side].name : i === 1 ? ALR_SIDES[other].name : 'RANDOM ARMY';
+    const army = i === 0 ? ALR_FACTIONS[c.faction].emoji + ' ' + ALR_FACTIONS[c.faction].name : i === 1 ? ALR_SIDES[other].name + ' · random faction' : 'RANDOM FACTION';
     rows.push(`<div class="alr-seat"><i style="background:${ALR_TEAMS[i].css}"></i><b>${i === 0 ? 'YOU' : 'CPU ' + i}</b><span>${army}</span></div>`);
   }
   d.querySelector('.alr-seats').innerHTML = rows.join('');
@@ -1550,5 +1601,5 @@ function alrSetupGo() {
   const U = alr.ui, c = U.setupCfg;
   U.setup.hidden = true;
   alrSfx('ready');
-  alrNewGame(ALR_TIERS.find((t) => t.key === c.tier) || ALR_TIERS[0], c.side, c.map, c.ai);
+  alrNewGame(ALR_TIERS.find((t) => t.key === c.tier) || ALR_TIERS[0], c.faction, c.map, c.ai);
 }

@@ -68,6 +68,12 @@ PAL = {
     "pineA": _m("#2f4a2c", 14), "pineB": _m("#3a5532", 14), "bark": _m("#4d3e2e", 10), "barkDark": _m("#3a2f24", 10),
     "rockA": _m("#6f6a60", 15), "rockB": _m("#5c5850", 15), "rockC": _m("#7b766b", 15),
     "ore": _m("#b98a2c", 16), "oreDark": _m("#80591e", 16), "oreLite": _m("#d4a440", 16), "gem": _m("#d89a36", 16),
+    # factions: the hazmat suit, the fixed banner colours (never team), embroidered emblems
+    "hazmat": _m("#cc8a24", 13), "hazmatDark": _m("#946119", 13),
+    "bannerNavy": _m("#2b3a5e", 13), "bannerCrimson": _m("#8c2230", 13), "bannerCream": _m("#d6bf86", 13),
+    "bannerRed": _m("#8f2620", 13), "bannerOrange": _m("#b65f20", 13), "bannerGreen": _m("#2f4b2c", 13),
+    "emblemGold": _m("#d7a53c", 13), "emblemWhite": _m("#dcd8cc", 13), "coastBlue": _m("#355d98", 13),
+    "coastBlueDark": _m("#24426e", 13), "chili": _m("#b52a1a", 13), "fryYellow": _m("#dcb444", 13),
 }
 
 
@@ -87,6 +93,9 @@ class Model:
         self.T = Matrix.Identity(4)
         self.stack = []
         self.smooth = math.radians(smooth_deg)
+        # bevel faces keep the primitive's material (else bmesh gives them material 0, the model's FIRST
+        # material: legacy models were tuned with that, so it's opt-in — see FModel)
+        self.bevel_mat = False
 
     # transform stack (yaw about y, then pitch about x, then roll about z — the game's alrTRS order)
     def push(self, x=0, y=0, z=0, yaw=0, pitch=0, roll=0, s=None):
@@ -122,7 +131,7 @@ class Model:
             edges = [e for e in {e for f in faces for e in f.edges} if len(e.link_faces) == 2 and e.calc_face_angle(0) > lim]
             if edges:
                 bmesh.ops.bevel(self.bm, geom=edges, offset=bev, offset_type="OFFSET", segments=seg, profile=0.5,
-                                affect="EDGES", clamp_overlap=True)
+                                affect="EDGES", clamp_overlap=True, material=idx if self.bevel_mat else -1)
         return self
 
     def _xf(self, local):
@@ -3421,10 +3430,919 @@ HELIS = [build_hawk, build_hawk_rotor, build_hawk_tail, build_lift, build_lift_r
          build_tater_tail, build_hog, build_hog_rotor, build_hog_tail]
 
 
+# =========================================================================================================
+# FACTIONS: each sub-faction's unique unit / defense / aircraft, the parachute, and the six banners
+# Infantry bodies follow build_inf (origin on the ground, legs are the shared u.leg at hips ±0.045, y 0.13).
+# Parts: u.teslaspud_turret at TESLASPUD_TURRET_AT on its hull, b.grandfryer_gun at GRANDFRYER_GUN_AT.
+# Flags: origin = the pole's foot with the pad top assumed at y 0.1; the banner flies off +x of the pole top.
+# =========================================================================================================
+def FModel(name, smooth_deg=34):
+    """A Model whose bevel faces keep their primitive's material (the faction models use this)."""
+    m = Model(name, smooth_deg)
+    m.bevel_mat = True
+    return m
+
+
+TESLASPUD_TURRET_AT = (0, 0.3, -0.03)
+GRANDFRYER_GUN_AT = (0, 0.42, 0)
+GRANDFRYER_TRUNNION = (0, 0.24, 0.2)     # in the gun's frame
+GRANDFRYER_ELEV = math.radians(12)
+GRANDFRYER_BARREL_END = 1.42             # barrel-local z of the muzzle brake's face
+
+
+def _arm(m, a, b, w, mat, t0, t1, band, bw):
+    """A band (armband / cuff) round an arm bar from a to b, between fractions t0..t1 of its length."""
+    a, b = Vector(a), Vector(b)
+    m.bar(tuple(a + (b - a) * t0), tuple(a + (b - a) * t1), bw, band)
+
+
+def _ghillie(m, rnd, x, y, z, yaw, L, splay, cols, w=0.012):
+    """One ghillie strip: a frayed burlap / leaf ribbon hanging down from (x, y, z), splayed outward."""
+    m.push(x, y, z, yaw + rnd.uniform(-0.2, 0.2), -splay - rnd.uniform(0, 0.15), rnd.uniform(-0.3, 0.3))
+    m.box((0, -L / 2, 0), (w * rnd.uniform(0.7, 1.2), L, 0.005), rnd.choice(cols), bev=0, taper=(1.8, 1.0))
+    m.pop()
+
+
+def build_sniper():
+    """🎯 CRUMB SNIPER (Breadcrumb Crown): a ghillie hood and cape of shaggy burlap and leaf strips, a team
+    armband, and a long scoped rifle at the shoulder (bipod folded under the fore-end). Legs are u.leg."""
+    m = FModel("u.sniper", smooth_deg=50)
+    rnd = random.Random(31)
+    cols = ["sandDark", "olive", "leafC", "sandDark", "oliveDark", "sand"]
+    nug_body(m, 14, lumps=False)
+    m.box((0, 0.23, 0.005), (0.2, 0.09, 0.17), "oliveDark", bev=0.03, seg=2)            # the smock
+    m.box((0, 0.18, 0.005), (0.206, 0.02, 0.176), "dark", bev=0.006)                    # the belt
+    for s in (-1, 1):
+        m.box((s * 0.05, 0.205, 0.088), (0.04, 0.04, 0.02), "olive", bev=0.006)          # ammo pouches
+    m.box((0.0, 0.185, 0.09), (0.02, 0.014, 0.008), "steel", bev=0)                     # buckle
+    eyes(m, 0.31)
+    # the ghillie hood: a burlap dome, strips all round its rim (the face left clear) and over the crown
+    m.rock((0, 0.375, -0.012), 0.09, "sandDark", sub=2, s=(1.0, 0.72, 1.0), amp=0.16, freq=4.5, seed=2.0, flat_below=-0.45)
+    for k in range(22):
+        a = math.radians(48 + k * (264 / 21))
+        _ghillie(m, rnd, math.sin(a) * 0.086, 0.36 + rnd.uniform(-0.01, 0.015), math.cos(a) * 0.086 - 0.01, a,
+                 rnd.uniform(0.05, 0.09) if math.cos(a) < 0.3 else rnd.uniform(0.03, 0.05), 0.25, cols)
+    for k in range(12):
+        a = rnd.uniform(0, TAU)
+        r = rnd.uniform(0.02, 0.06)
+        _ghillie(m, rnd, math.sin(a) * r, 0.43 - r * 0.5, math.cos(a) * r - 0.015, a, rnd.uniform(0.04, 0.07), 1.0, cols)
+    for k, (x, z) in enumerate(((-0.03, -0.03), (0.035, -0.01), (0.0, -0.05))):
+        m.rock((x, 0.43, z), 0.026, ["leafC", "leafA", "olive"][k], sub=1, s=(1, 0.55, 1), amp=0.35, seed=k + 3)
+    # the cape: strips over the shoulders and down the back to the knees
+    for k in range(26):
+        x = -0.11 + (k % 13) * (0.22 / 12) + rnd.uniform(-0.006, 0.006)
+        row = k // 13
+        z = -0.085 - 0.02 * (1 - (x / 0.11) ** 2) - row * 0.012
+        _ghillie(m, rnd, x, 0.33 - row * 0.06, z, math.pi, rnd.uniform(0.1, 0.17), 0.12, cols, w=0.015)
+    for s in (-1, 1):
+        for k in range(5):
+            _ghillie(m, rnd, s * 0.1, 0.31, -0.06 + k * 0.025, s * math.pi / 2, rnd.uniform(0.07, 0.11), 0.2, cols)
+    # arms on the rifle: right hand on the grip, left under the fore-end; the team armband on the left
+    ra, rb = (0.09, 0.27, 0.0), (0.05, 0.255, 0.12)
+    la, lb = (-0.09, 0.27, 0.0), (0.025, 0.262, 0.22)
+    m.bar(ra, rb, 0.042, "oliveDark")
+    m.bar(la, lb, 0.042, "oliveDark")
+    _arm(m, la, lb, 0.042, "oliveDark", 0.2, 0.42, "team", 0.052)
+    _arm(m, ra, rb, 0.042, "oliveDark", 0.22, 0.38, "team", 0.05)
+    m.ball(rb, 0.022, "breading", u=8, v=5)
+    m.ball(lb, 0.022, "breading", u=8, v=5)
+    # the rifle: x 0.04, bore y 0.29, butt at the shoulder (z 0.03) to the muzzle (z 0.385)
+    X = 0.04
+    m.prism_x([(0.03, 0.25), (0.03, 0.305), (0.06, 0.3), (0.11, 0.29), (0.13, 0.285), (0.13, 0.268), (0.09, 0.266),
+               (0.06, 0.258), (0.045, 0.246)], X - 0.011, X + 0.011, "wood", bev=0.004)
+    m.box((X, 0.3, 0.06), (0.024, 0.012, 0.04), "dark", bev=0.003)                     # cheek rest
+    m.box((X, 0.282, 0.175), (0.024, 0.032, 0.1), "black", bev=0.004)                 # receiver
+    m.box((X + 0.013, 0.29, 0.165), (0.012, 0.008, 0.008), "steel", bev=0)            # bolt handle
+    m.box((X, 0.258, 0.18), (0.014, 0.032, 0.028), "black", bev=0.003)                # magazine
+    m.box((X, 0.255, 0.142), (0.006, 0.02, 0.022), "black", bev=0)                    # trigger guard
+    m.box((X, 0.282, 0.255), (0.02, 0.024, 0.07), "oliveDark", bev=0.006)             # cloth-wrapped fore-end
+    m.cyl((X, 0.29, 0.31), 0.0068, 0.13, "dark", n=8, axis="z", r2=0.0058)             # barrel
+    m.cyl((X, 0.29, 0.375), 0.01, 0.024, "black", n=8, axis="z")                      # muzzle brake
+    for z in (0.37, 0.38):
+        m.box((X, 0.29, z), (0.022, 0.004, 0.003), "dark", bev=0)
+    # the scope on two rings, turrets, lenses
+    m.cyl((X, 0.318, 0.175), 0.0115, 0.1, "black", n=10, axis="z")
+    m.cyl((X, 0.318, 0.24), 0.0115, 0.03, "black", n=10, axis="z", r2=0.0155)
+    m.cyl((X, 0.318, 0.26), 0.0158, 0.012, "black", n=10, axis="z")
+    m.cyl((X, 0.318, 0.2665), 0.012, 0.002, "glassLit", n=10, axis="z")
+    m.cyl((X, 0.318, 0.12), 0.0125, 0.012, "black", n=10, axis="z")
+    m.cyl((X, 0.318, 0.1135), 0.009, 0.002, "glass", n=10, axis="z")
+    m.cyl((X, 0.333, 0.18), 0.006, 0.01, "dark", n=8)
+    m.cyl((X + 0.015, 0.318, 0.18), 0.006, 0.01, "dark", n=8, axis="x")
+    for z in (0.15, 0.205):
+        m.box((X, 0.303, z), (0.016, 0.014, 0.008), "dark", bev=0)
+    # the bipod, folded forward under the barrel
+    m.box((X, 0.274, 0.29), (0.02, 0.01, 0.012), "steelDark", bev=0)
+    for dx in (-0.006, 0.006):
+        m.bar((X + dx, 0.272, 0.292), (X + dx, 0.276, 0.36), 0.004, "black")
+        m.box((X + dx, 0.276, 0.362), (0.005, 0.006, 0.008), "rubber", bev=0)
+    return m
+
+
+def build_greaser():
+    """🛢️ GREASE GUNNER (Hash Brown Horde): a hazmat suit and hood, a gas mask with goggles and a round
+    filter, team shoulder pads, a big copper backpack tank, a hose to a wide flat spray nozzle."""
+    m = FModel("u.greaser", smooth_deg=50)
+    nug_body(m, 16, lumps=False)
+    # the suit: a baggy hazmat torso, taped seams, a rubber belt; the hood over the whole head
+    m.box((0, 0.225, 0.0), (0.22, 0.15, 0.19), "hazmat", bev=0.045, seg=2)
+    m.box((0, 0.175, 0.0), (0.226, 0.024, 0.196), "rubber", bev=0.008)
+    m.box((0, 0.22, 0.096), (0.012, 0.09, 0.006), "hazmatDark", bev=0)
+    m.box((0.045, 0.235, 0.096), (0.04, 0.03, 0.01), "hazmatDark", bev=0)            # chest pocket
+    m.lathe([(0.0, 0.275), (0.1, 0.275), (0.106, 0.31), (0.1, 0.36), (0.076, 0.405), (0.04, 0.428), (0.0, 0.434)], "hazmat", c=(0, 0, -0.004), n=14)
+    m.lathe([(0.108, 0.27), (0.11, 0.29), (0.1, 0.29), (0.098, 0.27)], "hazmatDark", c=(0, 0, -0.004), n=14, ring=True)
+    # the gas mask: a rubber face seal, two round goggles, the filter canister on its snout
+    m.box((0, 0.33, 0.09), (0.13, 0.085, 0.04), "rubber", bev=0.016, seg=2)
+    for s in (-1, 1):
+        m.cyl((s * 0.03, 0.347, 0.112), 0.022, 0.014, "dark", n=10, axis="z")
+        m.cyl((s * 0.03, 0.347, 0.12), 0.016, 0.004, "glassLit", n=10, axis="z")
+        m.box((s * 0.07, 0.345, 0.07), (0.02, 0.012, 0.04), "rubber", bev=0)        # strap
+    m.cyl((0, 0.305, 0.118), 0.018, 0.026, "rubber", n=10, axis="z")
+    m.cyl((0, 0.303, 0.142), 0.032, 0.03, "steelDark", n=12, axis="z", bev=0.003)
+    m.cyl((0, 0.303, 0.158), 0.028, 0.004, "dark", n=14, axis="z")
+    for k in range(3):
+        m.box((0, 0.303 - 0.014 + k * 0.014, 0.161), (0.04, 0.004, 0.004), "black", bev=0)
+    m.cyl((0, 0.303, 0.135), 0.0335, 0.004, "hazard", n=14, axis="z")
+    # team shoulder pads
+    for s in (-1, 1):
+        m.box((s * 0.105, 0.29, 0.0), (0.075, 0.03, 0.1), "team", bev=0.01)
+        m.box((s * 0.105, 0.276, 0.0), (0.08, 0.008, 0.104), "teamDark", bev=0)
+    # the backpack tank: a riveted copper bottle in a frame, sauce bands, valve wheel, gauge
+    TZ = -0.165
+    m.box((0, 0.24, -0.1), (0.15, 0.17, 0.02), "dark", bev=0.006)
+    for s in (-1, 1):
+        m.box((s * 0.06, 0.275, 0.0), (0.02, 0.012, 0.2), "rubber", bev=0)
+    m.lathe([(0.0, 0.12), (0.035, 0.12), (0.056, 0.138), (0.062, 0.165), (0.062, 0.33), (0.056, 0.36), (0.034, 0.382), (0.0, 0.388)], "copper", c=(0, 0, TZ), n=12)
+    for y in (0.17, 0.3):
+        m.lathe([(0.065, y), (0.065, y + 0.022), (0.06, y + 0.022), (0.06, y)], "sauce", c=(0, 0, TZ), n=12, ring=True)
+    m.cyl((0, 0.4, TZ), 0.012, 0.03, "steel", n=8)
+    m.torus((0, 0.418, TZ), 0.024, 0.005, "red", n=12, m=4)
+    m.bar((-0.024, 0.418, TZ), (0.024, 0.418, TZ), 0.005, "red")
+    m.cyl((0.06, 0.255, TZ), 0.018, 0.012, "steelDark", n=10, axis="x")
+    m.cyl((0.067, 0.255, TZ), 0.013, 0.003, "white", n=10, axis="x")
+    m.box((0.0, 0.24, TZ - 0.062), (0.06, 0.04, 0.004), "hazard", bev=0)              # warning label
+    m.cyl((0, 0.115, TZ), 0.03, 0.02, "steelDark", n=10)
+    # the hose: from the tank's foot round the hip to the wand
+    m.tube([(0.0, 0.11, TZ), (0.06, 0.1, TZ + 0.02), (0.125, 0.12, -0.06), (0.135, 0.14, 0.05), (0.1, 0.18, 0.12), (0.055, 0.205, 0.135)], 0.011, "rubber", n=6)
+    for z in (-0.06, 0.05):
+        m.cyl((0.13, 0.13, z), 0.014, 0.012, "steelDark", n=8, axis="z")
+    # arms (suit + rubber gloves) on the spray wand
+    ra, rb = (0.1, 0.27, 0.0), (0.06, 0.205, 0.14)
+    la, lb = (-0.1, 0.27, 0.0), (0.04, 0.215, 0.235)
+    m.bar(ra, rb, 0.048, "hazmat")
+    m.bar(la, lb, 0.048, "hazmat")
+    _arm(m, ra, rb, 0.048, "hazmat", 0.75, 0.92, "rubber", 0.054)
+    _arm(m, la, lb, 0.048, "hazmat", 0.75, 0.92, "rubber", 0.054)
+    m.ball(rb, 0.026, "rubber", u=7, v=4)
+    m.ball(lb, 0.026, "rubber", u=7, v=4)
+    # the wand: a steel lance with a grip and a trigger lever, flaring into a wide flat fan nozzle
+    WX, WY = 0.045, 0.21
+    m.cyl((WX, WY, 0.14), 0.017, 0.05, "steelDark", n=10, axis="z", bev=0.003)
+    m.box((WX, WY - 0.022, 0.14), (0.016, 0.03, 0.02), "black", bev=0.004)
+    m.cyl((WX, WY, 0.25), 0.009, 0.18, "steel", n=8, axis="z")
+    m.cyl((WX, WY, 0.235), 0.014, 0.03, "dark", n=10, axis="z")
+    rings = []
+    for z, hw, hh in ((0.335, 0.012, 0.012), (0.35, 0.02, 0.011), (0.38, 0.042, 0.009), (0.4, 0.055, 0.008), (0.405, 0.054, 0.007)):
+        rings.append([(WX + hw * _sup(math.cos(j / 12 * TAU), 3.2), WY + hh * _sup(math.sin(j / 12 * TAU), 3.2), z) for j in range(12)])
+    m.loft(rings, "steelDark")
+    m.box((WX, WY, 0.406), (0.096, 0.004, 0.004), "black", bev=0)
+    m.box((WX, WY + 0.012, 0.37), (0.06, 0.006, 0.03), "copperDark", bev=0)
+    return m
+
+
+def build_bomber():
+    """🧨 FRY BOMBER (Curly Cartel): a lean nugget, no helmet, a team headband with trailing tails, a vest
+    strapped with bundles of red fry-bomb sticks wired up to the detonator sizzling in his raised fist."""
+    m = FModel("u.bomber", smooth_deg=50)
+    nugget(m, (0, 0.25, 0), (0.086, 0.128, 0.076), seed=18, lumps=True, n=14, v=9)
+    # the face: eyes, a scowl, a grin
+    for s in (-1, 1):
+        m.box((s * 0.027, 0.303, 0.074), (0.016, 0.014, 0.008), "black", bev=0)
+        m.push(s * 0.028, 0.322, 0.07, 0, 0, s * 0.35)
+        m.box((0, 0, 0), (0.026, 0.006, 0.008), "black", bev=0)
+        m.pop()
+    m.box((0, 0.275, 0.074), (0.03, 0.006, 0.008), "black", bev=0)
+    # the headband: a team strip round the brow, a knot at the back, two tails
+    m.push(0, 0, -0.002, s=(1, 1, 0.9))
+    m.lathe([(0.066, 0.322), (0.07, 0.327), (0.07, 0.341), (0.066, 0.346), (0.06, 0.346), (0.062, 0.322)], "team", n=14, ring=True)
+    m.pop()
+    m.ball((0, 0.334, -0.064), 0.015, "teamDark", u=8, v=5)
+    for s in (-1, 1):
+        m.push(s * 0.012, 0.334, -0.07, s * 0.35, -0.5, s * 0.25)
+        m.box((0, -0.035, 0), (0.02, 0.07, 0.006), "team", bev=0, taper=(1.0, 1.0))
+        m.pop()
+    # the vest: an open canvas harness with crossed straps, a chest box with a blinking light
+    m.box((0, 0.212, 0.0), (0.182, 0.086, 0.162), "khaki", bev=0.03, seg=2)
+    for s in (-1, 1):
+        m.push(s * 0.05, 0.258, 0.07, 0, -0.35)
+        m.box((0, 0, 0), (0.016, 0.05, 0.008), "black", bev=0)
+        m.pop()
+        m.box((s * 0.05, 0.278, -0.0), (0.016, 0.008, 0.15), "black", bev=0)
+    m.box((0, 0.172, 0.0), (0.19, 0.016, 0.17), "black", bev=0.005)
+    m.box((0, 0.232, 0.086), (0.036, 0.03, 0.02), "dark", bev=0.004)
+    m.box((0.008, 0.239, 0.097), (0.008, 0.008, 0.004), "red", bev=0)
+    m.box((-0.008, 0.239, 0.097), (0.008, 0.008, 0.004), "glassLit", bev=0)
+    # bundles of three fry bombs (round the waist and on the back), taped, black caps, wired to the chest box
+    bundles = [(-0.055, 0.084, 0.0), (0.055, 0.084, 0.0), (-0.096, 0.0, -math.pi / 2), (0.096, 0.0, math.pi / 2), (0.0, -0.086, math.pi)]
+    for bx, bz, yaw in bundles:
+        m.push(bx, 0.2, bz, yaw)
+        for k, dx in enumerate((-0.014, 0.0, 0.014)):
+            dz = 0.006 if k == 1 else 0.0
+            m.cyl((dx, 0.0, dz), 0.0115, 0.085, "sauce" if k != 1 else "red", n=8)
+            m.cyl((dx, 0.046, dz), 0.0105, 0.008, "black", n=6)
+        for y in (-0.022, 0.018):
+            m.box((0, y, 0.004), (0.046, 0.01, 0.03), "black", bev=0)
+        m.pop()
+    for bx, bz, yaw in bundles[:4]:
+        m.tube([(bx, 0.252, bz), (bx * 0.6, 0.262, bz * 0.6 + 0.04 + (0.03 if abs(bz) < 0.01 else 0)), (0, 0.24, 0.095)], 0.0028, "red" if bx < 0 else "black", n=4)
+    # the left arm hangs, a spare stick in the fist; the right arm raised high with the detonator
+    m.bar((-0.085, 0.27, 0.0), (-0.11, 0.17, 0.04), 0.04, "breading")
+    m.ball((-0.11, 0.165, 0.04), 0.021, "breading", u=8, v=5)
+    m.push(-0.11, 0.165, 0.06, 0, 0.3)
+    m.cyl((0, 0, 0.0), 0.012, 0.09, "sauce", n=8, axis="z")
+    m.cyl((0, 0, 0.046), 0.011, 0.008, "black", n=8, axis="z")
+    m.pop()
+    hand = (0.118, 0.43, 0.045)
+    m.bar((0.08, 0.28, 0.0), hand, 0.04, "breading")
+    m.ball(hand, 0.023, "breading", u=8, v=5)
+    m.box((0.118, 0.462, 0.045), (0.032, 0.05, 0.028), "dark", bev=0.005)            # the detonator
+    m.box((0.118, 0.47, 0.06), (0.024, 0.016, 0.004), "hazard", bev=0)
+    m.box((0.106, 0.472, 0.06), (0.006, 0.006, 0.004), "red", bev=0)
+    m.cyl((0.118, 0.5, 0.045), 0.004, 0.028, "steel", n=6)
+    m.ball((0.118, 0.518, 0.045), 0.012, "light", u=8, v=5)
+    rs = random.Random(7)
+    for k in range(7):
+        d = Vector((rs.uniform(-1, 1), rs.uniform(0.2, 1.2), rs.uniform(-1, 1))).normalized()
+        a = Vector((0.118, 0.518, 0.045)) + d * 0.01
+        m.bar(tuple(a), tuple(a + d * rs.uniform(0.02, 0.035)), 0.004, "light")
+    m.tube([(0.118, 0.44, 0.03), (0.1, 0.36, 0.0), (0.06, 0.27, 0.07), (0.012, 0.245, 0.096)], 0.003, "red", n=4)
+    return m
+
+
+def build_teslaspud():
+    """⚡ TESLA SPUD (Tater Union): a Federation-drab tracked hull with team fenders, bolted side skirts,
+    a glacis hatch, and a finned generator box at the back with glowing vents. Its coil turret
+    (u.teslaspud_turret) sits at TESLASPUD_TURRET_AT."""
+    m = FModel("u.teslaspud")
+    for s in (-1, 1):
+        track_run(m, s * 0.18, 0.11, -0.39, 0.39, r=0.072, wheels=4, wr=0.058)
+        m.prism_x([(-0.42, 0.172), (-0.4, 0.192), (0.37, 0.192), (0.43, 0.172)], s * 0.125, s * 0.25, "team", bev=0.005)
+        for z in (-0.41, 0.43):
+            m.box((s * 0.19, 0.155, z), (0.1, 0.035, 0.006), "rubber", bev=0)
+        # bolted skirt panels over the upper run
+        for k in range(4):
+            z = -0.27 + k * 0.18
+            m.box((s * 0.255, 0.14, z), (0.012, 0.064, 0.17), "armorDark", bev=0)
+        m.box((s * 0.262, 0.14, 0.0), (0.006, 0.012, 0.05), "teamDark", bev=0)
+    # the hull: lower tub + upper deck with a sloped glacis
+    m.prism_x([(-0.38, 0.1), (-0.4, 0.24), (0.1, 0.27), (0.4, 0.19), (0.4, 0.15), (0.33, 0.09)], -0.15, 0.15, "armorDark", bev=0.01)
+    m.prism_x([(-0.37, 0.24), (-0.37, 0.29), (0.12, 0.29), (0.38, 0.205), (0.38, 0.19), (0.1, 0.27)], -0.175, 0.175, "armor", bev=0.01, seg=2)
+    # the turret ring collar
+    m.cyl((0, 0.293, TESLASPUD_TURRET_AT[2]), 0.165, 0.014, "steelDark", n=20)
+    # glacis: the driver's hatch with periscopes, spare track links, headlights + guards, tow hooks
+    m.push(0.07, 0.262, 0.2, 0, 0.32)
+    m.box((0, 0.0, 0), (0.08, 0.018, 0.075), "armorDark", bev=0.008)
+    m.box((0, 0.01, 0.03), (0.05, 0.012, 0.012), "glass", bev=0)
+    m.cyl((-0.05, 0.004, 0.0), 0.007, 0.06, "dark", n=6, axis="z")
+    m.pop()
+    for k in range(3):
+        m.push(-0.1 + k * 0.045, 0.235, 0.3, 0, 0.32)
+        m.box((0, 0, 0), (0.04, 0.012, 0.03), "rubber", bev=0)
+        m.pop()
+    for s in (-1, 1):
+        m.box((s * 0.13, 0.16, 0.39), (0.05, 0.03, 0.03), "steelDark", bev=0)
+        m.box((s * 0.13, 0.16, 0.406), (0.035, 0.018, 0.005), "light", bev=0)
+        m.bar((s * 0.105, 0.18, 0.41), (s * 0.155, 0.18, 0.41), 0.005, "dark")
+        m.box((s * 0.07, 0.1, 0.4), (0.024, 0.024, 0.03), "dark", bev=0)
+    # deck: a loader's hatch, a tool box, a tow cable
+    m.cyl((0.1, 0.296, 0.14), 0.035, 0.014, "armorDark", n=12)
+    m.box((0.1, 0.305, 0.115), (0.03, 0.006, 0.01), "dark", bev=0)
+    m.box((-0.13, 0.302, 0.12), (0.06, 0.022, 0.1), "olive", bev=0.004)
+    m.tube([(0.16, 0.296, -0.22), (0.16, 0.296, 0.06), (0.14, 0.296, 0.1)], 0.007, "steelDark", n=5)
+    # the generator box: cooling fins, glowing vents, copper conduits to the turret ring, exhausts
+    GZ = -0.305
+    m.box((0, 0.35, GZ), (0.3, 0.12, 0.13), "armorDark", bev=0.012)
+    m.box((0, 0.413, GZ), (0.26, 0.008, 0.11), "dark", bev=0)
+    for k in range(9):
+        x = -0.12 + k * 0.03
+        m.box((x, 0.43, GZ), (0.008, 0.035, 0.115), "steel", bev=0)
+    for s in (-1, 1):
+        for k in range(3):
+            m.box((s * 0.151, 0.32 + k * 0.025, GZ), (0.004, 0.01, 0.09), "glassLit", bev=0)
+        m.box((s * 0.153, 0.345, GZ), (0.004, 0.09, 0.012), "dark", bev=0)
+    for k in range(4):
+        m.box((-0.09 + k * 0.06, 0.34, GZ - 0.066), (0.04, 0.05, 0.004), "glassLit", bev=0)
+        m.box((-0.09 + k * 0.06, 0.34, GZ - 0.068), (0.046, 0.006, 0.004), "dark", bev=0)
+    m.box((0, 0.395, GZ - 0.066), (0.28, 0.018, 0.006), "team", bev=0)
+    for s in (-1, 1):
+        m.tube([(s * 0.08, 0.36, GZ + 0.066), (s * 0.08, 0.32, GZ + 0.12), (s * 0.1, 0.3, -0.16)], 0.012, "copper", n=6)
+        m.cyl((s * 0.08, 0.36, GZ + 0.07), 0.018, 0.012, "copperDark", n=8, axis="z")
+        m.cyl((s * 0.2, 0.26, -0.39), 0.02, 0.05, "dark", n=8, axis="z")
+        m.cyl((s * 0.2, 0.26, -0.415), 0.023, 0.006, "black", n=8, axis="z")
+    m.box((0, 0.17, -0.41), (0.24, 0.06, 0.02), "steelDark", bev=0.004)
+    m.cyl((-0.14, 0.42, -0.2), 0.004, 0.24, "black", n=4)
+    return m
+
+
+def build_teslaspud_turret():
+    """The Tesla Spud's turret: origin on the ring. A squat faceted armour ring with a team band, and the
+    TESLA COIL on it — stacked copper toroids between white insulator discs, a glowing ball on top,
+    capacitor cans and conduits on the flanks."""
+    m = FModel("u.teslaspud_turret")
+    plan = [(-0.1, -0.16), (0.1, -0.16), (0.16, -0.08), (0.16, 0.06), (0.09, 0.14), (-0.09, 0.14), (-0.16, 0.06), (-0.16, -0.08)]
+    m.prism_y([(x * 0.98, z * 0.98) for x, z in plan], -0.015, 0.0, "armorDark", bev=0.004)
+    m.prism_y(plan, 0.0, 0.1, "armor", bev=0.012, top=0.8, topc=(0, -0.01))
+    m.prism_y([(x * 0.955, z * 0.955 - 0.0005) for x, z in plan], 0.03, 0.062, "team", bev=0, top=0.93, topc=(0, -0.01))
+    m.prism_y([(x * 0.7, z * 0.7 - 0.003) for x, z in plan], 0.1, 0.108, "steelDark", bev=0.003)
+    # the coil: base, column, four copper toroids (white insulators between), a crown ring, the ball
+    m.cyl((0, 0.13, -0.01), 0.075, 0.05, "steelDark", n=14, r2=0.06)
+    m.cyl((0, 0.3, -0.01), 0.026, 0.36, "steel", n=10, r2=0.018)
+    for k in range(4):
+        y = 0.185 + k * 0.062
+        R = 0.085 - k * 0.012
+        m.torus((0, y, -0.01), R, 0.021, "copper", n=14, m=6)
+        m.cyl((0, y + 0.02, -0.01), R - 0.01, 0.012, "copperDark", n=14)
+        m.cyl((0, y + 0.036, -0.01), R * 0.62, 0.012, "white", n=12)
+    m.torus((0, 0.445, -0.01), 0.04, 0.012, "steelDark", n=14, m=5)
+    m.ball((0, 0.5, -0.01), 0.052, "glassLit", u=12, v=7)
+    m.torus((0, 0.5, -0.01), 0.064, 0.008, "copper", n=16, m=4)
+    for k in range(4):
+        a = k / 4 * TAU + TAU / 8
+        m.bar((math.cos(a) * 0.04, 0.535, -0.01 + math.sin(a) * 0.04), (math.cos(a) * 0.06, 0.58, -0.01 + math.sin(a) * 0.06), 0.007, "copper")
+    # capacitor cans on the flanks with insulator caps, conduits into the coil base
+    for s in (-1, 1):
+        x = s * 0.125
+        m.box((x, 0.08, -0.06), (0.05, 0.04, 0.12), "armorDark", bev=0.008)
+        for z in (-0.095, -0.03):
+            m.cyl((x, 0.135, z), 0.02, 0.07, "steelDark", n=10)
+            m.cyl((x, 0.176, z), 0.014, 0.012, "white", n=8)
+            m.cyl((x, 0.186, z), 0.006, 0.01, "copper", n=6)
+        m.tube([(x, 0.186, -0.03), (s * 0.08, 0.2, -0.01), (s * 0.04, 0.15, -0.01)], 0.006, "copper", n=5)
+    # the commander's hatch at the back, a vision block at the front, a tow hook
+    m.cyl((0.0, 0.11, -0.11), 0.03, 0.014, "armor", n=12)
+    m.box((0.0, 0.07, 0.14), (0.06, 0.03, 0.02), "steelDark", bev=0.004)
+    m.box((0.0, 0.07, 0.151), (0.045, 0.014, 0.004), "glass", bev=0)
+    m.box((0, 0.04, -0.165), (0.12, 0.04, 0.02), "olive", bev=0.006)
+    return m
+
+
+def build_grandfryer():
+    """🏰 GRAND FRYER (Golden Coast), 2×2: a heavy round fortified emplacement — a stepped concrete drum
+    with firing slits and buttresses, a team band, a gold trim ring round the gun deck, an ammunition
+    bunker on the camera side with a blast door and stacked shells, sandbags, a lamp. The gun
+    (b.grandfryer_gun) turns on GRANDFRYER_GUN_AT."""
+    m = FModel("b.grandfryer")
+    foundation(m, 2, 2)
+    N = 28
+    m.lathe([(0.0, 0.1), (0.86, 0.1), (0.86, 0.14), (0.82, 0.18), (0.0, 0.18)], "concDark", n=N)
+    m.lathe([(0.0, 0.18), (0.79, 0.18), (0.765, 0.3), (0.0, 0.3)], "conc", n=N)
+    m.lathe([(0.796, 0.205), (0.794, 0.25), (0.77, 0.25), (0.772, 0.205)], "bandTeam", n=N, ring=True)
+    m.lathe([(0.0, 0.3), (0.74, 0.3), (0.74, 0.318), (0.0, 0.318)], "concLite", n=N)
+    m.lathe([(0.0, 0.318), (0.66, 0.318), (0.62, 0.41), (0.0, 0.41)], "conc", n=N)
+    m.lathe([(0.0, 0.41), (0.6, 0.41), (0.6, 0.42), (0.0, 0.42)], "concLite", n=N)
+    m.torus((0, 0.415, 0), 0.61, 0.014, "gold", n=40, m=5)
+    m.torus((0, 0.31, 0), 0.745, 0.01, "goldDark", n=36, m=4)
+    m.cyl((0, 0.423, 0), 0.53, 0.008, "steelDark", n=32)
+    m.cyl((0, 0.428, 0), 0.47, 0.004, "dark", n=32)
+    # buttresses + firing slits round the drum (the bunker covers the camera side's +z arc)
+    for k in range(10):
+        a = k / 10 * TAU + 0.31
+        m.push(0, 0, 0, a)
+        m.prism_x([(0.86, 0.14), (0.86, 0.17), (0.78, 0.3), (0.74, 0.3)], -0.035, 0.035, "concDark", bev=0)
+        m.pop()
+        b = a + TAU / 20
+        m.push(0, 0, 0, b)
+        m.box((0, 0.36, 0.635), (0.1, 0.022, 0.04), "black", bev=0, taper=None)
+        m.box((0, 0.375, 0.648), (0.12, 0.008, 0.03), "concLite", bev=0)
+        m.pop()
+    # the ammunition bunker on +z: a slab block, blast door, hazard stripes, roof vents + sandbags
+    BX, BZ = 0.2, 0.7
+    m.box((BX, 0.11, BZ), (0.6, 0.02, 0.36), "concDark", bev=0.006)
+    m.box((BX, 0.22, BZ), (0.56, 0.22, 0.32), "conc", bev=0.014, seg=2)
+    m.box((BX, 0.336, BZ), (0.6, 0.024, 0.36), "concLite", bev=0.008)
+    m.box((BX, 0.3, BZ + 0.163), (0.564, 0.026, 0.008), "bandTeam", bev=0)
+    m.box((BX + 0.07, 0.19, BZ + 0.162), (0.16, 0.17, 0.008), "dark", bev=0)
+    m.box((BX + 0.07, 0.185, BZ + 0.168), (0.14, 0.15, 0.012), "steelDark", bev=0.004)
+    for y in (0.13, 0.24):
+        m.box((BX + 0.07, y, BZ + 0.176), (0.13, 0.012, 0.006), "steel", bev=0)
+    m.box((BX + 0.12, 0.185, BZ + 0.177), (0.012, 0.03, 0.008), "steel", bev=0)
+    m.stripes((BX - 0.01, 0.27, BZ + 0.166), (BX + 0.15, 0.27, BZ + 0.166), 0.27, 0.02, 6, face="z", h=0.016)
+    m.box((BX - 0.12, 0.23, BZ + 0.163), (0.1, 0.07, 0.008), "gold", bev=0.002)          # the Coast's plaque
+    m.box((BX - 0.12, 0.23, BZ + 0.168), (0.07, 0.045, 0.004), "goldDark", bev=0)
+    m.windows((BX + 0.281, BZ - 0.08), (BX + 0.281, BZ + 0.08), 0.23, 2, 0.06, 0.03, "x", sill=False)
+    m.lamp(BX + 0.07, BZ + 0.2, 0.2, y0=0.25)
+    for x in (BX - 0.18, BX + 0.18):
+        m.vent((x, 0.348, BZ - 0.05), 0.022, 0.04)
+    m.sandbags([(BX - 0.24, 0.0, BZ + 0.12), (BX + 0.24, 0.0, BZ + 0.12)], rows=1, size=0.09)
+    # stacked shells on a pallet by the door (brass cases, steel noses) + a rack standing upright
+    m.box((0.76, 0.112, 0.3), (0.2, 0.024, 0.28), "crateWood", bev=0.004)
+    for row in range(3):
+        for k in range(4 - row):
+            z = 0.3 + (k - (3 - row) / 2) * 0.052
+            y = 0.15 + row * 0.044
+            m.cyl((0.74, y, z), 0.024, 0.13, "gold", n=10, axis="x")
+            m.cyl((0.825, y, z), 0.024, 0.04, "steelDark", n=8, axis="x", r2=0.008)
+    for k in range(4):
+        x = 0.62 + k * 0.06
+        m.cyl((x, 0.17, 0.9), 0.022, 0.12, "gold", n=10)
+        m.cyl((x, 0.25, 0.9), 0.022, 0.04, "steelDark", n=8, r2=0.006)
+    m.box((0.71, 0.14, 0.9), (0.24, 0.012, 0.05), "steelDark", bev=0)
+    # sandbag walls on the other corners, a ladder up the drum, a lamp, a crate
+    m.sandbags([(-0.86, 0.0, 0.4), (-0.74, 0.0, 0.68), (-0.42, 0.0, 0.86)], rows=2)
+    m.sandbags([(0.86, 0.0, -0.4), (0.74, 0.0, -0.68), (0.42, 0.0, -0.86)], rows=2)
+    m.push(0, 0, 0, math.radians(72))
+    m.ladder(0.0, 0.79, 0.1, 0.42, "z", w=0.06)
+    m.pop()
+    m.lamp(0.86, -0.18, 0.42)
+    m.crate((-0.72, 0.14, -0.62), 0.08, "crateWood")
+    m.drum(-0.6, -0.74)
+    return m
+
+
+def build_grandfryer_gun():
+    """The Grand Fryer's gun: origin = the turntable bearing. A gold-trimmed turntable, a sloped steel
+    shield housing, and a HUGE cannon elevated 12° to +z: a breech in the housing, a mantlet, a jacketed
+    barrel tapering to a slotted muzzle brake, a pair of recoil cylinders under it."""
+    m = FModel("b.grandfryer_gun")
+    m.cyl((0, 0.03, 0), 0.5, 0.06, "steelDark", n=28, bev=0.006)
+    m.torus((0, 0.058, 0), 0.497, 0.011, "gold", n=32, m=4)
+    for k in range(12):
+        a = k / 12 * TAU
+        m.box((math.cos(a) * 0.46, 0.063, math.sin(a) * 0.46), (0.014, 0.008, 0.014), "dark", bev=0)
+    # the shield housing: a sloped casemate, gold trim on its brow, a team stripe, side doors, a sight
+    prof = [(-0.4, 0.06), (-0.4, 0.3), (-0.22, 0.37), (0.16, 0.36), (0.38, 0.2), (0.4, 0.06)]
+    m.prism_x(prof, -0.27, 0.27, "steel", bev=0.016)
+    m.prism_x([(-0.21, 0.369), (0.16, 0.359), (0.175, 0.35), (-0.22, 0.36)], -0.275, 0.275, "gold", bev=0)
+    m.prism_x([(-0.38, 0.26), (-0.39, 0.28), (-0.22, 0.343), (-0.22, 0.32)], -0.272, 0.272, "bandTeam", bev=0)
+    for s in (-1, 1):
+        m.box((s * 0.272, 0.18, -0.12), (0.01, 0.16, 0.1), "steelDark", bev=0.003)
+        m.box((s * 0.278, 0.18, -0.085), (0.006, 0.02, 0.012), "dark", bev=0)
+        for z in (0.0, 0.1, 0.2):
+            m.box((s * 0.272, 0.27, z), (0.008, 0.008, 0.008), "dark", bev=0)
+    m.box((-0.15, 0.4, -0.05), (0.08, 0.06, 0.1), "steelDark", bev=0.008)             # sight hood
+    m.box((-0.15, 0.405, 0.002), (0.06, 0.025, 0.006), "glass", bev=0)
+    m.cyl((0.14, 0.375, -0.2), 0.04, 0.03, "steelDark", n=12)                         # commander's hatch
+    m.box((0.0, 0.2, -0.43), (0.3, 0.18, 0.06), "steelDark", bev=0.006)               # ammo hoist bustle
+    for k in range(4):
+        m.box((-0.1 + k * 0.066, 0.2, -0.462), (0.04, 0.12, 0.006), "dark", bev=0)
+    for z in (-0.36, -0.26):
+        m.bar((-0.24, 0.3, z), (-0.24, 0.36, z), 0.008, "steelDark")
+    m.bar((-0.24, 0.36, -0.37), (-0.24, 0.36, -0.25), 0.008, "steelDark")
+    m.cyl((0.2, 0.5, -0.32), 0.004, 0.26, "black", n=4)
+    # the cannon, in its elevated frame
+    tx, ty, tz = GRANDFRYER_TRUNNION
+    m.push(tx, ty, tz, 0, -GRANDFRYER_ELEV)
+    m.box((0, 0, -0.1), (0.2, 0.18, 0.24), "steelDark", bev=0)                        # breech (in the housing)
+    m.cyl((0, 0, 0.2), 0.14, 0.12, "steelDark", n=18, axis="z", bev=0.006)            # mantlet
+    m.torus((0, 0, 0.262), 0.12, 0.01, "gold", n=20, m=5, axis="z")
+    m.cyl((0, 0, 0.42), 0.092, 0.34, "dark", n=16, axis="z", r2=0.082, bev=0.004)     # jacket
+    m.cyl((0, 0, 0.9), 0.072, 0.68, "dark", n=16, axis="z", r2=0.054)                 # barrel
+    for z, r in ((0.6, 0.086), (0.86, 0.072), (1.12, 0.064)):
+        m.cyl((0, 0, z), r, 0.03, "steelDark", n=16, axis="z")
+    m.cyl((0, 0, 0.6), 0.088, 0.012, "gold", n=16, axis="z")
+    E = GRANDFRYER_BARREL_END
+    m.cyl((0, 0, E - 0.17), 0.058, 0.04, "dark", n=16, axis="z", r2=0.064)
+    m.box((0, 0, E - 0.07), (0.15, 0.13, 0.14), "black", bev=0.012)                  # muzzle brake
+    for s in (-1, 1):
+        for k in range(3):
+            m.box((s * 0.073, 0, E - 0.11 + k * 0.04), (0.008, 0.08, 0.022), "dark", bev=0)
+    m.cyl((0, 0, E + 0.002), 0.045, 0.004, "dark", n=14, axis="z")
+    # the recoil cylinders under the barrel, on a yoke
+    for s in (-1, 1):
+        m.cyl((s * 0.05, -0.1, 0.4), 0.032, 0.42, "steel", n=10, axis="z")
+        m.cyl((s * 0.05, -0.1, 0.615), 0.026, 0.02, "steelDark", n=12, axis="z")
+    m.box((0, -0.075, 0.625), (0.15, 0.06, 0.04), "steelDark", bev=0.006)
+    m.pop()
+    return m
+
+
+# ---- SKY DROP (Nugget Republic paradrop cargo plane) ---------------------------------------------------
+PLANE_SECS = [(0.87, 0.02, -0.06, -0.02), (0.85, 0.06, -0.095, 0.015), (0.81, 0.093, -0.112, 0.055), (0.75, 0.114, -0.12, 0.09),
+              (0.67, 0.123, -0.122, 0.112), (0.55, 0.126, -0.122, 0.124), (-0.3, 0.126, -0.122, 0.124), (-0.42, 0.12, -0.095, 0.124),
+              (-0.56, 0.104, -0.045, 0.121), (-0.7, 0.078, 0.008, 0.117), (-0.82, 0.045, 0.05, 0.112), (-0.87, 0.02, 0.07, 0.106)]
+
+
+def _foil(x, zle, c, t, y):
+    """An airfoil section at span x: leading edge at zle, chord c running to -z, thickness t, chord line y."""
+    up = [(0.0, 0.0), (0.03, 0.55), (0.12, 0.92), (0.3, 1.0), (0.6, 0.72), (1.0, 0.1)]
+    lo = [(0.6, 0.3), (0.3, 0.55), (0.12, 0.5), (0.03, 0.32)]
+    return [(x, y + h * t * 0.65, zle - u * c) for u, h in up] + [(x, y - h * t * 0.6, zle - u * c) for u, h in lo]
+
+
+def build_paraplane():
+    """✈️ SKY DROP (Nugget Republic): a four-engine high-wing cargo plane (origin at its centre, nose +z,
+    1.74 long, 2.2 span) in Alliance paint: a glazed flight deck, landing-gear sponsons, open para doors,
+    the rear ramp lowered under the upswept tail, a tall team-coloured fin, team wing tips, four turboprops."""
+    m = FModel("u.paraplane", smooth_deg=40)
+    E = 2.4
+    _fuse(m, PLANE_SECS, "allyArmor", n=20, e=E)
+    # the flight deck: a glass band with frames, the radome nose
+    _skin(m, PLANE_SECS, 0.7, 0.835, "glass", 0.03, True, E, nz=4)
+    _skin(m, PLANE_SECS, 0.69, 0.8, "allyArmor", 0.092, True, E, nz=4, t=0.007)
+    for ang in (math.pi / 2, 0.7, math.pi - 0.7, 0.3, math.pi - 0.3):
+        _frame(m, PLANE_SECS, 0.7, 0.83, ang, "allyDark", E, r=0.004, nz=4)
+    _skin(m, PLANE_SECS, 0.835, 0.87, "allyDark", -0.2, True, E, nz=2, t=0.004)
+    # sponsons (landing gear fairings) + a belly strake, a dorsal wing fairing
+    for s in (-1, 1):
+        m.box((s * 0.125, -0.085, 0.04), (0.06, 0.07, 0.44), "allyDark", bev=0.022, seg=2)
+        for z in (-0.05, 0.13):
+            m.box((s * 0.156, -0.1, z), (0.004, 0.04, 0.09), "dark", bev=0)
+    m.prism_x([(0.3, 0.12), (0.22, 0.155), (-0.18, 0.155), (-0.3, 0.12)], -0.08, 0.08, "allyArmor", bev=0.015, seg=2)
+    # side detail: a crew door, windows, open para doors aft, a white star
+    for s in (-1, 1):
+        m.box((s * 0.125, 0.0, 0.62), (0.006, 0.08, 0.04), "allyDark", bev=0)
+        for k in range(4):
+            m.cyl((s * 0.125, 0.04, 0.4 - k * 0.12), 0.01, 0.006, "glass", n=8, axis="x")
+        m.box((s * 0.124, -0.01, -0.24), (0.006, 0.12, 0.06), "black", bev=0)
+        m.box((s * 0.128, 0.056, -0.24), (0.006, 0.008, 0.07), "allyDark", bev=0)
+        _star(m, (0.18, 0.0), 0.05, s * 0.122, s * 0.129, "paintWhite")
+        m.cyl((s * 0.123, 0.0, 0.18), 0.064, 0.006, "allyDark", n=16, axis="x")
+    # the open belly under the upswept tail, the ramp lowered on its hinge
+    rings = []
+    for k in range(6):
+        z = -0.32 - k * 0.075
+        hw, y0, y1 = _sec_at(PLANE_SECS, z)
+        rings.append([(-hw * 0.78, y0 - 0.002, z), (hw * 0.78, y0 - 0.002, z), (hw * 0.78, y0 + 0.012, z), (-hw * 0.78, y0 + 0.012, z)])
+    m.loft(rings, "black")
+    m.push(0, -0.122, -0.32, 0, -0.42)
+    m.box((0, -0.008, -0.14), (0.19, 0.016, 0.28), "allyDark", bev=0.004)
+    for k in range(5):
+        m.box((0, 0.002, -0.04 - k * 0.05), (0.15, 0.004, 0.01), "dark", bev=0)
+    for s in (-1, 1):
+        m.box((s * 0.09, 0.012, -0.14), (0.01, 0.03, 0.27), "allyDark", bev=0)
+    m.pop()
+    for s in (-1, 1):
+        m.bar((s * 0.085, -0.11, -0.36), (s * 0.085, -0.19, -0.5), 0.006, "steelDark")
+    # the high wing: constant-chord centre section, tapered outer panels, team tips, flaps, nav lights
+    for s in (-1, 1):
+        ys = lambda x: 0.14 + 0.022 * abs(x) / 1.1
+        R = [_foil(s * 0.0, 0.2, 0.34, 0.034, ys(0.0)), _foil(s * 0.52, 0.2, 0.33, 0.032, ys(0.52)),
+             _foil(s * 1.0, 0.15, 0.22, 0.024, ys(1.0))]
+        m.loft(R, "allyArmor")
+        m.loft([_foil(s * 1.0, 0.15, 0.22, 0.024, ys(1.0)), _foil(s * 1.08, 0.143, 0.205, 0.02, ys(1.08)),
+                _foil(s * 1.1, 0.135, 0.18, 0.012, ys(1.1))], "team")
+        for x0, x1 in ((0.14, 0.5), (0.56, 0.94)):
+            m.bar((s * x0, ys(x0) + 0.008, -0.11 if x0 < 0.5 else -0.1), (s * x1, ys(x1) + 0.007, -0.11 if x1 < 0.52 else -0.04), 0.004, "allyDark")
+        m.box((s * 1.1, ys(1.1), 0.08), (0.012, 0.012, 0.03), "red" if s < 0 else "glassLit", bev=0)
+    # four turboprops: nacelles under the wing, spinners, 4 blades each (fixed), exhausts
+    for s in (-1, 1):
+        for i, x in enumerate((0.38, 0.72)):
+            X = s * x
+            Y = 0.11
+            m.push(X, Y, 0.0, 0, math.pi / 2)
+            m.lathe([(0.0, -0.17), (0.014, -0.16), (0.034, -0.1), (0.046, 0.04), (0.047, 0.3), (0.042, 0.34), (0.036, 0.35)], "allyArmor", n=12)
+            m.pop()
+            m.box((X, Y + 0.04, 0.12), (0.05, 0.03, 0.34), "allyArmor", bev=0.01)            # pylon into the wing
+            m.box((X, Y - 0.04, 0.3), (0.03, 0.022, 0.05), "dark", bev=0.005)               # chin intake
+            m.box((X, Y - 0.043, 0.322), (0.022, 0.012, 0.006), "black", bev=0)
+            m.cyl((X + s * 0.046, Y + 0.012, -0.02), 0.01, 0.05, "dark", n=6, axis="x")       # exhaust
+            m.push(X, Y, 0.36, 0, math.pi / 2)
+            m.lathe([(0.03, 0.0), (0.03, 0.02), (0.022, 0.05), (0.0, 0.075)], "allyDark", n=10)
+            m.pop()
+            for k in range(4):
+                a = k / 4 * TAU + (0.3 if i else 0.0) + (0.15 if s > 0 else 0.0)
+                m.push(X, Y, 0.385, 0, 0.0, a)
+                m.box((0.072, 0, 0), (0.12, 0.024, 0.006), "dark", bev=0)
+                m.box((0.128, 0, 0), (0.014, 0.024, 0.007), "hazard", bev=0)
+                m.pop()
+    # the tail: a tall fin (team upper), rudder hinge, stabilisers, a tail cone, a beacon
+    fin = [(-0.58, 0.1), (-0.76, 0.47), (-0.86, 0.48), (-0.9, 0.1)]
+    m.prism_x(fin, -0.013, 0.013, "allyArmor", bev=0.005)
+    m.prism_x([(-0.6625, 0.28), (-0.76, 0.47), (-0.86, 0.48), (-0.8785, 0.28)], -0.0145, 0.0145, "team", bev=0)
+    m.prism_x([(-0.83, 0.12), (-0.855, 0.465), (-0.86, 0.465), (-0.84, 0.12)], -0.0152, 0.0152, "allyDark", bev=0)
+    m.ball((0, 0.485, -0.82), 0.01, "red", u=8, v=5)
+    for s in (-1, 1):
+        m.prism_y([(s * 0.02, -0.66), (s * 0.44, -0.79), (s * 0.44, -0.86), (s * 0.02, -0.9)], 0.094, 0.108, "allyArmor", bev=0.004)
+        m.box((s * 0.3, 0.101, -0.855), (0.24, 0.016, 0.006), "allyDark", bev=0)
+    m.cyl((0.0, 0.17, 0.4), 0.003, 0.08, "black", n=4)
+    m.box((0, 0.18, -0.1), (0.01, 0.04, 0.05), "allyDark", bev=0)
+    return m
+
+
+def build_chute():
+    """🪂 The parachute: a domed canopy (rim y 0.48, crown 0.6, radius 0.24) of eight gores alternating
+    white and team, bulging between the seams, a vent at the crown, eight suspension lines down to the
+    risers at the origin (the trooper's shoulders)."""
+    m = FModel("u.chute", smooth_deg=55)
+    G, NU, NV = 8, 5, 7
+    R, YR, YT, T = 0.24, 0.48, 0.6, 0.0035
+
+    def pt(phi, u, v, d):
+        a = v * math.pi / 2 * 0.86
+        bulge = 1 + 0.07 * math.sin(math.pi * u) * math.cos(a)
+        r = R * math.cos(a) * bulge + d
+        y = YR + (YT - YR) * math.sin(a) + 0.018 * math.sin(math.pi * u) * (1 - v) ** 2 + d * math.sin(a)
+        return (math.cos(phi) * r, y, math.sin(phi) * r)
+
+    for g in range(G):
+        rings = []
+        for i in range(NV + 1):
+            v = i / NV
+            outer = [pt((g + j / NU) / G * TAU, j / NU, v, T) for j in range(NU + 1)]
+            inner = [pt((g + j / NU) / G * TAU, j / NU, v, -T) for j in range(NU + 1)]
+            rings.append(outer + list(reversed(inner)))
+        m.loft(rings, "team" if g % 2 else "paintWhite")
+    for g in range(G):
+        phi = g / G * TAU
+        m.tube([pt(phi, 0, i / NV, T * 1.4) for i in range(NV + 1)], 0.0025, "white", n=4)      # seam tapes
+    m.torus((0, YR + 0.004, 0), R, 0.004, "white", n=32, m=4)                                    # the hem
+    # suspension lines to two riser links, risers to the harness at the origin
+    for g in range(G):
+        phi = g / G * TAU
+        p = pt(phi, 0, 0, 0)
+        side = 1 if math.cos(phi) > 0.01 else (-1 if math.cos(phi) < -0.01 else (1 if math.sin(phi) > 0 else -1))
+        m.tube([p, (side * 0.04, 0.09, 0.0)], 0.0022, "white", n=4)
+    for s in (-1, 1):
+        m.cyl((s * 0.04, 0.09, 0), 0.006, 0.012, "steel", n=6)
+        m.tube([(s * 0.04, 0.085, 0), (s * 0.035, 0.0, 0)], 0.004, "olive", n=4)
+    return m
+
+
+# ---- faction flags --------------------------------------------------------------------------------------
+FLAG_W, FLAG_H, FLAG_Y0 = 0.34, 0.22, 0.74
+FLAG_CX, FLAG_CY = 0.014 + FLAG_W * 0.5, FLAG_Y0 + FLAG_H * 0.5
+_FT = 0.003     # the cloth's half thickness
+_FR = 0.0068    # an emblem's half thickness (raised ~3.8 mm-in-tiles above each face)
+
+
+def _starpts(cx, cy, r, ri=0.42, rot=0.0, n=5):
+    return [(cx + math.cos(rot + math.pi / 2 + k * math.pi / n) * (r if k % 2 == 0 else r * ri),
+             cy + math.sin(rot + math.pi / 2 + k * math.pi / n) * (r if k % 2 == 0 else r * ri)) for k in range(2 * n)]
+
+
+def _rel(m, pts, mat, lift=0.0):
+    """An emblem shape in the banner plane (x, y), raised on BOTH faces (one prism through the cloth)."""
+    d = _FR + lift
+    old = set(m.bm.faces)
+    m.prism_z(pts, -d, d, mat, bev=0)
+    # split the caps into small triangles so they follow the ripple instead of cutting through the cloth
+    new = [f for f in m.bm.faces if f not in old]
+    new = bmesh.ops.triangulate(m.bm, faces=new)["faces"]
+    for _ in range(3):
+        long = [e for e in {e for f in new if f.is_valid for e in f.edges} if e.calc_length() > 0.04]
+        if not long:
+            break
+        bmesh.ops.subdivide_edges(m.bm, edges=long, cuts=1, use_grid_fill=False)
+        new = [f for f in m.bm.faces if f not in old]
+
+
+def _disc(m, cx, cy, r, mat, lift=0.0, n=10):
+    _rel(m, [(cx + math.cos(k / n * TAU) * r, cy + math.sin(k / n * TAU) * r) for k in range(n)], mat, lift)
+
+
+def _cloth(m, x0, x1, y0, y1, mat, t=_FT, n=None):
+    n = n or max(2, int((x1 - x0) / 0.019) + 1)
+    rings = []
+    for k in range(n):
+        x = x0 + (x1 - x0) * k / (n - 1)
+        rings.append([(x, y0, -t), (x, y1, -t), (x, y1, t), (x, y0, t)])
+    m.loft(rings, mat)
+
+
+def _wave(v):
+    """The ripple: a travelling wave growing to the fly end, a slight droop. Applied to every cloth vertex."""
+    u = max(0.0, (v.co.x - 0.014) / FLAG_W)
+    v.co.z += 0.03 * (u ** 0.85) * math.sin(u * 2.3 * math.pi - 0.5) + 0.005 * math.sin(u * 7.0 + v.co.y * 20) * u
+    v.co.y -= 0.028 * u * u
+
+
+def _flag(name, cloth, hem, emblem, finial):
+    m = FModel(name, smooth_deg=40)
+    # the pole: a base plate with bolts and a gusseted collar, the steel mast, the truck at the top
+    m.box((0, 0.108, 0), (0.08, 0.016, 0.08), "steelDark", bev=0.004)
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            m.box((sx * 0.028, 0.118, sz * 0.028), (0.01, 0.006, 0.01), "dark", bev=0)
+    m.cyl((0, 0.135, 0), 0.02, 0.04, "dark", n=8, r2=0.015)
+    for k in range(4):
+        a = k / 4 * TAU + TAU / 8
+        m.push(0, 0.116, 0, a)
+        m.prism_x([(0.012, 0.0), (0.036, 0.0), (0.012, 0.036)], -0.003, 0.003, "dark", bev=0)
+        m.pop()
+    m.cyl((0, 0.56, 0), 0.011, 0.86, "steelDark", n=8, r2=0.009)
+    m.cyl((0, 0.99, 0), 0.016, 0.02, "dark", n=8)
+    m.box((-0.014, 0.32, 0), (0.016, 0.008, 0.008), "dark", bev=0)                    # the halyard cleat
+    m.bar((-0.009, 0.33, 0), (-0.009, 0.97, 0), 0.0025, "black")                     # the halyard
+    # the banner: the cloth, hems top and bottom, the hoist sleeve, the emblem — then rippled
+    before = set(m.bm.verts)
+    x0, x1 = 0.014, 0.014 + FLAG_W
+    _cloth(m, x0, x1, FLAG_Y0 + 0.016, FLAG_Y0 + FLAG_H - 0.016, cloth)
+    _cloth(m, x0, x1, FLAG_Y0, FLAG_Y0 + 0.016, hem, t=_FT * 1.25)
+    _cloth(m, x0, x1, FLAG_Y0 + FLAG_H - 0.016, FLAG_Y0 + FLAG_H, hem, t=_FT * 1.25)
+    m.cyl((0.004, FLAG_Y0 + FLAG_H / 2, 0), 0.016, FLAG_H, hem, n=10)
+    _cloth(m, x1 - 0.012, x1, FLAG_Y0 + 0.016, FLAG_Y0 + FLAG_H - 0.016, hem, t=_FT * 1.25, n=2)
+    emblem(m, FLAG_CX + 0.01, FLAG_CY)
+    for v in m.bm.verts:
+        if v not in before:
+            _wave(v)
+    finial(m, 1.0)
+    return m
+
+
+def _emb_republic(m, cx, cy):
+    _rel(m, _starpts(cx, cy + 0.03, 0.052, 0.4), "emblemWhite", 0.0006)
+    L = [(0.0, -0.022), (-0.13, 0.03), (-0.12, 0.014), (-0.1, 0.012), (-0.108, -0.002), (-0.082, -0.004), (-0.088, -0.018),
+         (-0.06, -0.022), (-0.064, -0.036), (-0.03, -0.044), (0.0, -0.065)]
+    R = [(-x, y) for x, y in reversed(L)]
+    _rel(m, [(cx + x, cy + y) for x, y in L + R[1:-1]], "emblemGold")
+
+
+def _emb_crown(m, cx, cy):
+    C = [(-0.075, -0.06), (0.075, -0.06), (0.075, -0.026), (0.092, 0.045), (0.048, 0.006), (0.0, 0.06), (-0.048, 0.006),
+         (-0.092, 0.045), (-0.075, -0.026)]
+    _rel(m, [(cx + x, cy + y) for x, y in C], "emblemGold")
+    for x, y in ((-0.092, 0.045), (0.0, 0.06), (0.092, 0.045)):
+        _disc(m, cx + x, cy + y + 0.008, 0.012, "emblemGold", n=7)
+    _rel(m, [(cx - 0.078, cy - 0.046), (cx + 0.078, cy - 0.046), (cx + 0.078, cy - 0.036), (cx - 0.078, cy - 0.036)], "goldDark", 0.0008)
+    for x in (-0.045, 0.0, 0.045):
+        _disc(m, cx + x, cy - 0.012, 0.009, "red" if x == 0 else "coastBlue", 0.0012, n=6)
+
+
+def _emb_coast(m, cx, cy):
+    for k, a in enumerate((0.62, -0.62)):
+        c, s = math.cos(a), math.sin(a)
+        pts = []
+        for j in range(16):
+            t = j / 16 * TAU
+            x = math.cos(t) * 0.1
+            y = math.sin(t) * 0.02 * (1 - 0.25 * abs(math.cos(t)) ** 6)
+            pts.append((cx + x * c - y * s, cy + x * s + y * c))
+        _rel(m, pts, "coastBlue", k * 0.0008)
+        for j in range(5):
+            u = -0.064 + j * 0.032
+            px, py = cx + u * c, cy + u * s
+            sc, ss = math.cos(a + 0.7), math.sin(a + 0.7)
+            q = [(-0.013, -0.003), (0.013, -0.003), (0.013, 0.003), (-0.013, 0.003)]
+            _rel(m, [(px + x * sc - y * ss, py + x * ss + y * sc) for x, y in q], "coastBlueDark", k * 0.0008 + 0.0008)
+
+
+def _emb_union(m, cx, cy):
+    pts = []
+    for j in range(18):
+        t = j / 18 * TAU
+        k = 1 + 0.07 * math.sin(3 * t + 0.4) + 0.05 * math.sin(5 * t + 1.1)
+        pts.append((cx + 0.02 + math.cos(t) * 0.07 * k, cy - 0.012 + math.sin(t) * 0.047 * k))
+    _rel(m, pts, "emblemGold")
+    for x, y in ((-0.02, 0.01), (0.03, -0.02), (0.06, 0.012), (0.0, -0.035)):
+        _disc(m, cx + 0.02 + x, cy - 0.012 + y, 0.006, "goldDark", 0.0008, n=6)
+    _rel(m, _starpts(cx - 0.1, cy + 0.06, 0.034, 0.42), "emblemGold")
+
+
+def _emb_horde(m, cx, cy):
+    cl = []
+    for j in range(12):
+        t = j / 11
+        a = -0.6 + t * 1.9
+        cl.append((cx - 0.06 + math.sin(a) * 0.09 + t * 0.03, cy + 0.03 - (1 - math.cos(a)) * 0.07 - t * 0.02, 0.026 * (1 - t ** 1.6) + 0.002))
+    up, dn = [], []
+    for j, (x, y, w) in enumerate(cl):
+        a = cl[min(j + 1, len(cl) - 1)]
+        b = cl[max(j - 1, 0)]
+        dx, dy = a[0] - b[0], a[1] - b[1]
+        L = math.hypot(dx, dy) or 1
+        nx, ny = -dy / L, dx / L
+        up.append((x + nx * w, y + ny * w))
+        dn.append((x - nx * w, y - ny * w))
+    _rel(m, up + list(reversed(dn)), "chili")
+    x, y, _ = cl[0]
+    _rel(m, [(x - 0.03, y + 0.008), (x - 0.006, y - 0.022), (x + 0.03, y - 0.012), (x + 0.012, y + 0.012), (x + 0.0, y + 0.028)], "leafA", 0.0008)
+    _rel(m, [(x - 0.004, y + 0.014), (x + 0.006, y + 0.014), (x - 0.006, y + 0.05), (x - 0.016, y + 0.048)], "leafC", 0.0012)
+    _rel(m, [(cx - 0.05, cy + 0.0), (cx - 0.02, cy - 0.02), (cx - 0.018, cy - 0.012), (cx - 0.048, cy + 0.008)], "red", 0.0008)
+
+
+def _emb_cartel(m, cx, cy):
+    out, inn = [], []
+    N = 34
+    for j in range(N + 1):
+        t = j / N * 2.15 * TAU
+        r = 0.012 + 0.0285 * t / TAU
+        w = 0.0075 + 0.003 * t / TAU
+        out.append((cx + math.cos(t) * (r + w), cy + math.sin(t) * (r + w) * 0.92))
+        inn.append((cx + math.cos(t) * max(0.002, r - w), cy + math.sin(t) * max(0.002, r - w) * 0.92))
+    _rel(m, out + list(reversed(inn)), "fryYellow")
+
+
+def _fin_ball(m, y, r=0.016):
+    m.cyl((0, y + 0.006, 0), 0.012, 0.012, "gold", n=10)
+    m.ball((0, y + 0.012 + r, 0), r, "gold", u=8, v=5)
+    return y + 0.012 + 2 * r
+
+
+def _fin_republic(m, y):
+    y = _fin_ball(m, y, 0.013)
+    m.ball((0, y + 0.02, 0), 0.016, "gold", u=8, v=5, s=(0.8, 1.3, 0.9))
+    m.ball((0, y + 0.045, 0.008), 0.011, "gold", u=8, v=5)
+    m.cyl((0, y + 0.043, 0.024), 0.006, 0.014, "goldDark", n=6, axis="z", r2=0.0)
+    for s in (-1, 1):
+        W = [(0.008, 0.012), (0.04, 0.05), (0.075, 0.075), (0.072, 0.058), (0.062, 0.056), (0.064, 0.04), (0.05, 0.038),
+             (0.05, 0.022), (0.03, 0.016), (0.008, -0.004)]
+        m.prism_z([(s * x, y + yy) for x, yy in W], -0.005, 0.005, "gold", bev=0.0015)
+    m.prism_z([(-0.012, y + 0.004), (0.012, y + 0.004), (0.018, y - 0.014), (-0.018, y - 0.014)], -0.012, -0.004, "goldDark", bev=0)
+
+
+def _fin_crown(m, y):
+    y = _fin_ball(m, y, 0.01)
+    m.lathe([(0.0, y), (0.024, y), (0.028, y + 0.02), (0.0, y + 0.02)], "gold", n=10)
+    for k in range(5):
+        a = k / 5 * TAU
+        c, s = math.cos(a), math.sin(a)
+        m.push(c * 0.024, y + 0.02, s * 0.024, -a + math.pi / 2)
+        m.prism_z([(-0.008, 0.0), (0.008, 0.0), (0.0, 0.024)], -0.003, 0.003, "gold", bev=0)
+        m.pop()
+        m.box((c * 0.024, y + 0.046, s * 0.024), (0.008, 0.008, 0.008), "gold", bev=0)
+        m.box((c * 0.03, y + 0.008, s * 0.03), (0.007, 0.007, 0.007), "red", bev=0)
+    m.ball((0, y + 0.03, 0), 0.016, "bannerCrimson", u=8, v=5)
+    m.ball((0, y + 0.05, 0), 0.007, "gold", u=6, v=4)
+    m.bar((0, y + 0.055, 0), (0, y + 0.075, 0), 0.004, "gold")
+    m.bar((-0.008, y + 0.067, 0), (0.008, y + 0.067, 0), 0.004, "gold")
+
+
+def _fin_coast(m, y):
+    m.cyl((0, y + 0.01, 0), 0.016, 0.02, "gold", n=10, r2=0.012)
+    m.torus((0, y + 0.024, 0), 0.014, 0.004, "goldDark", n=10, m=4)
+    m.push(0, 0, 0, math.pi / 4, s=(1, 1, 0.45))
+    m.lathe([(0.0, y + 0.026), (0.01, y + 0.03), (0.026, y + 0.07), (0.016, y + 0.1), (0.0, y + 0.135)], "gold", n=4)
+    m.pop()
+    for s in (-1, 1):
+        m.push(s * 0.016, y + 0.03, 0, 0, 0, s * 0.6)
+        m.box((0, 0.012, 0), (0.006, 0.03, 0.004), "goldDark", bev=0)
+        m.pop()
+
+
+def _fin_union(m, y):
+    y = _fin_ball(m, y, 0.014)
+    pts = _starpts(0, y + 0.04, 0.042, 0.42)
+    m.loft([[(x, yy, -0.004) for x, yy in pts], [(x, yy, 0.004) for x, yy in pts]], "gold")
+    for z in (-1, 1):
+        m.loft([[(x, yy, z * 0.004) for x, yy in pts], [(0.0, y + 0.04, z * 0.012)] * len(pts)], "gold", cap1=False)
+
+
+def _fin_horde(m, y):
+    m.cyl((0, y + 0.006, 0), 0.012, 0.012, "gold", n=10)
+    m.lathe([(0.0, y + 0.012), (0.018, y + 0.016), (0.02, y + 0.024), (0.0, y + 0.03)], "leafA", n=8)
+    m.cyl((0, y + 0.006, 0), 0.004, 0.02, "leafC", n=6)
+    rings = []
+    for j in range(10):
+        t = j / 9
+        cxx = 0.03 * math.sin(t * 1.6) ** 2
+        yy = y + 0.022 + t * 0.105
+        r = 0.019 * (1 - t ** 1.8) + 0.0015
+        rings.append([(cxx + math.cos(k / 8 * TAU) * r, yy - math.cos(t * 1.6) * 0.0, math.sin(k / 8 * TAU) * r) for k in range(8)])
+    m.loft(rings, "chili")
+
+
+def _fin_cartel(m, y):
+    y = _fin_ball(m, y, 0.01)
+    m.cyl((0, y + 0.05, 0), 0.004, 0.1, "goldDark", n=6)
+    pts = []
+    for j in range(24):
+        t = j / 23
+        a = t * 2.6 * TAU
+        r = 0.026 * (1 - 0.55 * t)
+        pts.append((math.cos(a) * r, y + 0.006 + t * 0.09, math.sin(a) * r))
+    m.tube(pts, 0.006, "fryYellow", n=5)
+    m.ball((0, y + 0.104, 0), 0.009, "fryYellow", u=8, v=5)
+
+
+def build_flag_republic():
+    """🦅 Nugget Republic banner: navy, a white star over a gold eagle-wing chevron; an eagle finial."""
+    return _flag("b.flag_republic", "bannerNavy", "emblemGold", _emb_republic, _fin_republic)
+
+
+def build_flag_crown():
+    """👑 Breadcrumb Crown banner: crimson, a jewelled gold crown; a crown finial."""
+    return _flag("b.flag_crown", "bannerCrimson", "emblemGold", _emb_crown, _fin_crown)
+
+
+def build_flag_coast():
+    """🥖 Golden Coast banner: cream-gold, two crossed blue baguettes; a gilded spear-tip finial."""
+    return _flag("b.flag_coast", "bannerCream", "coastBlue", _emb_coast, _fin_coast)
+
+
+def build_flag_union():
+    """🥔 Tater Union banner: deep red, a gold potato and a star; a star finial."""
+    return _flag("b.flag_union", "bannerRed", "emblemGold", _emb_union, _fin_union)
+
+
+def build_flag_horde():
+    """🌶️ Hash Brown Horde banner: burnt orange, a red chili; a chili-pepper finial."""
+    return _flag("b.flag_horde", "bannerOrange", "sauceDark", _emb_horde, _fin_horde)
+
+
+def build_flag_cartel():
+    """🌀 Curly Cartel banner: dark green, a yellow spiral curly fry; a spiral finial."""
+    return _flag("b.flag_cartel", "bannerGreen", "fryYellow", _emb_cartel, _fin_cartel)
+
+
+FACTIONS = [build_sniper, build_greaser, build_bomber, build_teslaspud, build_teslaspud_turret, build_grandfryer,
+            build_grandfryer_gun, build_paraplane, build_chute, build_flag_republic, build_flag_crown, build_flag_coast,
+            build_flag_union, build_flag_horde, build_flag_cartel]
+
+
 MODELS = [build_hq, build_hq_crane, build_power, build_refinery, build_barracks, build_barracks_flag, build_factory,
           build_factory_door, build_radar, build_radar_dish, build_turret, build_turret_head, build_tesla,
           build_tank, build_tank_turret, build_tank_gun, build_heavy, build_heavy_turret, build_heavy_gun,
-          build_harv, build_harv_drum, build_harv_load, lambda: build_inf("rifle"), lambda: build_inf("rocket"), build_leg] + LANDSCAPE + PHASE1 + PHASE2 + HELIS + WATERWORKS
+          build_harv, build_harv_drum, build_harv_load, lambda: build_inf("rifle"), lambda: build_inf("rocket"), build_leg] + LANDSCAPE + PHASE1 + PHASE2 + HELIS + FACTIONS + WATERWORKS
 
 # the game draws a building's part parented to its body: give the AO bake the body as an occluder
 OCCLUDERS = {"b.hq_crane": "b.hq", "b.radar_dish": "b.radar", "b.turret_head": "b.turret", "b.factory_door": None,
@@ -3433,7 +4351,8 @@ OCCLUDERS = {"b.hq_crane": "b.hq", "b.radar_dish": "b.radar", "b.turret_head": "
              "u.prismtank_turret": "u.prismtank", "u.mirage_turret": "u.mirage", "u.v3_rack": "u.v3",
              "u.apoc_turret": "u.apoc", "u.harvF_gun": "u.harvF", "b.spysat_dish": "b.spysat",
              "u.hawk_rotor": "u.hawk", "u.hawk_tail": "u.hawk", "u.lift_rotor": "u.lift", "u.tater_rotor": "u.tater",
-             "u.tater_tail": "u.tater", "u.hog_rotor": "u.hog", "u.hog_tail": "u.hog"}
+             "u.tater_tail": "u.tater", "u.hog_rotor": "u.hog", "u.hog_tail": "u.hog",
+             "u.teslaspud_turret": "u.teslaspud", "b.grandfryer_gun": "b.grandfryer"}
 PART_AT = {"b.hq_crane": (-1.05, 0, -1.0), "b.radar_dish": (0.45, 0.78, -0.45), "b.turret_head": (0, 0.32, 0),
            "u.tank_turret": (0, 0.29, 0), "u.heavy_turret": (0, 0.34, 0), "u.harv_drum": (0, 0.12, 0.52),
            "b.sam_head": (0, 0.3, 0), "b.flak_head": (0, 0.3, 0), "b.derrick_pump": (-0.3, 0.44, 0.45),
@@ -3442,10 +4361,11 @@ PART_AT = {"b.hq_crane": (-1.05, 0, -1.0), "b.radar_dish": (0.45, 0.78, -0.45), 
            "u.harvF_gun": (0, 0.5, 0.3), "b.spysat_dish": SPYSAT_DISH_AT, "u.leg": (0.045, 0.13, 0), "u.dog_leg": (0.05, 0.12, 0.11),
            "u.tank_gun": (0, 0.365, 0.12), "u.heavy_gun": (0, 0.43, 0.15), "u.harv_load": (0, 0.42, -0.2),
            "u.hawk_rotor": HAWK_ROTOR_AT, "u.hawk_tail": HAWK_TAIL_AT, "u.lift_rotor": LIFT_ROTOR_FRONT_AT,   # (+ LIFT_ROTOR_REAR_AT)
-           "u.tater_rotor": TATER_ROTOR_AT, "u.tater_tail": TATER_TAIL_AT, "u.hog_rotor": HOG_ROTOR_AT, "u.hog_tail": HOG_TAIL_AT}
+           "u.tater_rotor": TATER_ROTOR_AT, "u.tater_tail": TATER_TAIL_AT, "u.hog_rotor": HOG_ROTOR_AT, "u.hog_tail": HOG_TAIL_AT,
+           "u.teslaspud_turret": TESLASPUD_TURRET_AT, "b.grandfryer_gun": GRANDFRYER_GUN_AT}
 SUBDIV = {"u.crate": 0.09}   # small models whose big faces sit in corner pieces (AO would grey the whole face)
 NO_GROUND = {"w.bridge_deck", "w.bridge_truss", "w.bridge_portal", "w.bridge_pier", "w.bridge_ruin", "u.gravy_stream", "u.gravy_pool", "u.jet", "u.blimp", "u.blimp_prop", "u.v3_rocket", "b.factory_door", "b.barracks_flag"} | \
-    {"u.hawk", "u.hawk_rotor", "u.hawk_tail", "u.lift", "u.lift_rotor", "u.tater", "u.tater_rotor", "u.tater_tail", "u.hog", "u.hog_rotor", "u.hog_tail"}
+    {"u.hawk", "u.hawk_rotor", "u.hawk_tail", "u.lift", "u.lift_rotor", "u.tater", "u.tater_rotor", "u.tater_tail", "u.hog", "u.hog_rotor", "u.hog_tail"} | {"u.paraplane", "u.chute"}
 
 
 # =========================================================================================================

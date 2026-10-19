@@ -126,7 +126,7 @@ async function alrSaveWrite(name) {
   alrPaidNote(true);
   const S = alrSaveEncode(), P = alr.players[0], def = alrMapDef(alr.mapKey);
   const packed = await alrPack(S);
-  const meta = { name, when: Date.now(), map: def.name, emoji: def.emoji, N: def.N, side: ALR_SIDES[P.side].name, nAI: alr.nAI, tier: alr.cfg ? alr.cfg.name : '', t: alr.t, credits: Math.round(P.credits), v: ALR_SAVE_V, kb: Math.round((packed.b ? packed.b.byteLength : packed.s.length) / 1024) };
+  const meta = { name, when: Date.now(), map: def.name, emoji: def.emoji, N: def.N, side: (P.faction && ALR_FACTIONS[P.faction] ? ALR_FACTIONS[P.faction].emoji + ' ' + ALR_FACTIONS[P.faction].name : ALR_SIDES[P.side].name), nAI: alr.nAI, tier: alr.cfg ? alr.cfg.name : '', t: alr.t, credits: Math.round(P.credits), v: ALR_SAVE_V, kb: Math.round((packed.b ? packed.b.byteLength : packed.s.length) / 1024) };
   await alrSaveTx(['meta', 'data'], 'readwrite', (tx) => { tx.objectStore('meta').put(meta); tx.objectStore('data').put(Object.assign({ name }, packed)); });
   return meta;
 }
@@ -219,7 +219,7 @@ function alrSavesOpen(mode) {
        <div class="alr-save-list"></div><button type="button" data-sv="back">BACK</button>`
     : `<div class="alr-card-t">LOAD GAME</div><div class="alr-save-list"></div><button type="button" data-sv="back">BACK</button>`;
   d.hidden = false;
-  if (mode === 'save') { const inp = d.querySelector('.alr-save-name'); inp.value = `${def.name} · ${ALR_SIDES[alr.players[0].side].name} · ${String(mm).padStart(2, '0')}m`; setTimeout(() => { inp.focus(); inp.select(); }, 0); }
+  if (mode === 'save') { const inp = d.querySelector('.alr-save-name'); inp.value = `${def.name} · ${(ALR_FACTIONS[alr.players[0].faction] || ALR_SIDES[alr.players[0].side]).name} · ${String(mm).padStart(2, '0')}m`; setTimeout(() => { inp.focus(); inp.select(); }, 0); }
   alrSavesRender();
 }
 function alrSavesClose() {

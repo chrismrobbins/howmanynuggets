@@ -165,3 +165,40 @@ body.alert-mode .storm-hud { right: 250px; }
 .alr-setup-load { margin-top: 8px; width: 100%; height: 34px; border: 1px solid #0b0e12; border-radius: 4px; cursor: pointer; color: #cfe0f2;
   font: 900 13px Impact, sans-serif; letter-spacing: 0.08em; background: linear-gradient(#2c3a4b, #1c2633); }
 .alr-setup-load:hover { background: linear-gradient(#3b4d63, #26333f); color: #fff; }
+
+/* ---- factions: the Sky Drop button, the faction picker on the skirmish screen ---- */
+.alr-btns .alr-sdrop { grid-column: 1 / -1; color: #9fb0c2; }
+.alr-btns .alr-sdrop[hidden] { display: none; }
+.alr-btns .alr-sdrop.ready { color: #fff; background: linear-gradient(#2f7a3c, #17451f); box-shadow: inset 0 1px 0 #7fe08f, 0 0 10px rgba(90,255,120,0.45); animation: alr-blink 1.2s steps(2) infinite; }
+.alr-facs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.alr-facs .alr-fac-h { grid-column: 1 / -1; font: 900 11px Impact, sans-serif; letter-spacing: 0.1em; color: #8ea0b4; margin-top: 2px; }
+.alr-fac { text-align: left; padding: 6px 7px; border: 1px solid #0b0e12; border-radius: 4px; cursor: pointer; background: linear-gradient(#25303d, #19212b); color: #cfe0f2;
+  display: flex; flex-direction: column; gap: 2px; min-width: 0; font: 400 10.5px "Arial", sans-serif; line-height: 1.25; }
+.alr-fac b { font: 900 12.5px Impact, sans-serif; letter-spacing: 0.04em; color: #ffd23a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.alr-fac .sp { color: #fff; font-weight: 700; }
+.alr-fac .pl { color: #8fe39b; } .alr-fac .mi { color: #ff9a8a; }
+.alr-fac:hover { background: linear-gradient(#2f3d4e, #1f2935); }
+.alr-fac.on { border-color: #ffcf4a; box-shadow: 0 0 0 1px #ffcf4a, 0 0 10px rgba(255,200,60,0.35); background: linear-gradient(#3a3420, #221d10); }
+/* the skirmish screen with factions: maps | the match | the six factions (it had grown past the screen) */
+.alr-setup-panel { width: min(1240px, 100%); }
+.alr-setup-body { grid-template-columns: 270px minmax(0, 1fr); overflow-y: auto; }
+.alr-setup-right { display: grid; grid-template-columns: 250px minmax(0, 1fr); column-gap: 16px; row-gap: 7px; align-content: start; }
+.alr-setup-right > * { grid-column: 1; }
+.alr-setup-right > .alr-opt-fac { grid-column: 2; grid-row: 1 / span 12; align-self: start; }
+.alr-setup-preview canvas { width: 200px; height: 200px; }
+.alr-fac { padding: 7px 8px; font-size: 11.5px; }
+.alr-fac b { font-size: 14px; white-space: normal; }
+@media (max-width: 980px) {
+  .alr-setup-body { grid-template-columns: 1fr; }
+  .alr-setup-right { grid-template-columns: 1fr; }
+  .alr-setup-right > .alr-opt-fac { grid-column: 1; grid-row: auto; }
+  .alr-facs { grid-template-columns: repeat(2, 1fr); }
+}
+.alr-setup-preview { justify-self: center; }
+.alr-fac-detail { grid-column: 1 / -1; margin-top: 8px; padding: 12px 14px; border: 1px solid #0b0e12; border-radius: 4px; background: linear-gradient(#1d2631, #141b23);
+  box-shadow: inset 0 0 0 1px #2c3946; font-size: 13px; line-height: 1.5; color: #cfe0f2; }
+.alr-fac-detail .fd-t { font: 900 22px Impact, sans-serif; letter-spacing: 0.05em; color: #ffd23a; }
+.alr-fac-detail .fd-t span { font-size: 13px; color: #8ea0b4; margin-left: 8px; letter-spacing: 0.08em; }
+.alr-fac-detail .fd-sp { color: #fff; font-weight: 700; margin: 2px 0 4px; }
+.alr-fac-detail .pl { color: #8fe39b; } .alr-fac-detail .mi { color: #ff9a8a; }
+.alr-fac-detail .fd-core { margin-top: 6px; color: #8ea0b4; font-size: 12px; }

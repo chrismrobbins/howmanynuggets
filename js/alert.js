@@ -58,6 +58,7 @@ const ALR_BLD = {
   tesla:    { name: 'TESLA FRYER', side: 'F', w: 1, h: 1, hp: 650, cost: 1500, power: -75, cat: 'def', req: ['power', 'radar'], time: 12, sight: 8, weapon: 'tesla', blurb: 'needs power' },
   // RA2's Spy Satellite Uplink (the Allied one, after the Battle Lab): both armies get it here, after their lab
   spysat:   { name: 'NUG-SAT UPLINK', w: 3, h: 3, hp: 1000, cost: 1500, power: -100, cat: 'def', req: ['lab'], time: 18, sight: 6, blurb: 'reveals the whole map · needs power' },
+  grandfryer: { name: 'GRAND FRYER', side: 'A', faction: 'coast', w: 2, h: 2, hp: 1400, cost: 2000, power: -150, cat: 'def', req: ['factory', 'radar'], time: 20, sight: 12, weapon: 'grand', blurb: 'a giant cannon, 14 tiles · needs power' },
   wallF:    { name: 'FRY WALL', side: 'F', w: 1, h: 1, hp: 300, cost: 100, power: 0, cat: 'def', req: ['barracks'], time: 1.5, sight: 1, wall: true, blurb: 'drag to lay a line' },
   // neutral: an engineer takes it (cash on capture, then a trickle)
   derrick:  { name: 'FRY OIL DERRICK', w: 2, h: 2, hp: 800, cost: 1000, power: 0, sight: 3, tech: true, income: 5 },
@@ -89,12 +90,17 @@ const ALR_UNIT = {
   blimp:    { name: 'GRAVY BLIMP', side: 'F', cost: 2000, hp: 1800, speed: 0.8, cat: 'veh', time: 20, weapon: 'gravy', armor: 'air', sight: 6, req: ['factory', 'lab'], r: 0.9, air: 'blimp', alt: 2.4, turn: 0.7, heal: 3, blurb: 'slow · pours scalding gravy on what\'s under it' },
   // helicopters: two carriers an army (RA2's Night Hawk, and a heavy lifter for a tank). They fly over water,
   // bridges or no bridges; landed, they're on the ground (anything can shoot them); in the air only AA can.
+  // the factions' own (D.faction: only that faction can build it)
+  sniper:   { name: 'CRUMB SNIPER', side: 'A', faction: 'crown', cost: 600, hp: 100, speed: 1.15, cat: 'inf', time: 7, weapon: 'snipe', armor: 'inf', sight: 9, req: ['barracks', 'radar'], r: 0.13, blurb: 'picks off infantry from far away · useless vs armour' },
+  greaser:  { name: 'GREASE GUNNER', side: 'F', faction: 'horde', cost: 600, hp: 150, speed: 1.05, cat: 'inf', time: 7, weapon: 'grease', armor: 'inf', sight: 5, req: ['barracks', 'radar'], r: 0.14, deploy: 'greaseD', noCrush: true, blurb: 'boiling grease · D: dig in, coat the ground around him' },
+  bomber:   { name: 'FRY BOMBER', side: 'F', faction: 'cartel', cost: 400, hp: 90, speed: 2.1, cat: 'inf', time: 5, weapon: 'kaboom', armor: 'inf', sight: 5, req: ['barracks'], r: 0.13, blurb: 'runs in and blows up · wrecks tanks, buildings, bridges' },
+  teslaspud:{ name: 'TESLA SPUD', side: 'F', faction: 'union', cost: 1200, hp: 420, speed: 1.9, cat: 'veh', time: 13, weapon: 'teslaK', armor: 'veh', sight: 6, req: ['factory', 'radar'], turret: true, turn: 2.6, r: 0.38, crush: true, blurb: 'a Tesla coil on tracks' },
   hawk:     { name: 'NUG HAWK', side: 'A', cost: 900, hp: 220, speed: 3.4, cat: 'veh', time: 10, armor: 'air', sight: 7, req: ['factory', 'radar'], r: 0.42, air: 'heli', alt: 1.7, turn: 2.8, carry: 'inf', cap: 5, blurb: 'carries 5 infantry or dogs · D: unload' },
   lift:     { name: 'SKY FRYER', side: 'A', cost: 1400, hp: 420, speed: 2.5, cat: 'veh', time: 14, armor: 'air', sight: 6, req: ['factory', 'radar'], r: 0.6, air: 'heli', alt: 2.2, turn: 1.8, carry: 'veh', cap: 1, sling: -0.8, blurb: 'lifts a tank on its sling · D: set it down' },
   tater:    { name: 'TATER COPTER', side: 'F', cost: 800, hp: 260, speed: 3.1, cat: 'veh', time: 10, armor: 'air', sight: 7, req: ['factory', 'radar'], r: 0.44, air: 'heli', alt: 1.7, turn: 2.6, carry: 'inf', cap: 6, blurb: 'carries 6 infantry or dogs · D: unload' },
   hog:      { name: 'HOG LIFTER', side: 'F', cost: 1400, hp: 480, speed: 2.3, cat: 'veh', time: 14, armor: 'air', sight: 6, req: ['factory', 'radar'], r: 0.65, air: 'heli', alt: 1.9, turn: 1.6, carry: 'veh', cap: 1, sling: 0.06, blurb: 'clamps a tank between its legs · D: set it down' },
 };
-const ALR_WALL_KINDS = { shell: 1, rocket: 1, v3: 1, bomb: 1, beam: 1, zap: 1, gravy: 1 };
+const ALR_WALL_KINDS = { shell: 1, rocket: 1, v3: 1, bomb: 1, beam: 1, zap: 1, gravy: 1, kaboom: 1 };
 const ALR_WPN = {
   rifle:   { dmg: 15, rof: 0.85, range: 4.6, kind: 'bullet', vs: { inf: 1, veh: 0.22, bld: 0.25 }, sfx: 'rifle' },
   rifleD:  { dmg: 30, rof: 0.8, range: 5.5, kind: 'bullet', vs: { inf: 1, veh: 0.25, bld: 0.3 }, sfx: 'rifle' },
@@ -125,7 +131,40 @@ const ALR_WPN = {
   turret:  { dmg: 40, rof: 1.25, range: 6.2, kind: 'shell', twin: true, speed: 17, vs: { inf: 0.8, veh: 0.8, bld: 0.4 }, sfx: 'cannon' },
   flakD:   { dmg: 32, rof: 0.45, range: 9, kind: 'flak', air: true, ground: false, vs: { air: 1 }, sfx: 'flak', power: true },
   tesla:   { dmg: 120, rof: 2.6, range: 6.8, kind: 'zap', vs: { inf: 1.6, veh: 1, bld: 0.6 }, sfx: 'zap', power: true },
+  // the factions' own
+  snipe:   { dmg: 130, rof: 2.2, range: 9, kind: 'bullet', vs: { inf: 1, veh: 0.04, bld: 0.02 }, sfx: 'rifle' },
+  grease:  { dmg: 32, rof: 1.0, range: 3.2, kind: 'grease', splash: 0.8, vs: { inf: 1, veh: 0.3, bld: 0.25 }, sfx: 'pour' },
+  greaseD: { dmg: 26, rof: 0.9, range: 3.0, kind: 'grease', splash: 1.7, vs: { inf: 1, veh: 0.2, bld: 0.1 }, sfx: 'pour' },
+  kaboom:  { dmg: 420, rof: 1, range: 0.75, kind: 'kaboom', splash: 1.7, vs: { inf: 1, veh: 1, bld: 1.4 }, sfx: 'boomL' },
+  teslaK:  { dmg: 70, rof: 1.6, range: 5, kind: 'zap', vs: { inf: 1.3, veh: 1, bld: 0.6 }, sfx: 'zap' },
+  grand:   { dmg: 200, rof: 4.2, range: 14, min: 2.5, kind: 'shell', speed: 9, lob: 2.6, splash: 1.0, vs: { inf: 0.7, veh: 1, bld: 1 }, sfx: 'heavy', power: true },
 };
+// ---- the factions: three to an army (RA2's countries). Each keeps its army's core kit, and adds one thing of its
+// own plus a strength and a weakness. mods multiply by class — inf, veh (ground vehicles), air (jets, helicopters),
+// bld (buildings), def (defenses): cost, hp, speed, time (build time); sight adds tiles.
+const ALR_FACTIONS = {
+  republic: { side: 'A', name: 'NUGGET REPUBLIC', emoji: '🦅', special: 'SKY DROP', what: 'six troopers by parachute, anywhere you can see, every 4 minutes',
+    plus: 'aircraft −20% cost', minus: 'tanks −10% health', mods: { cost: { air: 0.8 }, hp: { veh: 0.9 } }, power: { kind: 'para', every: 240, first: 150 } },
+  crown:    { side: 'A', name: 'BREADCRUMB CROWN', emoji: '👑', special: 'CRUMB SNIPER', what: 'picks off infantry from 9 tiles out',
+    plus: 'infantry +15% health, see 2 tiles further', minus: 'vehicles +15% cost', mods: { hp: { inf: 1.15 }, sight: { inf: 2 }, cost: { veh: 1.15 } } },
+  coast:    { side: 'A', name: 'GOLDEN COAST', emoji: '🥖', special: 'GRAND FRYER', what: 'a giant cannon that shells anything 14 tiles out',
+    plus: 'buildings +25% health, defenses −15% cost', minus: 'every unit −10% speed', mods: { hp: { bld: 1.25, def: 1.25 }, cost: { def: 0.85 }, speed: { inf: 0.9, veh: 0.9, air: 0.9 } } },
+  union:    { side: 'F', name: 'TATER UNION', emoji: '🥔', special: 'TESLA SPUD', what: 'a Tesla coil on tracks',
+    plus: 'vehicles +15% health', minus: 'infantry +20% cost', mods: { hp: { veh: 1.15 }, cost: { inf: 1.2 } } },
+  horde:    { side: 'F', name: 'HASH BROWN HORDE', emoji: '🌶️', special: 'GREASE GUNNER', what: 'sprays boiling grease; dug in, coats the ground around him',
+    plus: 'infantry −25% cost, train 25% faster', minus: 'buildings −20% health', mods: { cost: { inf: 0.75 }, time: { inf: 0.75 }, hp: { bld: 0.8, def: 0.8 } } },
+  cartel:   { side: 'F', name: 'CURLY CARTEL', emoji: '🌀', special: 'FRY BOMBER', what: 'runs in and blows up: wrecks tanks, buildings, bridges',
+    plus: 'every unit +15% speed', minus: 'every unit −12% health', mods: { speed: { inf: 1.15, veh: 1.15, air: 1.15 }, hp: { inf: 0.88, veh: 0.88, air: 0.88 } } },
+};
+const ALR_FACTION_OF = { A: ['republic', 'crown', 'coast'], F: ['union', 'horde', 'cartel'] };
+// a definition's class for the mods
+function alrModCat(D) { return D.cat === 'inf' ? 'inf' : D.cat === 'veh' ? (D.air && D.air !== 'hover' ? 'air' : 'veh') : D.cat === 'def' ? 'def' : 'bld'; }
+function alrMod(owner, D, what) {
+  const P = alr.players && alr.players[owner], F = P && P.faction && ALR_FACTIONS[P.faction];
+  const m = F && F.mods[what];
+  return m && m[alrModCat(D)] != null ? m[alrModCat(D)] : what === 'sight' ? 0 : 1;
+}
+function alrCost(P, D) { return Math.round((D.cost || 0) * alrMod(P.id, D, 'cost')); }
 // the two armies: what you start with, and which hauler a refinery comes with
 const ALR_SIDES = {
   A: { name: 'NUGGET ALLIANCE', harv: 'harv', start: [['inf', 3], ['tank', 1]], emoji: '🔷',
@@ -408,8 +447,11 @@ function alrHash(a, b, salt) { let h = (a * 374761393 + b * 668265263 + (salt | 
 function alrNewGame(tier, side, mapKey, nAI) {
   alr.phase = 'loading';                 // (the old game stops here, not when the new one's ready)
   alr.cfg = tier;
-  side = side || alr.side || 'A';
-  alr.side = side;
+  // `side` is a faction ('crown') or, as before, an army ('A' / 'F': its first faction)
+  let faction = ALR_FACTIONS[side] ? side : ALR_FACTIONS[alr.faction] && !side ? alr.faction : null;
+  side = faction ? ALR_FACTIONS[faction].side : side || alr.side || 'A';
+  if (!faction || ALR_FACTIONS[faction].side !== side) faction = ALR_FACTION_OF[side][0];
+  alr.side = side; alr.faction = faction;
   const def = alrMapDef(mapKey || alr.mapKey), K = def.ring[0];
   alr.mapKey = def.key;
   nAI = alrClamp(nAI || alr.nAI || 1, 1, K - 1);
@@ -427,9 +469,11 @@ function alrNewGame(tier, side, mapKey, nAI) {
   const slots = [], sides = [side];
   for (let i = 0; i < m; i++) slots.push((Math.floor(i * K / m) + off) % K);
   for (let i = 1; i < m; i++) sides.push(i === 1 ? other : Math.random() < 0.5 ? 'A' : 'F');
+  const facs = sides.map((sd, i) => (i === 0 ? faction : ALR_FACTION_OF[sd][(Math.random() * 3) | 0]));
   alr.players = slots.map((st, i) => ({
-    id: i, human: i === 0, side: sides[i], start: st,
-    team: Object.assign({}, ALR_TEAMS[i], { name: ALR_SIDES[sides[i]].name + (m > 2 && i > 0 ? ' · ' + ALR_TEAMS[i].tag : '') }),
+    id: i, human: i === 0, side: sides[i], faction: facs[i], start: st,
+    team: Object.assign({}, ALR_TEAMS[i], { name: ALR_FACTIONS[facs[i]].name + (m > 2 && i > 0 ? ' · ' + ALR_TEAMS[i].tag : '') }),
+    power: ALR_FACTIONS[facs[i]].power ? { kind: ALR_FACTIONS[facs[i]].power.kind, t: ALR_FACTIONS[facs[i]].power.first } : null,
     credits: 7500, make: 0, use: 0, low: false,
     q: { bld: [], def: [], inf: [], veh: [] }, ready: { bld: null, def: null },
     shroud: new Uint8Array(ALR_N * ALR_N), ai: i > 0 ? alrAINew(i) : null, lost: false, underAttack: 0,
@@ -472,7 +516,7 @@ function alrNewGame(tier, side, mapKey, nAI) {
 function alrSpawnBld(type, owner, tx, tz, instant) {
   const D = ALR_BLD[type];
   const e = { id: alr.nid++, kind: 'bld', type, D, owner, tx, tz, w: D.w, h: D.h, x: tx + D.w / 2, z: tz + D.h / 2,
-    hp: D.hp, max: D.hp, build: instant ? 1 : 0, cool: 0, tYaw: owner === 0 ? Math.PI * 0.75 : -Math.PI * 0.25, target: null, flash: 0,
+    hp: Math.round(D.hp * alrMod(owner, D, 'hp')), max: Math.round(D.hp * alrMod(owner, D, 'hp')), build: instant ? 1 : 0, cool: 0, tYaw: owner === 0 ? Math.PI * 0.75 : -Math.PI * 0.25, target: null, flash: 0,
     repair: false, sell: 0, anim: Math.random() * 6, door: 0, charge: 0, lastHit: 0 };
   alr.ents.push(e); alr.byId.set(e.id, e);
   for (let j = 0; j < D.h; j++) for (let i = 0; i < D.w; i++) alr.M.bld[(tz + j) * ALR_N + tx + i] = e.id;
@@ -519,7 +563,7 @@ function alrBridgeUp(B) {
 function alrSpawnUnit(type, owner, x, z) {
   const D = ALR_UNIT[type];
   const e = { id: alr.nid++, kind: 'unit', type, D, owner, x, z, yaw: owner === 0 ? Math.PI * 0.75 : -Math.PI * 0.25, tYaw: 0,
-    hp: D.hp, max: D.hp, path: null, pi: 0, order: null, target: null, cool: Math.random() * 0.5, flash: 0, walk: Math.random() * 6,
+    hp: Math.round(D.hp * alrMod(owner, D, 'hp')), max: Math.round(D.hp * alrMod(owner, D, 'hp')), spd: alrMod(owner, D, 'speed'), sight: D.sight + alrMod(owner, D, 'sight'), path: null, pi: 0, order: null, target: null, cool: Math.random() * 0.5, flash: 0, walk: Math.random() * 6,
     stuck: 0, repathT: 0, acqT: Math.random() * 0.5, cargo: 0, hstate: '', hT: 0, recoil: 0, lastHit: 0, guardX: x, guardZ: z, vx: 0, vz: 0,
     alt: D.air ? (D.air === 'jet' ? 0.12 : D.alt) : 0, xp: 0, rank: 0, ammo: D.ammo || 0, cool2: 0, still: 0, deployed: false };
   if (D.carry) { e.load = []; e.rot = Math.random() * 6; e.dropT = 0; }
@@ -591,6 +635,7 @@ function alrCanBuild(P, type) {
   const D = ALR_BLD[type] || ALR_UNIT[type];
   if (!D || !D.cat || !P.side) return false;
   if (D.side && D.side !== P.side) return false;            // the other army's
+  if (D.faction && D.faction !== P.faction) return false;   // another faction's own
   if (!alrHas(P.id, 'hq') && (D.cat === 'bld' || D.cat === 'def')) return false;
   if (D.cat === 'inf' && !alrHas(P.id, 'barracks')) return false;
   if (D.air === 'jet') { if (!alrHas(P.id, 'airhq')) return false; }      // jets come off the pads, four to a command
@@ -620,7 +665,7 @@ function alrQueue(P, type) {
 // right-click a cameo: hold the one in progress, a second time cancels it (money back)
 function alrUnqueue(P, type) {
   const D = ALR_BLD[type] || ALR_UNIT[type], cat = D.cat, q = P.q[cat];
-  if ((cat === 'bld' || cat === 'def') && P.ready[cat] === type) { P.ready[cat] = null; P.credits += D.cost; if (alr.place && alr.place.type === type) alr.place = null; alrSfx('click'); return; }
+  if ((cat === 'bld' || cat === 'def') && P.ready[cat] === type) { P.ready[cat] = null; P.credits += alrCost(P, D); if (alr.place && alr.place.type === type) alr.place = null; alrSfx('click'); return; }
   let i = -1; for (let k = q.length - 1; k >= 0; k--) if (q[k].type === type) { i = k; break; }
   if (i < 0) return;
   const it = q[i];
@@ -639,13 +684,14 @@ function alrProduce(P, dt) {
     // more factories, faster; low power, half speed; the CPU's tier sets its pace
     const nf = cat === 'inf' ? alrBldsOf(P.id, 'barracks').length : cat === 'veh' ? alrBldsOf(P.id, 'factory').length : 1;
     // (RA2: each extra factory of the kind multiplies the build time by 0.8)
-    let rate = D.cost / D.time / Math.pow(0.8, Math.max(0, nf - 1)) * (P.low ? 0.5 : 1);
+    const cost = alrCost(P, D);
+    let rate = cost / (D.time * alrMod(P.id, D, 'time')) / Math.pow(0.8, Math.max(0, nf - 1)) * (P.low ? 0.5 : 1);
     if (!P.human) rate *= alr.cfg.cpu;
-    let pay = Math.min(rate * dt, D.cost - it.spent, P.credits);
-    if (pay <= 0 && it.spent < D.cost) { if (P.human && !P.broke) { P.broke = true; alrSay('INSUFFICIENT FUNDS', '#ff8a7a'); alrSfx('error'); } continue; }
+    let pay = Math.min(rate * dt, cost - it.spent, P.credits);
+    if (pay <= 0 && it.spent < cost) { if (P.human && !P.broke) { P.broke = true; alrSay('INSUFFICIENT FUNDS', '#ff8a7a'); alrSfx('error'); } continue; }
     P.broke = false;
     it.spent += pay; P.credits -= pay;
-    if (it.spent >= D.cost - 0.01) {
+    if (it.spent >= cost - 0.01) {
       q.shift();
       if (cat === 'bld' || cat === 'def') {
         P.ready[cat] = it.type;
@@ -660,7 +706,7 @@ function alrDeliver(P, type) {
   if (D.air === 'jet') {
     // a jet appears on a free pad, parked and armed
     const pad = alrFreePad(P.id);
-    if (!pad) { P.credits += D.cost; return; }
+    if (!pad) { P.credits += alrCost(P, D); return; }
     const b = alr.byId.get(pad.b), [px, pz] = alrPadPos(b, pad.i);
     const u = alrSpawnUnit(type, P.id, px, pz);
     u.pad = pad; u.jet = 'pad'; u.yaw = Math.PI; u.ammo = D.ammo;
@@ -727,7 +773,7 @@ function alrRepathAround(b) { for (const e of alr.ents) if (e.kind === 'unit' &&
 function alrSell(e) {
   if (e.kind !== 'bld' || e.sell || e.D.tech) return;        // a captured derrick can't be sold (RA2's rule)
   e.sell = 1;
-  alr.players[e.owner].credits += Math.round((e.D.cost || 1500) * 0.5 * e.hp / e.max);
+  alr.players[e.owner].credits += Math.round((e.D.cost ? alrCost(alr.players[e.owner], e.D) : 1500) * 0.5 * e.hp / e.max);
   if (e.owner === 0) { alrSfx('sell'); alrSay('BUILDING SOLD', '#ffe08a'); }
 }
 
@@ -927,11 +973,48 @@ function alrDisembark(p, h, i) {
   alr.ents.push(p); alr.byId.set(p.id, p);
 }
 
+// ---- the Nugget Republic's SKY DROP (RA2's American paratroopers): a cargo plane crosses from the map's edge and
+// six troopers come down by parachute where you clicked. Every 4 minutes (the first at 2:30).
+function alrPowerReady(P) { return !!(P && P.power && P.power.t <= 0 && !P.lost); }
+function alrSkyDrop(P, x, z) {
+  if (!alrPowerReady(P) || !alrIn(x, z)) return false;
+  const F = ALR_FACTIONS[P.faction];
+  P.power.t = (F && F.power ? F.power.every : 240);
+  // in from the nearest edge of the map to this player's yard, over the drop, and out the other side
+  const st = alr.M.starts[P.start] || [x, z], dx = x - st[0], dz = z - st[1], L = Math.hypot(dx, dz) || 1;
+  const ux = dx / L, uz = dz / L, far = ALR_N * 0.75;
+  alr.drops = alr.drops || [];
+  alr.drops.push({ owner: P.id, x: x - ux * far, z: z - uz * far, tx: x, tz: z, ux, uz, speed: 7, n: 6, dropped: 0, t: 0 });
+  if (P.human) { alrSay('SKY DROP INBOUND', '#9be7ff'); alrSfx('click'); }
+  return true;
+}
+function alrDropsStep(dt) {
+  if (!alr.drops || !alr.drops.length) return;
+  for (const d of alr.drops) {
+    d.t += dt; d.x += d.ux * d.speed * dt; d.z += d.uz * d.speed * dt;
+    const along = (d.x - d.tx) * d.ux + (d.z - d.tz) * d.uz;     // < 0 before the drop point, > 0 after
+    // over the point: out they go, one every 0.15 s, a little spread
+    if (along > -0.6 && d.dropped < d.n && (d.next = (d.next || 0) - dt) <= 0) {
+      d.next = 0.15;
+      const P = alr.players[d.owner], type = P.side === 'F' ? 'conscript' : 'inf';
+      const k = d.dropped++, a = k * 2.4, r = 0.4 + (k % 3) * 0.3;
+      let px = d.x + Math.cos(a) * r, pz = d.z + Math.sin(a) * r;
+      if (!alrIn(px, pz) || !alrPassable(alrTile(px, pz))) { const kk = alrNearestFree(alrTile(alrClamp(d.tx, 1, ALR_N - 2), alrClamp(d.tz, 1, ALR_N - 2)), null); if (kk < 0) continue; px = kk % ALR_N + 0.5; pz = Math.floor(kk / ALR_N) + 0.5; }
+      const u = alrSpawnUnit(type, d.owner, px, pz);
+      u.alt = 3.0; u.chute = true; u.yaw = u.tYaw = Math.atan2(d.ux, d.uz);
+    }
+    if (along > ALR_N) d.done = true;
+  }
+  alr.drops = alr.drops.filter((d) => !d.done);
+}
+
 // ---- the sim -------------------------------------------------------------------------------------------------
 function alrSim(dt) {
   alr.t += dt;
+  alrDropsStep(dt);
   for (const P of alr.players) {
     if (P.lost || P.neutral) continue;
+    if (P.power && P.power.t > 0) { P.power.t -= dt; if (P.power.t <= 0 && P.human) { alrSay('SKY DROP READY', '#9bff9b'); alrSfx('ready'); } }
     alrProduce(P, dt);
     if (P.ai) alrAIStep(P, dt);
     else if (alr.auto && P.id === 0) { P.ai = P.ai || alrAINew(0); alrAIStep(P, dt); }
@@ -985,6 +1068,7 @@ function alrUnitStep(u, dt) {
   if ((D.heal || u.rank === 2) && u.hp < u.max) u.hp = Math.min(u.max, u.hp + ((D.heal || 0) + (u.rank === 2 ? u.max * 0.008 : 0)) * dt);
   if (D.air === 'jet') { alrJetStep(u, dt); return; }
   if (D.air === 'heli') { alrHeliStep(u, dt); return; }
+  if (u.chute) { u.alt -= dt * 1.1; u.walk = 0; if (u.alt <= 0) { u.alt = 0; u.chute = false; u.guardX = u.x; u.guardZ = u.z; } return; }
   if (u.order && u.order.type === 'board') { alrBoardStep(u, dt); return; }
   if (D.air) u.alt += (D.alt - u.alt) * Math.min(1, dt * 2);
   if (D.engineer) { alrEngineerStep(u, dt); return; }
@@ -1065,7 +1149,7 @@ function alrFollow(u, dt) {
   const turn = u.D.turn || 9;
   u.yaw += alrClamp(da, -turn * dt, turn * dt);
   const align = u.D.cat === 'inf' ? 1 : Math.max(0, Math.cos(da));
-  let sp = u.D.speed * ALR_RANK[u.rank].speed * align * (u.D.cat === 'veh' && Math.abs(da) > 0.9 ? 0.15 : 1);
+  let sp = u.D.speed * (u.spd || 1) * ALR_RANK[u.rank].speed * align * (u.D.cat === 'veh' && Math.abs(da) > 0.9 ? 0.15 : 1);
   if (last) sp = Math.min(sp, d * 4);
   const nx = u.x + Math.sin(u.yaw) * sp * dt, nz = u.z + Math.cos(u.yaw) * sp * dt;
   const k = alrTile(nx, nz);
@@ -1488,6 +1572,19 @@ function alrFire(e, t, W) {
       if (W.kind === 'bullet') { alrHit(t, W, e, mul); alrFxTracer(m, a); alrFxMuzzle(m, 0.18); }
       else if (W.kind === 'melee') { e.leap = 0.3; alrHit(t, W, e, mul); }
       else if (W.kind === 'zap') { alrHit(t, W, e, mul); alrFxZap(m, a); }
+      else if (W.kind === 'grease') {
+        // boiling grease: a spray at the target, and everyone of theirs standing in it gets a coat
+        alrHit(t, W, e, mul);
+        for (const q of alr.ents.slice()) if (q !== t && q.owner !== e.owner && q.owner !== alr.NEU && q.hp > 0 && !alrAirborne(q) && alrDistTo(t.x, t.z, q) < W.splash) alrHit(q, W, e, 0.6 * mul);
+        if (typeof alrFxGrease === 'function') alrFxGrease(m, a, W.splash);
+      } else if (W.kind === 'kaboom') {
+        // the Fry Bomber: there's no second shot
+        const bx = e.x, bz = e.z;
+        alrHit(t, W, e, mul);
+        for (const q of alr.ents.slice()) if (q !== t && q !== e && q.owner !== e.owner && q.owner !== alr.NEU && q.hp > 0 && !alrAirborne(q) && alrDistTo(bx, bz, q) < W.splash) alrHit(q, W, e, 0.6 * mul);
+        alrFxBoom(bx, 0.3, bz, 1.6);
+        if (alr.byId.has(e.id)) { e.hp = 0; alrKill(e, null); }
+      }
       else if (W.kind === 'flak') { alrHit(t, W, e, mul); alrFxTracer(m, a); alrFxFlak(a); alrFxMuzzle(m, 0.25); }
       else if (W.kind === 'beam') {
         alrHit(t, W, e, mul); alrFxPrism(m, a, 1 + (mul - 1) * 0.4);
@@ -1521,7 +1618,7 @@ function alrShotsStep(dt) {
     s.t += dt;
     const u = Math.min(1, s.t / s.T);
     // a rocket lofts a little, a V3 goes way up and comes down on it, a bomb just falls
-    const arc = s.kind === 'v3' ? Math.sin(u * Math.PI) * 3.2 : s.kind === 'rocket' ? Math.sin(u * Math.PI) * 0.35 : s.kind === 'bomb' ? 0 : Math.sin(u * Math.PI) * 0.12;
+    const arc = s.W && s.W.lob ? Math.sin(u * Math.PI) * s.W.lob : s.kind === 'v3' ? Math.sin(u * Math.PI) * 3.2 : s.kind === 'rocket' ? Math.sin(u * Math.PI) * 0.35 : s.kind === 'bomb' ? 0 : Math.sin(u * Math.PI) * 0.12;
     const uu = s.kind === 'bomb' || s.kind === 'gravy' ? u * u : u;
     s.px = s.x; s.py = s.y; s.pz = s.z;
     s.x = s.a[0] + (s.b[0] - s.a[0]) * uu; s.z = s.a[2] + (s.b[2] - s.a[2]) * uu; s.y = s.a[1] + (s.b[1] - s.a[1]) * uu + arc;
@@ -1533,7 +1630,7 @@ function alrShotsStep(dt) {
       // splash: everything else of theirs near the blast takes half
       if (s.W.splash) for (const q of alr.ents.slice()) if (q !== t && q.owner !== s.owner && q.owner !== alr.NEU && q.hp > 0 && !alrAirborne(q) && alrDistTo(s.x, s.z, q) < s.W.splash) alrHit(q, s.W, from, 0.5 * s.mul);
       if (s.kind === 'gravy') alrGravyLand(s.x, s.z, s.owner, s.from);
-      else if (s.kind === 'v3' || s.kind === 'bomb') alrFxBoom(s.x, 0.2, s.z, s.kind === 'bomb' ? 1.1 : 0.9);
+      else if (s.kind === 'v3' || s.kind === 'bomb' || (s.W && s.W.lob)) alrFxBoom(s.x, 0.2, s.z, s.kind === 'bomb' ? 1.1 : 0.9);
       else if (alrAirborne(t || {})) alrFxFlak([s.x, s.y, s.z]);
       else alrFxBlast(s.x, s.y, s.z, s.kind === 'rocket' ? 0.55 : 0.45);
     }
@@ -1636,7 +1733,7 @@ function alrReveal(P, x, z, r) {
       if (v > S[k]) { S[k] = v; alr.shroudDirty = true; }
     }
 }
-function alrRevealAll() { const P = alr.players[0]; for (const e of alr.ents) if (e.owner === 0) alrReveal(P, e.x, e.z, e.D.sight || 5); }
+function alrRevealAll() { const P = alr.players[0]; for (const e of alr.ents) if (e.owner === 0) alrReveal(P, e.x, e.z, e.sight || e.D.sight || 5); }
 
 // ---- the end --------------------------------------------------------------------------------------------------
 function alrCheckEnd() {
@@ -1678,8 +1775,9 @@ const ALR_AI_ORDER = {
   F: ['powerF', 'refinery', 'barracks', 'powerF', 'factory', 'radar', 'refinery', 'powerF', 'depot', 'labF', 'powerF', 'factory', 'powerF', 'barracks', 'powerF', 'powerF'],
 };
 const ALR_AI_DEF = { A: { ground: ['bunker', 'prism'], air: 'sam' }, F: { ground: ['turret', 'tesla'], air: 'flak' } };
-const ALR_AI_INF = { A: [['inf', 6], ['dog', 1], ['jetpack', 2]], F: [['conscript', 5], ['zapper', 2], ['rocket', 2], ['dog', 1]] };
-const ALR_AI_VEH = { A: [['tank', 5], ['ifv', 2], ['prismtank', 3], ['mirage', 2]], F: [['heavy', 5], ['flaktrack', 2], ['v3', 2], ['apoc', 3]] };
+// (the factions' own are in the lists too: alrAIPick skips what this CPU's faction can't build)
+const ALR_AI_INF = { A: [['inf', 6], ['dog', 1], ['jetpack', 2], ['sniper', 2]], F: [['conscript', 5], ['zapper', 2], ['rocket', 2], ['dog', 1], ['greaser', 3], ['bomber', 2]] };
+const ALR_AI_VEH = { A: [['tank', 5], ['ifv', 2], ['prismtank', 3], ['mirage', 2]], F: [['heavy', 5], ['flaktrack', 2], ['v3', 2], ['apoc', 3], ['teslaspud', 4]] };
 function alrAINew(id) { return { step: 0, think: 0, waveT: null, wave: 0, rally: null, army: [], lastAttack: -999, jetT: 70 }; }
 // a weighted pick of what it can build right now (anti-air counts triple once the enemy flies)
 function alrAIPick(P, list, enemyAir) {
@@ -1720,6 +1818,11 @@ function alrAIStep(P, dt) {
   const enemy = alrAIEnemy(P, hq);
   if (enemy == null) return;
   const enemyAir = alr.ents.some((e) => e.owner !== me && alrRival(e.owner) && (e.kind === 'unit' ? !!e.D.air : e.type === 'airhq'));
+  // the Sky Drop: onto trouble at home, else onto the rival's outskirts (short of its yard: defenses)
+  if (alrPowerReady(P)) {
+    if (P.underAttack > 0 && P.attackedAt) alrSkyDrop(P, P.attackedAt[0], P.attackedAt[1]);
+    else { const eq = alrBldsOf(enemy, 'hq')[0]; if (eq) { const dx = hq.x - eq.x, dz = hq.z - eq.z, L = Math.hypot(dx, dz) || 1; alrSkyDrop(P, eq.x + dx / L * 9, eq.z + dz / L * 9); } }
+  }
   // 1) the build order (it skips what it can't build yet, and rebuilds what it lost)
   if (!P.q.bld.length && !P.ready.bld) {
     const have = {}; for (const e of alr.ents) if (e.kind === 'bld' && e.owner === me) have[e.type] = (have[e.type] || 0) + 1;
@@ -1738,7 +1841,8 @@ function alrAIStep(P, dt) {
     const goal = Math.min(7, 1 + Math.floor(alr.t / 110));
     if (defs.length < goal && P.credits > 900) {
       let t;
-      if (enemyAir && aa < 2 + Math.floor(defs.length / 3)) t = ALR_AI_DEF[side].air;
+      if (alrCanBuild(P, 'grandfryer') && defs.filter((e) => e.type === 'grandfryer').length < 1 + Math.floor(alr.t / 420) && defs.length >= 1) t = 'grandfryer';   // the Golden Coast's big guns
+      else if (enemyAir && aa < 2 + Math.floor(defs.length / 3)) t = ALR_AI_DEF[side].air;
       else { const g = ALR_AI_DEF[side].ground; t = alrCanBuild(P, g[1]) && defs.length % 2 ? g[1] : g[0]; }
       if (alrCanBuild(P, t)) alrQueue(P, t);
     }
