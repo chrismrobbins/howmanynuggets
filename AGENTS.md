@@ -3436,6 +3436,11 @@ red and green command type interface"*.
   shows me like 60% up and to the right"*. Don't flatten it again.) The camera box comes out a bit taller than
   the screen's aspect; that's the trade. `alrRadarXY` / `alrRadarInv` / the ground transform / the lobby's
   previews (`alrMapPreview`) all go through `alrRadarK()`.
+- **Animated cursors:** move / attack / attack-move are lists of 10 frames (`ALR_CURSOR.move` etc.),
+  flipped at `ALR_CURSOR_FPS` (14) by `alrUICursorTick()` from the render loop; the pointer handler sets
+  `U.cur` (a string or a frame list). The green arrows pulse in toward the point and back (fast in, slow
+  out), and the reticles close on the target. Chris: a fixed-size arrow was *"kind of clunky"*. CSS can't
+  animate a cursor, so it has to be frames.
 - **Radar orders** (`alrRadarDown/Move/Up`): with units (or a factory, for its rally point) selected, a click
   is an order: an enemy building on that tile, or an enemy unit within 1.4 tiles, means attack, otherwise
   a move (attack-move in A mode). A drag, or a click with nothing selected, moves the camera. A right-click

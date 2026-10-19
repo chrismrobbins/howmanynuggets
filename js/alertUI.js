@@ -431,6 +431,7 @@ const ALR_LIGHT = { sun: [1.1, 1.0, 0.86], sky: [0.5, 0.56, 0.68], ground: [0.33
 function alrUIRender(dt) {
   const U = alr.ui, M = alr.M, A = alrArt, cam = alr.cam;
   if (!M) return;
+  alrUICursorTick();
   const shk = alr.shake || 0;
   const sx = cam.x, sz = cam.z;
   if (shk > 0) { cam.x += alrRnd(-shk, shk); cam.z += alrRnd(-shk, shk); }
@@ -1051,19 +1052,35 @@ function alrPointerMove(e) {
   else if (h && h.owner !== 0 && mine) cur = ALR_CURSOR.attack;
   else if (h && h.owner === 0) cur = 'pointer';
   else if (mine) cur = ALR_CURSOR.move;
-  U.ov.style.cursor = cur;
+  U.cur = cur; alrUICursorTick(true);
+}
+// the animated cursors: the frame for now (called from the render loop and on every mouse move)
+function alrUICursorTick(force) {
+  const U = alr.ui, c = U.cur;
+  if (!c) return;
+  const f = Array.isArray(c) ? c[Math.floor(performance.now() / 1000 * ALR_CURSOR_FPS) % c.length] : c;
+  if (force || f !== U.curShown) { U.curShown = f; U.ov.style.cursor = f; }
 }
 // the cursors (SVG, drawn here; hot spot in the middle): move = four green arrows, attack = a red reticle,
-// attack-move = an orange reticle with arrows, capture = a gold arrow into a box, sell = $, repair = a wrench
+// attack-move = an orange reticle with arrows, capture = a gold arrow into a box, sell = $, repair = a wrench.
+// Move, attack and attack-move are ANIMATED as RA2's were — a list of frames that alrUICursorTick flips through:
+// the arrows pulse in to the point and back, the reticle closes on its target. (Chris: the green arrows were
+// "kind of clunky that it just stays one size".)
+const ALR_CURSOR_FPS = 14;
 const ALR_CURSOR = (() => {
   const svg = (body) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>${body}</svg>`)}") 16 16`;
-  const arrow = (c) => [0, 90, 180, 270].map((a) => `<path transform='rotate(${a} 16 16)' d='M16 2 L21 9 L18 9 L18 12 L14 12 L14 9 L11 9 Z' fill='${c}' stroke='#000' stroke-width='1.2'/>`).join('');
-  const ret = (c) => `<circle cx='16' cy='16' r='9' fill='none' stroke='#000' stroke-width='4'/><circle cx='16' cy='16' r='9' fill='none' stroke='${c}' stroke-width='2'/>` +
-    ['M16 1 V9', 'M16 23 V31', 'M1 16 H9', 'M23 16 H31'].map((d) => `<path d='${d}' stroke='#000' stroke-width='4'/><path d='${d}' stroke='${c}' stroke-width='2'/>`).join('') + `<circle cx='16' cy='16' r='2' fill='${c}' stroke='#000'/>`;
+  // d: how far the arrows have come in toward the point (0 = at the rim); k: their size
+  const arrow = (c, d = 0, k = 1) => [0, 90, 180, 270].map((a) => `<path transform='rotate(${a} 16 16) translate(0 ${d.toFixed(2)}) translate(16 7) scale(${k.toFixed(3)}) translate(-16 -7)' d='M16 2 L21 9 L18 9 L18 ${(12 - d).toFixed(2)} L14 ${(12 - d).toFixed(2)} L14 9 L11 9 Z' fill='${c}' stroke='#000' stroke-width='1.2'/>`).join('');
+  // r: the ring's radius; the four ticks ride in with it
+  const ret = (c, r = 9) => `<circle cx='16' cy='16' r='${r.toFixed(2)}' fill='none' stroke='#000' stroke-width='4'/><circle cx='16' cy='16' r='${r.toFixed(2)}' fill='none' stroke='${c}' stroke-width='2'/>` +
+    [[0, -1], [0, 1], [-1, 0], [1, 0]].map(([ux, uy]) => { const a = 15 - (9 - r) * 0.6, b = r; const d = `M${16 + ux * a} ${16 + uy * a} L${16 + ux * b} ${16 + uy * b}`; return `<path d='${d}' stroke='#000' stroke-width='4'/><path d='${d}' stroke='${c}' stroke-width='2'/>`; }).join('') + `<circle cx='16' cy='16' r='2' fill='${c}' stroke='#000'/>`;
+  // one beat: in fast, out slow (an ease, not a sine, so it reads as a pulse)
+  const N = 10, beat = (i) => { const t = i / N; return t < 0.35 ? Math.sin(t / 0.35 * Math.PI / 2) : Math.cos((t - 0.35) / 0.65 * Math.PI / 2); };
+  const frames = (f) => Array.from({ length: N }, (_, i) => f(beat(i)));
   return {
-    move: svg(arrow('#5cff6a') + `<circle cx='16' cy='16' r='2.5' fill='#5cff6a' stroke='#000'/>`) + ', cell',
-    attack: svg(ret('#ff3a2a')) + ', crosshair',
-    amove: svg(ret('#ff9a2a') + arrow('rgba(255,154,42,0.0)')) + ', crosshair',
+    move: frames((p) => svg(arrow('#5cff6a', p * 4, 1 - p * 0.18) + `<circle cx='16' cy='16' r='${(2.5 + p).toFixed(2)}' fill='#5cff6a' stroke='#000'/>`) + ', cell'),
+    attack: frames((p) => svg(ret('#ff3a2a', 9 - p * 3)) + ', crosshair'),
+    amove: frames((p) => svg(ret('#ff9a2a', 9 - p * 3)) + ', crosshair'),
     capture: svg(`<rect x='9' y='13' width='14' height='12' fill='none' stroke='#000' stroke-width='4'/><rect x='9' y='13' width='14' height='12' fill='none' stroke='#ffd23a' stroke-width='2'/><path d='M16 2 L22 9 L18 9 L18 16 L14 16 L14 9 L10 9 Z' fill='#ffd23a' stroke='#000' stroke-width='1.2'/>`) + ', pointer',
     sell: svg(`<circle cx='16' cy='16' r='12' fill='#1a1a1a' stroke='#ffd23a' stroke-width='2'/><text x='16' y='22' font-size='17' font-family='Arial' font-weight='bold' text-anchor='middle' fill='#ffd23a'>$</text>`) + ', pointer',
     repair: svg(`<circle cx='16' cy='16' r='12' fill='#1a1a1a' stroke='#5cc8ff' stroke-width='2'/><path d='M10 22 L18 14 M18 14 a4 4 0 1 0 2 -6 l-2 2 l-1 -1 l2 -2 a4 4 0 0 0 -5 5' fill='none' stroke='#5cc8ff' stroke-width='2.4' stroke-linecap='round'/>`) + ', pointer',
