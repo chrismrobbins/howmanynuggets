@@ -126,7 +126,7 @@ async function alrSaveWrite(name) {
   alrPaidNote(true);
   const S = alrSaveEncode(), P = alr.players[0], def = alrMapDef(alr.mapKey);
   const packed = await alrPack(S);
-  const meta = { name, when: Date.now(), map: def.name, emoji: def.emoji, N: def.N, side: (P.faction && ALR_FACTIONS[P.faction] ? ALR_FACTIONS[P.faction].emoji + ' ' + ALR_FACTIONS[P.faction].name : ALR_SIDES[P.side].name), nAI: alr.nAI, tier: alr.cfg ? alr.cfg.name : '', t: alr.t, credits: Math.round(P.credits), v: ALR_SAVE_V, kb: Math.round((packed.b ? packed.b.byteLength : packed.s.length) / 1024) };
+  const meta = { name, when: Date.now(), map: def.name, emoji: def.emoji, N: def.N, side: (P.faction && ALR_FACTIONS[P.faction] ? ALR_FACTIONS[P.faction].name : ALR_SIDES[P.side].name), nAI: alr.nAI, tier: alr.cfg ? alr.cfg.name : '', t: alr.t, credits: Math.round(P.credits), v: ALR_SAVE_V, kb: Math.round((packed.b ? packed.b.byteLength : packed.s.length) / 1024) };
   await alrSaveTx(['meta', 'data'], 'readwrite', (tx) => { tx.objectStore('meta').put(meta); tx.objectStore('data').put(Object.assign({ name }, packed)); });
   return meta;
 }
@@ -215,7 +215,7 @@ function alrSavesOpen(mode) {
     ? `<div class="alr-card-t">SAVE GAME</div>
        <div class="alr-save-row"><input class="alr-save-name" type="text" maxlength="40" spellcheck="false" autocomplete="off" placeholder="call it anything">
        <button type="button" data-sv="save" class="alr-save-go">SAVE</button></div>
-       <div class="alr-save-hint">${def.emoji} ${def.name} · ${String(mm).padStart(2, '0')}:${String(Math.floor((alr.t || 0) % 60)).padStart(2, '0')} in · saved in this browser</div>
+       <div class="alr-save-hint">${def.name} · ${String(mm).padStart(2, '0')}:${String(Math.floor((alr.t || 0) % 60)).padStart(2, '0')} in · saved in this browser</div>
        <div class="alr-save-list"></div><button type="button" data-sv="back">BACK</button>`
     : `<div class="alr-card-t">LOAD GAME</div><div class="alr-save-list"></div><button type="button" data-sv="back">BACK</button>`;
   d.hidden = false;
@@ -247,7 +247,7 @@ function alrSavesRender() {
     const clock = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
     list.innerHTML = all.map((m) => `<div class="alr-save-item" data-name="${esc(m.name)}">
         <button type="button" class="alr-save-pick" data-sv="pick"><b>${esc(m.name)}</b>
-          <span>${m.emoji || ''} ${esc(m.map)} · ${esc(m.side)} vs ${m.nAI} · ${esc(m.tier)} · ${clock(m.t || 0)} · $${(m.credits || 0).toLocaleString()}</span>
+          <span>${esc(m.map)} · ${esc(String(m.side).replace(/\p{Extended_Pictographic}\uFE0F?\s*/gu, ''))} vs ${m.nAI} · ${esc(m.tier)} · ${clock(m.t || 0)} · $${(m.credits || 0).toLocaleString()}</span>
           <i>${new Date(m.when).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</i></button>
         ${d.mode === 'load' ? '<button type="button" class="alr-save-load" data-sv="load">LOAD</button>' : ''}
         <button type="button" class="alr-save-del" data-sv="del" title="delete">✕</button></div>`).join('');

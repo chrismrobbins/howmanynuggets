@@ -143,17 +143,17 @@ const ALR_WPN = {
 // own plus a strength and a weakness. mods multiply by class — inf, veh (ground vehicles), air (jets, helicopters),
 // bld (buildings), def (defenses): cost, hp, speed, time (build time); sight adds tiles.
 const ALR_FACTIONS = {
-  republic: { side: 'A', name: 'NUGGET REPUBLIC', emoji: '🦅', special: 'SKY DROP', what: 'six troopers by parachute, anywhere you can see, every 4 minutes',
+  republic: { show: 'paraplane', side: 'A', name: 'NUGGET REPUBLIC', emoji: '🦅', special: 'SKY DROP', what: 'six troopers by parachute, anywhere you can see, every 4 minutes',
     plus: 'aircraft −20% cost', minus: 'tanks −10% health', mods: { cost: { air: 0.8 }, hp: { veh: 0.9 } }, power: { kind: 'para', every: 240, first: 150 } },
-  crown:    { side: 'A', name: 'BREADCRUMB CROWN', emoji: '👑', special: 'CRUMB SNIPER', what: 'picks off infantry from 9 tiles out',
+  crown:    { show: 'sniper', side: 'A', name: 'BREADCRUMB CROWN', emoji: '👑', special: 'CRUMB SNIPER', what: 'picks off infantry from 9 tiles out',
     plus: 'infantry +15% health, see 2 tiles further', minus: 'vehicles +15% cost', mods: { hp: { inf: 1.15 }, sight: { inf: 2 }, cost: { veh: 1.15 } } },
-  coast:    { side: 'A', name: 'GOLDEN COAST', emoji: '🥖', special: 'GRAND FRYER', what: 'a giant cannon that shells anything 14 tiles out',
+  coast:    { show: 'grandfryer', side: 'A', name: 'GOLDEN COAST', emoji: '🥖', special: 'GRAND FRYER', what: 'a giant cannon that shells anything 14 tiles out',
     plus: 'buildings +25% health, defenses −15% cost', minus: 'every unit −10% speed', mods: { hp: { bld: 1.25, def: 1.25 }, cost: { def: 0.85 }, speed: { inf: 0.9, veh: 0.9, air: 0.9 } } },
-  union:    { side: 'F', name: 'TATER UNION', emoji: '🥔', special: 'TESLA SPUD', what: 'a Tesla coil on tracks',
+  union:    { show: 'teslaspud', side: 'F', name: 'TATER UNION', emoji: '🥔', special: 'TESLA SPUD', what: 'a Tesla coil on tracks',
     plus: 'vehicles +15% health', minus: 'infantry +20% cost', mods: { hp: { veh: 1.15 }, cost: { inf: 1.2 } } },
-  horde:    { side: 'F', name: 'HASH BROWN HORDE', emoji: '🌶️', special: 'GREASE GUNNER', what: 'sprays boiling grease; dug in, coats the ground around him',
+  horde:    { show: 'greaser', side: 'F', name: 'HASH BROWN HORDE', emoji: '🌶️', special: 'GREASE GUNNER', what: 'sprays boiling grease; dug in, coats the ground around him',
     plus: 'infantry −25% cost, train 25% faster', minus: 'buildings −20% health', mods: { cost: { inf: 0.75 }, time: { inf: 0.75 }, hp: { bld: 0.8, def: 0.8 } } },
-  cartel:   { side: 'F', name: 'CURLY CARTEL', emoji: '🌀', special: 'FRY BOMBER', what: 'runs in and blows up: wrecks tanks, buildings, bridges',
+  cartel:   { show: 'bomber', side: 'F', name: 'CURLY CARTEL', emoji: '🌀', special: 'FRY BOMBER', what: 'runs in and blows up: wrecks tanks, buildings, bridges',
     plus: 'every unit +15% speed', minus: 'every unit −12% health', mods: { speed: { inf: 1.15, veh: 1.15, air: 1.15 }, hp: { inf: 0.88, veh: 0.88, air: 0.88 } } },
 };
 const ALR_FACTION_OF = { A: ['republic', 'crown', 'coast'], F: ['union', 'horde', 'cartel'] };

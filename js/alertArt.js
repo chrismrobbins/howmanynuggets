@@ -586,6 +586,7 @@ function alrMeshUse() {
   alrArt.mesh = true;
   if (!alrGL.mat) { const L = alrMatLayers(256); alrGLMatTex(256, L.layers, ALR_MAT_SCALE, ALR_MAT_SPEC); }
   if (typeof alr !== 'undefined' && alr.ui && alr.ui.cameosBuilt && typeof alrBuildCameos === 'function') { alrBuildCameos(); alrUISide(true); }
+  if (typeof alr !== 'undefined' && alr.ui && alr.ui.setup && !alr.ui.setup.hidden && typeof alrSetupRender === 'function') { alr.ui.facArt = null; alrSetupRender(); }
   return true;
 }
 

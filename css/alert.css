@@ -101,47 +101,6 @@ body.alert-mode #alertWorld { display: block; }
 body.alert-mode .storm-hud { right: 250px; }
 @media (max-width: 900px) { .alr-side { width: 196px; } .alr-tabs button i { display: none; } body.alert-mode .storm-hud { right: 210px; } }
 
-/* ---- the skirmish setup (alrOpenSetup): maps down the left, the chosen one big on the right ---- */
-.alr-setup { position: absolute; inset: 0; z-index: 7; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;
-  background: radial-gradient(ellipse at 50% 30%, rgba(40,52,66,0.55), rgba(0,0,0,0.92)), #07090c; }
-.alr-setup[hidden] { display: none; }
-.alr-setup-panel { width: min(940px, 100%); max-height: 100%; display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; box-sizing: border-box; color: #dfe7f0;
-  background: linear-gradient(#232b35, #151a20); border: 2px solid #4a5868; border-radius: 6px; box-shadow: 0 0 0 1px #000, 0 20px 60px rgba(0,0,0,0.75); }
-.alr-setup-title { font: 900 26px Impact, "Arial Black", sans-serif; letter-spacing: 0.08em; color: #ff5a3a; text-shadow: 0 0 10px rgba(255,80,40,0.45); font-style: italic; }
-.alr-setup-title span { color: #ffcf4a; font-style: normal; font-size: 18px; margin-left: 8px; text-shadow: none; }
-.alr-setup-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; min-height: 0; }
-.alr-maps { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; min-height: 0; padding-right: 4px; }
-.alr-mapcard { display: flex; align-items: center; gap: 10px; padding: 6px; border: 1px solid #0b0e12; border-radius: 4px; cursor: pointer; text-align: left; color: inherit;
-  background: linear-gradient(#2a333e, #1c232b); box-shadow: inset 0 1px 0 #46525f; }
-.alr-mapcard canvas { width: 72px; height: 72px; flex: none; border-radius: 3px; background: #05070a; }
-.alr-mapcard:hover { box-shadow: inset 0 0 0 1px #9fc6ff; }
-.alr-mapcard.on { background: linear-gradient(#3d5a78, #263c52); box-shadow: inset 0 0 0 1px #9fc6ff, 0 0 10px rgba(120,180,255,0.35); }
-.alr-mapinfo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.alr-mapinfo b { font: 900 15px Impact, sans-serif; letter-spacing: 0.05em; color: #fff; }
-.alr-mapinfo span { font-size: 12px; color: #9fb0c2; letter-spacing: 0.04em; }
-.alr-setup-right { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
-.alr-setup-preview { align-self: center; border: 2px solid #0b0e12; border-radius: 4px; box-shadow: inset 0 0 0 1px #3a4652; line-height: 0; }
-.alr-setup-preview canvas { width: 220px; height: 220px; }
-.alr-setup-name { font: 900 16px Impact, sans-serif; letter-spacing: 0.05em; color: #ffcf4a; text-align: center; }
-.alr-setup-blurb { font-size: 12.5px; color: #b8c6d6; text-align: center; min-height: 2.6em; }
-.alr-opt { display: flex; flex-direction: column; gap: 3px; }
-.alr-opt label { font: 700 10px "Arial Narrow", sans-serif; letter-spacing: 0.14em; color: #8fa2b6; }
-.alr-seg { display: flex; gap: 3px; }
-.alr-seg button { flex: 1; height: 30px; border: 1px solid #0b0e12; border-radius: 3px; cursor: pointer; font: 700 11.5px "Arial Narrow", sans-serif; letter-spacing: 0.05em; color: #dfe7f0;
-  background: linear-gradient(#3a4552, #252d36); box-shadow: inset 0 1px 0 #56636f; }
-.alr-seg button.on { background: linear-gradient(#a8781e, #6a4808); box-shadow: inset 0 1px 0 #e0b050, 0 0 8px rgba(255,190,60,0.4); color: #fff; }
-.alr-seg button:disabled { opacity: 0.35; cursor: not-allowed; }
-.alr-seats { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
-.alr-seat { display: flex; align-items: center; gap: 7px; padding: 2px 4px; background: rgba(0,0,0,0.25); border-radius: 2px; }
-.alr-seat i { width: 12px; height: 12px; border-radius: 2px; box-shadow: 0 0 0 1px #000; }
-.alr-seat b { width: 44px; letter-spacing: 0.06em; }
-.alr-seat span { color: #9fb0c2; letter-spacing: 0.04em; }
-.alr-go { height: 42px; margin-top: 4px; border: 1px solid #0b0e12; border-radius: 4px; cursor: pointer; font: 900 20px Impact, sans-serif; letter-spacing: 0.12em; color: #fff;
-  background: linear-gradient(#3fa34e, #1f6a2c); box-shadow: inset 0 1px 0 #7fe08c, 0 0 12px rgba(80,220,100,0.35); }
-.alr-go:hover { background: linear-gradient(#4fb85e, #267a34); }
-.alr-setup-note { font-size: 11px; letter-spacing: 0.12em; color: #7e8fa2; text-align: center; }
-@media (max-width: 720px) { .alr-setup-body { grid-template-columns: 1fr; } .alr-setup-preview canvas { width: 160px; height: 160px; } }
-
 /* ---- saved games: the SAVE / LOAD panel (pause menu + the skirmish screen) ---- */
 .alr-saves { z-index: 30; width: min(560px, 92vw); max-width: min(560px, 92vw); display: flex; flex-direction: column; gap: 10px; }
 .alr-save-row { display: flex; gap: 8px; }
@@ -162,43 +121,91 @@ body.alert-mode .storm-hud { right: 250px; }
 .alr-saves .alr-save-del { width: 40px; flex: none; height: auto; background: linear-gradient(#5a2a26, #3a1a17); }
 .alr-saves .alr-save-del[data-sure] { width: 64px; background: linear-gradient(#a8322a, #6e1d18); }
 .alr-setup.alr-dim { filter: brightness(0.45) blur(1px); pointer-events: none; }
-.alr-setup-load { margin-top: 8px; width: 100%; height: 34px; border: 1px solid #0b0e12; border-radius: 4px; cursor: pointer; color: #cfe0f2;
-  font: 900 13px Impact, sans-serif; letter-spacing: 0.08em; background: linear-gradient(#2c3a4b, #1c2633); }
-.alr-setup-load:hover { background: linear-gradient(#3b4d63, #26333f); color: #fff; }
 
 /* ---- factions: the Sky Drop button, the faction picker on the skirmish screen ---- */
 .alr-btns .alr-sdrop { grid-column: 1 / -1; color: #9fb0c2; }
 .alr-btns .alr-sdrop[hidden] { display: none; }
 .alr-btns .alr-sdrop.ready { color: #fff; background: linear-gradient(#2f7a3c, #17451f); box-shadow: inset 0 1px 0 #7fe08f, 0 0 10px rgba(90,255,120,0.45); animation: alr-blink 1.2s steps(2) infinite; }
-.alr-facs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
-.alr-facs .alr-fac-h { grid-column: 1 / -1; font: 900 11px Impact, sans-serif; letter-spacing: 0.1em; color: #8ea0b4; margin-top: 2px; }
-.alr-fac { text-align: left; padding: 6px 7px; border: 1px solid #0b0e12; border-radius: 4px; cursor: pointer; background: linear-gradient(#25303d, #19212b); color: #cfe0f2;
-  display: flex; flex-direction: column; gap: 2px; min-width: 0; font: 400 10.5px "Arial", sans-serif; line-height: 1.25; }
-.alr-fac b { font: 900 12.5px Impact, sans-serif; letter-spacing: 0.04em; color: #ffd23a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.alr-fac .sp { color: #fff; font-weight: 700; }
-.alr-fac .pl { color: #8fe39b; } .alr-fac .mi { color: #ff9a8a; }
-.alr-fac:hover { background: linear-gradient(#2f3d4e, #1f2935); }
-.alr-fac.on { border-color: #ffcf4a; box-shadow: 0 0 0 1px #ffcf4a, 0 0 10px rgba(255,200,60,0.35); background: linear-gradient(#3a3420, #221d10); }
-/* the skirmish screen with factions: maps | the match | the six factions (it had grown past the screen) */
-.alr-setup-panel { width: min(1240px, 100%); }
-.alr-setup-body { grid-template-columns: 270px minmax(0, 1fr); overflow-y: auto; }
-.alr-setup-right { display: grid; grid-template-columns: 250px minmax(0, 1fr); column-gap: 16px; row-gap: 7px; align-content: start; }
-.alr-setup-right > * { grid-column: 1; }
-.alr-setup-right > .alr-opt-fac { grid-column: 2; grid-row: 1 / span 12; align-self: start; }
-.alr-setup-preview canvas { width: 200px; height: 200px; }
-.alr-fac { padding: 7px 8px; font-size: 11.5px; }
-.alr-fac b { font-size: 14px; white-space: normal; }
-@media (max-width: 980px) {
-  .alr-setup-body { grid-template-columns: 1fr; }
-  .alr-setup-right { grid-template-columns: 1fr; }
-  .alr-setup-right > .alr-opt-fac { grid-column: 1; grid-row: auto; }
-  .alr-facs { grid-template-columns: repeat(2, 1fr); }
+
+/* ---- the skirmish screen (alrOpenSetup): RA2's console — flat steel panels, thin rules, one amber accent, the
+   game's own renders in place of icons. Three columns: battlefield list | the match | the faction. ---- */
+.alr-setup { position: absolute; inset: 0; z-index: 7; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; background: #06080a; }
+.alr-setup[hidden] { display: none; }
+.alr-sk { --sk-bg: #12171d; --sk-panel: #161c23; --sk-line: #2a333d; --sk-text: #d6dee6; --sk-dim: #7d8b99; --sk-amber: #d9a23a; --sk-sel: #1f2a35;
+  --sk-head: 'Oswald', 'Bahnschrift', 'Avenir Next Condensed', 'Roboto Condensed', 'Arial Narrow', sans-serif;
+  --sk-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  width: min(1240px, 100%); max-height: 100%; display: flex; flex-direction: column; box-sizing: border-box; color: var(--sk-text); font: 400 13px/1.45 var(--sk-body);
+  background: var(--sk-bg); border: 1px solid var(--sk-line); border-top: 3px solid var(--sk-amber); box-shadow: 0 24px 70px rgba(0,0,0,0.7); }
+.alr-sk-head { display: flex; align-items: baseline; gap: 14px; padding: 14px 20px 12px; border-bottom: 1px solid var(--sk-line); }
+.alr-sk-head h1 { margin: 0; font: 600 22px/1 var(--sk-head); letter-spacing: 0.14em; color: #f2f4f6; }
+.alr-sk-head span { font: 500 13px/1 var(--sk-head); letter-spacing: 0.3em; color: var(--sk-amber); }
+.alr-sk-body { display: grid; grid-template-columns: 280px 340px minmax(0, 1fr); min-height: 0; overflow-y: auto; }
+.alr-sk-col { padding: 14px 18px 16px; min-width: 0; }
+.alr-sk-col + .alr-sk-col { border-left: 1px solid var(--sk-line); }
+.alr-sk h2 { display: flex; align-items: center; gap: 10px; margin: 14px 0 7px; font: 500 11px/1 var(--sk-body); letter-spacing: 0.18em; text-transform: uppercase; color: var(--sk-dim); }
+.alr-sk h2::after { content: ''; flex: 1; height: 1px; background: var(--sk-line); }
+.alr-sk-col > h2:first-child { margin-top: 0; }
+/* the battlefield list */
+.alr-sk-maps { display: flex; flex-direction: column; border-top: 1px solid var(--sk-line); }
+.alr-sk-map { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto 28px; align-items: center; gap: 10px; padding: 6px 8px 6px 10px; border: 0; border-bottom: 1px solid var(--sk-line);
+  background: transparent; color: var(--sk-text); text-align: left; cursor: pointer; font: inherit; position: relative; }
+.alr-sk-map canvas { width: 44px; height: 44px; display: block; }
+.alr-sk-map .n { font: 500 15px/1.15 var(--sk-head); letter-spacing: 0.03em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.alr-sk-map .z, .alr-sk-map .p { font-size: 12px; color: var(--sk-dim); font-variant-numeric: tabular-nums; text-align: right; }
+.alr-sk-map:hover { background: #171f27; }
+.alr-sk-map.on { background: var(--sk-sel); }
+.alr-sk-map.on::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--sk-amber); }
+.alr-sk-map.on .n { color: #fff; }
+/* the match */
+.alr-sk-preview { line-height: 0; display: flex; justify-content: center; background: #080a0d; border: 1px solid var(--sk-line); }
+.alr-sk-preview canvas { width: 100%; max-width: 300px; height: auto; aspect-ratio: 1; }
+.alr-sk-mapname { margin-top: 10px; font: 600 20px/1.1 var(--sk-head); letter-spacing: 0.04em; color: #fff; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.alr-sk-mapname small { font: 400 12px var(--sk-body); color: var(--sk-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.alr-sk-mapblurb { margin-top: 4px; color: #a9b5c1; font-size: 12.5px; min-height: 2.9em; }
+.alr-sk-seats { display: flex; flex-direction: column; }
+.alr-sk-seat { display: grid; grid-template-columns: 10px 52px minmax(0, 1fr); align-items: center; gap: 10px; padding: 5px 2px; border-bottom: 1px solid #1c242c; font-size: 12.5px; }
+.alr-sk-seat i { width: 10px; height: 10px; }
+.alr-sk-seat b { font-weight: 600; }
+.alr-sk-seat span { color: #a9b5c1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alr-sk-seg { display: flex; border: 1px solid var(--sk-line); }
+.alr-sk-seg button { flex: 1; height: 30px; border: 0; background: transparent; color: var(--sk-text); cursor: pointer; font: 500 12.5px var(--sk-body); letter-spacing: 0.02em; }
+.alr-sk-seg button + button { border-left: 1px solid var(--sk-line); }
+.alr-sk-seg button:hover:not(:disabled) { background: #1a222b; }
+.alr-sk-seg button.on { background: var(--sk-sel); color: #fff; box-shadow: inset 0 -2px 0 var(--sk-amber); }
+.alr-sk-seg button:disabled { color: #4a5560; cursor: not-allowed; }
+/* the faction */
+.alr-sk-facs { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+.alr-sk-armyname { font: 500 11px var(--sk-body); letter-spacing: 0.14em; text-transform: uppercase; color: var(--sk-dim); padding: 0 0 5px; border-bottom: 1px solid var(--sk-line); }
+.alr-sk-fac { width: 100%; display: flex; align-items: center; gap: 10px; padding: 4px 8px 4px 6px; border: 0; border-bottom: 1px solid var(--sk-line); background: transparent;
+  color: var(--sk-text); cursor: pointer; text-align: left; position: relative; font: 500 15px/1.1 var(--sk-head); letter-spacing: 0.03em; }
+.alr-sk-fac img, .alr-sk-fac i { width: 40px; height: 40px; flex: none; display: block; }
+.alr-sk-fac i { background: #0c1014; }
+.alr-sk-fac:hover { background: #171f27; }
+.alr-sk-fac.on { background: var(--sk-sel); color: #fff; }
+.alr-sk-fac.on::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--sk-amber); }
+.alr-sk-detail { margin-top: 16px; display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 18px; align-items: start; }
+.alr-sk-pic { line-height: 0; background: #13181e; border: 1px solid var(--sk-line); aspect-ratio: 280 / 180; }
+.alr-sk-pic img { width: 100%; height: auto; display: block; }
+.alr-sk-dname { font: 600 24px/1.05 var(--sk-head); letter-spacing: 0.04em; color: #fff; }
+.alr-sk-dname small { display: block; margin-top: 4px; font: 500 11px var(--sk-body); letter-spacing: 0.14em; text-transform: uppercase; color: var(--sk-dim); }
+.alr-sk-detail dl { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 7px 12px; margin: 12px 0 0; }
+.alr-sk-detail dt { font: 500 10.5px/1.9 var(--sk-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--sk-dim); }
+.alr-sk-detail dd { margin: 0; color: #c9d3dc; }
+.alr-sk-detail dd b { display: block; font: 500 15px/1.3 var(--sk-head); letter-spacing: 0.03em; color: #fff; }
+.alr-sk-detail dd.pl { color: #9ccf9f; } .alr-sk-detail dd.mi { color: #dd9a8c; } .alr-sk-detail dd.core { color: var(--sk-dim); font-size: 12px; }
+/* the foot: the note, load, start */
+.alr-sk-foot { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-top: 1px solid var(--sk-line); background: #0f1419; }
+.alr-sk-foot span { flex: 1; font-size: 12px; color: var(--sk-dim); }
+.alr-sk-load { height: 38px; padding: 0 18px; border: 1px solid #3a4652; background: transparent; color: var(--sk-text); cursor: pointer; font: 500 13px var(--sk-body); letter-spacing: 0.04em; }
+.alr-sk-load:hover { border-color: #5b6977; background: #161d24; }
+.alr-sk .alr-go { height: 38px; min-width: 190px; padding: 0 22px; border: 0; background: var(--sk-amber); color: #15110a; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px;
+  font: 600 16px/1 var(--sk-head); letter-spacing: 0.22em; text-transform: uppercase; box-shadow: none; }
+.alr-sk .alr-go:hover { background: #e8b44c; }
+.alr-sk .alr-go kbd { font: 500 10px var(--sk-body); letter-spacing: 0.08em; padding: 2px 5px; border: 1px solid rgba(21,17,10,0.45); border-radius: 2px; text-transform: none; }
+.alr-sk button:focus-visible { outline: 2px solid var(--sk-amber); outline-offset: -2px; }
+@media (max-width: 1180px) { .alr-sk-body { grid-template-columns: 250px 300px minmax(0, 1fr); } .alr-sk-detail { grid-template-columns: 1fr; } .alr-sk-pic { max-width: 280px; } }
+@media (max-width: 900px) {
+  .alr-sk-body { grid-template-columns: 1fr; }
+  .alr-sk-col + .alr-sk-col { border-left: 0; border-top: 1px solid var(--sk-line); }
+  .alr-sk-foot { flex-wrap: wrap; } .alr-sk-foot span { flex-basis: 100%; }
 }
-.alr-setup-preview { justify-self: center; }
-.alr-fac-detail { grid-column: 1 / -1; margin-top: 8px; padding: 12px 14px; border: 1px solid #0b0e12; border-radius: 4px; background: linear-gradient(#1d2631, #141b23);
-  box-shadow: inset 0 0 0 1px #2c3946; font-size: 13px; line-height: 1.5; color: #cfe0f2; }
-.alr-fac-detail .fd-t { font: 900 22px Impact, sans-serif; letter-spacing: 0.05em; color: #ffd23a; }
-.alr-fac-detail .fd-t span { font-size: 13px; color: #8ea0b4; margin-left: 8px; letter-spacing: 0.08em; }
-.alr-fac-detail .fd-sp { color: #fff; font-weight: 700; margin: 2px 0 4px; }
-.alr-fac-detail .pl { color: #8fe39b; } .alr-fac-detail .mi { color: #ff9a8a; }
-.alr-fac-detail .fd-core { margin-top: 6px; color: #8ea0b4; font-size: 12px; }

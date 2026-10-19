@@ -1515,22 +1515,35 @@ function alrOpenSetup() {
   if (U) U.root.classList.remove('alr-playing');
   if (!U.setup) {
     const d = document.createElement('div'); d.className = 'alr-setup';
-    d.innerHTML = `<div class="alr-setup-panel">
-      <div class="alr-setup-title">🚨 NUGGET ALERT <span>SKIRMISH</span></div>
-      <div class="alr-setup-body">
-        <div class="alr-maps"></div>
-        <div class="alr-setup-right">
-          <div class="alr-setup-preview"></div>
-          <div class="alr-setup-name"></div><div class="alr-setup-blurb"></div>
-          <div class="alr-opt"><label>OPPONENTS</label><div class="alr-seg" data-k="ai"></div></div>
-          <div class="alr-opt alr-opt-fac"><label>YOUR FACTION</label><div class="alr-facs"></div></div>
-          <div class="alr-opt"><label>DIFFICULTY</label><div class="alr-seg" data-k="tier"></div></div>
-          <div class="alr-seats"></div>
-          <button type="button" class="alr-go">START</button>
-          <button type="button" class="alr-setup-load" data-act="loadgame">📂 LOAD A SAVED GAME</button>
-        </div>
+    d.innerHTML = `<div class="alr-sk">
+      <header class="alr-sk-head"><h1>NUGGET ALERT</h1><span>SKIRMISH</span></header>
+      <div class="alr-sk-body">
+        <section class="alr-sk-col alr-sk-mapcol">
+          <h2>Battlefield</h2>
+          <div class="alr-sk-maps" role="listbox"></div>
+        </section>
+        <section class="alr-sk-col alr-sk-match">
+          <div class="alr-sk-preview"></div>
+          <div class="alr-sk-mapname"></div>
+          <div class="alr-sk-mapblurb"></div>
+          <h2>Players</h2>
+          <div class="alr-sk-seats"></div>
+          <h2>Opponents</h2>
+          <div class="alr-sk-seg" data-k="ai"></div>
+          <h2>Difficulty</h2>
+          <div class="alr-sk-seg" data-k="tier"></div>
+        </section>
+        <section class="alr-sk-col alr-sk-faccol">
+          <h2>Faction</h2>
+          <div class="alr-sk-facs"></div>
+          <div class="alr-sk-detail"></div>
+        </section>
       </div>
-      <div class="alr-setup-note">free-for-all · destroy every rival's base · starts are dealt at random · Enter to start</div>
+      <footer class="alr-sk-foot">
+        <span>Free-for-all. Destroy every rival's base. Starting positions are dealt at random.</span>
+        <button type="button" class="alr-sk-load" data-act="loadgame">Load saved game</button>
+        <button type="button" class="alr-go">Start <kbd>Enter</kbd></button>
+      </footer>
     </div>`;
     U.root.appendChild(d);
     U.setup = d;
@@ -1547,54 +1560,90 @@ function alrOpenSetup() {
       else return;
       alrSetupRender();
     });
-    window.addEventListener('keydown', (e) => { if (alr.on && U.setup && !U.setup.hidden && e.code === 'Enter') { e.preventDefault(); alrSetupGo(); } });
+    window.addEventListener('keydown', (e) => { if (alr.on && U.setup && !U.setup.hidden && !(U.saves && !U.saves.hidden) && e.code === 'Enter') { e.preventDefault(); alrSetupGo(); } });
   }
   U.setup.hidden = false;
   alrSetupRender();
+}
+// the faction art on the skirmish screen, rendered from the game's own models (no emoji): each faction's banner
+// as its crest, and its own unit / building / the drop plane as the portrait. Made once the meshes are in.
+function alrSetupArt() {
+  const U = alr.ui;
+  if (U.facArt || !alrArt.mesh || !U.gl) return U.facArt || null;
+  const art = {}, team = ALR_TEAMS[0].col, bg = [0.075, 0.094, 0.114];
+  for (const k in ALR_FACTIONS) {
+    const F = ALR_FACTIONS[k], flag = alrArt.b['flag_' + k];
+    // (the banner hangs off +x of the pole, its faces along ±z: turned so a face looks at the camera, framed on the cloth and the finial)
+    if (flag) art[k + ':crest'] = alrGLCameo([{ mesh: flag, M: alrMul(alrTRS(0, -0.86, 0, Math.PI * 1.25), alrTRS(-0.17, 0, 0, 0)) }], team, 96, 96, 0.5, bg).toDataURL('image/png');
+    let parts = [], zoom = 1.6, lift = -0.18, yaw = Math.PI * 1.15;
+    if (F.show === 'paraplane' && alrArt.u.paraplane) { parts = [{ mesh: alrArt.u.paraplane, M: alrM4() }]; zoom = 1.75; lift = -0.12; yaw = Math.PI * 1.08; }
+    else if (ALR_BLD[F.show]) { parts = alrModelParts(F.show); zoom = 3.2; lift = -0.4; yaw = ALR_BLD_YAW + 0.25; }
+    else if (ALR_UNIT[F.show]) { parts = alrModelParts(F.show); zoom = ALR_UNIT[F.show].cat === 'inf' ? 0.95 : 1.7; lift = ALR_UNIT[F.show].cat === 'inf' ? -0.24 : -0.16; }
+    parts = parts.filter((q) => q.mesh).map((q) => ({ mesh: q.mesh, M: alrMul(alrTRS(0, lift, 0, yaw), q.M) }));
+    if (parts.length) art[k + ':show'] = alrGLCameo(parts, team, 280, 180, zoom, bg).toDataURL('image/png');
+  }
+  return (U.facArt = art);
 }
 function alrSetupRender() {
   const U = alr.ui, d = U.setup, c = U.setupCfg, def = alrMapDef(c.map), K = def.ring[0];
   c.ai = alrClamp(c.ai, 1, K - 1);
   if (c.tier === 'allout' && !alertProWon()) c.tier = 'pro';
-  // the map list (previews made once)
-  const list = d.querySelector('.alr-maps');
+  const esc = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  const title = (t) => esc(t.toLowerCase().replace(/(^|[\s·-])\S/g, (x) => x.toUpperCase()));
+  // the maps: a plain list — a small render, the name, size and seats in columns
+  const list = d.querySelector('.alr-sk-maps');
   if (!list.children.length) for (const m of ALR_MAPS) {
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'alr-mapcard'; b.dataset.map = m.key;
-    b.appendChild(U.mapThumbs[m.key] = alrMapPreview(m, 96, false));
-    const t = document.createElement('div'); t.className = 'alr-mapinfo';
-    t.innerHTML = `<b>${m.emoji} ${m.name}</b><span>${m.N}×${m.N} · up to ${m.ring[0]} players</span>`;
-    b.appendChild(t); list.appendChild(b);
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'alr-sk-map'; b.dataset.map = m.key;
+    b.appendChild(U.mapThumbs[m.key] = alrMapPreview(m, 88, false));
+    const t = document.createElement('span'); t.className = 'n'; t.textContent = title(m.name).replace(/&amp;/g, '&');
+    const z = document.createElement('span'); z.className = 'z'; z.textContent = m.N + '²';
+    const pl = document.createElement('span'); pl.className = 'p'; pl.textContent = m.ring[0] + 'P';
+    b.append(t, z, pl); list.appendChild(b);
   }
-  for (const b of list.children) b.classList.toggle('on', b.dataset.map === c.map);
-  // who sits where: you, then the CPUs (the first one fights as the other army; the rest are drawn at random)
+  for (const b of list.children) { const on = b.dataset.map === c.map; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); }
+  // the chosen map, big, with the seats on it
   const m = c.ai + 1, seats = {}, other = c.side === 'A' ? 'F' : 'A';
-  for (let i = 0; i < m; i++) seats[Math.floor(i * K / m)] = { css: ALR_TEAMS[i].css, label: i ? String(i) : '★' };
-  const pv = d.querySelector('.alr-setup-preview'); pv.innerHTML = ''; pv.appendChild(alrMapPreview(def, 260, true, seats));
-  d.querySelector('.alr-setup-name').textContent = def.emoji + ' ' + def.name + ' · ' + def.N + '×' + def.N;
-  d.querySelector('.alr-setup-blurb').textContent = def.blurb;
+  for (let i = 0; i < m; i++) seats[Math.floor(i * K / m)] = { css: ALR_TEAMS[i].css, label: i ? String(i) : 'Y' };
+  const pv = d.querySelector('.alr-sk-preview'); pv.innerHTML = ''; pv.appendChild(alrMapPreview(def, 300, true, seats));
+  d.querySelector('.alr-sk-mapname').innerHTML = `${title(def.name)}<small>${def.N} × ${def.N} · ${K} players</small>`;
+  d.querySelector('.alr-sk-mapblurb').textContent = def.blurb.charAt(0).toUpperCase() + def.blurb.slice(1) + (/[.!?]$/.test(def.blurb) ? '' : '.');
+  // the players
+  const F0 = ALR_FACTIONS[c.faction], rows = [];
+  for (let i = 0; i < m; i++) {
+    const who = i === 0 ? 'You' : 'CPU ' + i, what = i === 0 ? title(F0.name) : i === 1 ? title(ALR_SIDES[other].name) + ', random faction' : 'Random faction';
+    rows.push(`<div class="alr-sk-seat"><i style="background:${ALR_TEAMS[i].css}"></i><b>${who}</b><span>${what}</span></div>`);
+  }
+  d.querySelector('.alr-sk-seats').innerHTML = rows.join('');
   const seg = (k, items) => {
-    const el = d.querySelector(`.alr-seg[data-k="${k}"]`); el.innerHTML = '';
+    const el = d.querySelector(`.alr-sk-seg[data-k="${k}"]`); el.innerHTML = '';
     for (const it of items) { const b = document.createElement('button'); b.type = 'button'; b.dataset.v = it.v; b.textContent = it.t; b.disabled = !!it.off; b.title = it.title || ''; if (String(c[k]) === String(it.v)) b.classList.add('on'); el.appendChild(b); }
   };
-  seg('ai', [1, 2, 3, 4].map((n) => ({ v: n, t: String(n), off: n > K - 1, title: n > K - 1 ? 'this map seats ' + K : '' })));
-  { const fx = d.querySelector('.alr-facs'), h = [];
-    for (const sd of ['A', 'F']) {
-      h.push(`<div class="alr-fac-h">${ALR_SIDES[sd].emoji} ${ALR_SIDES[sd].name}</div>`);
-      for (const k of ALR_FACTION_OF[sd]) { const F = ALR_FACTIONS[k]; h.push(`<button type="button" class="alr-fac${c.faction === k ? ' on' : ''}" data-fac="${k}" title="${F.special}: ${F.what}"><b>${F.emoji} ${F.name}</b><span class="sp">★ ${F.special}</span><span class="pl">+ ${F.plus}</span><span class="mi">− ${F.minus}</span></button>`); }
+  seg('ai', [1, 2, 3, 4].map((n) => ({ v: n, t: String(n), off: n > K - 1, title: n > K - 1 ? 'This map seats ' + K : '' })));
+  seg('tier', ALR_TIERS.map((t) => ({ v: t.key, t: title(t.name), off: t.key === 'allout' && !alertProWon(), title: t.key === 'allout' && !alertProWon() ? t.lockNote : t.blurb })));
+  // the factions: two armies, three each, a crest and a name; the chosen one in full below
+  const art = alrSetupArt() || {}, h = [];
+  for (const sd of ['A', 'F']) {
+    h.push(`<div class="alr-sk-army"><div class="alr-sk-armyname">${title(ALR_SIDES[sd].name)}</div>`);
+    for (const k of ALR_FACTION_OF[sd]) {
+      const F = ALR_FACTIONS[k], cr = art[k + ':crest'];
+      h.push(`<button type="button" class="alr-sk-fac${c.faction === k ? ' on' : ''}" data-fac="${k}">${cr ? `<img alt="" src="${cr}">` : '<i></i>'}<span>${title(F.name)}</span></button>`);
     }
-    const F = ALR_FACTIONS[c.faction], S = ALR_SIDES[F.side];
-    h.push(`<div class="alr-fac-detail"><div class="fd-t">${F.emoji} ${F.name} <span>${S.emoji} ${S.name}</span></div>
-      <div class="fd-sp">★ ${F.special} — ${F.what}</div>
-      <div class="pl">+ ${F.plus}</div><div class="mi">− ${F.minus}</div>
-      <div class="fd-core">and the ${S.name.toLowerCase()}'s core: ${S.blurb}</div></div>`);
-    fx.innerHTML = h.join(''); }
-  seg('tier', ALR_TIERS.map((t) => ({ v: t.key, t: t.emoji + ' ' + t.name, off: t.key === 'allout' && !alertProWon(), title: t.key === 'allout' && !alertProWon() ? t.lockNote : t.blurb })));
-  const rows = [];
-  for (let i = 0; i < m; i++) {
-    const army = i === 0 ? ALR_FACTIONS[c.faction].emoji + ' ' + ALR_FACTIONS[c.faction].name : i === 1 ? ALR_SIDES[other].name + ' · random faction' : 'RANDOM FACTION';
-    rows.push(`<div class="alr-seat"><i style="background:${ALR_TEAMS[i].css}"></i><b>${i === 0 ? 'YOU' : 'CPU ' + i}</b><span>${army}</span></div>`);
+    h.push('</div>');
   }
-  d.querySelector('.alr-seats').innerHTML = rows.join('');
+  d.querySelector('.alr-sk-facs').innerHTML = h.join('');
+  const S0 = ALR_SIDES[F0.side], pic = art[c.faction + ':show'];
+  const what = F0.what.charAt(0).toUpperCase() + F0.what.slice(1) + '.';
+  d.querySelector('.alr-sk-detail').innerHTML = `
+    <div class="alr-sk-pic">${pic ? `<img alt="" src="${pic}">` : ''}</div>
+    <div class="alr-sk-dtext">
+      <div class="alr-sk-dname">${title(F0.name)}<small>${title(S0.name)}</small></div>
+      <dl>
+        <dt>Special</dt><dd><b>${title(F0.special)}</b> ${esc(what)}</dd>
+        <dt>Strength</dt><dd class="pl">${esc(F0.plus.charAt(0).toUpperCase() + F0.plus.slice(1))}</dd>
+        <dt>Weakness</dt><dd class="mi">${esc(F0.minus.charAt(0).toUpperCase() + F0.minus.slice(1))}</dd>
+        <dt>Army</dt><dd class="core">${esc(S0.blurb.charAt(0).toUpperCase() + S0.blurb.slice(1))}</dd>
+      </dl>
+    </div>`;
   alrSetupSave(c);
 }
 function alrSetupGo() {

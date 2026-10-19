@@ -3790,3 +3790,31 @@ before factions loads with no faction mods.
     *first* material colour (the orange breading rims on infantry vests). It's fixed opt-in:
     `Model.bevel_mat` / `FModel()`, used by the faction models. The older models still rebuild exactly as
     before; switching it on for them would change their look.
+
+### The skirmish screen, redone: no emoji, the game's own art (2026-10-19)
+Chris, on a screenshot of the faction picker: *"this looks like AI slop how do we clean this up. the icons are very
+AI with the island emoji and the blocks"*. What made it look generated:
+- an emoji on every map, faction, army and difficulty
+- six identical rounded cards that repeated, word for word, the detail panel under them
+- glowing italic Impact headings
+- glossy gradients on everything
+- ★ / + / − glyph lists
+
+It's now RA2's console look (`alrOpenSetup` / `alrSetupRender`, classes `.alr-sk-*`):
+- **Style:** flat steel panels with 1 px rules, one amber accent (the top rule, the selection bar, START), square
+  corners. Type is a condensed sans for names (`--sk-head`: Oswald / Bahnschrift / Avenir Next Condensed …)
+  and the system sans for everything else; labels are small uppercase.
+- **Columns:**
+  - **Battlefield:** a plain list (a 44 px render of the map, the name, `104²`, `4P`).
+  - **The match:** a big preview, the map name and blurb, a Players table, segmented Opponents and Difficulty.
+  - **Faction:** two armies × three rows, each a **crest** and a name.
+- **Crests and portraits** are rendered from the game's own models (`alrSetupArt`, cached in `U.facArt`, redrawn
+  when the mesh file lands): the crest is the faction's Blender banner, turned to face the camera and framed on
+  the cloth. The detail pane shows a 280×180 portrait of the faction's own unit or building (`F.show`: sniper,
+  grandfryer, teslaspud, greaser, bomber, or the Sky Drop's plane), then name, army, Special, Strength,
+  Weakness and Army as a definition list. Nothing is said twice.
+- **The foot:** the rules line, "Load saved game", and START (`Enter`).
+- **Gone:** the emoji in the save list and save hint as well (old saves' faction labels are stripped of pictographs
+  on display). The data keeps its `emoji` fields; the lobby just doesn't use them.
+- **Don't reintroduce:** emoji as icons, a card per option that repeats the detail, glow / gradient buttons.
+  Reach for a render of the actual model instead.
