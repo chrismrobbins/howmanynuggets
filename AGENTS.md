@@ -3060,3 +3060,59 @@ What changed (`js/blitz.js`, "🏈 THE CATCH"):
   films 8 moments (game cam + side cam). An arrival probe at `blzCatchResolve` measures how far
   short the receiver is. Film the FIRST case twice: the first sheet of a run comes out blank.
 
+## 🚨 NUGGET ALERT (game 21, mode `alert`, HIDDEN) — 2026-10-19
+
+Chris: *"Red Alert 2 is getting reverse engineered and recreated on the web … add the game to the
+mcnugget arcade … hidden behind a URL"*, then *"try to get graphics quality to at least RA2 standards"*.
+
+- **It is not RA2, on purpose.** EA never released RA2's source (only TD / RA1 / Renegade / Generals),
+  RA2 isn't freeware, and the one polished web port (Chrono Divide) is closed source, makes players
+  bring their own game files, and blocks iframes. The GitHub "ra2web" clones say they were decompiled
+  from Chrono Divide. So this is our own RTS in RA2's style, the way Nugget Blitz is ours and not NFL
+  Blitz: original art, names and rules. Never put "Red Alert" or "Command & Conquer" on screen.
+- **Hidden:** reachable only at `?play=alert` (the `MODE_HINTS` key is enough for the direct link).
+  There's no cabinet, no `data-mode` button, no games-list entry, and it's not in `NUG_DAILY_GAMES`. The
+  worker's `GAMES` allowlist doesn't have `alert` yet, so leaderboard posts for it are refused until
+  that's added and deployed.
+- **Files:** `js/alertGL.js` (WebGL2 renderer, no libraries), `js/alertArt.js` (every model and texture,
+  procedural), `js/alert.js` (rules, sim, pathfinding, CPU commander, lifecycle, `window.alertDebug`),
+  `js/alertUI.js` (world render, effects, sidebar, radar, input, synth, end card), `css/alert.css`.
+  Globals are `alr*` / `ALR_*` / `alert*`. The state object is `alr` (not `alert`: that's `window.alert`).
+- **The look (renderer):** an orthographic camera at yaw 45° / pitch 0.58 (RA2's grid read, no
+  perspective). One sun from the screen's upper left with a 2048 shadow map (hardware PCF, texel-snapped
+  so it doesn't crawl), a sky/ground hemisphere fill, specular on metal. Weathering is world-space noise
+  in the shader plus darkening near the ground. A tiled detail texture over the painted terrain keeps
+  close-ups sharp. A soft per-pixel shroud (an R8 N×N texture). One batched billboard pass handles fire,
+  smoke, sparks, tracers, Tesla bolts (midpoint-displaced, three strands), shock rings and ground decals.
+  Models are beveled `AlrMB` boxes, faceted cylinders and wedges, with a per-vertex team mask.
+- **Renderer gotchas that already bit:**
+  1. A face with a repeated point (a cone's apex) had a zero cross-product normal → NaN → black. Normals are Newell's now.
+  2. Culling is off; the shader flips the normal on back faces, so winding never matters.
+  3. The particle pass leaves the atlas on texture unit 0, which is the lit shader's `sampler2DShadow`;
+     a non-depth texture there silently fails every draw (the placement ghost vanished). Rebind before drawing again.
+  4. Buildings are drawn turned 180° (`ALR_BLD_YAW`) because the camera sees their −x/−z faces. Doors,
+     exits and the refinery dock open on the footprint's −z edge, and the turret head's world `tYaw`
+     has the turn subtracted.
+  5. `pointerenter` has no position: edge-scroll used a stale 0,0 and slid the camera into the shroud.
+     The pointer only counts as "in" after a `pointermove`.
+- **Rules:** a 64² map, mirrored for fairness: ore fields (regrow toward their start value), trees,
+  rocks, a worn track between the bases. FRY YARD builds GREASE PLANT (+100), SAUCE REFINERY (free
+  SAUCE HAULER), BOOT CAMP, TANK FRYER, SAUCE RADAR (minimap), NUG GUN, TESLA FRYER (needs power).
+  Units are NUG TROOPER, ROCKET NUG, BREADED TANK, DEEP FRYER (twin guns, needs radar) and the HAULER.
+  Low power halves production and switches off radar and Tesla. Credits are spent as you build (RA2
+  style). Buildings wait READY, then you place them within 2 tiles of your base. Sell refunds 50% and
+  pops 3 troopers; repair costs credits. A* is 8-dir with no corner cutting, and the path is smoothed.
+  Vehicles turn before they drive, turrets track independently, infantry pivot. Units soft-separate.
+  Guard re-acquires every ~0.4 s and units return to their spot after a chase. Weapons have
+  `vs { inf, veh, bld }` multipliers. A side loses when it has no buildings and no armed units.
+- **CPU commander** (`alrAIStep`): a build order that rebuilds losses, defenses toward the enemy, haulers
+  per refinery, an infantry/vehicle mix, an army that gathers at a rally point, then attacks in waves
+  (`firstWave` 330 / 240 / 170 s by tier, growing), recalls when its base is hit, and pushes on to the
+  next building. Tiers: ROOKIE (cpu 0.7) / COMMANDER (1.0) / ALL-OUT WAR (1.3 + a credit trickle;
+  unlocked by a COMMANDER win, `nugAlertPro`).
+- **Testing:** `alertDebug.start(i)` · `auto(true)` (a second commander plays your side) ·
+  `step(secs)` (30 Hz headless). A full CPU-vs-CPU COMMANDER game ran to the end in ~20 game-minutes
+  (≈0.85 s of wall time) with no errors. The UI was driven with real clicks (queue → READY → ghost →
+  place → box-select → move), and a staged fight was filmed. 60 fps at 1440×860.
+- **Stage 2 ideas:** two real factions with their own trees, original unit voices (the Blitz ElevenLabs
+  pipeline), music, missions, superweapons, phone controls, online play over net.js.

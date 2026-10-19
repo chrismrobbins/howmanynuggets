@@ -1,0 +1,102 @@
+/* 🚨 NUGGET ALERT — the layer (js/alert.js + alertGL.js + alertArt.js + alertUI.js).
+   A fixed fullscreen world that only exists while body.alert-mode is on: the WebGL battlefield and its 2D
+   overlay on the left, the RA2-style command sidebar on the right (riveted steel, an amber credits
+   readout, the radar diamond, the power bar, the tabs, the cameo grid with its clock wipe). */
+#alertWorld { position: fixed; inset: 0; display: none; z-index: 9990; background: #000; overflow: hidden;
+  font-family: "Arial Narrow", "Roboto Condensed", Impact, sans-serif; user-select: none; -webkit-user-select: none; }
+body.alert-mode #alertWorld { display: block; }
+.alr-root { position: absolute; inset: 0; }
+.alr-root canvas.alr-gl, .alr-root canvas.alr-ov { position: absolute; left: 0; top: 0; display: block; }
+.alr-root canvas.alr-gl { pointer-events: none; }
+.alr-root canvas.alr-ov { touch-action: none; }
+.alr-root:not(.alr-playing) .alr-side, .alr-root:not(.alr-playing) .alr-msgs { display: none; }
+
+/* ---- the sidebar ---- */
+.alr-side { position: absolute; top: 0; right: 0; bottom: 0; width: 236px; display: flex; flex-direction: column; gap: 6px; padding: 8px 8px 8px;
+  box-sizing: border-box; color: #d8e2ee;
+  background: linear-gradient(90deg, #1b2129 0, #2b333d 6px, #222930 7px, #1c2229 100%);
+  border-left: 2px solid #46525f; box-shadow: inset 2px 0 0 #0c0f13, -6px 0 18px rgba(0,0,0,0.6); }
+.alr-side::before { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 10px 10px, #59646f 1.6px, transparent 2.2px) 0 0 / 100% 100% no-repeat,
+              radial-gradient(circle at calc(100% - 10px) 10px, #59646f 1.6px, transparent 2.2px) 0 0 / 100% 100% no-repeat,
+              repeating-linear-gradient(0deg, rgba(255,255,255,0.018) 0 2px, transparent 2px 4px); }
+.alr-brand { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 8px; border: 1px solid #0b0e12;
+  background: linear-gradient(#11161c, #0a0d11); box-shadow: inset 0 1px 0 #2e3844, 0 1px 0 #3a4652; border-radius: 3px; }
+.alr-logo { font-family: Impact, "Arial Black", sans-serif; font-size: 13px; letter-spacing: 0.06em; color: #ff5a3a; text-shadow: 0 0 6px rgba(255,80,40,0.55); font-style: italic; }
+.alr-cash { font-family: "Courier New", ui-monospace, monospace; font-weight: 700; font-size: 17px; color: #ffcf4a; text-shadow: 0 0 6px rgba(255,190,40,0.65); letter-spacing: 0.04em; }
+
+.alr-radar-wrap { position: relative; aspect-ratio: 1; border: 2px solid #0b0e12; border-radius: 4px; background: #000;
+  box-shadow: inset 0 0 0 1px #3a4652, 0 1px 0 #3a4652; overflow: hidden; }
+.alr-radar { width: 100%; height: 100%; display: block; cursor: crosshair; image-rendering: auto; }
+.alr-radar-off { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 700 12px "Courier New", monospace;
+  color: #6a8aa8; letter-spacing: 0.2em; text-shadow: 0 0 4px #000; pointer-events: none; }
+.alr-radar-off[hidden] { display: none; }
+
+.alr-mid { flex: 1; min-height: 0; display: flex; gap: 6px; }
+.alr-power { position: relative; width: 12px; flex: none; border: 1px solid #0b0e12; background: #0c1014; border-radius: 2px; box-shadow: inset 0 0 0 1px #26303a; overflow: hidden; }
+.alr-pow-make { position: absolute; left: 1px; right: 1px; bottom: 1px; background: repeating-linear-gradient(0deg, #3ce65a 0 4px, #1f8a33 4px 6px); transition: height 0.4s; }
+.alr-side.low .alr-pow-make { background: repeating-linear-gradient(0deg, #ff4a3a 0 4px, #9a2018 4px 6px); animation: alr-blink 0.8s steps(2) infinite; }
+.alr-pow-use { position: absolute; left: -2px; right: -2px; height: 2px; background: #fff; box-shadow: 0 0 4px #fff; z-index: 2; transition: bottom 0.4s; }
+@keyframes alr-blink { 50% { opacity: 0.5; } }
+.alr-build { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; min-height: 0; }
+.alr-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }
+.alr-tabs button { height: 34px; border: 1px solid #0b0e12; border-radius: 3px; cursor: pointer; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: linear-gradient(#3a4552, #252d36); color: #cfd8e3; box-shadow: inset 0 1px 0 #56636f; }
+.alr-tabs button span { font-size: 14px; line-height: 1; }
+.alr-tabs button i { font-style: normal; font-size: 7px; letter-spacing: 0.05em; margin-top: 2px; opacity: 0.85; }
+.alr-tabs button.on { background: linear-gradient(#5b7a9a, #2f4a66); box-shadow: inset 0 1px 0 #8fb0d0, 0 0 6px rgba(120,180,255,0.4); color: #fff; }
+.alr-tabs button.dim { opacity: 0.4; }
+.alr-tabs button.ready { animation: alr-flash 0.7s steps(2) infinite; }
+@keyframes alr-flash { 50% { box-shadow: inset 0 0 0 2px #ffd23a, 0 0 8px #ffd23a; } }
+.alr-grid { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: min-content; gap: 4px; padding-right: 2px; scrollbar-width: thin; }
+.alr-cameo { position: relative; aspect-ratio: 4 / 3; border: 1px solid #0b0e12; border-radius: 3px; padding: 0; overflow: hidden; cursor: pointer; background: #12161b;
+  box-shadow: inset 0 0 0 1px #3a4652; transition: transform 0.05s; }
+.alr-cameo:hover { box-shadow: inset 0 0 0 1px #9fc6ff, 0 0 6px rgba(140,190,255,0.5); }
+.alr-cameo:active { transform: scale(0.97); }
+.alr-cameo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.alr-cameo .alr-wipe { position: absolute; inset: 0; pointer-events: none; }
+.alr-cameo .alr-cn { position: absolute; left: 0; right: 0; bottom: 0; font-size: 8.5px; font-weight: 700; letter-spacing: 0.04em; text-align: center; padding: 2px 1px 1px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.85)); color: #e8eef6; text-shadow: 0 1px 0 #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.alr-cameo .alr-cc { position: absolute; right: 3px; top: 2px; font: 700 9px "Courier New", monospace; color: #ffcf4a; text-shadow: 0 1px 1px #000; }
+.alr-cameo .alr-cq { position: absolute; left: 4px; top: 1px; font: 900 15px Impact, sans-serif; color: #fff; text-shadow: 0 1px 2px #000; }
+.alr-cameo .alr-cs { position: absolute; left: 0; right: 0; top: 40%; text-align: center; font: 900 13px Impact, sans-serif; letter-spacing: 0.06em; color: #fff; text-shadow: 0 0 6px #000, 0 1px 0 #000; }
+.alr-cameo.ready .alr-cs { color: #7aff7a; animation: alr-blink 0.9s steps(2) infinite; }
+.alr-cameo.off, .alr-cameo.blocked { filter: grayscale(1) brightness(0.45); cursor: not-allowed; }
+.alr-cameo.busy { box-shadow: inset 0 0 0 1px #ffd23a; }
+
+.alr-btns { display: grid; grid-template-columns: 1fr 1fr 40px; gap: 4px; }
+.alr-btns button { height: 30px; border: 1px solid #0b0e12; border-radius: 3px; cursor: pointer; font: 700 11px "Arial Narrow", sans-serif; letter-spacing: 0.06em;
+  color: #e6edf5; background: linear-gradient(#3a4552, #252d36); box-shadow: inset 0 1px 0 #56636f; }
+.alr-btns button:hover { background: linear-gradient(#4a5868, #2e3843); }
+.alr-btns button.on { background: linear-gradient(#a8781e, #6a4808); box-shadow: inset 0 1px 0 #e0b050, 0 0 8px rgba(255,190,60,0.5); color: #fff; }
+
+/* ---- messages (EVA lines) ---- */
+.alr-msgs { position: absolute; left: 14px; top: 64px; display: flex; flex-direction: column; gap: 3px; pointer-events: none; z-index: 3; }
+.alr-msg { font: 700 13px "Arial Narrow", "Roboto Condensed", sans-serif; letter-spacing: 0.12em; text-shadow: 0 0 4px #000, 0 1px 0 #000, 0 0 10px rgba(0,0,0,0.8);
+  animation: alr-in 0.18s ease-out; transition: opacity 0.7s; }
+.alr-msg.out { opacity: 0; }
+@keyframes alr-in { from { transform: translateX(-12px); opacity: 0; } }
+
+/* ---- cards: loading, the menu, the end ---- */
+.alr-card { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 6; min-width: 300px; max-width: min(520px, 90vw); padding: 22px 26px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 8px; text-align: center; color: #dfe7f0;
+  background: linear-gradient(#232b35, #151a20); border: 2px solid #4a5868; border-radius: 6px; box-shadow: 0 0 0 1px #000, 0 20px 50px rgba(0,0,0,0.7); }
+.alr-card[hidden] { display: none; }
+.alr-card-t { font: 900 34px Impact, "Arial Black", sans-serif; letter-spacing: 0.08em; color: #ffcf4a; text-shadow: 0 0 12px rgba(255,190,40,0.5); }
+.alr-card-t.win { color: #7aff7a; text-shadow: 0 0 14px rgba(100,255,100,0.5); }
+.alr-card-t.lose { color: #ff6a5a; text-shadow: 0 0 14px rgba(255,80,60,0.5); }
+.alr-card-s { font-size: 14px; color: #b8c6d6; }
+.alr-card-n { font: 900 20px Impact, sans-serif; color: #ffd23a; letter-spacing: 0.05em; margin: 4px 0; }
+.alr-stats { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; font-size: 12px; letter-spacing: 0.08em; color: #9fb0c2; margin-top: 4px; }
+.alr-stats b { color: #fff; font-size: 15px; }
+.alr-card button { height: 38px; border: 1px solid #0b0e12; border-radius: 4px; cursor: pointer; font: 900 15px Impact, sans-serif; letter-spacing: 0.08em; color: #fff;
+  background: linear-gradient(#4a5a6c, #2a3440); box-shadow: inset 0 1px 0 #6d7e90; }
+.alr-card button:hover { background: linear-gradient(#5d7290, #34445a); }
+.alr-load .alr-card-t { animation: alr-blink 1s steps(2) infinite; }
+.alr-keys { text-align: left; font-size: 12.5px; line-height: 1.7; color: #c8d4e2; margin-top: 4px; }
+.alr-keys[hidden] { display: none; }
+.alr-keys b { color: #ffcf4a; }
+
+/* the arcade's storm pill sits over the battlefield, not over the sidebar */
+body.alert-mode .storm-hud { right: 250px; }
+@media (max-width: 900px) { .alr-side { width: 196px; } .alr-tabs button i { display: none; } body.alert-mode .storm-hud { right: 210px; } }

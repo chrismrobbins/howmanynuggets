@@ -27,6 +27,7 @@
   <link rel="stylesheet" href="css/bowl.css" />
   <link rel="stylesheet" href="css/blitz.css?v=12" />
   <link rel="stylesheet" href="css/cricket.css?v=1" />
+  <link rel="stylesheet" href="css/alert.css?v=1" />
   <link rel="stylesheet" href="css/arcade.css" />
   <link rel="stylesheet" href="css/locker.css" />
   <link rel="stylesheet" href="css/multiplayer.css" />
@@ -253,6 +254,8 @@
 
   <!-- Biryani Blitz: Cricket Edition (internally `cricket`): bat + bowl, nugget nations (canvas injected by js/cricket.js) -->
   <div id="cricketWorld"></div>
+  <!-- Nugget Alert (mode `alert`, hidden: ?play=alert only): an RTS skirmish vs the CPU (js/alert*.js) -->
+  <div id="alertWorld"></div>
 
   <!-- Account modal: log in / create account / signed-in menu -->
   <div class="modal-overlay" id="authModal">
@@ -438,7 +441,7 @@
 
   <script src="js/util.js"></script>
   <script src="js/pricing.js"></script>
-  <script src="js/storm.js?v=20261009b"></script>
+  <script src="js/storm.js?v=20261019"></script>
   <script src="js/arcadeKit.js"></script>
   <script src="js/blaster.js"></script>
   <script src="js/flappy.js"></script>
@@ -466,6 +469,10 @@
   <script src="js/cricket.js?v=8"></script>
   <script src="js/cricketVO.js?v=2"></script>
   <script src="js/cricketAudio.js?v=3"></script>
+  <script src="js/alertGL.js?v=1"></script>
+  <script src="js/alertArt.js?v=1"></script>
+  <script src="js/alert.js?v=1"></script>
+  <script src="js/alertUI.js?v=1"></script>
   <script src="js/hallBoot.js"></script>
   <script src="js/nugHero.js"></script>
   <script src="js/regulars.js"></script>
