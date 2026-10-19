@@ -3155,3 +3155,31 @@ render waits for the ElevenLabs key on this machine (`~/.config/elevenlabs.key` 
   kills enemy soldiers inside its hull footprint, and separation between it and enemy infantry is
   skipped so it rolls over them instead of nudging them. Your own soldiers are shoved aside. The CPU's
   tanks squish yours too. Tested: 4 / 4 enemies squished, 4 / 4 own soldiers alive.
+
+## 🚨 NUGGET ALERT: THE BLENDER MODELS (2026-10-19)
+
+Chris: *"using blender (as we've done before) make the units and buildings better and more realistic to the
+original Red Alert 2 game"*. Every building, vehicle and soldier is now a Blender-built model in RA2's
+pre-rendered style (our own nugget designs, not RA2's models): bevelled armour, real track runs with road
+wheels / sprockets / idlers, faceted turrets with mantlets, cupolas, smoke launchers and muzzle brakes, an
+Apocalypse-style four-pod twin-gun heavy, a War-Miner-style hauler, and buildings covered in roof kit
+(fan units, vents, railings, ladders, catwalks, pipes, lattice crane + radar tower, a parabolic dish,
+hyperboloid cooling towers on column skirts, a ribbed barrel-roof hangar, a quonset with a watchtower,
+copper toroids on the Tesla coil). Baked AO (ground plane included) is in the vertex colours.
+- **Pipeline:** `blender -b -P blender/alertrig.py` (≈5 s: builds, bakes AO, writes
+  `blender/render_alert/*.json` (ignored) and `blender/alert_models.blend` for viewing) →
+  `python3 blender/pack_alert.py` → `js/alertMeshData.js` (2.1 MB, ~870 KB gzipped, ~65k tris for all 25).
+- **Contract (see the alertrig.py docstring):** authored in the GAME frame (x right, y up, z forward,
+  tiles); buildings centred on the footprint with the camera-facing detail on local +x/+z (they're drawn
+  turned 180°); units face +z; every moving part's origin is the pivot alertUI already uses
+  (`alrModelParts` / `alrBldParts` / `alrUnitParts0`), so no game code changed. Material = colour + team
+  flag; team panels are light grey so the shader's luminance-kept repaint comes out bright.
+- **Loading:** `alrMeshUse()` (alertArt.js) injects the file the first time the game opens and swaps the
+  meshes into `alrArt.b` / `alrArt.u` by name, then re-shoots the sidebar cameos. The procedural models
+  are still built first and stay as the fallback. `window.alrNoMesh = true` before load = the old look
+  (handy for A/B screenshots).
+- **Lathe trap:** a lathe profile that starts or ends off-axis gets a solid cap there. A band/ring must
+  pass `ring=True`, or you get a disc (the dish rendered as a flat blue plate; the tower lips capped the
+  cooling towers).
+- Also fixed: the refinery's smoke came out of the hall roof. The chimney is at local (−0.95, −0.75),
+  which is world (+0.95, +0.75) after the 180° turn.

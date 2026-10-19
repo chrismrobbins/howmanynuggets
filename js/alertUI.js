@@ -311,7 +311,7 @@ function alrFxStep(dt) {
     if (f < 0.55 && Math.random() < dt * (f < 0.3 ? 9 : 4)) alrFxSmoke(b.x + alrRnd(-b.w, b.w) * 0.3, 0.8, b.z + alrRnd(-b.h, b.h) * 0.3, 0.45, 2.2, true);
     if (f < 0.3 && Math.random() < dt * 10) alrFxFire(b.x + alrRnd(-b.w, b.w) * 0.3, 0.6, b.z + alrRnd(-b.h, b.h) * 0.3, 0.35);
     if (b.type === 'power' && !alr.players[b.owner].low && Math.random() < dt * 3) { const s = Math.random() < 0.5; alrFxSmoke(b.x + (s ? -0.42 : 0.38), 1.0, b.z + (s ? -0.38 : 0.4), 0.4, 2.6); }
-    if (b.type === 'refinery' && Math.random() < dt * 1.5) alrFxSmoke(b.x - 0.95, 1.45, b.z - 0.75, 0.25, 2.2, true);
+    if (b.type === 'refinery' && Math.random() < dt * 1.5) alrFxSmoke(b.x + 0.95, 1.35, b.z + 0.75, 0.25, 2.2, true);   // the chimney: local (-0.95, -0.75), turned 180°
   }
   for (const d of alr.decor) {
     d.t += dt;

@@ -24,6 +24,7 @@ blender/renders/
 blender/glb/
 blender/*.blend1
 blender/render_hall/
+blender/render_alert/
 blender/contact.png
 blender/sheet_preview.jpg
 

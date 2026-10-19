@@ -454,4 +454,41 @@ function alrArtInit() {
   A.chunk = mk((mb) => mb.color(ALR_PAL.dark).box(0, 0, 0, 0.05, 0.035, 0.04, 0.01));
   A.rubble = mk((mb) => { let s = 5; const r = () => ((s = (s * 16807) % 2147483647) / 2147483647); for (let k = 0; k < 14; k++) mb.color(k % 2 ? ALR_PAL.concDark : ALR_PAL.padDark).box((r() - 0.5) * 0.9, 0.04, (r() - 0.5) * 0.9, 0.05 + r() * 0.1, 0.03 + r() * 0.05, 0.05 + r() * 0.1, 0.02); });
   A.ok = true;
+  alrMeshUse();
+}
+
+// ---- the Blender models (blender/alertrig.py → blender/pack_alert.py → js/alertMeshData.js) ----------------
+// The procedural models above draw first and stay as the fallback. The Blender set (~1 MB gzipped) is
+// injected the first time the game opens, then swapped in by name: 'b.hq' → alrArt.b.hq, 'u.tank' → alrArt.u.tank.
+// Everything draws through alrArt lookups each frame, so the swap is live; the sidebar cameos are re-shot.
+const ALR_MESH_SRC = 'js/alertMeshData.js?v=1';
+function alrMeshUse() {
+  const D = window.ALR_MESH_DATA;
+  if (!D) {
+    if (!alrArt.meshLoading && !window.alrNoMesh) {
+      alrArt.meshLoading = true;
+      const s = document.createElement('script');
+      s.src = ALR_MESH_SRC; s.async = true;
+      s.onload = () => { if (alrArt.ok) alrMeshUse(); };
+      s.onerror = () => console.warn('alert: Blender meshes failed to load; keeping the procedural ones');
+      document.head.appendChild(s);
+    }
+    return false;
+  }
+  if (alrArt.mesh || window.alrNoMesh) return true;
+  const raw = (b64) => { const bin = atob(b64), u = new Uint8Array(bin.length); for (let k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k); return u.buffer; };
+  for (const name in D.models) {
+    const M = D.models[name], [grp, key] = name.split('.');
+    const pi = new Int16Array(raw(M.p)), ni = new Int8Array(raw(M.n)), ci = new Uint8Array(raw(M.c));
+    const p = new Float32Array(pi.length), n = new Float32Array(ni.length), c = new Float32Array(ci.length);
+    for (let k = 0; k < pi.length; k++) p[k] = pi[k] / D.pscale;
+    for (let k = 0; k < ni.length; k++) n[k] = ni[k] / 127;
+    for (let k = 0; k < ci.length; k++) c[k] = ci[k] / 255;
+    const i = M.big ? new Uint32Array(raw(M.i)) : new Uint16Array(raw(M.i));
+    const mesh = alrGLMesh({ p, n, c, u: new Float32Array(M.v * 2), i });
+    (grp === 'b' ? alrArt.b : alrArt.u)[key] = mesh;
+  }
+  alrArt.mesh = true;
+  if (typeof alr !== 'undefined' && alr.ui && alr.ui.cameosBuilt && typeof alrBuildCameos === 'function') { alrBuildCameos(); alrUISide(true); }
+  return true;
 }
