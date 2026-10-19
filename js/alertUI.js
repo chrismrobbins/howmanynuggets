@@ -89,7 +89,20 @@ function alrUIInit() {
   // (the pointer only counts as 'in' once it has moved: pointerenter carries no position, and edge
   // scrolling read the stale 0,0 as 'at the left edge')
   U.ov.addEventListener('contextmenu', (e) => e.preventDefault());
-  U.ov.addEventListener('wheel', (e) => { e.preventDefault(); alr.cam.zoom = alrClamp(alr.cam.zoom * (e.deltaY > 0 ? 1.1 : 0.9), 9, 30); }, { passive: false });
+  // the wheel zooms, in proportion to how far it turned: a mouse notch ≈ 12%, a trackpad's little deltas a
+  // little (it was a flat 10% per EVENT, and a trackpad sends dozens). Not while Ctrl / ⌘ is held down for
+  // force-fire: with Ctrl held, a Mac trackpad's scroll — or two fingers just brushing it — is a zoom, and
+  // fights kept zooming in (Chris: "during attacks I keep getting zoomed in"). A pinch (no key down) still zooms.
+  U.ov.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (U.modHeld) return;
+    const d = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+    alr.cam.zoom = alrClamp(alr.cam.zoom * Math.exp(alrClamp(d, -120, 120) * (e.ctrlKey ? 0.006 : 0.0012)), 9, 30);
+  }, { passive: false });
+  // and the browser's own page zoom never fires inside the game (Ctrl + wheel / pinch over the sidebar, Ctrl ±,
+  // Safari's gesture events): it resized the whole battlefield mid-fight
+  root.addEventListener('wheel', (e) => { if (e.ctrlKey || e.metaKey) e.preventDefault(); }, { passive: false });
+  for (const ev of ['gesturestart', 'gesturechange']) root.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
   U.radar.addEventListener('pointerdown', alrRadarDown);
   U.radar.addEventListener('pointermove', alrRadarMove);
   U.radar.addEventListener('pointerup', alrRadarUp);
@@ -1318,10 +1331,12 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => { if (alr.ui) { alr.ui.keys[e.code] = false; alrUIForceKey(e); } });
 function alrUIForceKey(e) {
   const U = alr.ui, f = e.ctrlKey || e.metaKey;
+  if (U) U.modHeld = f;             // (from the keyboard only: a pinch's wheel says ctrlKey with no key down)
+  if (alr.on && f && (e.key === '=' || e.key === '+' || e.key === '-' || e.key === '0')) e.preventDefault();   // no page zoom
   if (!alr.on || !U || U.force === f) return;
   U.force = f; alrUICursorPick();
 }
-window.addEventListener('blur', () => { if (alr.ui && alr.ui.force) { alr.ui.force = false; alrUICursorPick(); } });
+window.addEventListener('blur', () => { if (alr.ui) alr.ui.modHeld = false; if (alr.ui && alr.ui.force) { alr.ui.force = false; alrUICursorPick(); } });
 function alrUIInput(dt) {
   const U = alr.ui, cam = alr.cam, G = alrGL;
   if (!G.right) return;

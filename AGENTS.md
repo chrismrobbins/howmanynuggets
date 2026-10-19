@@ -3652,3 +3652,14 @@ section out of bounds, like the end of the map or the water, their feet just kee
   reached the bank, couldn't step in, and re-planned the same path forever. Now the path ends on the free tile.
   As a backstop, `alrFollow` returns "not moving" while blocked (so the walk cycle stops), and it gives up
   the path after 2.5 s blocked (`u.blocked`).
+
+### Fix: fights kept zooming the camera in (2026-10-19)
+Chris: *"during attacks I keep getting zoomed in, this wasn't happening before"*. The zoom code itself
+hadn't changed. What had changed is that fights now involve **Ctrl** (force-fire, and Ctrl+click to hit a
+bridge). On a Mac, Ctrl held with any trackpad scroll, even two fingers brushing it, is a zoom. The old wheel
+handler also zoomed a flat 10% per event, and a trackpad sends dozens.
+- The wheel is ignored while Ctrl/⌘ is physically held (`U.modHeld`, set from keyboard events only).
+- Zoom is now proportional to `deltaY` (`exp(d·0.0012)`, about 12% per mouse notch). A pinch, which sends
+  `ctrlKey` with no key down, still zooms at `0.006`.
+- The browser's page zoom is blocked inside the game: Ctrl/⌘+wheel on the root, Ctrl ±/0, and Safari's
+  `gesturestart`/`gesturechange`.
