@@ -56,6 +56,8 @@ const ALR_BLD = {
   turret:   { name: 'NUG GUN', side: 'F', w: 1, h: 1, hp: 550, cost: 500, power: 0, cat: 'def', req: ['barracks'], time: 7, sight: 7, weapon: 'turret', blurb: 'guns down anything on the ground' },
   flak:     { name: 'FLAK FRYER', side: 'F', w: 1, h: 1, hp: 500, cost: 1000, power: -50, cat: 'def', req: ['barracks'], time: 10, sight: 10, weapon: 'flakD', blurb: 'anti-aircraft only' },
   tesla:    { name: 'TESLA FRYER', side: 'F', w: 1, h: 1, hp: 650, cost: 1500, power: -75, cat: 'def', req: ['power', 'radar'], time: 12, sight: 8, weapon: 'tesla', blurb: 'needs power' },
+  // RA2's Spy Satellite Uplink (the Allied one, after the Battle Lab): both armies get it here, after their lab
+  spysat:   { name: 'NUG-SAT UPLINK', w: 3, h: 3, hp: 1000, cost: 1500, power: -100, cat: 'def', req: ['lab'], time: 18, sight: 6, blurb: 'reveals the whole map · needs power' },
   wallF:    { name: 'FRY WALL', side: 'F', w: 1, h: 1, hp: 300, cost: 100, power: 0, cat: 'def', req: ['barracks'], time: 1.5, sight: 1, wall: true, blurb: 'drag to lay a line' },
   // neutral: an engineer takes it (cash on capture, then a trickle)
   derrick:  { name: 'FRY OIL DERRICK', w: 2, h: 2, hp: 800, cost: 1000, power: 0, sight: 3, tech: true, income: 5 },
@@ -441,6 +443,8 @@ function alrPower(P) {
     const radar = alrHas(P.id, 'radar') && !P.low;
     if (P.radarWas != null && radar !== P.radarWas && alr.phase === 'play') alrSay(radar ? 'RADAR ONLINE' : 'RADAR OFFLINE', '#9be7ff');
     P.radarWas = radar;
+    // the uplink: built and powered, the whole map comes out of the shroud — for good, as RA2's did
+    if (!P.satUp && alrHas(P.id, 'spysat') && !P.low && alr.phase === 'play') { P.satUp = true; P.shroud.fill(255); alr.shroudDirty = true; alrSay('SATELLITE ONLINE · MAP REVEALED', '#9be7ff'); alrSfx('build'); }
   }
 }
 function alrPowerAll() { for (const P of alr.players) if (!P.neutral) alrPower(P); }

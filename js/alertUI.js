@@ -637,6 +637,7 @@ const ALR_RIG = {
   sam_head: [0, 0.3, 0], flak_head: [0, 0.3, 0], derrick_pump: [-0.3, 0.44, 0.45],
   ifv_turret: [0, 0.24, -0.04], prismtank_turret: [0, 0.28, -0.03], mirage_turret: [0, 0.28, -0.05], v3_rack: [0, 0.3, -0.3],
   apoc_turret: [0, 0.38, -0.04], apoc_gun: [0, 0.12, 0.2], flaktrack_head: [0, 0.26, -0.12, 0.6], harvF_gun: [0, 0.5, 0.3],
+  spysat_dish: [-0.25, 0.4, -0.25],
   blimp_prop: [[0.44, -0.3, -0.63], [-0.44, -0.3, -0.63]], dog_leg: [[0.05, 0.12, 0.11], [-0.05, 0.12, 0.11], [0.05, 0.12, -0.11], [-0.05, 0.12, -0.11]],
 };
 // a point on the hull (local x, z) in the world, for a turret that sits off-center
@@ -667,6 +668,7 @@ function alrBldParts(b) {
   if (t === 'sam') add('sam_head', alrTRS(R.sam_head[0], R.sam_head[1], R.sam_head[2], ty));
   if (t === 'flak') add('flak_head', alrTRS(R.flak_head[0], R.flak_head[1], R.flak_head[2], ty));
   if (t === 'radar') add('radar_dish', alrTRS(0.45, 0.78, -0.45, P.low ? 0.8 : an * 1.3));
+  if (t === 'spysat') { const p = R.spysat_dish; add('spysat_dish', alrTRS(p[0], p[1], p[2], P.low ? 0.4 : 0.4 + Math.sin(an * 0.12) * 1.6)); }   // slewing, slowly, across the sky
   if (t === 'hq') add('hq_crane', alrTRS(-1.05, 0, -1.0, 0.7 + Math.sin(an * 0.25) * 1.2));
   if (t === 'factory') { const op = alrClamp(b.door > 0 ? Math.min(1, (1.6 - b.door) * 4, b.door * 2) : 0, 0, 1); add('factory_door', alrTRS(0, 0.42 + op * 0.38, 0.86, 0, 1, 1 - op * 0.75, 1)); }
   if (t === 'barracks') add('barracks_flag', alrTRS(0.72, 1.02, -0.65, 0.5 + Math.sin(an * 2.1) * 0.25));
@@ -904,7 +906,7 @@ function alrRadar() {
   g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.beginPath(); cs.forEach((c, i) => (i ? g.lineTo(c[0], c[1]) : g.moveTo(c[0], c[1]))); g.closePath(); g.stroke();
 }
 // the radar takes orders (RA2): with your units selected, a click sends them there (onto an enemy: attack);
-// a drag, or a click with nothing selected, moves the camera; a right-click lets go of the selection
+// a drag, or a click with nothing selected, moves the camera; a right-click (or right-drag) takes the camera there
 function alrRadarAt(e) {
   const r = alr.ui.radar.getBoundingClientRect(), u = (e.clientX - r.left) / r.width * 420, v = (e.clientY - r.top) / r.height * 420;
   const [x, z] = alrRadarInv(u, v);
@@ -916,14 +918,15 @@ function alrRadarDown(e) {
   if (!alrRadarOn()) return;
   alrAudioWake();
   const U = alr.ui;
-  if (e.button === 2) { if (alr.place || alr.mode) { alr.place = null; alr.mode = ''; alrUIButtons(); } else alr.sel = []; return; }
+  // right-click: jump the camera there (hold and drag to keep panning) — the selection stays
+  if (e.button === 2) { U.rdrag = { x: e.clientX, y: e.clientY, moved: true, order: false, right: true }; U.radar.setPointerCapture(e.pointerId); alrRadarPan(e); return; }
   U.rdrag = { x: e.clientX, y: e.clientY, moved: false, order: alr.sel.some((s) => s.owner === 0 && (s.kind === 'unit' || s.D.makes)) };
   U.radar.setPointerCapture(e.pointerId);
   if (!U.rdrag.order) alrRadarPan(e);
 }
 function alrRadarMove(e) {
   const d = alr.ui.rdrag;
-  if (!d || !(e.buttons & 1)) return;
+  if (!d || !(e.buttons & (d.right ? 2 : 1))) return;
   if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 5) d.moved = true;
   if (d.moved || !d.order) alrRadarPan(e);
 }

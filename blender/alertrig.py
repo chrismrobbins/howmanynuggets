@@ -2558,23 +2558,147 @@ PHASE1 = [build_gravy_stream, build_gravy_pool, build_powerF, build_airhq, build
           build_flaktrack, build_harvF, build_harvF_gun, build_jet, build_blimp, build_blimp_prop, build_crate]
 
 
+# =========================================================================================================
+# PHASE 2 (superweapons + support): the NUG-SAT UPLINK — RA2's Spy Satellite Uplink, in our world
+# =========================================================================================================
+SPYSAT_DISH_AT = (-0.25, 0.4, -0.25)   # the dish's bearing (= ALR_RIG.spysat_dish in js/alertUI.js)
+
+
+def build_spysat():
+    """🛰️ NUG-SAT UPLINK (both armies, after their lab), 3×3: a raised round plinth carrying the big sky dish
+    (spysat_dish, slewing on its bearing), steps up it toward the camera, a control block with a lit ops
+    window on the two camera faces, a lattice mast with a red beacon, cable trays, a generator, floodlights."""
+    m = Model("b.spysat")
+    foundation(m, 3, 3)
+    cx, _, cz = SPYSAT_DISH_AT
+    # the plinth: a stepped drum, a team band, a railing round the top, the bearing ring
+    m.lathe([(0.0, 0.1), (1.0, 0.1), (0.98, 0.17), (0.92, 0.19), (0.92, 0.3), (0.88, 0.32), (0.0, 0.32)], "concDark", c=(cx, 0, cz), n=40, bev=0.006)
+    m.lathe([(0.925, 0.22), (0.925, 0.27), (0.91, 0.27), (0.91, 0.22)], "bandTeam", c=(cx, 0, cz), n=40, ring=True)
+    m.lathe([(0.0, 0.32), (0.86, 0.32), (0.86, 0.325), (0.0, 0.325)], "pad", c=(cx, 0, cz), n=40)
+    m.lathe([(0.0, 0.325), (0.4, 0.325), (0.4, 0.37), (0.34, 0.4), (0.0, 0.4)], "steelDark", c=(cx, 0, cz), n=32)
+    m.lathe([(0.405, 0.34), (0.405, 0.36), (0.39, 0.36), (0.39, 0.34)], "hazard", c=(cx, 0, cz), n=32, ring=True)
+    gap = 0.5   # the railing opens where the steps come up (toward the camera, +x +z)
+    rp = [(cx + math.cos(a) * 0.84, 0.325, cz + math.sin(a) * 0.84) for a in [math.pi / 4 + gap / 2 + k / 22 * (TAU - gap) for k in range(23)]]
+    m.railing(rp, 0.07, step=0.14)
+    # steps up the plinth, toward the camera
+    m.push(cx + math.cos(math.pi / 4) * 0.98, 0.1, cz + math.sin(math.pi / 4) * 0.98, math.pi / 4)
+    for k in range(4):
+        h = (k + 1) * 0.055
+        m.box((0, h / 2, 0.12 - k * 0.06), (0.32, h, 0.07), "concLite", bev=0.004)
+    m.pop()
+    # floodlights on the plinth rim, pointing at the dish
+    for a in (1.9, 3.5, 5.1):
+        m.lamp(cx + math.cos(a) * 0.95, cz + math.sin(a) * 0.95, h=0.3, y0=0.1)
+    # the control block, front right (the camera's side)
+    bx, bz = 0.9, 0.92
+    top = wall_block(m, (bx, 0.1, bz), (1.0, 0.44, 0.92), band=0.86)
+    # the ops window: a raked glass band on both camera faces
+    m.prism_x([(bz + 0.46, 0.27), (bz + 0.52, 0.27), (bz + 0.49, 0.43), (bz + 0.46, 0.43)], bx - 0.5, bx + 0.5, "concDark", bev=0.004)
+    m.prism_x([(bz + 0.492, 0.285), (bz + 0.515, 0.285), (bz + 0.485, 0.42), (bz + 0.47, 0.42)], bx - 0.47, bx + 0.47, "glassLit", bev=0)
+    m.prism_z([(bx + 0.5, 0.27), (bx + 0.56, 0.27), (bx + 0.53, 0.43), (bx + 0.5, 0.43)], bz - 0.46, bz + 0.46, "concDark", bev=0.004)
+    m.prism_z([(bx + 0.532, 0.285), (bx + 0.555, 0.285), (bx + 0.525, 0.42), (bx + 0.51, 0.42)], bz - 0.43, bz + 0.43, "glassLit", bev=0)
+    m.windows((bx - 0.4, bz + 0.462), (bx + 0.2, bz + 0.462), 0.18, 4, 0.08, 0.06, "z", lit=1, sill=False)
+    m.box((bx + 0.33, 0.2, bz + 0.465), (0.16, 0.2, 0.012), "steelDark", bev=0)
+    m.box((bx + 0.33, 0.32, bz + 0.52), (0.24, 0.014, 0.12), "steel", bev=0.004)
+    m.stripes((bx + 0.2, 0.1, bz + 0.6), (bx + 0.46, 0.1, bz + 0.6), 0.104, 0.05, 5, face="y")
+    # roof: AC, a small backup dish, antennas, a satellite-link dome
+    m.fan_unit((bx - 0.22, top + 0.02, bz - 0.22), 0.1)
+    m.vent((bx + 0.25, top + 0.02, bz - 0.25))
+    m.lathe([(0.0, 0.0), (0.13, 0.0), (0.13, 0.03), (0.12, 0.08), (0.08, 0.12), (0.0, 0.135)], "white", c=(bx + 0.2, top + 0.02, bz + 0.15), n=18)
+    for k in range(3):
+        x = bx - 0.38 + k * 0.1
+        m.cyl((x, top + 0.18, bz + 0.3), 0.006, 0.34, "dark", n=5)
+        m.cyl((x, top + 0.28, bz + 0.3), 0.022, 0.006, "steel", n=8)
+    m.push(bx - 0.1, top + 0.06, bz + 0.25, 2.3, -0.8)
+    m.lathe([(0.0, 0.0), (0.03, 0.005), (0.06, 0.02), (0.062, 0.026), (0.0, 0.011)], "white", n=14)
+    m.pop()
+    # the lattice mast, back right, with a red beacon and an aircraft light
+    mx, mz = 1.05, -0.95
+    m.box((mx, 0.13, mz), (0.3, 0.06, 0.3), "concDark", bev=0.01)
+    m.lattice((mx, 0.16, mz), (mx, 1.5, mz), 0.12, 0.04, "steelDark", bays=7, w=0.014)
+    m.cyl((mx, 1.53, mz), 0.012, 0.18, "dark", n=6)
+    m.ball((mx, 1.63, mz), 0.035, "red", u=10, v=6)
+    m.box((mx + 0.05, 1.0, mz), (0.02, 0.16, 0.06), "white", bev=0.003)
+    m.box((mx, 1.0, mz + 0.05), (0.06, 0.16, 0.02), "white", bev=0.003)
+    # the generator + its fuel tank, back left
+    gx, gz = -1.1, 1.0
+    m.box((gx, 0.2, gz), (0.36, 0.2, 0.5), "steel", bev=0.012)
+    m.box((gx, 0.31, gz), (0.37, 0.025, 0.51), "bandTeam", bev=0.004)
+    for k in range(4):
+        m.box((gx + 0.185, 0.2, gz - 0.18 + k * 0.12), (0.008, 0.12, 0.07), "dark", bev=0)
+    m.vent((gx, 0.32, gz - 0.12), r=0.03, h=0.08)
+    m.lathe([(0.0, 0.1), (0.13, 0.1), (0.13, 0.42), (0.08, 0.46), (0.0, 0.47)], "armor", c=(gx + 0.02, 0, gz - 0.55), n=14)
+    m.tube([(gx + 0.02, 0.2, gz - 0.42), (gx + 0.02, 0.2, gz - 0.25)], 0.02, "steelDark", n=6)
+    # cable trays: the block to the plinth, the generator to the block, the mast to the block
+    m.box(((bx - 0.5 + cx + 0.65) / 2, 0.13, (bz + cz + 0.62) / 2 + 0.05), (0.42, 0.014, 0.07), "steelDark", bev=0)
+    m.tube([(gx + 0.18, 0.12, gz), (bx - 0.5, 0.12, gz - 0.05)], 0.018, "dark", n=6)
+    m.tube([(mx, 0.12, mz + 0.15), (mx, 0.12, bz - 0.46)], 0.018, "dark", n=6)
+    for x, z in ((-1.3, -1.3), (1.32, 0.2), (-1.32, 0.3)):
+        m.drum(x, z)
+    return m
+
+
+def build_spysat_dish():
+    """The uplink's dish: origin on the bearing. A turntable and yoke, then a big parabolic reflector tipped
+    up at the sky (55° from flat), team rim, a feed horn on four struts with a lit tip, a truss back frame
+    and a counterweight on the yoke's tail."""
+    m = Model("b.spysat_dish")
+    m.cyl((0, 0.03, 0), 0.32, 0.06, "steel", n=28, bev=0.006)
+    m.cyl((0, 0.07, 0), 0.24, 0.03, "steelDark", n=24)
+    m.box((0, 0.14, 0), (0.22, 0.1, 0.3), "dark", bev=0.01)
+    for sx in (-1, 1):
+        m.prism_x([(-0.14, 0.12), (0.14, 0.12), (0.06, 0.44), (-0.06, 0.44)], sx * 0.15 - 0.022, sx * 0.15 + 0.022, "steelDark", bev=0.005)
+    m.cyl((0, 0.42, 0), 0.05, 0.38, "dark", n=12, axis="x")
+    # the counterweight, out behind (−z)
+    m.box((0, 0.24, -0.26), (0.24, 0.14, 0.12), "concDark", bev=0.01)
+    m.bar((0, 0.3, -0.2), (0, 0.42, 0), 0.03, "steelDark")
+    m.push(0, 0.42, 0.04, 0, -(math.pi / 2 - 0.96))   # tipped up: the dish's axis is 55° above the horizon, facing +z
+    m.push(0, 0, 0, 0, math.pi / 2)
+    R, f = 0.92, 0.42
+    prof = [(R * k / 10, (R * k / 10) ** 2 / (4 * f)) for k in range(11)]
+    back = [(r, y - 0.024) for r, y in reversed(prof)]
+    m.lathe(prof + [(R + 0.012, prof[-1][1])] + back, "concLite", n=40)
+    m.lathe([(R + 0.016, prof[-1][1] - 0.026), (R + 0.016, prof[-1][1] + 0.014), (R - 0.02, prof[-1][1] + 0.014), (R - 0.02, prof[-1][1] - 0.026)], "team", n=40, ring=True)
+    for k in range(1, 4):   # panel seams
+        r = R * k / 4
+        y = r * r / (4 * f)
+        m.lathe([(r + 0.006, y + 0.004), (r + 0.006, y + 0.009), (r - 0.006, y + 0.009), (r - 0.006, y + 0.004)], "white", n=40, ring=True)
+    for k in range(4):
+        a = k / 4 * TAU + math.pi / 4
+        m.bar((math.cos(a) * R * 0.86, prof[8][1], math.sin(a) * R * 0.86), (0, 0.5, 0), 0.016, "dark")
+    m.cyl((0, 0.52, 0), 0.05, 0.1, "dark", n=12, r2=0.035)
+    m.cyl((0, 0.58, 0), 0.03, 0.03, "steel", n=10)
+    m.ball((0, 0.6, 0), 0.026, "light", u=10, v=6)
+    # the back frame: a hub and radial trusses
+    m.cyl((0, -0.06, 0), 0.12, 0.08, "steelDark", n=16)
+    for k in range(8):
+        a = k / 8 * TAU
+        m.bar((math.cos(a) * 0.1, -0.06, math.sin(a) * 0.1), (math.cos(a) * R * 0.78, prof[8][1] - 0.035, math.sin(a) * R * 0.78), 0.016, "steelDark")
+    m.pop()
+    m.pop()
+    return m
+
+
+PHASE2 = [build_spysat, build_spysat_dish]
+
+
 MODELS = [build_hq, build_hq_crane, build_power, build_refinery, build_barracks, build_barracks_flag, build_factory,
           build_factory_door, build_radar, build_radar_dish, build_turret, build_turret_head, build_tesla,
           build_tank, build_tank_turret, build_tank_gun, build_heavy, build_heavy_turret, build_heavy_gun,
-          build_harv, build_harv_drum, build_harv_load, lambda: build_inf("rifle"), lambda: build_inf("rocket"), build_leg] + LANDSCAPE + PHASE1
+          build_harv, build_harv_drum, build_harv_load, lambda: build_inf("rifle"), lambda: build_inf("rocket"), build_leg] + LANDSCAPE + PHASE1 + PHASE2
 
 # the game draws a building's part parented to its body: give the AO bake the body as an occluder
 OCCLUDERS = {"b.hq_crane": "b.hq", "b.radar_dish": "b.radar", "b.turret_head": "b.turret", "b.factory_door": None,
              "u.tank_turret": "u.tank", "u.heavy_turret": "u.heavy", "u.harv_drum": "u.harv",
              "b.sam_head": "b.sam", "b.flak_head": "b.flak", "b.derrick_pump": "b.derrick", "u.ifv_turret": "u.ifv",
              "u.prismtank_turret": "u.prismtank", "u.mirage_turret": "u.mirage", "u.v3_rack": "u.v3",
-             "u.apoc_turret": "u.apoc", "u.harvF_gun": "u.harvF"}
+             "u.apoc_turret": "u.apoc", "u.harvF_gun": "u.harvF", "b.spysat_dish": "b.spysat"}
 PART_AT = {"b.hq_crane": (-1.05, 0, -1.0), "b.radar_dish": (0.45, 0.78, -0.45), "b.turret_head": (0, 0.32, 0),
            "u.tank_turret": (0, 0.29, 0), "u.heavy_turret": (0, 0.34, 0), "u.harv_drum": (0, 0.12, 0.52),
            "b.sam_head": (0, 0.3, 0), "b.flak_head": (0, 0.3, 0), "b.derrick_pump": (-0.3, 0.44, 0.45),
            "u.ifv_turret": (0, 0.24, -0.04), "u.prismtank_turret": (0, 0.28, -0.03), "u.mirage_turret": (0, 0.28, -0.05),
            "u.v3_rack": (0, 0.3, -0.3), "u.apoc_turret": (0, 0.38, -0.04), "u.apoc_gun": (0, 0.5, 0.16),
-           "u.harvF_gun": (0, 0.5, 0.3), "u.leg": (0.045, 0.13, 0), "u.dog_leg": (0.05, 0.12, 0.11),
+           "u.harvF_gun": (0, 0.5, 0.3), "b.spysat_dish": SPYSAT_DISH_AT, "u.leg": (0.045, 0.13, 0), "u.dog_leg": (0.05, 0.12, 0.11),
            "u.tank_gun": (0, 0.365, 0.12), "u.heavy_gun": (0, 0.43, 0.15), "u.harv_load": (0, 0.42, -0.2)}
 SUBDIV = {"u.crate": 0.09}   # small models whose big faces sit in corner pieces (AO would grey the whole face)
 NO_GROUND = {"u.gravy_stream", "u.gravy_pool", "u.jet", "u.blimp", "u.blimp_prop", "u.v3_rocket", "b.factory_door", "b.barracks_flag"}

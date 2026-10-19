@@ -3497,3 +3497,28 @@ make infantry scream when killed by the gravy"*.
   `tools/alert-vo/render.py` SFX; `ALR_AUDIO_V` is 4. Synth fallback: squish.
 - **Tested:** a blimp on 8 enemy infantry: 8/8 died to gravy, 8 screams, pour + splat played. Frames
   were checked mid-pour and while the pool drained. CPU-vs-CPU games ran to the end from both sides.
+
+## 🚨 NUGGET ALERT: THE NUG-SAT UPLINK (RA2's Spy Satellite) + RADAR RIGHT-CLICK (2026-10-19)
+
+Chris: *"if you create a fry lab … an option in defense that will allow you to see the whole map. this was an
+option in Red Alert 2"*. It was: the Allied **Spy Satellite Uplink**, after the Battle Lab. Here both armies get it.
+- **`spysat`** (`ALR_BLD`): 3×3, $1500, −100 power, `cat: 'def'` (so it's in the Defense tab), `req: ['lab']`. The
+  req goes through the role, so either side's lab unlocks it (Fry Lab or Test Kitchen). No `side` key, so both armies
+  can build it. The AI doesn't build it (its defence list is `ALR_AI_DEF`), and it doesn't need the shroud anyway.
+- **The reveal** lives in `alrPower` (human players only). When `spysat` is built and you have power, the code sets
+  `P.shroud.fill(255)` once, sets `P.satUp`, and announces "SATELLITE ONLINE · MAP REVEALED". The reveal is
+  permanent, as RA2's was; the shroud only ever grows. On low power it waits until power comes back.
+- **The model is Blender-built**: `build_spysat` + `build_spysat_dish` in `blender/alertrig.py`, in a new
+  `PHASE2` list. The dish's bearing is `SPYSAT_DISH_AT` = `ALR_RIG.spysat_dish` (−0.25, 0.4, −0.25), and
+  `alrBldParts` slews it slowly (yaw 0.4 ± 1.6·sin; parked on low power). There is a simple stand-in in
+  `alertArtP1.js` in case the mesh file fails to load.
+- **`pack_alert.py --merge`** (new): `render_alert/` is gitignored, so on a fresh checkout it holds only what you
+  just exported. A plain pack would drop every other model. The partial flow is:
+  `ALR_ONLY=b.spysat,b.spysat_dish blender -b -P blender/alertrig.py && python3 blender/pack_alert.py --merge`.
+  This run was checked: all 92 existing models came out byte-identical, plus the 2 new ones. Blender 5.2.2 is
+  installed now (`brew install --cask blender`; Chris OK'd it).
+- **Radar right-click** (Chris: *"if you right click on a certain section of the map on the radar it will take you
+  there"*): right-click (or right-drag) on the radar moves the camera there and keeps the selection; it used to
+  deselect. Right-click on the battlefield still deselects.
+- **Not done:** an EVA voice line for "satellite online" (it's text plus a sound for now). That needs an
+  ElevenLabs call (~10 voice credits), so ask Chris first.

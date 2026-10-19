@@ -403,6 +403,28 @@ const ALR_BUILD_ART_P1 = {
   },
 
   // 🧱 NUG BUNKER (Alliance pillbox), 1×1
+  // 🛰️ NUG-SAT UPLINK, 3×3 — the stand-in for the Blender model (blender/alertrig.py build_spysat), if the
+  // mesh file doesn't load; the dish (spysat_dish) turns on its bearing at (-0.25, 0.4, -0.25)
+  spysat(mb) {
+    alrPad(mb, 3, 3);
+    mb.color(ALR_PAL.concDark).cyl(-0.25, 0.1, -0.25, 0.95, 0.32, 0.9, 24);
+    mb.color(ALR_PAL.team, 1).cyl(-0.25, 0.22, -0.25, 0.93, 0.27, 0.93, 24, 0);
+    mb.color(ALR_PAL.steel).cyl(-0.25, 0.32, -0.25, 0.4, 0.4, 0.34, 18);
+    mb.color(ALR_PAL.conc).box(0.9, 0.32, 0.92, 0.5, 0.22, 0.46, 0.02);
+    mb.color(ALR_PAL.glassLit).box(0.9, 0.36, 1.385, 0.45, 0.06, 0.01, 0).box(1.405, 0.36, 0.92, 0.01, 0.06, 0.42, 0);
+    mb.color(ALR_PAL.dark).cyl(1.05, 0.1, -0.95, 0.06, 1.5, 0.03, 6);
+    mb.color(ALR_P1.redLit).ball(1.05, 1.6, -0.95, 0.035, 6);
+  },
+  spysat_dish(mb) {
+    mb.color(ALR_PAL.steel).cyl(0, 0, 0, 0.3, 0.06, 0.3, 18);
+    mb.color(ALR_PAL.dark).box(0, 0.25, 0, 0.12, 0.17, 0.08, 0.02);
+    mb.push().at(0, 0.42, 0.04, 0, 0.96, 0);
+    mb.color(ALR_P1.offWhite).cyl(0, 0, 0, 0.12, 0.38, 0.92, 24, 1);
+    mb.color(ALR_PAL.team, 1).cyl(0, 0.38, 0, 0.92, 0.4, 0.94, 24, 0);
+    mb.color(ALR_PAL.dark).cyl(0, 0.1, 0, 0.03, 0.6, 0.02, 6);
+    mb.color(ALR_PAL.light).ball(0, 0.62, 0, 0.03, 6);
+    mb.pop();
+  },
   bunker(mb) {
     mb.color(ALR_PAL.padDark).box(0, 0.03, 0, 0.47, 0.03, 0.47, 0.02);
     mb.color(ALR_PAL.conc).box(0, 0.17, -0.02, 0.37, 0.13, 0.34, 0.07);
