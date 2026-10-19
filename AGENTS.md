@@ -3448,3 +3448,34 @@ red and green command type interface"*.
     reticle, attack-move = an orange reticle, capture, $ sell, a wrench for repair, no-go.
 - **Harness gotcha:** a test enemy placed near the screen edge gets edge-scrolled away under a hovering
   mouse; put targets mid-screen.
+
+### The Gravy Blimp pours gravy (2026-10-19)
+Chris: *"make the gravy blimp dump loads of gravy out as its weapon. make the gravy look life like and
+make infantry scream when killed by the gravy"*.
+- **Weapon** `ALR_WPN.gravy`: dmg 240, rof 2.2, range 1.4, splash 1.25, vs inf 1.3 / veh 0.8 / bld 0.85.
+  It falls like `bomb` from the gravy-boat's SPOUT (the blimp muzzle is now 1.0 ahead of the nose, y
+  alt + 0.12). On firing it sets `pourAt` / `pourTo` / `pourT`, which the UI uses to draw the stream.
+  The old `bomb` weapon stays for the blimp crashing on whoever is under it.
+- **Pools** (`alr.pools`, the sim's own list, updated in `alrPoolsStep` from `alrShotsStep`; NOT
+  `alr.decor`, which only ages in the render loop, so a headless sim never expires it): each landing
+  makes or refreshes a pool. It spreads in 0.6 s (r 0.85 × `big`), lasts 11 s, and drains over the last
+  3. Enemy infantry inside take `gravyPool` (45/s). A pour landing within 0.55 of a pool feeds that pool
+  instead of stacking another.
+- **Screams:** `alrHit` now passes the weapon to `alrKill(t, from, W)`. When infantry dies to a
+  `W.gravy` weapon (the pour or the pool), it plays `scream1/2/3` (gap 0.12 s each) and
+  `alrFxGravyDeath` instead of crumbs + squish.
+- **The look:**
+  - The blimp tips its nose 0.2 rad down during the pour (`alrPourTip`; pitch > 0 = nose down).
+  - Two Blender meshes, `u.gravy_stream` and `u.gravy_pool`, use the new surface class 17 "liquid"
+    (smooth, fat swirls, spec 2.4, AO-exempt).
+    - Stream: a necking, bulging, twisting column with a flared foot. Two of them are drawn per pour
+      (thick + offset), stretched spout → ground by `alrSpan`. The front falls (accelerating) and the
+      tail lets go at the end.
+    - Pool: a low dome with slow concentric ripples, so the flat pool catches the sun's specular, a
+      lobed rolled rim, and bubbles + fat. It quivers and turns slowly, and steams.
+  - Droplets use atlas cell 0 (soft round) drawn brown, not cell 3 (the debris squares).
+  - The splash leaves a sauce stain decal after the pool drains.
+- **Audio** (85 credits; the music/sfx ledger is now 10,330 / 14,000): `pour`, `splat`, `scream1-3` in
+  `tools/alert-vo/render.py` SFX; `ALR_AUDIO_V` is 4. Synth fallback: squish.
+- **Tested:** a blimp on 8 enemy infantry: 8/8 died to gravy, 8 screams, pour + splat played. Frames
+  were checked mid-pour and while the pool drained. CPU-vs-CPU games ran to the end from both sides.

@@ -1,5 +1,5 @@
 {
- "v": 1792436415,
+ "v": 1792439007,
  "vo": {
   "eva|BATTLE CONTROL ONLINE": [
    "vo/eva-battle-control-online.mp3"
@@ -347,6 +347,11 @@
   "prism": "sfx/prism.mp3",
   "flak": "sfx/flak.mp3",
   "chrono": "sfx/chrono.mp3",
-  "bomb": "sfx/bomb.mp3"
+  "bomb": "sfx/bomb.mp3",
+  "pour": "sfx/pour.mp3",
+  "splat": "sfx/splat.mp3",
+  "scream1": "sfx/scream1.mp3",
+  "scream2": "sfx/scream2.mp3",
+  "scream3": "sfx/scream3.mp3"
  }
 }

@@ -305,6 +305,86 @@ function alrFxBoom(x, y, z, s) {
   alr.fx.push({ kind: 'decal', x, z, s: s * 1.2, t: 0, T: 60, rot: Math.random() * 6 });
   alr.shake = Math.max(alr.shake || 0, 0.15 * s);
 }
+// ---- the gravy (the Gravy Blimp's pour): splash, death, the stream + the pools --------------------------------
+const ALR_GRAVY = [0.36, 0.2, 0.09];
+function alrFxGravy(x, z) {
+  // a crown of heavy droplets thrown up and out, a few glossy glints, then a stain once the pool drains
+  for (let k = 0; k < 34; k++) {
+    const a = Math.random() * 6.283, sp = alrRnd(0.6, 2.4);
+    const sh = alrRnd(0.75, 1.15);
+    alrP({ x: x + Math.cos(a) * 0.1, y: 0.06, z: z + Math.sin(a) * 0.1, vx: Math.cos(a) * sp, vy: alrRnd(1.2, 3.2), vz: Math.sin(a) * sp, s: alrRnd(0.05, 0.13), T: alrRnd(0.5, 0.9), r: ALR_GRAVY[0] * sh, g: ALR_GRAVY[1] * sh, b: ALR_GRAVY[2] * sh, a: 1, cell: 0, grav: 9 });
+  }
+  alrP({ x, y: 0.12, z, vx: 0, vy: 0.3, vz: 0, s: 0.7, gs: 0.8, T: 0.7, r: 0.55, g: 0.42, b: 0.3, a: 0.35, cell: 1 });   // steam
+  alr.fx.push({ kind: 'decal', x, z, s: 0.75, t: 0, T: 45, rot: Math.random() * 6, sauce: true });
+}
+function alrFxGravyDeath(x, z) {
+  for (let k = 0; k < 10; k++) alrP({ x, y: 0.15, z, vx: alrRnd(-0.9, 0.9), vy: alrRnd(0.8, 2.0), vz: alrRnd(-0.9, 0.9), s: alrRnd(0.05, 0.1), T: 0.7, r: ALR_GRAVY[0], g: ALR_GRAVY[1], b: ALR_GRAVY[2], a: 1, cell: 0, grav: 8 });
+  for (let k = 0; k < 2; k++) alrP({ x, y: 0.2, z, vx: alrRnd(-1, 1), vy: alrRnd(1, 2), vz: alrRnd(-1, 1), s: 0.06, T: 0.6, r: 0.88, g: 0.6, b: 0.24, a: 1, cell: 0, grav: 7 });   // breading
+  alrP({ x, y: 0.15, z, vx: 0, vy: 0.4, vz: 0, s: 0.35, gs: 0.6, T: 0.8, r: 0.6, g: 0.5, b: 0.4, a: 0.35, cell: 1 });   // steam
+}
+// the pour's timing: the blimp tips its nose (pitch > 0 = nose down), the stream's front falls, the tail lets go
+function alrPourTip(u) {
+  if (u.pourAt == null) return 0;
+  const s = (alr.t || 0) - u.pourAt, T = u.pourT || 1.5;
+  if (s < 0 || s > T + 0.5) return 0;
+  return 0.2 * Math.min(1, s / 0.3) * Math.min(1, (T + 0.5 - s) / 0.5);
+}
+function alrSpout(u) {
+  const p = alrPourTip(u), c = Math.cos(u.yaw), sn = Math.sin(u.yaw);
+  const fwd = Math.cos(p) * 1.0 + Math.sin(p) * 0.12, up = Math.cos(p) * 0.12 - Math.sin(p) * 1.0;
+  return [u.x + sn * fwd, (u.alt || 0) + up, u.z + c * fwd];
+}
+// a mesh whose +y runs from point a to point b, w wide (the stream)
+function alrSpan(a, b, w, spin) {
+  const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], L = Math.hypot(d[0], d[1], d[2]) || 1e-4;
+  const y = [d[0] / L, d[1] / L, d[2] / L];
+  let x = Math.abs(y[1]) < 0.9 ? [y[2], 0, -y[0]] : [1, 0, 0];
+  const xl = Math.hypot(x[0], x[1], x[2]); x = x.map((v) => v / xl);
+  let z = [x[1] * y[2] - x[2] * y[1], x[2] * y[0] - x[0] * y[2], x[0] * y[1] - x[1] * y[0]];
+  const c = Math.cos(spin || 0), s = Math.sin(spin || 0);
+  const X = x.map((v, i) => v * c + z[i] * s), Z = z.map((v, i) => -x[i] * s + v * c);
+  const m = new Float32Array(16);
+  m[0] = X[0] * w; m[1] = X[1] * w; m[2] = X[2] * w;
+  m[4] = d[0]; m[5] = d[1]; m[6] = d[2];
+  m[8] = Z[0] * w; m[9] = Z[1] * w; m[10] = Z[2] * w;
+  m[12] = a[0]; m[13] = a[1]; m[14] = a[2]; m[15] = 1;
+  return m;
+}
+function alrDrawGravy(onScreen, seen) {
+  const A = alrArt.u, now = alr.t || 0;
+  // the pools: a glossy lobed dome that spreads, quivers, then drains
+  for (const p of alr.pools || []) {
+    if (!onScreen(p.x, p.z, 120) || !seen(p.x, p.z)) continue;
+    const r = alrPoolR(p);
+    if (r < 0.03) continue;
+    const q = 1 + Math.sin(now * 5 + p.yaw * 3) * 0.02;
+    if (A.gravy_pool) alrGLDraw(A.gravy_pool, alrTRS(p.x, 0.004, p.z, p.yaw + now * 0.05, r * q, 0.9, r / q), { spec: 3.2, noCast: true });
+    else alrGLGround(p.x, p.z, r, r, p.yaw, ALR_GRAVY[0], ALR_GRAVY[1], ALR_GRAVY[2], 0.95, 3, false, 0.02);
+    if (Math.random() < 0.06) alrP({ x: p.x + alrRnd(-r, r) * 0.6, y: 0.05, z: p.z + alrRnd(-r, r) * 0.6, vx: 0, vy: 0.25, vz: 0, s: 0.25, gs: 0.5, T: 1.2, r: 0.6, g: 0.52, b: 0.45, a: 0.18, cell: 1 });   // steam off it
+  }
+  // the streams
+  for (const u of alr.ents) {
+    if (u.type !== 'blimp' || u.pourAt == null) continue;
+    const s = now - u.pourAt, T = u.pourT || 1.5;
+    if (s < 0 || s > T + 0.35 || !onScreen(u.x, u.z, 200)) continue;
+    const S = alrSpout(u), G = [u.pourTo[0], 0.02, u.pourTo[1]];
+    const head = Math.min(1, (s / 0.45) * (s / 0.45));            // the front falls (accelerating)
+    const tail = s > T - 0.1 ? Math.min(1, (s - (T - 0.1)) / 0.45) : 0;   // the tail lets go at the end
+    const lerp = (k) => [S[0] + (G[0] - S[0]) * k, S[1] + (G[1] - S[1]) * k, S[2] + (G[2] - S[2]) * k];
+    const a = lerp(Math.min(1, head)), b = lerp(tail * tail);
+    const w = 2.1 + Math.sin(now * 23) * 0.15;
+    // "loads of gravy": a thick main column and a second, offset one that wobbles out of phase
+    if (A.gravy_stream) {
+      alrGLDraw(A.gravy_stream, alrSpan(a, b, w, now * 3), { spec: 1.8 });
+      const o = [Math.sin(now * 7) * 0.06, 0, Math.cos(now * 5) * 0.06];
+      alrGLDraw(A.gravy_stream, alrSpan([a[0] + o[0], a[1], a[2] + o[2]], [b[0] + o[0] * 0.3, b[1], b[2] + o[2] * 0.3], w * 0.7, -now * 4 + 1), { spec: 1.8 });
+    }
+    // droplets peeling off the column
+    for (let k = 0; k < 5; k++) { const f = Math.random(), P = lerp(Math.min(head, Math.max(tail * tail, f))); alrGLSprite(P[0] + alrRnd(-0.14, 0.14), P[1], P[2] + alrRnd(-0.14, 0.14), alrRnd(0.06, 0.12), 0, ALR_GRAVY[0], ALR_GRAVY[1], ALR_GRAVY[2], 1, 0, false); }
+    // while it's hitting the ground: a constant churn of splashes at the foot
+    if (head >= 1 && tail < 0.95 && Math.random() < 0.7) { const a2 = Math.random() * 6.283, sp = alrRnd(0.5, 1.6); alrP({ x: G[0], y: 0.05, z: G[2], vx: Math.cos(a2) * sp, vy: alrRnd(0.8, 2.2), vz: Math.sin(a2) * sp, s: alrRnd(0.05, 0.1), T: 0.5, r: ALR_GRAVY[0], g: ALR_GRAVY[1], b: ALR_GRAVY[2], a: 1, cell: 0, grav: 9 }); }
+  }
+}
 function alrFxCrumbs(x, z) {
   for (let k = 0; k < 8; k++) alrP({ x, y: 0.25, z, vx: alrRnd(-1.2, 1.2), vy: alrRnd(1, 2.4), vz: alrRnd(-1.2, 1.2), s: 0.09, T: 0.8, r: 0.88, g: 0.6, b: 0.24, a: 1, cell: 3, grav: 7, vr: alrRnd(-8, 8) });
   alrFxSmoke(x, 0.2, z, 0.35, 0.8);
@@ -387,6 +467,7 @@ function alrUIRender(dt) {
     alrGLDraw(A.shrubs[sh.v % A.shrubs.length], alrTRS(sh.x, 0, sh.z, sh.yaw, sh.s), { spec: 0.05 });
   }
   for (const rk of M.rocks) if (seen(rk.x, rk.z) && rk.x >= x0 && rk.x <= x1 + 1 && rk.z >= z0 && rk.z <= z1 + 1) alrGLDraw(A.rocks[rk.v % A.rocks.length], alrTRS(rk.x, 0, rk.z, rk.yaw, rk.s), { spec: 0.1 });
+  alrDrawGravy(onScreen, seen);
   // rubble, scorches and wrecks
   for (const d of alr.decor) {
     if (!onScreen(d.x, d.z, 120)) continue;
@@ -622,8 +703,9 @@ function alrUnitParts0(u) {
   const H = alrTRS(u.x, alt, u.z, u.yaw);
   if (t === 'jet') { add('jet', alrTRS(u.x, alt, u.z, u.yaw, 1, 1, 1, 0, -(u.bank || 0))); return parts; }
   if (t === 'blimp') {
-    add('blimp', H);
-    for (const [x, y, z] of R.blimp_prop) add('blimp_prop', alrMul(H, alrTRS(x, y, z, 0, 1, 1, 1, 0, (alr.t || 0) * 9 + x)));
+    const tip = alrPourTip(u), HB = tip ? alrTRS(u.x, alt, u.z, u.yaw, 1, 1, 1, tip) : H;
+    add('blimp', HB);
+    for (const [x, y, z] of R.blimp_prop) add('blimp_prop', alrMul(HB, alrTRS(x, y, z, 0, 1, 1, 1, 0, (alr.t || 0) * 9 + x)));
     return parts;
   }
   if (t === 'tank' || t === 'heavy') {
@@ -1101,7 +1183,7 @@ function alrUIEnd() {
 
 // ---- the synth ------------------------------------------------------------------------------------------------------------
 const alrA = { ctx: null, master: null, noise: null, muted: false, last: {} };
-const ALR_SFX_SYNTH = { prism: 'zap', flak: 'cannon', bark: 'squish', jet: 'rocket', chrono: 'zap', bomb: 'boomL' };
+const ALR_SFX_SYNTH = { prism: 'zap', flak: 'cannon', bark: 'squish', jet: 'rocket', chrono: 'zap', bomb: 'boomL', pour: 'squish', splat: 'squish', scream1: 'squish', scream2: 'squish', scream3: 'squish' };
 function alrAudioWake() {
   if (alrA.ctx) { if (alrA.ctx.state === 'suspended') alrA.ctx.resume(); return; }
   try {
@@ -1118,7 +1200,7 @@ function alrSfx(name, x, z) {
   const C = alrA.ctx; if (!C || alrA.muted || C.state !== 'running') return;
   let vol = 1;
   if (x != null) { const d = Math.hypot(x - alr.cam.x, z - alr.cam.z); vol = alrClamp(1.25 - d / 16, 0, 1); if (vol <= 0.02) return; }
-  const now = C.currentTime, gap = { rifle: 0.035, cannon: 0.05, heavy: 0.05, rocket: 0.06, zap: 0.08, squish: 0.06, boomL: 0.08, select: 0.06, ack: 0.08 }[name] || 0.02;
+  const now = C.currentTime, gap = { rifle: 0.035, cannon: 0.05, heavy: 0.05, rocket: 0.06, zap: 0.08, squish: 0.06, boomL: 0.08, select: 0.06, ack: 0.08, scream1: 0.12, scream2: 0.12, scream3: 0.12, splat: 0.1 }[name] || 0.02;
   if (alrA.last[name] && now - alrA.last[name] < gap) return;
   alrA.last[name] = now;
   if (alrDiscSfx(name, vol)) return;          // the ElevenLabs recording, when it's decoded (js/alertAudio.js)

@@ -58,7 +58,9 @@ PAL = {
     "armor": _m("#6d6f5f", 5), "armorDark": _m("#505246", 5),
     # phase 1: Alliance paint (pale grey-blue), white paint, the prism crystal, the blimp's fabric
     "allyArmor": _m("#7c858b", 5), "allyDark": _m("#5a6268", 5), "paintWhite": _m("#c8cac4", 5),
-    "crystal": _m("#a6d6ee", 8, 0, 1), "crateWood": _m("#9a7a4c", 10), "gravy": _m("#7a4e2a", 13), "gravyLt": _m("#93613a", 13),
+    "crystal": _m("#a6d6ee", 8, 0, 1), "crateWood": _m("#9a7a4c", 10),
+    # 17 liquid: the Gravy Blimp's gravy (glossy, fat-swirled; exempt from AO — it's a wet surface, lit by the sun)
+    "gravyLiquid": _m("#4a2810", 17, 0, 1), "gravyFat": _m("#6c4220", 17, 0, 1), "gravy": _m("#7a4e2a", 13), "gravyLt": _m("#93613a", 13),
     # the landscape: 14 foliage · 15 rock · 16 ore
     "leafA": _m("#46622b", 14), "leafB": _m("#55702f", 14), "leafC": _m("#344d22", 14), "leafD": _m("#617336", 14),
     "pineA": _m("#2f4a2c", 14), "pineB": _m("#3a5532", 14), "bark": _m("#4d3e2e", 10), "barkDark": _m("#3a2f24", 10),
@@ -2508,7 +2510,47 @@ def build_crate():
     return m
 
 
-PHASE1 = [build_powerF, build_airhq, build_depot, build_labA, build_labF, build_bunker, build_sam, build_sam_head,
+def build_gravy_stream():
+    """The pour: a column of gravy from y 0 (where it hits) to y 1 (the spout), stretched to fit by the
+    game. It necks and bulges like a heavy liquid falling, flares where it lands, and twists a little."""
+    m = Model("u.gravy_stream", smooth_deg=80)
+    rings = []
+    for i in range(25):
+        t = i / 24
+        r = 0.07 + 0.016 * math.sin(t * 19.0) + 0.01 * math.sin(t * 41.0 + 1.3)
+        r *= 0.75 + 0.25 * (1 - t)
+        if t < 0.08:
+            r += (0.08 - t) / 0.08 * 0.09          # the flare where it lands
+        tw = t * 2.2
+        rings.append([(math.cos(j / 12 * TAU + tw) * r * (1 + 0.12 * math.sin(j * 1.7 + i)), t, math.sin(j / 12 * TAU + tw) * r) for j in range(12)])
+    m.loft(rings, "gravyLiquid")
+    for k in range(4):                                # a few fatty glints running down it
+        t = 0.2 + k * 0.17
+        a = k * 1.9
+        m.ball((math.cos(a) * 0.07, t, math.sin(a) * 0.07), 0.018, "gravyFat", u=8, v=5, s=(1, 2.2, 1))
+    return m
+
+
+def build_gravy_pool():
+    """A pool of gravy, radius 1 (the game scales it as it spreads and drains): a low glossy dome with a
+    lobed, rolled rim, a few skin wrinkles and bubbles."""
+    m = Model("u.gravy_pool", smooth_deg=75)
+    rnd = random.Random(77)
+    n = 56
+    lob = [1.0 + 0.12 * math.sin(j / n * TAU * 3 + 0.4) + 0.07 * math.sin(j / n * TAU * 7 + 1.1) + 0.03 * math.sin(j / n * TAU * 13) for j in range(n)]
+    # a low dome with slow concentric ripples + a rolled rim: the ripples tilt the surface enough to catch the
+    # sun's highlight the way a wet pool does (a flat disc never shows a specular)
+    prof = [(0.0, 0.036)] + [(k / 12 * 0.9, 0.034 - 0.012 * (k / 12) ** 2 + 0.0035 * math.sin(k * 1.9)) for k in range(1, 13)] + [(0.96, 0.014), (1.0, 0.005), (0.98, 0.0)]
+    rings = [[(math.cos(j / n * TAU) * r * lob[j], y + (0.002 * math.sin(j * 0.9 + r * 9) if 0.05 < r < 0.9 else 0), math.sin(j / n * TAU) * r * lob[j]) for j in range(n)] for r, y in prof]
+    m.loft(rings, "gravyLiquid", cap0=False, cap1=True)
+    for k in range(9):                               # bubbles + fat blobs on the surface
+        a, d = rnd.uniform(0, TAU), rnd.uniform(0.05, 0.75)
+        r = rnd.uniform(0.025, 0.06)
+        m.ball((math.cos(a) * d, 0.03, math.sin(a) * d), r, "gravyFat" if k % 3 == 0 else "gravyLiquid", u=10, v=6, s=(1, 0.45, 1))
+    return m
+
+
+PHASE1 = [build_gravy_stream, build_gravy_pool, build_powerF, build_airhq, build_depot, build_labA, build_labF, build_bunker, build_sam, build_sam_head,
           build_prism, build_flak, build_flak_head, build_wallA_post, build_wallA_bar, build_wallF_post, build_wallF_bar,
           build_derrick, build_derrick_pump, build_engineer, build_jetpack, build_conscript, build_zapper, build_dog,
           build_dog_leg, build_ifv, build_ifv_turret, build_prismtank, build_prismtank_turret, build_mirage,
@@ -2535,7 +2577,7 @@ PART_AT = {"b.hq_crane": (-1.05, 0, -1.0), "b.radar_dish": (0.45, 0.78, -0.45), 
            "u.harvF_gun": (0, 0.5, 0.3), "u.leg": (0.045, 0.13, 0), "u.dog_leg": (0.05, 0.12, 0.11),
            "u.tank_gun": (0, 0.365, 0.12), "u.heavy_gun": (0, 0.43, 0.15), "u.harv_load": (0, 0.42, -0.2)}
 SUBDIV = {"u.crate": 0.09}   # small models whose big faces sit in corner pieces (AO would grey the whole face)
-NO_GROUND = {"u.jet", "u.blimp", "u.blimp_prop", "u.v3_rocket", "b.factory_door", "b.barracks_flag"}
+NO_GROUND = {"u.gravy_stream", "u.gravy_pool", "u.jet", "u.blimp", "u.blimp_prop", "u.v3_rocket", "b.factory_door", "b.barracks_flag"}
 
 
 # =========================================================================================================

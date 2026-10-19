@@ -480,7 +480,7 @@ function alrArtInit() {
 // The procedural models above draw first and stay as the fallback. The Blender set (~1 MB gzipped) is
 // injected the first time the game opens, then swapped in by name: 'b.hq' → alrArt.b.hq, 'u.tank' → alrArt.u.tank.
 // Everything draws through alrArt lookups each frame, so the swap is live; the sidebar cameos are re-shot.
-const ALR_MESH_SRC = 'js/alertMeshData.js?v=4';
+const ALR_MESH_SRC = 'js/alertMeshData.js?v=5';
 function alrMeshUse() {
   const D = window.ALR_MESH_DATA;
   if (!D) {
@@ -523,8 +523,8 @@ function alrMeshUse() {
 // colour unchanged; the shader multiplies by 2×) with its own physical logic: formwork seams + tie holes on cast
 // concrete, slab joints + cracks + oil on the aprons, gravel on roofs, ribs + rust runs on corrugated sheet, weld
 // seams + chipped paint on armour, rivet rows + rust weeping on silos. Scales are repeats per tile.
-const ALR_MAT_SCALE = [0, 2.0, 1.0, 2.2, 3.0, 3.2, 3.0, 8.0, 2.0, 7.0, 5.0, 2.5, 6.0, 3.0, 5.0, 3.0, 9.0];
-const ALR_MAT_SPEC = [1, 0.15, 0.08, 0.25, 0.7, 0.75, 1.1, 0.12, 2.2, 0.05, 0.1, 0.6, 0.3, 0.08, 0.12, 0.2, 0.9];
+const ALR_MAT_SCALE = [0, 2.0, 1.0, 2.2, 3.0, 3.2, 3.0, 8.0, 2.0, 7.0, 5.0, 2.5, 6.0, 3.0, 5.0, 3.0, 9.0, 2.5];
+const ALR_MAT_SPEC = [1, 0.15, 0.08, 0.25, 0.7, 0.75, 1.1, 0.12, 2.2, 0.05, 0.1, 0.6, 0.3, 0.08, 0.12, 0.2, 0.9, 2.4];
 function alrMatLayers(S) {
   const hash = (x, y, s) => { let h = (x * 374761393 + y * 668265263 + s * 2147483647) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
   // tileable value noise: `cells` lattice cells across the tile, wrapped
@@ -623,6 +623,11 @@ function alrMatLayers(S) {
   make((L) => {
     each(L, (x, y) => grey((fbm(x, y, 12, 3, 34) - 0.5) * 50));
     for (let k = 0; k < 260; k++) blob(L, rnd() * S | 0, rnd() * S | 0, 1 + rnd() * 3 | 0, rnd() < 0.55 ? 70 : -60, [1, 0.9, 0.5]);
+  });
+  // 17 liquid (gravy): smooth, a few soft swirls of lighter fat and darker depth, no grain
+  make((L) => {
+    each(L, (x, y) => { const w = fbm(x, y, 3, 3, 40); const sw = Math.sin((x + w * 140) / 22 + Math.cos((y + w * 90) / 30) * 2); return [sw * 9 + (w - 0.5) * 22, sw * 6 + (w - 0.5) * 16, sw * 3 + (w - 0.5) * 10]; });
+    for (let k = 0; k < 20; k++) blob(L, rnd() * S | 0, rnd() * S | 0, 6 + rnd() * 14 | 0, 18, [1.1, 0.85, 0.55]);
   });
   return { layers };
 }

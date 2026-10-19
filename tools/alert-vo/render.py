@@ -156,6 +156,12 @@ SFX = [
     ('flak',    1.0, 'Anti-aircraft flak bursts, rapid thumping cannon shots popping in the sky, video game'),
     ('chrono',  1.2, 'Science-fiction teleport, a warping whoosh with a crackle, video game'),
     ('bomb',    1.8, 'Falling bomb whistle then a heavy explosion, video game'),
+    # the Gravy Blimp's pour (Chris: "dump loads of gravy ... make infantry scream when killed by the gravy")
+    ('pour',    2.5, 'A huge torrent of thick hot gravy glugging and pouring from a height, heavy viscous liquid stream, video game'),
+    ('splat',   1.5, 'Thick brown gravy splattering onto the ground in a big wet sloppy splash with bubbling, video game'),
+    ('scream1', 1.5, 'Soldier death scream, short agonized yell cut off by a wet gargle, war video game'),
+    ('scream2', 1.5, 'Infantryman screaming in panic as he is drowned in hot liquid, short, war video game'),
+    ('scream3', 1.5, 'Short high falsetto death shriek of a soldier, gurgling at the end, war video game'),
 ]
 
 def tts_ledger():

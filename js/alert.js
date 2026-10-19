@@ -80,9 +80,9 @@ const ALR_UNIT = {
   harvF:    { name: 'WAR HAULER', side: 'F', cost: 1400, hp: 1200, speed: 1.4, cat: 'veh', time: 14, weapon: 'mg', armor: 'veh', sight: 5, req: ['factory', 'refinery'], harv: true, cap: 1000, turn: 1.8, r: 0.42, turret: true, blurb: 'bigger load · has a gun' },
   v3:       { name: 'SAUCE V3', side: 'F', cost: 800, hp: 150, speed: 1.6, cat: 'veh', time: 10, weapon: 'v3', armor: 'veh', sight: 6, req: ['factory', 'radar'], turn: 2.5, r: 0.38, blurb: 'long-range rocket artillery' },
   apoc:     { name: 'FAMILY SIZE', side: 'F', cost: 1750, hp: 900, speed: 1.15, cat: 'veh', time: 18, weapon: 'apoc', weapon2: 'apocAA', armor: 'veh', sight: 7, req: ['factory', 'lab'], turret: true, turn: 1.6, r: 0.52, crush: true, heal: 4, blurb: 'twin guns + AA missiles · heals' },
-  blimp:    { name: 'GRAVY BLIMP', side: 'F', cost: 2000, hp: 1800, speed: 0.8, cat: 'veh', time: 20, weapon: 'bomb', armor: 'air', sight: 6, req: ['factory', 'lab'], r: 0.9, air: 'blimp', alt: 2.4, turn: 0.7, heal: 3, blurb: 'slow · bombs what\'s under it' },
+  blimp:    { name: 'GRAVY BLIMP', side: 'F', cost: 2000, hp: 1800, speed: 0.8, cat: 'veh', time: 20, weapon: 'gravy', armor: 'air', sight: 6, req: ['factory', 'lab'], r: 0.9, air: 'blimp', alt: 2.4, turn: 0.7, heal: 3, blurb: 'slow · pours scalding gravy on what\'s under it' },
 };
-const ALR_WALL_KINDS = { shell: 1, rocket: 1, v3: 1, bomb: 1, beam: 1, zap: 1 };
+const ALR_WALL_KINDS = { shell: 1, rocket: 1, v3: 1, bomb: 1, beam: 1, zap: 1, gravy: 1 };
 const ALR_WPN = {
   rifle:   { dmg: 15, rof: 0.85, range: 4.6, kind: 'bullet', vs: { inf: 1, veh: 0.22, bld: 0.25 }, sfx: 'rifle' },
   rifleD:  { dmg: 30, rof: 0.8, range: 5.5, kind: 'bullet', vs: { inf: 1, veh: 0.25, bld: 0.3 }, sfx: 'rifle' },
@@ -103,6 +103,10 @@ const ALR_WPN = {
   apoc:    { dmg: 55, rof: 1.9, range: 6, kind: 'shell', twin: true, speed: 15, vs: { inf: 0.5, veh: 1, bld: 0.9 }, sfx: 'heavy' },
   apocAA:  { dmg: 40, rof: 1.6, range: 8, kind: 'rocket', twin: true, speed: 16, air: true, ground: false, vs: { air: 1 }, sfx: 'rocket' },
   bomb:    { dmg: 260, rof: 1.3, range: 0.9, kind: 'bomb', splash: 1.1, vs: { inf: 1, veh: 0.9, bld: 1 }, sfx: 'bomb' },
+  // the Gravy Blimp tips its nose and pours (Chris: "dump loads of gravy out as its weapon"): the hit lands
+  // like a bomb, then the pool it leaves keeps scalding infantry (gravyPool, per second) until it drains
+  gravy:   { dmg: 240, rof: 2.2, range: 1.4, kind: 'gravy', splash: 1.25, vs: { inf: 1.3, veh: 0.8, bld: 0.85 }, sfx: 'pour', gravy: true },
+  gravyPool: { dmg: 45, kind: 'gravy', vs: { inf: 1, veh: 0, bld: 0, air: 0 }, gravy: true },
   bunker:  { dmg: 30, rof: 0.5, range: 5.5, kind: 'bullet', vs: { inf: 1, veh: 0.3, bld: 0.2 }, sfx: 'rifle' },
   sam:     { dmg: 75, rof: 1.5, range: 10, kind: 'rocket', twin: true, speed: 17, air: true, ground: false, vs: { air: 1 }, sfx: 'rocket' },
   prismT:  { dmg: 120, rof: 2.8, range: 8, kind: 'beam', relay: true, vs: { inf: 1, veh: 1, bld: 0.7 }, sfx: 'prism', power: true },
@@ -320,7 +324,7 @@ function alrNewGame(tier, side, mapKey, nAI) {
   alr._pg = alr._pf = alr._pp = alr._pm = alr._pc = null;      // the pathfinder's buffers are sized by the map
   alr.payMul = 1 + 0.25 * (nAI - 1);                           // more rivals, more nuggets per kill
   alr.crates = []; alr.crateT = 40;
-  alr.ents = []; alr.byId = new Map(); alr.nid = 1; alr.sel = []; alr.groups = {}; alr.fx = []; alr.shots = []; alr.decor = [];
+  alr.ents = []; alr.byId = new Map(); alr.nid = 1; alr.sel = []; alr.groups = {}; alr.fx = []; alr.shots = []; alr.decor = []; alr.pools = [];
   alr.t = 0; alr.acc = 0; alr.earned = 0; alr.result = null; alr.msgs = []; alr.place = null; alr.mode = '';
   alr.stats = { kills: 0, lost: 0, built: 0, harvested: 0, crushed: 0, captured: 0 };
   alr.M = alrMakeMap(def);
@@ -1221,7 +1225,7 @@ function alrMuzzle(e, side) {
     return [e.x + sn * L + c * 0.08 * s, e.type === 'bunker' ? 0.22 : 0.48, e.z + c * L - sn * 0.08 * s];
   }
   if (e.D.air === 'jet') { const c = Math.cos(e.yaw), sn = Math.sin(e.yaw); return [e.x + c * 0.28 * s + sn * 0.1, e.alt - 0.08, e.z - sn * 0.28 * s + c * 0.1]; }   // under the wings
-  if (e.D.air === 'blimp') return [e.x, e.alt - 0.5, e.z];
+  if (e.D.air === 'blimp') { const c = Math.cos(e.yaw), sn = Math.sin(e.yaw); return [e.x + sn * 1.0, e.alt + 0.12, e.z + c * 1.0]; }   // the gravy-boat's spout
   const yaw = e.D.turret ? e.tYaw : e.yaw, c = Math.cos(yaw), sn = Math.sin(yaw), [L, H] = ALR_MUZ[e.type] || [0.3, 0.3];
   return [e.x + sn * L + c * 0.055 * s, H + (e.alt || 0), e.z + c * L - sn * 0.055 * s];
 }
@@ -1265,9 +1269,11 @@ function alrFire(e, t, W) {
         }
       } else {
         const L = Math.hypot(a[0] - m[0], a[2] - m[2]);
-        const T = W.kind === 'bomb' ? 0.45 + m[1] * 0.12 : L / W.speed;
-        alr.shots.push({ kind: W.kind, x: m[0], y: m[1], z: m[2], a: m.slice(), b: W.kind === 'bomb' ? [t.x, 0.05, t.z] : a, t: 0, T, tid: t.id, W, from: e.id, owner: e.owner, mul });
-        if (W.kind !== 'bomb') alrFxMuzzle(m, W.kind === 'rocket' || W.kind === 'v3' ? 0.25 : 0.4);
+        const drop = W.kind === 'bomb' || W.kind === 'gravy';
+        const T = drop ? 0.45 + m[1] * 0.12 : L / W.speed;
+        alr.shots.push({ kind: W.kind, x: m[0], y: m[1], z: m[2], a: m.slice(), b: drop ? [t.x, 0.05, t.z] : a, t: 0, T, tid: t.id, W, from: e.id, owner: e.owner, mul });
+        if (W.kind === 'gravy') { e.pourAt = alr.t; e.pourTo = [t.x, t.z]; e.pourT = T + 1.0; }   // the stream the UI draws
+        if (!drop) alrFxMuzzle(m, W.kind === 'rocket' || W.kind === 'v3' ? 0.25 : 0.4);
       }
       alrSfx(W.sfx, e.x, e.z);
     };
@@ -1282,7 +1288,7 @@ function alrShotsStep(dt) {
     const u = Math.min(1, s.t / s.T);
     // a rocket lofts a little, a V3 goes way up and comes down on it, a bomb just falls
     const arc = s.kind === 'v3' ? Math.sin(u * Math.PI) * 3.2 : s.kind === 'rocket' ? Math.sin(u * Math.PI) * 0.35 : s.kind === 'bomb' ? 0 : Math.sin(u * Math.PI) * 0.12;
-    const uu = s.kind === 'bomb' ? u * u : u;
+    const uu = s.kind === 'bomb' || s.kind === 'gravy' ? u * u : u;
     s.px = s.x; s.py = s.y; s.pz = s.z;
     s.x = s.a[0] + (s.b[0] - s.a[0]) * uu; s.z = s.a[2] + (s.b[2] - s.a[2]) * uu; s.y = s.a[1] + (s.b[1] - s.a[1]) * uu + arc;
     if ((s.kind === 'rocket' || s.kind === 'v3') && Math.random() < dt * (s.kind === 'v3' ? 70 : 40)) alrFxSmoke(s.x, s.y, s.z, s.kind === 'v3' ? 0.3 : 0.18, s.kind === 'v3' ? 1.6 : 0.9);
@@ -1292,12 +1298,35 @@ function alrShotsStep(dt) {
       if (alrAlive(t) && alrDistTo(s.x, s.z, t) < 0.8 + (s.W.splash ? 0.4 : 0)) alrHit(t, s.W, from, s.mul);
       // splash: everything else of theirs near the blast takes half
       if (s.W.splash) for (const q of alr.ents.slice()) if (q !== t && q.owner !== s.owner && q.owner !== alr.NEU && q.hp > 0 && !alrAirborne(q) && alrDistTo(s.x, s.z, q) < s.W.splash) alrHit(q, s.W, from, 0.5 * s.mul);
-      if (s.kind === 'v3' || s.kind === 'bomb') alrFxBoom(s.x, 0.2, s.z, s.kind === 'bomb' ? 1.1 : 0.9);
+      if (s.kind === 'gravy') alrGravyLand(s.x, s.z, s.owner, s.from);
+      else if (s.kind === 'v3' || s.kind === 'bomb') alrFxBoom(s.x, 0.2, s.z, s.kind === 'bomb' ? 1.1 : 0.9);
       else if (alrAirborne(t || {})) alrFxFlak([s.x, s.y, s.z]);
       else alrFxBlast(s.x, s.y, s.z, s.kind === 'rocket' ? 0.55 : 0.45);
     }
   }
   alr.shots = alr.shots.filter((s) => !s.done);
+  alrPoolsStep(dt);
+}
+// ---- the gravy: a pool where the pour lands, spreading, scalding enemy infantry in it, then draining ----------
+function alrGravyLand(x, z, owner, fromId) {
+  alr.pools = alr.pools || [];
+  const near = alr.pools.find((p) => Math.hypot(p.x - x, p.z - z) < 0.55);
+  if (near) { near.t = Math.min(near.t, 0.6); near.T = Math.max(near.T, 11); near.big = Math.min(1.5, (near.big || 1) + 0.15); }
+  else alr.pools.push({ x, z, t: 0, T: 11, owner, from: fromId, yaw: Math.random() * 6.28, big: 0.9 + Math.random() * 0.2 });
+  if (typeof alrFxGravy === 'function') alrFxGravy(x, z);
+  alrSfx('splat', x, z);
+}
+function alrPoolR(p) { return 0.85 * (p.big || 1) * Math.min(1, p.t / 0.6) * Math.min(1, Math.max(0, (p.T - p.t) / 3)); }
+function alrPoolsStep(dt) {
+  if (!alr.pools || !alr.pools.length) return;
+  for (const p of alr.pools) {
+    p.t += dt;
+    const r = alrPoolR(p);
+    if (r < 0.15) continue;
+    const from = alr.byId.get(p.from) || { owner: p.owner, id: p.from };
+    for (const q of alr.ents.slice()) if (q.kind === 'unit' && q.D.cat === 'inf' && q.owner !== p.owner && q.owner !== alr.NEU && q.hp > 0 && !alrAirborne(q) && Math.hypot(q.x - p.x, q.z - p.z) < r) { q.inGravy = 0.3; alrHit(q, ALR_WPN.gravyPool, from, dt); }
+  }
+  alr.pools = alr.pools.filter((p) => p.t < p.T);
 }
 function alrHit(t, W, from, mul) {
   if (!alrAlive(t)) return;
@@ -1314,9 +1343,9 @@ function alrHit(t, W, from, mul) {
   // hit back: an idle unit that's shot at goes for the shooter (if it can reach it)
   const sh = from && from.id && alr.byId.get(from.id);
   if (t.kind === 'unit' && t.D.weapon && !t.order && alrAlive(sh) && alrCanHit(alrW(t), sh)) t.target = sh;
-  if (t.hp <= 0) alrKill(t, from);
+  if (t.hp <= 0) alrKill(t, from, W);
 }
-function alrKill(t, from) {
+function alrKill(t, from, W) {
   const killer = from ? from.owner : -1;
   // experience: the killer banks what the victim cost
   const k = from && from.id && alr.byId.get(from.id);
@@ -1326,11 +1355,14 @@ function alrKill(t, from) {
     if (k.rank < 2 && k.xp >= need * (k.rank + 1)) alrPromote(k);
   }
   if (t.kind === 'unit') {
-    if (t.D.cat === 'inf') { alrFxCrumbs(t.x, t.z); if (t.crushed) alrFxSquish(t.x, t.z); }
+    // scalded by the gravy: a scream (three takes), and the nugget goes under in a gravy splat
+    const gravied = t.D.cat === 'inf' && W && W.gravy;
+    if (gravied) { alrSfx('scream' + (1 + ((Math.random() * 3) | 0)), t.x, t.z); if (typeof alrFxGravyDeath === 'function') alrFxGravyDeath(t.x, t.z); }
+    else if (t.D.cat === 'inf') { alrFxCrumbs(t.x, t.z); if (t.crushed) alrFxSquish(t.x, t.z); }
     else { alrFxBoom(t.x, 0.3 + (t.alt || 0), t.z, t.type === 'blimp' ? 2.4 : 1); if (!t.D.air) alr.decor.push({ kind: 'wreck', type: t.type, D: t.D, cargo: 0, x: t.x, z: t.z, yaw: t.yaw, tYaw: t.tYaw, t: 0, T: 9, owner: t.owner, alt: 0, rank: 0 }); }
     // a blimp coming down lands on whoever is under it
     if (t.type === 'blimp') for (const q of alr.ents.slice()) if (q !== t && q.hp > 0 && !alrAirborne(q) && alrDistTo(t.x, t.z, q) < 1.3) alrHit(q, ALR_WPN.bomb, from, 0.6);
-    alrSfx(t.D.cat === 'inf' ? 'squish' : 'boomL', t.x, t.z);
+    if (!gravied) alrSfx(t.D.cat === 'inf' ? 'squish' : 'boomL', t.x, t.z);
     if (killer === 0 && t.owner !== 0 && t.owner !== alr.NEU) { alr.stats.kills++; alrEarn(t.D.cat === 'inf' ? 2 : t.D.air ? 8 : 5, ''); }
     if (t.owner === 0) { alr.stats.lost++; alrSay('UNIT LOST', '#ff8a7a'); }
   } else {

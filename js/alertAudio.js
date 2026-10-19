@@ -12,7 +12,7 @@
 // Nothing here is required: with no files (or no network) the game plays exactly as it did, synth and text.
 // Every clip is trimmed of leading silence and loudness-matched at decode (there's no ffmpeg in the pipeline).
 
-const ALR_AUDIO_V = 3;           // bump with a new render (index.json is fetched with it)
+const ALR_AUDIO_V = 4;           // bump with a new render (index.json is fetched with it)
 const alrDisc = { idx: null, bytes: {}, buf: {}, loading: {}, failed: {}, music: null, musicKey: '', want: 'menu', evaQ: [], evaBusy: false,
   ack: null, ackT: 0, lastLine: {}, musicOn: true, duck: 1, fightT: -99 };
 
