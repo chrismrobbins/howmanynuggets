@@ -549,7 +549,7 @@ function alrArtInit() {
 // The procedural models above draw first and stay as the fallback. The Blender set (~1 MB gzipped) is
 // injected the first time the game opens, then swapped in by name: 'b.hq' → alrArt.b.hq, 'u.tank' → alrArt.u.tank.
 // Everything draws through alrArt lookups each frame, so the swap is live; the sidebar cameos are re-shot.
-const ALR_MESH_SRC = 'js/alertMeshData.js?v=9';
+const ALR_MESH_SRC = 'js/alertMeshData.js?v=11';
 function alrMeshUse() {
   const D = window.ALR_MESH_DATA;
   if (!D) {
@@ -578,7 +578,7 @@ function alrMeshUse() {
     if (M.u) { const ui = new Uint8Array(raw(M.u)); for (let k = 0; k < ui.length; k += 2) { u[k] = ui[k]; u[k + 1] = ui[k + 1] / 255; } }
     const mesh = alrGLMesh({ p, n, c, u, i });
     // b.* buildings, u.* units by name; t / s / r / o = trees, shrubs, rocks, ore by index
-    const LIST = { t: 'trees', s: 'shrubs', r: 'rocks', o: 'ore' };
+    const LIST = { t: 'trees', s: 'shrubs', r: 'rocks', o: 'ore', gem: 'gems' };
     if (LIST[grp]) { (alrArt[LIST[grp]] = alrArt[LIST[grp]] || [])[+key] = mesh; }
     else if (grp === 'w') (alrArt.w = alrArt.w || {})[key] = mesh;            // waterworks: bridge pieces, reeds
     else (grp === 'b' ? alrArt.b : alrArt.u)[key] = mesh;

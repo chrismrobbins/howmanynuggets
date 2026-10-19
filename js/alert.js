@@ -265,7 +265,7 @@ function alrMakeMap(def) {
   const N = def.N, seed = def.seed, [K, R, A0] = def.ring, c = N / 2, TAU = Math.PI * 2;
   let s = seed >>> 0 || 1; const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
   const M = {
-    N, seed, key: def.key, block: new Uint8Array(N * N), bld: new Int32Array(N * N), ore: new Float32Array(N * N), oreMax: new Float32Array(N * N),
+    N, seed, key: def.key, block: new Uint8Array(N * N), bld: new Int32Array(N * N), ore: new Float32Array(N * N), oreMax: new Float32Array(N * N), gem: new Uint8Array(N * N),
     dirt: new Float32Array(N * N), trees: [], rocks: [], tracks: [], starts: [], derricks: [], oreVer: 0,
     water: new Uint8Array(N * N), bridges: [], wet: !!def.water,
   };
@@ -370,6 +370,24 @@ function alrMakeMap(def) {
   if (def.water === 'isles') each([c + Math.cos(A0 + Math.PI / K) * 5.5, c + Math.sin(A0 + Math.PI / K) * 5.5], ([x, z]) => derrick(x, z));   // the oil is on the middle island
   else each([c + Math.cos(A0 + Math.PI / K) * R * 0.4, c + Math.sin(A0 + Math.PI / K) * R * 0.4], ([x, z]) => derrick(x, z));
   if ((K === 2 || N >= 96) && def.water !== 'isles') each(L(R * 0.62, -6.5), ([x, z]) => derrick(x, z));
+  // the gems (RA2's): small fields worth TWICE as much a load, that never grow back — one between every pair of
+  // neighbouring bases, closer in than the pass's ore, so a rich prize to race for and fight over, then gone.
+  // (oreMax 0: alrOreGrow leaves them; M.gem marks the tile for the harvest pay, the models, the radar.)
+  const gemField = (fx, fz, rad) => disk(fx, fz, rad + 1.0, (i, j, d) => {
+    const k = at(i, j);
+    if (M.water[k] || M.derricks.some(([dx, dz]) => i >= dx - 1 && i <= dx + 2 && j >= dz - 1 && j <= dz + 2)) return;   // (not on a derrick's pad)
+    M.dirt[k] = Math.max(M.dirt[k], 0.5 * alrClamp((rad + 1.0 - d) / 1.0, 0, 1));
+    ridge[k] = 0;
+    if (d <= rad && alrHash(i, j, seed + 7) < 0.93) { M.ore[k] = Math.max(M.ore[k], 180 + (1 - d / rad) * 170 + alrHash(j, i, seed + 7) * 50); M.oreMax[k] = 0; M.gem[k] = 1; }
+  });
+  // (beside the pass's oil derrick, not under it — its pad clears the ground; on a water map, slide in toward
+  // the middle until it's on land)
+  { let g = null; const th = A0 + Math.PI / K, ux = Math.cos(th), uz = Math.sin(th), px = -uz, pz = ux;
+    const at0 = def.water === 'isles' ? 5.5 : R * 0.4, dry = (q) => [[0, 0], [2, 0], [-2, 0], [0, 2], [0, -2], [1.4, 1.4], [-1.4, -1.4], [1.4, -1.4], [-1.4, 1.4]].every(([a, b2]) => { const x = Math.round(q[0] + a), z = Math.round(q[1] + b2); return inside(x, z) && !M.water[at(x, z)]; });
+    // the first spot where the whole field is on dry land: beside the derrick either way, then in, then out
+    const ts = []; for (let t = at0; t > 1; t -= 1.2) ts.push(t); for (let t = at0 + 1.2; t < R * 0.75; t += 1.2) ts.push(t);
+    for (const t of ts) { for (const sd of [4.5, -4.5]) { const q = [c + ux * t + px * sd, c + uz * t + pz * sd]; if (!g && dry(q)) g = q; } if (g) break; }
+    if (g) each(g, ([x, z]) => gemField(x, z, 2.1)); }
   // the ridges go down as rock: two big boulder groups a tile, on stony ground, so a ridge reads as a wall
   for (let k = 0; k < N * N; k++) if (ridge[k] && !onTrack[k]) {
     M.block[k] = 1;
@@ -1418,8 +1436,10 @@ function alrHarvStep(u, dt) {
     u.moving = false;
     const k = alrTile(u.x, u.z);
     if (M.ore[k] <= 0) { const n = alrFindOre(u.x, u.z, null, 2.5, u); if (n < 0) { u.hstate = u.cargo > 0 ? 'home' : 'seek'; u.oreAt = null; return; } u.oreTile = n; u.path = alrPath(u.x, u.z, n % ALR_N + 0.5, ((n / ALR_N) | 0) + 0.5, u); u.pi = 0; u.hstate = 'seek'; return; }
-    const take = Math.min(M.ore[k], 110 * dt, D.cap - u.cargo);
-    M.ore[k] -= take; u.cargo += take; M.oreVer++;
+    const gm = M.gem && M.gem[k] ? 2 : 1;                     // gems: twice the money a scoop
+    const take = Math.min(M.ore[k], 110 * dt, (D.cap - u.cargo) / gm);
+    M.ore[k] -= take; u.cargo += take * gm; M.oreVer++;
+    if (gm > 1) u.gems = true;
     u.oreAt = [u.x, u.z];
     if ((u.hT += dt) > 0.25) { u.hT = 0; alrFxDust(u.x + Math.sin(u.yaw) * 0.45, u.z + Math.cos(u.yaw) * 0.45, true); }
     if (u.cargo >= D.cap - 1) { u.hstate = 'home'; u.path = null; }
@@ -1448,7 +1468,7 @@ function alrHarvStep(u, dt) {
     const P = alr.players[u.owner];
     P.credits += pay;
     if (P.human) { alr.stats.harvested += pay; P.cashFx = (P.cashFx || 0) + pay; }
-    if (u.cargo <= 0.5) { u.cargo = 0; u.hstate = 'seek'; u.path = null; if (P.human && P.cashFx > 0) { alrFloatAt(u.x, u.z, '+$' + Math.round(P.cashFx), '#ffd23a'); P.cashFx = 0; alrSfx('cash'); } }
+    if (u.cargo <= 0.5) { u.cargo = 0; u.gems = false; u.hstate = 'seek'; u.path = null; if (P.human && P.cashFx > 0) { alrFloatAt(u.x, u.z, '+$' + Math.round(P.cashFx), '#ffd23a'); P.cashFx = 0; alrSfx('cash'); } }
   }
 }
 function alrFindOre(x, z, near, maxR, self) {
@@ -1471,7 +1491,8 @@ function alrFindOre(x, z, near, maxR, self) {
       if (Math.hypot(e.x - kx, e.z - kz) < 1.1) pen += 2;
     }
     if (self && self.avoid === k) pen += 4;
-    if (d + pen < bd) { bd = d + pen; best = k; }
+    const dd = M.gem && M.gem[k] ? d * 0.5 : d;             // a gem tile pays double: worth twice the drive
+    if (dd + pen < bd) { bd = dd + pen; best = k; }
   }
   return best;
 }
@@ -1818,6 +1839,17 @@ function alrAIStep(P, dt) {
   const enemy = alrAIEnemy(P, hq);
   if (enemy == null) return;
   const enemyAir = alr.ents.some((e) => e.owner !== me && alrRival(e.owner) && (e.kind === 'unit' ? !!e.D.air : e.type === 'airhq'));
+  // the gems: with two haulers or more, one of them works the nearest gem field while it lasts
+  if ((A.gemT = (A.gemT || 0) - 0.5) <= 0) {
+    A.gemT = 25;
+    const hv = alr.ents.filter((e) => e.owner === me && e.D.harv && !e.D.air);
+    const onGems = hv.some((e) => e.oreAt && alr.M.gem[alrTile(e.oreAt[0], e.oreAt[1])]);
+    if (hv.length >= 2 && !onGems && alr.M.gem) {
+      let gk = -1, gd = 40;
+      for (let k = 0; k < alr.M.gem.length; k++) if (alr.M.gem[k] && alr.M.ore[k] > 20) { const d = Math.hypot(k % ALR_N + 0.5 - hq.x, ((k / ALR_N) | 0) + 0.5 - hq.z); if (d < gd) { gd = d; gk = k; } }
+      if (gk >= 0) { const u = hv.sort((a, b) => a.cargo - b.cargo)[0]; u.oreAt = [gk % ALR_N + 0.5, ((gk / ALR_N) | 0) + 0.5]; if (u.hstate === 'seek' || u.hstate === 'dig') { u.hstate = 'seek'; u.path = null; } }
+    }
+  }
   // the Sky Drop: onto trouble at home, else onto the rival's outskirts (short of its yard: defenses)
   if (alrPowerReady(P)) {
     if (P.underAttack > 0 && P.attackedAt) alrSkyDrop(P, P.attackedAt[0], P.attackedAt[1]);

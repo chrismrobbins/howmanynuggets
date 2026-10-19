@@ -541,6 +541,13 @@ function alrUIRender(dt) {
     const k = z * ALR_N + x, v = M.ore[k];
     if (v <= 0 || S[k] < 30) continue;
     const lv = v < 110 ? 0 : v < 230 ? 1 : 2;
+    if (M.gem && M.gem[k] && A.gems && A.gems[lv * 3 + (k % 3)]) {
+      // a gem tile: the crystals, a darker rock stain, and now and then a glint off a facet
+      alrGLDraw(A.gems[lv * 3 + (k % 3)], alrTRS(x + 0.5, 0, z + 0.5, k * 1.7), { spec: 1.2 });
+      alrGLGround(x + 0.5, z + 0.5, 0.66, 0.66, k * 0.7, 0.2, 0.19, 0.22, 0.45, 5, false, 0.012);
+      if (Math.random() < 0.004) alrGLSprite(x + 0.5 + alrRnd(-0.25, 0.25), 0.12 + lv * 0.04, z + 0.5 + alrRnd(-0.25, 0.25), 0.16, alr.t, 1, 1, 1, 0.9, 0, true);
+      continue;
+    }
     alrGLDraw(A.ore[lv * 3 + (k % 3)], alrTRS(x + 0.5, 0, z + 0.5, k * 1.7), { spec: 0.9 });
     alrGLGround(x + 0.5, z + 0.5, 0.62, 0.62, k * 0.7, 0.55, 0.42, 0.12, 0.4, 5, false, 0.012);
   }
@@ -1017,6 +1024,7 @@ function alrRadar() {
   for (let k = 0; k < N * N; k++) {
     const o = k * 4;
     if (sh[k] <= 40) { dst[o] = dst[o + 1] = dst[o + 2] = 0; }
+    else if (ore[k] > 0 && alr.M.gem && alr.M.gem[k]) { dst[o] = 236; dst[o + 1] = 120; dst[o + 2] = 200; }   // gems: pink on the radar
     else if (ore[k] > 0) { dst[o] = 232; dst[o + 1] = 176; dst[o + 2] = 48; }
     else { dst[o] = src[o]; dst[o + 1] = src[o + 1]; dst[o + 2] = src[o + 2]; }
     dst[o + 3] = 255;
@@ -1488,6 +1496,7 @@ function alrMapPreview(def, size, marks, seats) {
     const onBridge = M.bridges && M.bridges.some((B) => B.tiles.includes(k));
     if (onBridge) { r = 70; g = 70; b = 72; }
     else if (M.water && M.water[k]) { r = 42; g = 82; b = 104; }
+    else if (M.ore[k] > 0 && M.gem && M.gem[k]) { r = 226; g = 112; b = 190; }
     else if (M.ore[k] > 0) { r = 214; g = 166; b = 58; }
     else if (trees[k]) { r = 46; g = 74; b = 38; }
     else if (M.block[k]) { r = 118; g = 112; b = 102; }

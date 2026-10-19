@@ -3818,3 +3818,29 @@ It's now RA2's console look (`alrOpenSetup` / `alrSetupRender`, classes `.alr-sk
   on display). The data keeps its `emoji` fields; the lobby just doesn't use them.
 - **Don't reintroduce:** emoji as icons, a card per option that repeats the detail, glow / gradient buttons.
   Reach for a render of the actual model instead.
+
+## 💎 NUGGET ALERT: GEM FIELDS (2026-10-19)
+Chris (with a screenshot of RA2's gem field): *"much like in RA2 make some non regenerating higher value ore that
+can be mined. it was gems in RA2"*.
+- **Data:** `M.gem` (a `Uint8Array`, 1 = a gem tile). The amount is in `M.ore` like ore, but `M.oreMax` is 0, so
+  `alrOreGrow` never refills it.
+- **Value:** in `alrHarvStep` a gem scoop pays ×2 (110 ore mined → 220 credits of cargo), and `u.gems` marks a
+  gem load.
+- **Placement** (`gemField`, after the derricks):
+  - one field (radius 2.1) per pair of neighbouring bases, 4.5 tiles to one side of that pass's oil derrick
+    (its pad clears the ground, and the first try put the gems right under it)
+  - the first spot where the whole field is on dry land: beside the derrick either way, then further in, then
+    further out
+  - never on a derrick pad, never in water
+  - per map: from 27 tiles (valley) to 63 (plains)
+- **Haulers:** in `alrFindOre` a gem tile counts as half its distance. A CPU with 2+ haulers sends the emptiest
+  one to the nearest gem field (within 40 tiles of its yard) every 25 s while none are on gems. In a 7-minute,
+  4-player game they took 27 gem loads and stripped most of the fields: the race is real.
+- **Look:**
+  - Blender `build_gem(level, v)` → `gem.0–8` (`GEMS` in `alertrig.py`, loaded as `alrArt.gems` via the `gem`
+    group): fat glossy cabochons with a highlight facet, plus the odd cut spire, in five sauce colours
+    (`gemKetchup`, `gemMustard`, `gemBlue`, `gemPickle`, `gemRanch`: glass class, no AO) on dark rock.
+  - The ground under them gets a dark stain, and a facet glints now and then.
+  - Gems are pink on the radar and on the skirmish screen's map previews.
+- **Saves** carry `M.gem` automatically; old saves have none (every use is guarded).
+- **Note for tests:** the skirmish screen's classes are `.alr-sk-*` now; the old `.alr-mapcard` selector is gone.

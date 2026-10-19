@@ -67,6 +67,9 @@ PAL = {
     "leafA": _m("#46622b", 14), "leafB": _m("#55702f", 14), "leafC": _m("#344d22", 14), "leafD": _m("#617336", 14),
     "pineA": _m("#2f4a2c", 14), "pineB": _m("#3a5532", 14), "bark": _m("#4d3e2e", 10), "barkDark": _m("#3a2f24", 10),
     "rockA": _m("#6f6a60", 15), "rockB": _m("#5c5850", 15), "rockC": _m("#7b766b", 15),
+    # the gem fields: glossy sauce crystals (glass class, no AO — they catch the light, as RA2's gems did)
+    "gemKetchup": _m("#d4302a", 8, 0, 1), "gemMustard": _m("#e6b324", 8, 0, 1), "gemBlue": _m("#3d86e0", 8, 0, 1),
+    "gemPickle": _m("#46b85a", 8, 0, 1), "gemRanch": _m("#dfe7ee", 8, 0, 1), "gemRock": _m("#4c4a46", 15), "gemRockLite": _m("#5f5c56", 15),
     "ore": _m("#b98a2c", 16), "oreDark": _m("#80591e", 16), "oreLite": _m("#d4a440", 16), "gem": _m("#d89a36", 16),
     # factions: the hazmat suit, the fixed banner colours (never team), embroidered emblems
     "hazmat": _m("#cc8a24", 13), "hazmatDark": _m("#946119", 13),
@@ -1416,6 +1419,41 @@ def build_ore(level, v):
             m.pop()
     return m
 
+
+def build_gem(level, v):
+    """Sauce gems (RA2's gem fields): clusters of glossy crystals — a rounded cabochon with a few cut spires round
+    it, each cluster one sauce colour (ketchup, mustard, blue-raspberry, pickle, ranch) — on a dark rock bed.
+    1-3 / 2-4 / 3-5 clusters a tile with density. Origin on the ground at the tile centre."""
+    m = Model("gem.%d" % (level * 3 + v), smooth_deg=40)
+    rnd = random.Random(900 + level * 10 + v)
+    cols = ["gemKetchup", "gemMustard", "gemBlue", "gemPickle", "gemRanch"]
+    # the rock bed: a few low, dark slabs the crystals grow out of
+    for k in range(2 + level):
+        a, d = rnd.uniform(0, TAU), rnd.uniform(0, 0.18)
+        m.rock((math.cos(a) * d, 0.0, math.sin(a) * d), rnd.uniform(0.07, 0.11), ("gemRock", "gemRockLite")[k % 2], sub=1, s=(1.3, 0.45, 1.1), amp=0.3, freq=2.0, seed=300 + level * 17 + v * 5 + k, flat_below=-0.2)
+    n = rnd.randint(3, 4) + level * 2
+    used = []
+    for c in range(n):
+        for _ in range(16):
+            cx, cz = rnd.uniform(-0.34, 0.34), rnd.uniform(-0.34, 0.34)
+            if all(math.hypot(cx - x, cz - z) > 0.15 for x, z in used):
+                break
+        used.append((cx, cz))
+        col = cols[(c + v * 2 + level) % len(cols)]
+        R = rnd.uniform(0.06, 0.075) + level * 0.012
+        # the stone: a fat, glossy cabochon sitting in the rock (RA2's gems read as round, shining blobs)
+        m.ball((cx, R * 0.62, cz), R, col, u=12, v=8, s=(1.0, 0.9, 1.0))
+        m.ball((cx - R * 0.3, R * 1.05, cz - R * 0.3), R * 0.28, "gemRanch", u=6, v=4)   # the highlight facet
+        # now and then a cut spire beside it
+        if rnd.random() < 0.35 + level * 0.15:
+            m.push(cx + rnd.uniform(-0.05, 0.05), 0.02, cz + rnd.uniform(-0.05, 0.05), rnd.uniform(0, TAU), rnd.uniform(-0.5, 0.5), rnd.uniform(-0.5, 0.5))
+            h = rnd.uniform(0.07, 0.11) + level * 0.02
+            crystal(m, (0, h * 0.45, 0), rnd.uniform(0.018, 0.026), h * 0.6, h * 0.45, n=6, mat=col)
+            m.pop()
+    return m
+
+
+GEMS = [lambda l=l, v=v: build_gem(l, v) for l in range(3) for v in range(3)]
 
 LANDSCAPE = [lambda i=i: build_broadleaf(i) for i in range(3)] + [lambda i=i: build_pine(i) for i in range(3)] + \
             [lambda i=i: build_shrub(i) for i in range(4)] + [lambda i=i: build_rocks(i) for i in range(4)] + \
@@ -4342,7 +4380,7 @@ FACTIONS = [build_sniper, build_greaser, build_bomber, build_teslaspud, build_te
 MODELS = [build_hq, build_hq_crane, build_power, build_refinery, build_barracks, build_barracks_flag, build_factory,
           build_factory_door, build_radar, build_radar_dish, build_turret, build_turret_head, build_tesla,
           build_tank, build_tank_turret, build_tank_gun, build_heavy, build_heavy_turret, build_heavy_gun,
-          build_harv, build_harv_drum, build_harv_load, lambda: build_inf("rifle"), lambda: build_inf("rocket"), build_leg] + LANDSCAPE + PHASE1 + PHASE2 + HELIS + FACTIONS + WATERWORKS
+          build_harv, build_harv_drum, build_harv_load, lambda: build_inf("rifle"), lambda: build_inf("rocket"), build_leg] + LANDSCAPE + GEMS + PHASE1 + PHASE2 + HELIS + FACTIONS + WATERWORKS
 
 # the game draws a building's part parented to its body: give the AO bake the body as an occluder
 OCCLUDERS = {"b.hq_crane": "b.hq", "b.radar_dish": "b.radar", "b.turret_head": "b.turret", "b.factory_door": None,
