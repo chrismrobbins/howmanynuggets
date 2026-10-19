@@ -132,6 +132,15 @@ MUSIC = [
     ('final',   55, 'Relentless fast industrial techno-metal instrumental, double-kick drums, screaming synth leads, heavy guitars, epic final assault, 150 bpm'),
     ('victory', 12, 'Triumphant short military industrial rock fanfare, big drums and power chords, a heroic ending'),
     ('defeat',  12, 'Short somber industrial ending, slow low synth drone, a single distant snare roll, defeat'),
+    # each faction's own theme (Chris: "each faction should also have its own music that goes with it when you
+    # select a different one"; 6 × 30 s approved): plays on the skirmish screen when you pick it, and is that
+    # faction's base-building music in a game. The battle music stays shared.
+    ('fac_republic', 30, 'Heroic patriotic military march instrumental, crisp snare drum cadence and soaring brass fanfare over driving industrial synth bass, proud airborne cavalry, 120 bpm'),
+    ('fac_crown',    30, 'Regal ceremonial military instrumental, fife and drum corps with stately brass over tight industrial drums, guards on parade, dignified and sharp, 112 bpm'),
+    ('fac_coast',    30, 'Elegant continental European military instrumental, accordion melody and marching snare over a smooth electro bassline, proud coastal fortress, stylish, 116 bpm'),
+    ('fac_union',    30, 'Stern heavy military instrumental, deep male choir chanting long vowels, low brass and pounding industrial drums, crackling electric hum, cold and powerful, 104 bpm'),
+    ('fac_horde',    30, 'Fiery hot-blooded war instrumental, rapid flamenco guitar flourishes over heavy industrial metal drums and hand claps, spicy and fierce, 128 bpm'),
+    ('fac_cartel',   30, 'Wild mischievous instrumental, twangy spaghetti-western electric guitar, frantic bongos over industrial breakbeats, chaotic fast getaway, 140 bpm'),
 ]
 
 # ---- sound effects (each is one file the game plays for that event) -------------------------------------------

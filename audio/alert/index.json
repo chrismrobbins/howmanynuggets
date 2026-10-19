@@ -1,5 +1,5 @@
 {
- "v": 1792439007,
+ "v": 1792447800,
  "vo": {
   "eva|BATTLE CONTROL ONLINE": [
    "vo/eva-battle-control-online.mp3"
@@ -326,6 +326,30 @@
   "defeat": {
    "file": "music/defeat.mp3",
    "loop": false
+  },
+  "fac_republic": {
+   "file": "music/fac_republic.mp3",
+   "loop": true
+  },
+  "fac_crown": {
+   "file": "music/fac_crown.mp3",
+   "loop": true
+  },
+  "fac_coast": {
+   "file": "music/fac_coast.mp3",
+   "loop": true
+  },
+  "fac_union": {
+   "file": "music/fac_union.mp3",
+   "loop": true
+  },
+  "fac_horde": {
+   "file": "music/fac_horde.mp3",
+   "loop": true
+  },
+  "fac_cartel": {
+   "file": "music/fac_cartel.mp3",
+   "loop": true
   }
  },
  "sfx": {

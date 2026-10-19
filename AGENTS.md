@@ -3844,3 +3844,30 @@ can be mined. it was gems in RA2"*.
   - Gems are pink on the radar and on the skirmish screen's map previews.
 - **Saves** carry `M.gem` automatically; old saves have none (every use is guarded).
 - **Note for tests:** the skirmish screen's classes are `.alr-sk-*` now; the old `.alr-mapcard` selector is gone.
+
+### Each faction's own theme (2026-10-19)
+Chris: *"each faction should also have its own music that goes with it when you select a different one"*. Chris
+approved 6 × 30 s (2,250 credits; the music/sfx ledger is now at **12,580 / 14,000**).
+- `tools/alert-vo/render.py` MUSIC has `fac_<faction>` × 6. All are original instrumental prompts in each
+  faction's flavour:
+
+  | Theme | Prompt flavour |
+  |---|---|
+  | Republic | a heroic march (snare and brass) |
+  | Crown | fife and drum with ceremonial brass |
+  | Coast | an accordion over a marching snare |
+  | Union | a deep male choir with low brass |
+  | Horde | flamenco guitar over industrial drums |
+  | Cartel | a spaghetti-western guitar over bongos and breakbeats |
+
+  Files: `audio/alert/music/fac_*.mp3`. They're listed in index.json, which is fetched with `ALR_AUDIO_V` = 5.
+- `alrMusicWant` (alertAudio.js):
+  - On the skirmish screen it's the theme of the faction you've got picked; picking another crossfades.
+  - In a game, the base-building music is your faction's theme (`alrFacSong`), falling back to `build`.
+  - Fights still go to the shared `battle` / `final`, and the 35 s "stay on the battle music" hold applies to the
+    faction themes too.
+  - A theme you just picked is fetched on the spot. The preload order is menu → your picked faction → sfx and
+    Battle Control → the rest.
+- Tested (headless, with the AudioContext running): Crown → Union → Cartel in the lobby switched the song each
+  time; in a Cartel game the music was `fac_cartel`, and `battle` took over in a fight. (Nobody has listened to
+  them through speakers yet: Chris, tell me if one misses.)

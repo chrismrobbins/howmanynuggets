@@ -12,7 +12,7 @@
 // Nothing here is required: with no files (or no network) the game plays exactly as it did, synth and text.
 // Every clip is trimmed of leading silence and loudness-matched at decode (there's no ffmpeg in the pipeline).
 
-const ALR_AUDIO_V = 4;           // bump with a new render (index.json is fetched with it)
+const ALR_AUDIO_V = 5;           // bump with a new render (index.json is fetched with it)
 const alrDisc = { idx: null, bytes: {}, buf: {}, loading: {}, failed: {}, music: null, musicKey: '', want: 'menu', evaQ: [], evaBusy: false,
   ack: null, ackT: 0, lastLine: {}, musicOn: true, duck: 1, fightT: -99 };
 
@@ -26,9 +26,13 @@ function alrDiscManifest() {
     // what you hear first, first: the menu song, then the guns and Battle Control, then the rest of the music
     const order = [];
     if (I.music.menu) order.push(I.music.menu.file);
+    // the faction you've got picked on the skirmish screen, then the others (each faction has its own theme)
+    const pick = alr.ui && alr.ui.setupCfg && alr.ui.setupCfg.faction;
+    if (pick && I.music['fac_' + pick]) order.push(I.music['fac_' + pick].file);
     for (const f of Object.values(I.sfx)) order.push(f);
     for (const k of Object.keys(I.vo)) if (k.startsWith('eva|')) order.push(...I.vo[k]);
     for (const k of ['build', 'battle', 'final', 'victory', 'defeat']) if (I.music[k]) order.push(I.music[k].file);
+    for (const k of Object.keys(I.music)) if (k.startsWith('fac_') && !order.includes(I.music[k].file)) order.push(I.music[k].file);
     for (const k of Object.keys(I.vo)) if (!k.startsWith('eva|')) order.push(...I.vo[k]);
     let n = 0;
     const next = () => { const f = order[n++]; if (!f) return; alrDiscFetch(f).then(next, next); };
@@ -166,13 +170,16 @@ function alrAck(units, when) {
 }
 
 // ---- the soundtrack ----------------------------------------------------------------------------------------------------
+// each faction has its own theme (fac_<key>): on the skirmish screen it's the one you've got picked — pick another
+// and the music crossfades to it — and in a game it's your base-building music. Fights keep the shared battle music.
+function alrFacSong(f) { return f && alrDisc.idx && alrDisc.idx.music['fac_' + f] ? 'fac_' + f : null; }
 function alrMusicWant() {
   if (alr.phase === 'over') return alr.result && alr.result.won ? 'victory' : 'defeat';
-  if (alr.phase !== 'play') return 'menu';
+  if (alr.phase !== 'play') return (alr.ui && alr.ui.setup && !alr.ui.setup.hidden && alrFacSong(alr.ui.setupCfg && alr.ui.setupCfg.faction)) || 'menu';
   const P = alr.players[0];
   const fighting = alr.t - alrDisc.fightT < 20 || P.underAttack > 0;
   if (fighting) return alr.t > 900 && alrDisc.idx && alrDisc.idx.music.final ? 'final' : 'battle';
-  return 'build';
+  return alrFacSong(P.faction) || 'build';
 }
 // called every frame while the game is open
 function alrMusicStep() {
@@ -188,9 +195,10 @@ function alrMusicStep() {
   alrDisc.musicBus.gain.setTargetAtTime(tgt, C.currentTime, 0.25);
   let want = alrMusicWant();
   // a fight has to last (or the base has to stay quiet) a while before the song changes back
-  if (want === 'build' && (alrDisc.musicKey === 'battle' || alrDisc.musicKey === 'final') && alr.t - alrDisc.fightT < 35) want = alrDisc.musicKey;
+  if (want !== 'battle' && want !== 'final' && alr.phase === 'play' && (alrDisc.musicKey === 'battle' || alrDisc.musicKey === 'final') && alr.t - alrDisc.fightT < 35) want = alrDisc.musicKey;
   const M = I.music[want];
   if (!M) return;
+  if (!alrDisc.bytes[M.file]) alrDiscFetch(M.file);         // (a faction you just picked: fetch it now, not in turn)
   const cur = alrDisc.music;
   if (alrDisc.musicKey !== want) {
     const B = alrDiscBuf(M.file, 'music');

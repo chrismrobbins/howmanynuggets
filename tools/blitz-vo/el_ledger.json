@@ -1,6 +1,6 @@
 {
  "cap": 10000,
- "spent": 10329.5,
+ "spent": 12579.5,
  "calls": [
   {
    "t": "2026-10-09 15:34",
@@ -633,6 +633,54 @@
    "secs": 1.5,
    "credits": 15.0,
    "file": "scream3.mp3"
+  },
+  {
+   "t": "2026-10-19 15:09",
+   "kind": "music",
+   "what": "Heroic patriotic military march instrumental, crisp snare drum cadence and soaring brass fanfare over driving industrial",
+   "secs": 30,
+   "credits": 375.0,
+   "file": "fac_republic.mp3"
+  },
+  {
+   "t": "2026-10-19 15:09",
+   "kind": "music",
+   "what": "Regal ceremonial military instrumental, fife and drum corps with stately brass over tight industrial drums, guards on pa",
+   "secs": 30,
+   "credits": 375.0,
+   "file": "fac_crown.mp3"
+  },
+  {
+   "t": "2026-10-19 15:09",
+   "kind": "music",
+   "what": "Elegant continental European military instrumental, accordion melody and marching snare over a smooth electro bassline, ",
+   "secs": 30,
+   "credits": 375.0,
+   "file": "fac_coast.mp3"
+  },
+  {
+   "t": "2026-10-19 15:09",
+   "kind": "music",
+   "what": "Stern heavy military instrumental, deep male choir chanting long vowels, low brass and pounding industrial drums, crackl",
+   "secs": 30,
+   "credits": 375.0,
+   "file": "fac_union.mp3"
+  },
+  {
+   "t": "2026-10-19 15:09",
+   "kind": "music",
+   "what": "Fiery hot-blooded war instrumental, rapid flamenco guitar flourishes over heavy industrial metal drums and hand claps, s",
+   "secs": 30,
+   "credits": 375.0,
+   "file": "fac_horde.mp3"
+  },
+  {
+   "t": "2026-10-19 15:10",
+   "kind": "music",
+   "what": "Wild mischievous instrumental, twangy spaghetti-western electric guitar, frantic bongos over industrial breakbeats, chao",
+   "secs": 30,
+   "credits": 375.0,
+   "file": "fac_cartel.mp3"
   }
  ]
 }
