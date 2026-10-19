@@ -890,8 +890,15 @@ function alrOrderAttack(u, t) {
   if (!alrCanHit(ALR_WPN[u.D.weapon], t) && !(u.D.weapon2 && alrCanHit(ALR_WPN[u.D.weapon2], t))) return;
   u.order = { type: 'attack', t: t.id }; u.target = t; u.path = null; u.repathT = 0;
 }
-// D: dig in (the Nug Trooper's sandbags) / pack up
-function alrDeploy(u) { if (u.D.carry) { alrOrderUnload(u); return; } if (!u.D.deploy) return; u.deployed = !u.deployed; u.order = null; u.path = null; u.target = null; u.guardX = u.x; u.guardZ = u.z; }
+// a hauler, sent home NOW to unload what it has (even a part load) — then back to work. The Chrono Hauler blinks.
+function alrHarvHome(u, b) {
+  if (!u.D.harv) return;
+  u.order = { type: 'harvest' }; u.path = null; u.stallT = 0;
+  u.homeB = b ? b.id : null;
+  if (u.hstate !== 'unload') u.hstate = 'home';
+}
+// D: dig in (the Nug Trooper's sandbags) / pack up · a carrier unloads · a hauler goes home to unload
+function alrDeploy(u) { if (u.D.harv) { alrHarvHome(u); return; } if (u.D.carry) { alrOrderUnload(u); return; } if (!u.D.deploy) return; u.deployed = !u.deployed; u.order = null; u.path = null; u.target = null; u.guardX = u.x; u.guardZ = u.z; }
 // a group move: the units keep their spacing around the click (a little formation)
 function alrGroupMove(units, x, z, am) {
   if (!units.length) return;
@@ -1406,6 +1413,9 @@ function alrHarvStep(u, dt) {
   }
   if (!o) u.order = { type: 'harvest' };
   const home = () => {
+    // (sent to a particular refinery: that one, while it stands)
+    const pick = u.homeB && alr.byId.get(u.homeB);
+    if (pick && pick.owner === u.owner && pick.hp > 0 && pick.build >= 1) return pick;
     let best = null, bd = 1e9;
     for (const b of alrBldsOf(u.owner, 'refinery')) { const [dx, dz] = alrDock(b); const d = Math.hypot(dx - u.x, dz - u.z); if (d < bd) { bd = d; best = b; } }
     return best;

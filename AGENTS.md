@@ -3871,3 +3871,14 @@ approved 6 × 30 s (2,250 credits; the music/sfx ledger is now at **12,580 / 14,
 - Tested (headless, with the AudioContext running): Crown → Union → Cartel in the lobby switched the song each
   time; in a Cartel game the music was `fac_cartel`, and `battle` took over in a fight. (Nobody has listened to
   them through speakers yet: Chris, tell me if one misses.)
+
+### Haulers: "go unload now", even part-full (2026-10-19)
+Chris: *"make it so you can force the chrono haulers to go back and unload their payload, even if partial"*.
+- **D** with haulers selected (or **click your refinery** with them selected) → `alrHarvHome(u, refinery?)`: the
+  hauler goes home now with whatever it has (the Chrono Hauler blinks home, the War Hauler drives), unloads it, then
+  goes back to its field. A refinery clicked becomes its home (`u.homeB`) while that refinery stands.
+- The refinery click used to just select the refinery: `alrCommandAt` had a refinery branch, but the pointer-up
+  selection branch caught every click on your own building first. Now a click on your refinery with haulers
+  selected is the order. You get the green drop-off cursor and ring, plus "HAULER RETURNING" / an ack.
+- Tested: a Chrono Hauler 253 into a load → D → blinked home, unloaded all of it, back to 'seek'. A War Hauler
+  with 200 → refinery clicked → drove there, unloaded, back to work (it waits its turn at a busy dock).

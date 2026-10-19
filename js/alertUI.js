@@ -44,6 +44,7 @@ function alrUIInit() {
         <b>Left-click</b> the ground: move · an enemy: attack · ore: harvest · <b>right-click</b>: deselect / cancel<br>
         <b>A</b> then click: attack-move · <b>S</b> stop · <b>D</b> deploy (troopers dig in) · <b>Q</b> select your army<br>
         Jets: click a target, they strike once and fly home to rearm · Fry Cooks: click a building to take it (or fix yours)<br>
+        Haulers: <b>D</b> or click your refinery — go unload now, even part-full · Carriers: click to board, <b>D</b> to unload<br>
         Walls: drag a line · tanks squish enemy infantry · crates: drive over them<br>
         <b>Ctrl+1–9</b> make a group · <b>1–9</b> pick it (twice: go there)<br>
         <b>Arrows</b> / screen edge / middle-drag scroll · <b>wheel</b> zoom<br>
@@ -706,7 +707,10 @@ function alrCmdMarks(dt, S) {
   if (!U.mouse.in || alr.place || alr.mode === 'sell' || alr.mode === 'repair' || U.drag && U.drag.box) return;
   if (!alr.sel.some((e) => e.kind === 'unit' && e.owner === 0)) return;
   const h = U.hover, wob = 1 + Math.sin(alr.t * 6) * 0.06;
-  if (h && h.owner === 0 && h.D.carry && !alrForceOn(h) && alr.sel.some((e) => alrCanCarry(h, e))) {
+  if (h && h.owner === 0 && h.type === 'refinery' && !alrForceOn(h) && alr.sel.some((e) => e.kind === 'unit' && e.owner === 0 && e.D.harv)) {
+    const r = Math.max(h.w, h.h) * 0.62 * wob;
+    ring(h.x, h.z, r, ALR_CMD_COL.move, 0.7); arrows(h.x, h.z, r + 0.3, ALR_CMD_COL.move, 0.6, Math.PI / 4 - alr.t * 0.8);
+  } else if (h && h.owner === 0 && h.D.carry && !alrForceOn(h) && alr.sel.some((e) => alrCanCarry(h, e))) {
     const r = h.D.r * 1.5 * wob, col = alrRoom(h) > 0 ? ALR_CMD_COL.move : ALR_CMD_COL.attack;
     ring(h.x, h.z, r, col, 0.7); arrows(h.x, h.z, r + 0.3, col, 0.6, Math.PI / 4 - alr.t * 0.8);
   } else if (h && (h.owner !== 0 || alrForceOn(h))) {
@@ -1153,7 +1157,7 @@ function alrCommandAt(g, hit, forceAM, force) {
   const harvs = units.filter((u) => u.D.harv), rest = units.filter((u) => !u.D.harv);
   if (harvs.length) {
     const k = alrTile(g[0], g[1]);
-    if (hit && hit.type === 'refinery') for (const h of harvs) { h.order = { type: 'harvest' }; h.hstate = 'home'; h.path = null; }
+    if (hit && hit.type === 'refinery' && hit.owner === 0) { for (const h of harvs) alrHarvHome(h, hit); if (!rest.length) { alrCmdFx('board', hit.x, hit.z, hit, harvs); alrAck(harvs, 'move'); alrSfx('ack'); return; } }
     else if (alrIn(g[0], g[1]) && alr.M.ore[k] > 0) { for (const h of harvs) { h.order = { type: 'harvest' }; h.hstate = 'seek'; h.path = null; h.oreAt = [g[0], g[1]]; } if (!rest.length) { alrCmdFx('move', g[0], g[1], null, harvs); alrAck(harvs, 'attack'); alrSfx('ack'); return; } }
     else for (const h of harvs) alrOrderMove(h, g[0], g[1], false);
   }
@@ -1239,6 +1243,7 @@ function alrUICursorPick() {
   else if (alr.mode === 'repair') cur = h && h.kind === 'bld' && h.owner === 0 && h.hp < h.max ? ALR_CURSOR.repair : ALR_CURSOR.nogo;
   else if (cook) cur = ALR_CURSOR.capture;
   else if (alrForceOn(h)) cur = ALR_CURSOR.attack;   // force-fire on your own: the red reticle, so you know
+  else if (h && h.owner === 0 && h.type === 'refinery' && alr.sel.some((s) => s.kind === 'unit' && s.owner === 0 && s.D.harv)) cur = ALR_CURSOR.board;
   else if (h && h.owner === 0 && h.D.carry && alr.sel.some((s) => alrCanCarry(h, s))) cur = alrRoom(h) > 0 ? ALR_CURSOR.board : ALR_CURSOR.nogo;
   else if (h && h.owner === 0 && h.D.carry && alr.sel.includes(h) && h.load.length) cur = alrLandOk(h.x, h.z, h) ? ALR_CURSOR.unload : ALR_CURSOR.nogo;
   else if (alr.mode === 'am') cur = ALR_CURSOR.amove;
@@ -1318,6 +1323,7 @@ function alrPointerUp(e) {
     if (alr.sel.includes(h) && h.load.length) { alrOrderUnload(h); if (h.order) { alrCmdFx('unload', h.x, h.z, h, [h]); alrSfx('ack'); } return; }
   }
   if (h && h.owner === 0 && h.kind === 'bld' && alr.sel.some((s) => s.D.engineer && alrCanCapture(s, h))) { alrCommand(d.x0, d.y0); return; }
+  if (h && h.owner === 0 && h.type === 'refinery' && !d.force && alr.sel.some((s) => s.kind === 'unit' && s.owner === 0 && s.D.harv)) { alrCommandAt([h.x, h.z], h); return; }
   if (h && h.owner === 0) {
     if (now - U.lastClick < 320 && U.lastPick === h && h.kind === 'unit') {
       // double-click: everybody of that type on screen
@@ -1366,7 +1372,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (k === 'KeyA' && alr.sel.some((s) => s.kind === 'unit' && s.owner === 0)) { alr.mode = 'am'; e.preventDefault(); return; }
-  if (k === 'KeyD') { for (const u of alr.sel) if (u.kind === 'unit' && u.owner === 0 && (u.D.deploy || u.D.carry)) alrDeploy(u); alrSfx('place'); return; }
+  if (k === 'KeyD') { const go = alr.sel.filter((u) => u.kind === 'unit' && u.owner === 0 && (u.D.deploy || u.D.carry || u.D.harv)); for (const u of go) alrDeploy(u); const hv = go.filter((u) => u.D.harv); if (hv.length) { alrSay(hv.length > 1 ? 'HAULERS RETURNING' : 'HAULER RETURNING', '#ffd27a'); alrAck(hv, 'move'); } alrSfx('place'); return; }
   if (k === 'KeyS') { for (const u of alr.sel) if (u.kind === 'unit' && u.owner === 0) { u.order = null; u.path = null; u.target = null; u.guardX = u.x; u.guardZ = u.z; } return; }
   if (k === 'KeyQ') { alr.sel = alr.ents.filter((u) => u.kind === 'unit' && u.owner === 0 && u.D.weapon); alrSfx('select'); return; }
   if (k === 'KeyH') { const hq = alrBldsOf(0, 'hq')[0] || alr.ents.find((x) => x.owner === 0); if (hq) { alr.cam.x = hq.x; alr.cam.z = hq.z; } return; }
