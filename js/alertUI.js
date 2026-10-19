@@ -33,6 +33,8 @@ function alrUIInit() {
     <div class="alr-card alr-menu" hidden>
       <div class="alr-card-t">PAUSED</div>
       <button type="button" data-act="resume">RESUME</button>
+      <button type="button" data-act="savegame">SAVE GAME</button>
+      <button type="button" data-act="loadgame">LOAD GAME</button>
       <button type="button" data-act="keys">CONTROLS</button>
       <button type="button" data-act="surrender">SURRENDER</button>
       <button type="button" data-act="leave">LEAVE THE ARCADE</button>
@@ -76,6 +78,7 @@ function alrUIInit() {
     else if (act === 'menu') alrPause(true);
     else if (act === 'resume') alrPause(false);
     else if (act === 'keys') U.keysBox.hidden = !U.keysBox.hidden;
+    else if (act === 'savegame' || act === 'loadgame') { alrSavesOpen(act === 'savegame' ? 'save' : 'load'); alrSfx('click'); }
     else if (act === 'surrender') { alrPause(false); alr.players[0].lost = true; for (const e of alr.ents.slice()) if (e.owner === 0) e.hp = 0; alrCheckEnd(); }
     else if (act === 'leave') { alrPause(false); if (typeof stopStorm === 'function') stopStorm(); }
     else if (act === 'again') { U.end.hidden = true; alrNewGame(alr.cfg, alr.side, alr.mapKey, alr.nAI); }
@@ -122,6 +125,7 @@ function alrUILoading(on) { alr.ui.load.hidden = !on; }
 function alrPause(on) {
   if (alr.phase !== 'play') return;
   alr.paused = on; alr.ui.menu.hidden = !on; alr.ui.keysBox.hidden = true;
+  if (!on && alr.ui.saves) alr.ui.saves.hidden = true;
 }
 
 // the world's static pieces: the terrain texture + mesh, the cameos
@@ -1298,6 +1302,7 @@ window.addEventListener('keydown', (e) => {
   const U = alr.ui, k = e.code;
   if (k === 'Escape') {
     e.preventDefault();
+    if (alr.ui.saves && !alr.ui.saves.hidden) { alrSavesClose(); return; }   // (the save / load panel: back to the menu)
     if (alr.phase !== 'play') return;
     if (alr.place || alr.mode) { alr.place = null; alr.mode = ''; alrUIButtons(); return; }
     if (alr.paused) alrPause(false); else if (alr.sel.length) alr.sel = []; else alrPause(true);
@@ -1483,6 +1488,7 @@ function alrOpenSetup() {
           <div class="alr-opt"><label>DIFFICULTY</label><div class="alr-seg" data-k="tier"></div></div>
           <div class="alr-seats"></div>
           <button type="button" class="alr-go">START</button>
+          <button type="button" class="alr-setup-load" data-act="loadgame">📂 LOAD A SAVED GAME</button>
         </div>
       </div>
       <div class="alr-setup-note">free-for-all · destroy every rival's base · starts are dealt at random · Enter to start</div>

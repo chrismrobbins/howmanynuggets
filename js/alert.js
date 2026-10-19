@@ -419,7 +419,7 @@ function alrNewGame(tier, side, mapKey, nAI) {
   alr.payMul = 1 + 0.25 * (nAI - 1);                           // more rivals, more nuggets per kill
   alr.crates = []; alr.crateT = 40;
   alr.ents = []; alr.byId = new Map(); alr.nid = 1; alr.sel = []; alr.groups = {}; alr.fx = []; alr.shots = []; alr.decor = []; alr.pools = [];
-  alr.t = 0; alr.acc = 0; alr.earned = 0; alr.result = null; alr.msgs = []; alr.place = null; alr.mode = '';
+  alr.t = 0; alr.acc = 0; alr.earned = 0; alr.paidTo = 0; alr.battle = Date.now().toString(36) + Math.random().toString(36).slice(2, 7); alr.result = null; alr.msgs = []; alr.place = null; alr.mode = '';
   alr.stats = { kills: 0, lost: 0, built: 0, harvested: 0, crushed: 0, captured: 0 };
   alr.M = alrMakeMap(def);
   // seats: spread round the ring (two on a four-start map sit opposite), turned at random so you don't always start in the same place
@@ -576,7 +576,12 @@ function alrPowerAll() { for (const P of alr.players) if (!P.neutral) alrPower(P
 function alrEarn(units, why) {
   if (units <= 0 || !alr.cfg) return 0;
   const worth = Math.max(1, Math.round(storm.perFlyer * units * alr.cfg.mult * (alr.payMul || 1)));
-  storm.caught += worth; alr.earned += worth;
+  // a battle pays each nugget once: load an earlier save and the stretch you replay pays nothing until you're
+  // past the most this battle ever earned (alr.paidTo, kept per battle in this browser — see alertSave.js)
+  const before = alr.earned;
+  alr.earned += worth;
+  storm.caught += Math.max(0, alr.earned - Math.max(before, alr.paidTo || 0));
+  if (alr.earned > (alr.paidTo || 0)) { alr.paidTo = alr.earned; if (typeof alrPaidNote === 'function') alrPaidNote(); }
   if (why) alrFloat('+' + fmt.format(worth) + ' ' + why);
   return worth;
 }

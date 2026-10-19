@@ -3663,3 +3663,49 @@ handler also zoomed a flat 10% per event, and a trackpad sends dozens.
   `ctrlKey` with no key down, still zooms at `0.006`.
 - The browser's page zoom is blocked inside the game: Ctrl/⌘+wheel on the root, Ctrl ±/0, and Safari's
   `gesturestart`/`gesturechange`.
+
+## 💾 NUGGET ALERT: SAVED GAMES (2026-10-19)
+
+Chris: *"we need the ability to save games and come back to them. let people save the game and call it whatever
+they want"*. The code is in `js/alertSave.js` (loaded after alertUI.js).
+
+**Using it**
+- **Save:** pause (Esc / ☰) → **SAVE GAME** → type any name (40 characters; it's pre-filled with map · army ·
+  minutes) → Enter. Clicking an existing save fills in its name and the button turns to **OVERWRITE**.
+- **Load:** **LOAD GAME** in the pause menu, or **📂 LOAD A SAVED GAME** under START on the skirmish screen.
+  Each row shows the name, map, army vs N, difficulty, game clock, credits and when it was saved.
+  **✕** deletes, with a second click to confirm.
+- **Storage:** IndexedDB `nugAlertSaves`, which has two stores: `meta` (the list) and `data` (the battle,
+  gzipped with CompressionStream where the browser has it). Saves live in that browser only; there's no
+  cross-device sync.
+
+**What gets saved:** `alrSaveEncode` takes every field of `alr` except a UI/transient skip list
+(`ALR_SAVE_SKIP`: ui, sel, fx, msgs, place, mode, cfg, cam, byId, later, …) and `_` caches. A new field added to
+`alr` rides along automatically; only add it to the skip list if it holds functions or DOM.
+- Entity → entity links become `{$e: id}`. Carrier passengers (`load`) are saved whole, since they're out
+  of the world.
+- Definitions are saved by name (`{$D:'u:tank'}`, `{$W:'cannon'}`) and re-linked on load. A save therefore
+  follows rule changes, and a type removed from the rules is dropped from the save rather than crashing it.
+- Typed arrays (map grids, the shroud) are base64.
+- The map is saved whole: mined ore, downed bridges, blocked tiles. The world (terrain, water, decor) is rebuilt
+  from it by `alrUIBuildWorld`.
+- `alr.later` (a salvo's second shot, a callback 0.12 s out) is not saved, and a load clears it.
+
+**Loading:** `alrLoadGame(S)` → `alrSaveDecode` (rebuilds `byId` and resolves the refs) → rebuild the world →
+play. The save format is `ALR_SAVE_V` = 1.
+
+**Nuggets are paid once per battle.** Every battle gets an id (`alr.battle`), and `alr.paidTo` is the most it has
+ever paid. `alrEarn` only adds to `storm.caught` beyond `paidTo`, so loading an earlier save and replaying a
+lucrative fight pays nothing until you pass the old high-water mark. `paidTo` is kept in the save, in memory
+(when loading over the same battle), and in localStorage `nugAlertPaid` (the last 300 battles), so a page
+reload doesn't reset it.
+
+**Tested**
+- Isles, 4 armies, 5 minutes in, with a bridge blown, 3 conscripts aboard a Tater Copter and shots in flight.
+  Saved through the UI, played on 2 more minutes, loaded from the menu. At the instant of loading, the state
+  digest was identical to the moment of saving on every field: entities, positions, hp, orders, targets,
+  passengers, credits, queues, shroud, AI state, ore, bridges, shots, decor, stats, earned, groups.
+- After loading it played on 3 minutes with no errors.
+- A fresh page loaded the same save from the skirmish screen.
+- Delete works.
+- Nuggets: 12,640 earned → save → 25,280 more → load → replaying 25,280 paid 0 → the next ones paid.
