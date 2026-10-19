@@ -3019,3 +3019,44 @@ difficulty picked on the cards, and entry as a 4th card.
 - **Soak** (AI both sides, 40 drills per tier, 0 hangs): AI-as-you comebacks came off ROOKIE ~37% /
   PRO ~8% / ALL-BLITZ ~5%, and holds succeeded ~92% / 80% / 71%. The AI is a weaker QB than a
   person in full games too, so tune these by hand, not by these numbers.
+
+## 🏈 NUGGET BLITZ: THE CATCH, PART 2 — run through it (2026-10-19)
+
+Chris, again: *"the catching mechanics are still bad … the players just put their hands in the
+air. make it more realistic and a better experience to receive the ball."* Part 1 (10-09) had the
+right ideas (late hands, catch types, absorb). Filming it showed why it still looked bad:
+- **Receivers stopped to catch.** In flight the target ran `blzSeek` at the landing spot, which
+  brakes inside the last yard. A go route went from 9 to ~1 yd/s at the catch, and a curl stood still.
+- **70% of catches were over-the-shoulder.** Running AT the spot put every ball behind him, and
+  that IK was both arms straight up behind the helmet: the "hands in the air".
+- **Every pass arrived at the belt.** Heights were world units, but players DRAW at `BLZ_BS` 1.4,
+  so a 1.6 "chest" pass hit 1.14 body = just above the hips. The head-look eye height (1.75)
+  had the same bug.
+- **The AI lay-out dive** fired whenever the receiver was 1.35–3 yd away with 0.3 s left. That's
+  every receiver who arrives on time, and the dive dropped him to ~5 yd/s and landed him short.
+
+What changed (`js/blitz.js`, "🏈 THE CATCH"):
+- `blzRunToBall` (AI and the human assist): the speed that gets him there on time, aimed 0.11 s
+  early (blzMove's acceleration lag). A receiver who's early settles, squares up (blzMove facing)
+  and works back to it. The dive now keys off the shortfall (`dl − v·left`, 0.9–2.6 yd).
+- Heights are on the drawn body: bullets 1.72–2.12, touch 1.8–2.3, lobs 1.85–2.65, release
+  2.6. `BLZ_HIGH_Y` 2.55 / `BLZ_LOW_Y` 1.4. Out of reach is 3.25 (+1.2 jumping), and the
+  defender jump threshold is 2.35.
+- `blzCatchPlan(p, prev)` is re-made at 0.36 s from his VELOCITY (not the lagging facing).
+  Over-the-shoulder needs the ball truly behind (cos > 0.72) on the run. Settled = chest.
+- `blzCatchWindow`: the hands go to a window in front of him by type: diamond chest-high,
+  across the body (side), basket at eye level (over), full extension (high), knees bent (low).
+  Hands come up at `BLZ_HANDS` 0.24 s (deep 0.17). `blzBallDrawPos` draws the ball into that
+  point over its last 0.22 s (render only, ≤ 0.9; the catch is still decided by real distance).
+- After contact (`BLZ_SECURE` 0.42, keyed off `handsAt`): a give, both hands to the high chest,
+  then a tuck into the SIDELINE arm (`p.carry`, also used by the canvas + GL ball and the stiff
+  arm; it's in `BLZ_REC_KEYS`). Eyes stay on it until it's tucked. There's a 0.035 s hit-stop
+  on ordinary catches, and a human receiver with an idle stick keeps his legs through the tuck.
+- Balance (24 AI PRO games × 2 seeds, old → new): completions 74–75% → ~79%, picks/g 3.4–4.0 →
+  3.0–4.0 (the contested-drop pick odds went up to keep it there), pts/g 55 → 62 (mostly YAC).
+- Not touched: kick/punt returner catches (still `ty` 1.6, so they catch at the belt) and replays
+  (they don't record `reach`, so arms don't reach in replays — same as before).
+- Lab (scratch, not committed): a clean-field rig that runs a chosen route, throws exactly and
+  films 8 moments (game cam + side cam). An arrival probe at `blzCatchResolve` measures how far
+  short the receiver is. Film the FIRST case twice: the first sheet of a run comes out blank.
+
