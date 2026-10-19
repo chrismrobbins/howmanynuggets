@@ -599,8 +599,8 @@ function alrCmdMarks(dt, S) {
   if (!U.mouse.in || alr.place || alr.mode === 'sell' || alr.mode === 'repair' || U.drag && U.drag.box) return;
   if (!alr.sel.some((e) => e.kind === 'unit' && e.owner === 0)) return;
   const h = U.hover, wob = 1 + Math.sin(alr.t * 6) * 0.06;
-  if (h && h.owner !== 0) {
-    const cook = alr.sel.some((e) => e.D.engineer && alrCanCapture(e, h)), col = cook ? ALR_CMD_COL.capture : ALR_CMD_COL.attack;
+  if (h && (h.owner !== 0 || alrForceOn(h))) {
+    const cook = h.owner !== 0 && alr.sel.some((e) => e.D.engineer && alrCanCapture(e, h)), col = cook ? ALR_CMD_COL.capture : ALR_CMD_COL.attack;
     const r = (h.kind === 'bld' ? Math.max(h.w, h.h) * 0.62 : h.D.r * 1.6 + 0.15) * wob;
     ring(h.x, h.z, r, col, 0.7); arrows(h.x, h.z, r + 0.3, col, 0.6, Math.PI / 4 + alr.t * 0.8);
   } else if (!h || h.owner !== 0) {
@@ -965,12 +965,21 @@ function alrPickAt(px, py) {
   return best;
 }
 function alrCommand(px, py, forceAM) { alrCommandAt(alrGLPick(px, py), alrPickAt(px, py), forceAM); }
-function alrCommandAt(g, hit, forceAM) {
+// force-fire (RA2's Ctrl — or ⌘ on a Mac): hold it and a click on something of your own is an attack order
+function alrForceOn(h) { return !!(alr.ui.force && h && h.owner === 0 && h.hp > 0 && alr.sel.some((s) => s.kind === 'unit' && s.owner === 0 && s !== h)); }
+function alrCommandAt(g, hit, forceAM, force) {
   const units = alr.sel.filter((e) => e.kind === 'unit' && e.owner === 0);
   const blds = alr.sel.filter((e) => e.kind === 'bld' && e.owner === 0 && (e.D.makes));
   if (!units.length) {
     if (blds.length) { for (const b of blds) b.rally = [g[0], g[1]]; alrCmdFx('move', g[0], g[1], null, blds); alrSfx('click'); }
     return;
+  }
+  if (force && hit) {
+    const shooters = units.filter((u) => u !== hit && !u.D.engineer && (alrCanHit(ALR_WPN[u.D.weapon], hit) || (u.D.weapon2 && alrCanHit(ALR_WPN[u.D.weapon2], hit))));
+    if (!shooters.length) { alrSfx('error'); return; }
+    for (const u of shooters) alrOrderAttack(u, hit);
+    alrCmdFx('attack', hit.x, hit.z, hit, shooters); alrSfx('ack'); alrAck(shooters, 'attack');
+    alr.mode = ''; return;
   }
   // cooks: into a building that isn't yours to take it, into one of yours that's hurt to fix it
   const cooks = units.filter((u) => u.D.engineer && hit && alrCanCapture(u, hit));
@@ -1007,6 +1016,13 @@ function alrPointerDown(e) {
   const r = U.ov.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
   U.mouse.x = x; U.mouse.y = y; U.mouse.in = true;
   if (e.button === 1) { U.pan = { x, y, cx: alr.cam.x, cz: alr.cam.z }; e.preventDefault(); return; }
+  U.force = e.ctrlKey || e.metaKey;
+  const macCtrl = e.button === 2 && e.ctrlKey && /Mac/i.test(navigator.platform || navigator.userAgent);
+  if ((e.button === 0 || macCtrl) && U.force && !alr.place && alr.mode !== 'sell' && alr.mode !== 'repair') {
+    const h = alrPickAt(x, y);
+    if (alrForceOn(h)) { alrCommandAt(alrGLPick(x, y), h, false, true); return; }
+    if (macCtrl) { if (alr.sel.some((s) => s.owner === 0)) alrCommand(x, y); return; }   // a Mac's Ctrl+click on the ground: still a left click
+  }
   if (e.button === 2) {
     // right-click: cancel what you're holding (a building to place, sell / repair / attack-move), else let
     // go of the selection — RA2's right-click (Chris: "make it so a right click will unselect")
@@ -1038,7 +1054,13 @@ function alrPointerMove(e) {
   U.mouse.x = x; U.mouse.y = y; U.mouse.in = true;
   if (U.pan) { const k = alr.cam.zoom / alr.cam.h; const G = alrGL, rx = G.right[0], rz = G.right[2], fl = Math.hypot(G.fwd[0], G.fwd[2]), fx = G.fwd[0] / fl, fz = G.fwd[2] / fl; const dx = (x - U.pan.x) * k, dy = (y - U.pan.y) * k / Math.sin(alr.cam.pitch); alr.cam.x = U.pan.cx - rx * dx + fx * dy; alr.cam.z = U.pan.cz - rz * dx + fz * dy; return; }
   if (U.drag) { U.drag.x1 = x; U.drag.y1 = y; if (Math.hypot(x - U.drag.x0, y - U.drag.y0) > 6) U.drag.box = true; }
-  // the cursor says what a click will do
+  U.force = e.ctrlKey || e.metaKey;
+  alrUICursorPick();
+}
+// the cursor says what a click will do (on a mouse move, and when Ctrl / ⌘ goes down or up)
+function alrUICursorPick() {
+  const U = alr.ui, x = U.mouse.x, y = U.mouse.y;
+  if (!U.mouse.in) return;
   const h = alr.phase === 'play' ? alrPickAt(x, y) : null;
   U.hover = h;
   const mine = alr.sel.some((s) => s.kind === 'unit' && s.owner === 0);
@@ -1048,6 +1070,7 @@ function alrPointerMove(e) {
   else if (alr.mode === 'sell') cur = h && h.kind === 'bld' && h.owner === 0 && !h.D.tech ? ALR_CURSOR.sell : ALR_CURSOR.nogo;
   else if (alr.mode === 'repair') cur = h && h.kind === 'bld' && h.owner === 0 && h.hp < h.max ? ALR_CURSOR.repair : ALR_CURSOR.nogo;
   else if (cook) cur = ALR_CURSOR.capture;
+  else if (alrForceOn(h)) cur = ALR_CURSOR.attack;   // force-fire on your own: the red reticle, so you know
   else if (alr.mode === 'am') cur = ALR_CURSOR.amove;
   else if (h && h.owner !== 0 && mine) cur = ALR_CURSOR.attack;
   else if (h && h.owner === 0) cur = 'pointer';
@@ -1136,6 +1159,7 @@ window.addEventListener('keydown', (e) => {
   if (!alr.on || !alr.ui) return;
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
   if (document.querySelector('.ak-tier')) return;
+  alrUIForceKey(e);
   alrAudioWake();
   const U = alr.ui, k = e.code;
   if (k === 'Escape') {
@@ -1170,7 +1194,13 @@ window.addEventListener('keydown', (e) => {
   if (k === 'KeyN') { alrMusicToggle(); return; }
   if (k === 'Delete' || k === 'Backspace') { for (const s of alr.sel) if (s.kind === 'bld' && s.owner === 0) alrSell(s); return; }
 });
-window.addEventListener('keyup', (e) => { if (alr.ui) alr.ui.keys[e.code] = false; });
+window.addEventListener('keyup', (e) => { if (alr.ui) { alr.ui.keys[e.code] = false; alrUIForceKey(e); } });
+function alrUIForceKey(e) {
+  const U = alr.ui, f = e.ctrlKey || e.metaKey;
+  if (!alr.on || !U || U.force === f) return;
+  U.force = f; alrUICursorPick();
+}
+window.addEventListener('blur', () => { if (alr.ui && alr.ui.force) { alr.ui.force = false; alrUICursorPick(); } });
 function alrUIInput(dt) {
   const U = alr.ui, cam = alr.cam, G = alrGL;
   if (!G.right) return;

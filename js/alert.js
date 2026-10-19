@@ -1336,6 +1336,8 @@ function alrHit(t, W, from, mul) {
   t.hp -= W.dmg * v * (mul || 1) * fr * tr;
   t.flash = 0.08; t.lastHit = alr.t;
   if (t.owner === alr.NEU) { if (t.hp <= 0) alrKill(t, from); return; }
+  // force-fire on your own (Ctrl+click): it hurts, but no alarm, no hitting back
+  if (from && from.owner === t.owner) { if (t.hp <= 0) alrKill(t, from, W); return; }
   const P = alr.players[t.owner];
   if (P.underAttack <= 0 && t.owner === 0) { alrSay(t.kind === 'bld' ? 'OUR BASE IS UNDER ATTACK' : t.D.harv ? 'HARVESTER UNDER ATTACK' : 'UNIT UNDER ATTACK', '#ff6a5a'); alrSfx('alarm'); alr.lastAlarm = [t.x, t.z]; }
   alrMusicFight(t.x, t.z);

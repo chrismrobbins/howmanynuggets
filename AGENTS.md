@@ -3436,6 +3436,15 @@ red and green command type interface"*.
   shows me like 60% up and to the right"*. Don't flatten it again.) The camera box comes out a bit taller than
   the screen's aspect; that's the trade. `alrRadarXY` / `alrRadarInv` / the ground transform / the lobby's
   previews (`alrMapPreview`) all go through `alrRadarK()`.
+- **Force-fire (Ctrl+click, or ⌘+click on a Mac):** with units selected, hold Ctrl over something of your own
+  and the cursor turns to the red attack reticle, with the red hover ring. A click then gives an attack order on it
+  (`alrCommandAt(g, hit, forceAM, force)`). Chris: *"make it obvious you are about to attack, ie cursor goes red on a
+  building"*. The order is issued on pointerdown, because macOS can deliver Ctrl+click as a right-click
+  (button 2), which would otherwise deselect; a Mac Ctrl+click on open ground still counts as a left click.
+  `alrForceOn(h)` is the single test, used by the cursor (`alrUICursorPick`, which also re-runs on Ctrl/⌘ keydown,
+  keyup and blur), the hover preview and the click. In the sim, `alrHit` with `from.owner === t.owner` deals
+  damage and nothing else: no alarm, no `underAttack` (which would wake the AI's defence logic), and the
+  victim doesn't hit back. Splash still spares your own; only the target takes the hit.
 - **Animated cursors:** move / attack / attack-move are lists of 10 frames (`ALR_CURSOR.move` etc.),
   flipped at `ALR_CURSOR_FPS` (14) by `alrUICursorTick()` from the render loop; the pointer handler sets
   `U.cur` (a string or a frame list). The green arrows pulse in toward the point and back (fast in, slow
