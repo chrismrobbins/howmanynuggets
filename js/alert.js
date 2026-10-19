@@ -742,9 +742,26 @@ function alrDeliver(P, type) {
   else if (D.engineer && !P.human) u.order = null;        // the CPU sends its own cooks
   else {
     const rx = b.rally ? b.rally[0] : x + (P.id === 0 ? 1.5 : -1.5) + alrRnd(-1, 1), rz = b.rally ? b.rally[1] : z - 1.6 + alrRnd(-0.6, 0.6);
-    alrOrderMove(u, rx, rz, false);
+    const [sx, sz] = alrRallySlot(u, rx, rz);
+    alrOrderMove(u, sx, sz, false);
   }
   if (P.human) { alrSay('UNIT READY', '#9bff9b'); alrSfx('ready'); }
+}
+// a free spot near a rally point: rings outward at a unit's spacing, skipping where someone of yours stands or is
+// already headed, and ground you can't stand on
+function alrRallySlot(u, x, z) {
+  const gap = u.D.cat === 'veh' ? 0.95 : 0.5;
+  const taken = alr.ents.filter((e) => e !== u && e.kind === 'unit' && e.owner === u.owner && !e.D.air).map((e) => (e.order && e.order.type === 'move' ? [e.order.x, e.order.z] : [e.x, e.z]));
+  for (let ring = 0; ring < 7; ring++) {
+    const n = ring ? ring * 6 : 1;
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * Math.PI * 2 + ring * 0.5, sx = x + Math.cos(a) * ring * gap, sz = z + Math.sin(a) * ring * gap;
+      if (!alrIn(sx, sz) || !alrPassable(alrTile(sx, sz), u)) continue;
+      if (taken.some(([tx, tz]) => Math.hypot(tx - sx, tz - sz) < gap * 0.8)) continue;
+      return [sx, sz];
+    }
+  }
+  return [x, z];
 }
 // placement: on the map, on free ground, near your own base (2 tiles from any of your buildings; a wall up to 6)
 function alrCanPlace(P, type, tx, tz) {
@@ -878,7 +895,7 @@ function alrNearestFree(k, self) {
 // ---- orders --------------------------------------------------------------------------------------------------
 function alrOrderMove(u, x, z, attackMove) {
   u.deployed = false;                                       // a move order packs up the sandbags
-  u.order = { type: 'move', x, z, am: !!attackMove };
+  u.order = { type: 'move', x, z, am: !!attackMove }; u.lastLeft = null; u.crowdT = 0;
   u.target = null; u.pi = 0; u.stuck = 0;
   u.path = u.D.air === 'jet' ? null : u.D.air ? [[x, z]] : alrPath(u.x, u.z, x, z, u);   // aircraft fly straight there
   if (u.D.carry) u.parked = false;
@@ -1148,7 +1165,19 @@ function alrUnitStep(u, dt) {
   if (o && o.type === 'move' && !(t && o.am && alrDistTo(u.x, u.z, t) <= (W ? W.range : 0))) {
     if (!u.path || (u.repathT -= dt) <= 0 && u.stuck > 0.8) { u.path = D.air ? [[o.x, o.z]] : alrPath(u.x, u.z, o.x, o.z, u); u.pi = 0; u.repathT = 1; u.stuck = 0; }
     moving = alrFollow(u, dt);
-    if (!u.path || Math.hypot(u.x - o.x, u.z - o.z) < (D.cat === 'inf' ? 0.25 : 0.4)) { u.order = null; u.path = null; u.guardX = u.x; u.guardZ = u.z; }
+    const left = Math.hypot(u.x - o.x, u.z - o.z);
+    // (boxed in near the spot — others are standing on it — counts as there: pushing on just makes them all jostle)
+    // boxed in: someone's standing on the spot (and we're close), or we're pressed against a unit that has already
+    // parked and we're within a crowd's width of the spot — so a jam settles from the middle outward
+    const near = left < (D.cat === 'inf' ? 1.0 : 1.6);
+    const crowded = left < 4.5 && alr.ents.some((e) => e !== u && e.kind === 'unit' && !e.D.air && (
+      (near && Math.hypot(e.x - o.x, e.z - o.z) < (D.cat === 'inf' ? 0.35 : 0.6)) ||
+      (Math.hypot(e.x - u.x, e.z - u.z) < u.D.r + e.D.r + 0.08 && (near || (!e.order && !e.moving)))));
+    // (progress is measured — how much closer it really got — not the speed it's trying: separation shoves it back)
+    const prog = (u.lastLeft == null ? 1 : u.lastLeft - left); u.lastLeft = left;
+    if (crowded && (u.crowdT = Math.max(0, (u.crowdT || 0) + (prog < D.speed * dt * 0.3 ? dt : -dt * 0.5))) > 0.6) u.path = null;
+    else if (!crowded) u.crowdT = 0;
+    if (!u.path || left < (D.cat === 'inf' ? 0.25 : 0.4)) { u.order = null; u.path = null; u.crowdT = 0; u.lastLeft = null; u.guardX = u.x; u.guardZ = u.z; }
   }
   if (!o && !t && Math.hypot(u.x - u.guardX, u.z - u.guardZ) > 0.6) {
     // wandered off chasing something: go back to where you were left
@@ -1396,8 +1425,8 @@ function alrSeparate(dt) {
     const push = (rr - d) * 0.5 * Math.min(1, dt * 8), nx = dx / d * push, nz = dz / d * push;
     const ma = a.moving ? 1 : 0.5, mb = b.moving ? 1 : 0.5;
     const ka = alrTile(a.x - nx * ma, a.z - nz * ma), kb = alrTile(b.x + nx * mb, b.z + nz * mb);
-    if (alrPassable(ka, a)) { a.x -= nx * ma; a.z -= nz * ma; }
-    if (alrPassable(kb, b)) { b.x += nx * mb; b.z += nz * mb; }
+    if (alrPassable(ka, a)) { a.x -= nx * ma; a.z -= nz * ma; if (!a.order && !a.moving) { a.guardX = a.x; a.guardZ = a.z; } }
+    if (alrPassable(kb, b)) { b.x += nx * mb; b.z += nz * mb; if (!b.order && !b.moving) { b.guardX = b.x; b.guardZ = b.z; } }
   }
 }
 

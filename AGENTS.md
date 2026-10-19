@@ -3882,3 +3882,26 @@ Chris: *"make it so you can force the chrono haulers to go back and unload their
   selected is the order. You get the green drop-off cursor and ring, plus "HAULER RETURNING" / an ack.
 - Tested: a Chrono Hauler 253 into a load → D → blinked home, unloaded all of it, back to 'seek'. A War Hauler
   with 200 → refinery clicked → drove there, unloaded, back to work (it waits its turn at a busy dock).
+
+### Fix: a lot of tanks "just start bouncing around on each other" (2026-10-19)
+Measured first: 21 tanks out of one factory onto a rally point, all done with their orders, still covered **62
+tiles in 10 s** and were "moving" 52% of frames. There were three causes, all fixed:
+1. **The drive-back loop** (the big one): an idle unit nudged by separation drove back to its guard spot, nudged
+   its neighbour, who drove back to *its* spot… Now `alrSeparate` moves an idle, still unit's `guardX/Z` with the
+   push, so it accepts the new spot.
+2. **One rally point for all**: every unit out of a factory was ordered onto the exact same point.
+   `alrRallySlot` gives each one its own spot, in rings outward at the unit's spacing (0.95 tiles for vehicles,
+   0.5 for infantry), skipping spots where a unit of yours stands or is already headed, and ground you can't
+   stand on.
+3. **Moves that can't finish**: a move only ended within 0.4 tiles of the point, which a crowd never allows. Now
+   a unit that is **boxed in** counts as there, if it's making no real progress (measured as how much closer it
+   actually got, `u.lastLeft`; the attempted velocity lies, because separation shoves it back) for 0.6 s and
+   either:
+   - it's within 1.6 tiles and someone is standing on the spot, or
+   - it's within 4.5 tiles and pressed against a unit that has already parked.
+
+   So a jam settles from the middle outward. A lone unit still drives all the way.
+
+After: parked rally crowd **0 tiles / 0 moving frames**. Group move settled. All 21 ordered onto ONE point:
+every order finished, about 0.02 tiles per tank per second of residual nudging. Solo arrival unchanged.
+Regression games on valley / plains / river, and the helicopter test, all pass.
