@@ -1015,9 +1015,20 @@ function alrHarvStep(u, dt) {
   };
   if (u.cargo >= D.cap - 1 && u.hstate !== 'home' && u.hstate !== 'unload') { u.hstate = 'home'; u.path = null; }
   if (!u.hstate) u.hstate = 'seek';
+  // the stall watchdog: two haulers heading for neighbouring ore tiles shove each other (separation) and
+  // neither ever reaches its tile centre — they sat nose to nose in 'seek' forever. Progress is measured,
+  // not assumed: 1.5 s without moving while driving = dig where you are if it's ore, else pick elsewhere.
+  if (u.hstate === 'seek' || u.hstate === 'home') {
+    if (u.stallX == null || Math.hypot(u.x - u.stallX, u.z - u.stallZ) > 0.12) { u.stallX = u.x; u.stallZ = u.z; u.stallT = 0; }
+    else u.stallT = (u.stallT || 0) + dt;
+  } else u.stallT = 0;
   if (u.hstate === 'seek') {
+    const here = alrTile(u.x, u.z);
+    // ore is per tile: once on ore at the end of the route (or stalled on ore), dig — don't chase the centre
+    if (M.ore[here] > 20 && (!u.path || u.path.length - (u.pi || 0) <= 1 || u.stallT > 1.5)) { u.path = null; u.oreTile = here; u.hstate = 'dig'; u.hT = 0; u.stallT = 0; return; }
+    if (u.stallT > 1.5) { u.oreAt = null; u.path = null; u.stallT = 0; u.avoid = u.oreTile; }
     if (!u.path) {
-      const k = alrFindOre(u.x, u.z, u.oreAt);
+      const k = alrFindOre(u.x, u.z, u.oreAt, null, u);
       if (k < 0) { if (u.cargo > 0) { u.hstate = 'home'; return; } u.moving = false; return; }
       u.oreTile = k; u.path = alrPath(u.x, u.z, k % ALR_N + 0.5, ((k / ALR_N) | 0) + 0.5, u); u.pi = 0;
       if (!u.path) { u.oreAt = null; u.moving = false; return; }
@@ -1027,7 +1038,7 @@ function alrHarvStep(u, dt) {
   } else if (u.hstate === 'dig') {
     u.moving = false;
     const k = alrTile(u.x, u.z);
-    if (M.ore[k] <= 0) { const n = alrFindOre(u.x, u.z, null, 2.5); if (n < 0) { u.hstate = u.cargo > 0 ? 'home' : 'seek'; u.oreAt = null; return; } u.path = alrPath(u.x, u.z, n % ALR_N + 0.5, ((n / ALR_N) | 0) + 0.5, u); u.pi = 0; u.hstate = 'seek'; return; }
+    if (M.ore[k] <= 0) { const n = alrFindOre(u.x, u.z, null, 2.5, u); if (n < 0) { u.hstate = u.cargo > 0 ? 'home' : 'seek'; u.oreAt = null; return; } u.oreTile = n; u.path = alrPath(u.x, u.z, n % ALR_N + 0.5, ((n / ALR_N) | 0) + 0.5, u); u.pi = 0; u.hstate = 'seek'; return; }
     const take = Math.min(M.ore[k], 110 * dt, D.cap - u.cargo);
     M.ore[k] -= take; u.cargo += take; M.oreVer++;
     u.oreAt = [u.x, u.z];
@@ -1042,7 +1053,9 @@ function alrHarvStep(u, dt) {
       alrFxChrono(u.x, u.z); u.x = dx; u.z = dz; u.path = null; alrFxChrono(dx, dz); alrSfx('chrono', dx, dz);
       u.hstate = 'unload'; u.hT = 0; u.dockB = b.id; return;
     }
-    if (!u.path) { u.path = alrPath(u.x, u.z, dx, dz, u); u.pi = 0; }
+    // one at a time at the dock: wait your turn nearby instead of shoving the one that's unloading
+    if (Math.hypot(u.x - dx, u.z - dz) < 1.6 && alr.ents.some((e) => e !== u && e.D.harv && e.hstate === 'unload' && e.dockB === b.id)) { u.moving = false; u.stallT = 0; return; }
+    if (!u.path || u.stallT > 1.5) { u.path = alrPath(u.x, u.z, dx, dz, u); u.pi = 0; u.stallT = 0; }
     u.moving = alrFollow(u, dt);
     if (Math.hypot(u.x - dx, u.z - dz) < 0.35) { u.hstate = 'unload'; u.hT = 0; u.path = null; u.dockB = b.id; }
     else if (!u.path) u.path = alrPath(u.x, u.z, dx, dz, u);
@@ -1059,7 +1072,7 @@ function alrHarvStep(u, dt) {
     if (u.cargo <= 0.5) { u.cargo = 0; u.hstate = 'seek'; u.path = null; if (P.human && P.cashFx > 0) { alrFloatAt(u.x, u.z, '+$' + Math.round(P.cashFx), '#ffd23a'); P.cashFx = 0; alrSfx('cash'); } }
   }
 }
-function alrFindOre(x, z, near, maxR) {
+function alrFindOre(x, z, near, maxR, self) {
   const M = alr.M, N = ALR_N;
   let best = -1, bd = 1e9;
   const cx = near ? near[0] : x, cz = near ? near[1] : z;
@@ -1067,9 +1080,16 @@ function alrFindOre(x, z, near, maxR) {
     if (M.ore[k] <= 20) continue;
     const d = Math.hypot(k % N + 0.5 - cx, ((k / N) | 0) + 0.5 - cz);
     if (maxR && d > maxR) continue;
-    // take the near ones, and not the tile another hauler is sitting on
+    // take the near ones, and keep clear of the other haulers: a hauler is most of a tile wide, so a tile
+    // NEXT to another hauler's target (or to where it sits) is as jammed as the same tile
     let pen = 0;
-    for (const e of alr.ents) if (e.D.harv && e.oreTile === k && Math.hypot(e.x - x, e.z - z) > 0.1) pen += 3;
+    const kx = k % N + 0.5, kz = ((k / N) | 0) + 0.5;
+    for (const e of alr.ents) {
+      if (!e.D.harv || e === self || (!self && Math.hypot(e.x - x, e.z - z) <= 0.1)) continue;
+      if (e.oreTile != null && Math.hypot((e.oreTile % N) + 0.5 - kx, ((e.oreTile / N) | 0) + 0.5 - kz) < 1.5) pen += 3;
+      if (Math.hypot(e.x - kx, e.z - kz) < 1.1) pen += 2;
+    }
+    if (self && self.avoid === k) pen += 4;
     if (d + pen < bd) { bd = d + pen; best = k; }
   }
   return best;

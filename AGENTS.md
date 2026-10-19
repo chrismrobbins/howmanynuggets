@@ -3360,3 +3360,20 @@ versions stay as the fallback. No pivot changed, so `ALR_RIG` is untouched.
   the game opens (procedural first), so it never blocks.
 - **Tested:** a staged showcase of every piece (buildings, defences + both wall kinds, vehicles,
   infantry, jet + blimp + crate) and CPU-vs-CPU games from both armies to the end with no errors.
+
+### Fix: haulers jammed nose to nose while mining (2026-10-19)
+Chris: *"the war haulers get stuck together when they are mining"*. Reproduced with 5 haulers on one
+refinery over 4 minutes: 23 stalls, one hauler stuck 99 s (the Chrono Hauler had it too: one stuck 230 s).
+**Cause:** `seek` only switched to `dig` once the hauler reached its ore tile's exact centre. Haulers
+picked neighbouring tiles, separation (a hauler is r 0.42, most of a tile) shoved them apart, and
+neither ever arrived. **Fix** (`alrHarvStep` / `alrFindOre`):
+- Dig as soon as you're on ore at the end of the route (ore is per tile).
+- A stall watchdog (`stallT`): 1.5 s without moving in `seek`/`home` → dig if on ore, else repick with the
+  stuck tile avoided, or repath home.
+- `alrFindOre(…, self)` penalises tiles within 1.5 of another hauler's target or 1.1 of where one sits.
+- The dig-time repick now records `oreTile`.
+- At the dock, a hauler waits within 1.6 while another unloads there, instead of shoving it.
+
+Result: 0 stalls with 5 or 8 haulers. Income per 4 min went $12.0k → $31.7k (5 War Haulers) and
+$0.7k → $34.9k (5 Chrono Haulers). The CPU's economy got the same boost: CPU-vs-CPU games still end
+(14–15 min) with bigger armies (peak ~100 units).
