@@ -187,16 +187,18 @@ const alrGL = { gl: null, ok: false };
 const ALR_VS = `#version 300 es
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNor; layout(location=2) in vec4 aCol; layout(location=3) in vec2 aUV;
 uniform mat4 uVP, uM, uLVP;
-out vec3 vN; out vec4 vC; out vec3 vW; out vec4 vL; out vec2 vUV;
+out vec3 vN; out vec4 vC; out vec3 vW; out vec4 vL; out vec2 vUV; out vec3 vP; out vec3 vON;
 void main() {
   vec4 w = uM * vec4(aPos, 1.0);
-  vW = w.xyz; vN = mat3(uM) * aNor; vC = aCol; vUV = aUV; vL = uLVP * w;
+  vW = w.xyz; vN = mat3(uM) * aNor; vC = aCol; vUV = aUV; vL = uLVP * w; vP = aPos; vON = aNor;
   gl_Position = uVP * w;
 }`;
 const ALR_FS = `#version 300 es
-precision highp float; precision highp sampler2DShadow;
-in vec3 vN; in vec4 vC; in vec3 vW; in vec4 vL; in vec2 vUV;
+precision highp float; precision highp sampler2DShadow; precision highp sampler2DArray;
+in vec3 vN; in vec4 vC; in vec3 vW; in vec4 vL; in vec2 vUV; in vec3 vP; in vec3 vON;
 uniform sampler2DShadow uShadow; uniform sampler2D uTex; uniform sampler2D uShroud; uniform sampler2D uDetail;
+// the Blender models' surfaces (js/alertArt.js alrMatLayers): uv.x = surface class (0 = none), uv.y = grime
+uniform sampler2DArray uMat; uniform float uMatOn; uniform float uMatS[16]; uniform float uMatSpec[16];
 uniform vec3 uSun, uSunCol, uSky, uGround, uTeam, uView, uAdd;
 uniform float uUseTex, uSpec, uAlpha, uN, uTexel, uNoShroud, uDesat;
 out vec4 o;
@@ -221,11 +223,28 @@ void main() {
   vec3 base = vC.rgb;
   float lum = dot(vC.rgb, vec3(0.3, 0.59, 0.11));
   base = mix(base, uTeam * (0.25 + 1.05 * lum), vC.a);
+  float mspec = 1.0;
   if (uUseTex > 0.5) {
     base = texture(uTex, vUV).rgb * vC.rgb;
     // the close-up grain: a tiled detail texture over the painted ground
     float dt = texture(uDetail, vW.xz * 0.45).r * 0.6 + texture(uDetail, vW.xz * 0.13 + 0.37).r * 0.4;
     base *= 0.64 + 0.72 * dt;
+  } else if (uMatOn > 0.5 && vUV.x > 0.5) {
+    // a real surface: the class's texture, triplanar in OBJECT space (it rides with a moving tank),
+    // rain streaks down the walls, grime in the cavities the Blender AO found, dust low on everything
+    int cls = int(vUV.x + 0.5);
+    vec3 an = abs(normalize(vON)); vec3 tw = an * an * an * an; tw /= (tw.x + tw.y + tw.z);
+    vec3 q = vP * uMatS[cls];
+    float L = float(cls - 1);
+    vec3 tx = texture(uMat, vec3(q.zy, L)).rgb * tw.x + texture(uMat, vec3(q.xz, L)).rgb * tw.y + texture(uMat, vec3(q.xy, L)).rgb * tw.z;
+    base *= tx * 2.0;
+    float side = 1.0 - tw.y;
+    float st = vnoise(vec3((vP.x - vP.z) * 21.0, vP.y * 1.6, L * 3.1)) * 0.65 + vnoise(vec3((vP.x - vP.z) * 57.0, vP.y * 3.0, L)) * 0.35;
+    base *= mix(1.0, 0.78 + 0.3 * st, side * 0.5);
+    // (the vertex colour already carries the AO: grime only where it's a real crevice, not everywhere)
+    base = mix(base, base * vec3(0.74, 0.68, 0.6), clamp((vUV.y - 0.4) * 1.6, 0.0, 1.0) * 0.8);
+    base = mix(base * vec3(0.86, 0.8, 0.7), base, clamp(vW.y / 0.22, 0.0, 1.0));
+    mspec = uMatSpec[cls] * (0.4 + 1.2 * dot(tx, vec3(0.33)));
   } else {
     // weathering: two octaves of world-space noise so no panel is a flat color, and the grime that
     // collects low on every wall (the pre-renders were never clean)
@@ -240,7 +259,7 @@ void main() {
   vec3 amb = mix(uGround, uSky, n.y * 0.5 + 0.5);
   vec3 c = base * (amb + uSunCol * ndl * sh);
   vec3 h = normalize(uSun + uView);
-  c += uSunCol * pow(max(dot(n, h), 0.0), 28.0) * uSpec * sh;
+  c += uSunCol * pow(max(dot(n, h), 0.0), 28.0) * uSpec * mspec * sh;
   c = mix(c, vec3(dot(c, vec3(0.3, 0.59, 0.11))), uDesat);
   c += uAdd;
   vec2 su = vW.xz / uN;
@@ -285,6 +304,33 @@ function alrGLProgram(gl, vs, fs) {
   const U = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
   for (let k = 0; k < n; k++) { const a = gl.getActiveUniform(p, k); U[a.name] = gl.getUniformLocation(p, a.name); }
   return { p, U };
+}
+
+// the surface texture array for the Blender models: L layers of S×S RGBA (js/alertArt.js alrMatLayers).
+// uMat lives on its own unit (4) ALWAYS — a sampler2DArray left on unit 0 next to the shadow sampler is a
+// type clash and WebGL silently drops every draw (see gotcha 3).
+function alrGLMatTex(S, layers, scales, specs) {
+  const gl = alrGL.gl, G = alrGL;
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D_ARRAY, t);
+  gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA8, S, S, layers.length, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  layers.forEach((px, k) => gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, k, S, S, 1, gl.RGBA, gl.UNSIGNED_BYTE, px));
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  const an = gl.getExtension('EXT_texture_filter_anisotropic');
+  if (an) gl.texParameterf(gl.TEXTURE_2D_ARRAY, an.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, gl.getParameter(an.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
+  gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
+  gl.bindTexture(gl.TEXTURE_2D_ARRAY, null);
+  G.mat = t; G.matS = new Float32Array(16); G.matSpec = new Float32Array(16);
+  scales.forEach((v, k) => { G.matS[k] = v; }); specs.forEach((v, k) => { G.matSpec[k] = v; });
+}
+function alrGLBindMat(U) {
+  const gl = alrGL.gl, G = alrGL;
+  gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D_ARRAY, G.mat || null); if (U.uMat) gl.uniform1i(U.uMat, 4);
+  if (U.uMatOn) gl.uniform1f(U.uMatOn, G.mat ? 1 : 0);
+  if (G.mat && U['uMatS[0]']) { gl.uniform1fv(U['uMatS[0]'], G.matS); gl.uniform1fv(U['uMatSpec[0]'], G.matSpec); }
 }
 
 function alrGLMesh(mb) {
@@ -555,6 +601,7 @@ function alrGLRender(N, light) {
   gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, G.shroud); gl.uniform1i(U.uShroud, 2);
   gl.uniform1i(U.uTex, 1);
   gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, G.detail || G.white); gl.uniform1i(U.uDetail, 3);
+  alrGLBindMat(U);
   const opaque = [], ghost = [];
   for (const q of G.queue) (q.o.alpha != null && q.o.alpha < 0.99 ? ghost : opaque).push(q);
   const one = (q) => {
@@ -633,6 +680,7 @@ function alrGLCameo(parts, team, w, h, zoom, bg) {
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, G.white); gl.uniform1i(U.uTex, 1);
   gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, G.white); gl.uniform1i(U.uShroud, 2);
   gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, G.white); gl.uniform1i(U.uDetail, 3);
+  alrGLBindMat(U);
   // (the shadow sampler needs SOMETHING compare-mode bound; an unbound unit reads as lit)
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, G.shTex); gl.uniform1i(U.uShadow, 0);
   for (const pt of parts) {

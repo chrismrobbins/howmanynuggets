@@ -3183,3 +3183,27 @@ copper toroids on the Tesla coil). Baked AO (ground plane included) is in the ve
   cooling towers).
 - Also fixed: the refinery's smoke came out of the hall roof. The chimney is at local (−0.95, −0.75),
   which is world (+0.95, +0.75) after the 180° turn.
+
+### Pass 2: "still looks very AI built" (same day)
+Chris: *"the game still looks very 'AI built'. change it so these don't look so AI slop"*. The tells were:
+spotless single-colour surfaces, saturated team colour over whole vehicles, the same props on every
+building (yellow corner X's, hazard stripes, lamp posts, crates and drums), and thick bevelled game-tile pads.
+- **Surfaces:** each palette entry has a surface class (`PAL` in alertrig.py; exported as uv = (class,
+  grime)). `alrMatLayers()` (alertArt.js) paints 13 tileable 256² layers at load: board-formed concrete with
+  tie holes, slab with joints/cracks/oil, gravel roofing, corrugated sheet with rust runs, painted armour
+  with weld seams and chips, brushed steel, tread, glass, sacking, planks, riveted plate with rust weeping,
+  breading crumb, canvas. They go up as one `TEXTURE_2D_ARRAY` on **unit 4** (`alrGLMatTex` /
+  `alrGLBindMat`). The lit shader samples it triplanar in OBJECT space (it rides with moving units), adds
+  rain streaks on side faces, grime where the uv grime channel says there's a crevice, and dust low down.
+  Spec is per class (`ALR_MAT_SCALE` / `ALR_MAT_SPEC`). Meshes with uv.x = 0 (trees, rocks, ore, the
+  procedural fallback) take the old path untouched.
+- **AO trap #2:** vertex AO on a four-corner wall greys the WHOLE wall (the ground darkens the bottom pair,
+  the parapet darkens the top pair). The exporter splits building edges longer than 0.24 tiles (3 passes)
+  before baking. Units skip it (budget). That took the file from 870 KB to 1.17 MB gzipped (84k tris).
+- **Grime threshold:** the vertex colour already carries the AO, so shader grime only starts above grime 0.4,
+  or every surface goes muddy-brown.
+- **Design:** vehicles are drab (`armor` / `armorDark`), with team colour on the turret, fenders, hopper
+  band and soldiers' patches. Building team bands are darker painted steel (`bandTeam`). The foundation is
+  a sloped poured apron. The corner marks, most hazard yellow and the copy-pasted lamps/crates/drums are
+  gone (only the barracks keeps its crates, and the HQ one entrance lamp). The palette is muted and warm.
+- Trees, rocks and ore are still the procedural low-poly ones.

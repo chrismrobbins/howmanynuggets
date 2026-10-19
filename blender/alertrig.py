@@ -30,19 +30,31 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "render_alert")
 TAU = math.tau
 
-# ---- the palette (hex, team mask, ao-exempt) ------------------------------------------------------------
+# ---- the palette: hex, team mask, surface class, ao-exempt ----------------------------------------------
+# Surface classes index the material texture array js/alertArt.js paints at load (ALR_MAT_CLASSES):
+# 0 none · 1 cast concrete · 2 slab · 3 roofing · 4 corrugated · 5 painted armour · 6 steel · 7 rubber
+# 8 glass · 9 sacking · 10 wood · 11 riveted plate · 12 breading · 13 canvas
+# The palette is deliberately muted and warm (RA2's renders were dusty, never toy-bright); team panels are a
+# mid grey so the shader's luminance-kept repaint lands at the team colour, not above it.
+def _m(hexc, cls, team=0, exempt=0):
+    return (hexc, team, cls, exempt)
+
+
 PAL = {
-    "pad": ("#7c7970", 0), "padDark": ("#5c5a54", 0), "padEdge": ("#8f8b80", 0),
-    "conc": ("#aca596", 0), "concLite": ("#c2bcae", 0), "concDark": ("#888275", 0),
-    "roof": ("#6a6e72", 0), "roofDark": ("#4e5256", 0), "tar": ("#3c3f42", 0),
-    "steel": ("#80898f", 0), "steelDark": ("#596067", 0), "dark": ("#3a3f45", 0), "black": ("#1f2226", 0),
-    "glass": ("#294d63", 0, 1), "glassLit": ("#8fc9e8", 0, 1), "light": ("#fff0b0", 0, 1), "red": ("#d8321e", 0, 1),
-    "gold": ("#e6a82a", 0), "goldDark": ("#b07618", 0), "hazard": ("#e8b51e", 0), "sauce": ("#b3351f", 0),
-    "sauceDark": ("#7f2414", 0), "copper": ("#c47b3c", 0), "copperDark": ("#8e5426", 0), "white": ("#e4e1d8", 0),
-    "olive": ("#5f6a3a", 0), "oliveDark": ("#454d29", 0), "khaki": ("#8d8858", 0), "rubber": ("#2a2a2b", 0),
-    "sand": ("#b8a67a", 0), "sandDark": ("#9a8a62", 0), "wood": ("#7a5a38", 0), "rust": ("#7d4f33", 0),
-    "breading": ("#dc9c3e", 0), "breadDark": ("#a8692a", 0), "grass": ("#5d7a34", 0),
-    "team": ("#d6d6d6", 1), "teamDark": ("#9c9c9c", 1), "teamLite": ("#efefef", 1),
+    "pad": _m("#8a8478", 2), "padDark": _m("#6c675e", 2), "padEdge": _m("#7d776c", 2),
+    "conc": _m("#a39c8d", 1), "concLite": _m("#b3ac9c", 1), "concDark": _m("#857e71", 1),
+    "roof": _m("#5d6062", 3), "roofDark": _m("#45484a", 4), "tar": _m("#3a3b3b", 2),
+    "steel": _m("#7b8186", 6), "steelDark": _m("#565b60", 6), "dark": _m("#3b3e42", 6), "black": _m("#222427", 6),
+    "glass": _m("#2c4656", 8, 0, 1), "glassLit": _m("#7fa9bf", 8, 0, 1), "light": _m("#ffe7a8", 0, 0, 1), "red": _m("#c23a24", 0, 0, 1),
+    "gold": _m("#d29a32", 12), "goldDark": _m("#a07024", 12), "hazard": _m("#c49a2e", 5), "sauce": _m("#9c3a26", 11),
+    "sauceDark": _m("#6e2a1a", 11), "copper": _m("#a8693a", 6), "copperDark": _m("#76482a", 6), "white": _m("#c9c5ba", 1),
+    "olive": _m("#58603a", 13), "oliveDark": _m("#41472b", 13), "khaki": _m("#7d7752", 5), "rubber": _m("#2b2a29", 7),
+    "sand": _m("#a69673", 9), "sandDark": _m("#8b7c5d", 9), "wood": _m("#6e5236", 10), "rust": _m("#6f4a32", 11),
+    "breading": _m("#c98d3c", 12), "breadDark": _m("#956026", 12), "grass": _m("#56703a", 0),
+    "team": _m("#b0b0b0", 5, 1), "teamDark": _m("#7e7e7e", 5, 1), "teamLite": _m("#c8c8c8", 5, 1),
+    "bandTeam": _m("#8a8a8a", 11, 1),
+    # vehicle drab: hulls are paint-and-dust, the team colour is the markings (turret, fenders, stripes)
+    "armor": _m("#6d6f5f", 5), "armorDark": _m("#505246", 5),
 }
 
 
@@ -364,20 +376,10 @@ class Model:
 
 # ---- shared pieces --------------------------------------------------------------------------------------
 def foundation(m, w, h):
-    """RA2's concrete pad: a bevelled slab, a lighter top with expansion seams, hazard-painted corners."""
-    m.box((0, 0.04, 0), (w - 0.03, 0.08, h - 0.03), "padDark", bev=0.03, seg=2)
-    m.box((0, 0.09, 0), (w - 0.12, 0.022, h - 0.12), "pad", bev=0.012)
-    for i in range(1, int(w * 2)):
-        x = -w / 2 + i * 0.5
-        m.box((x, 0.1015, 0), (0.008, 0.002, h - 0.16), "padDark", bev=0)
-    for j in range(1, int(h * 2)):
-        z = -h / 2 + j * 0.5
-        m.box((0, 0.1015, z), (w - 0.16, 0.002, 0.008), "padDark", bev=0)
-    for sx in (-1, 1):
-        for sz in (-1, 1):
-            cx, cz = sx * (w / 2 - 0.14), sz * (h / 2 - 0.14)
-            m.box((cx, 0.102, cz), (0.14, 0.003, 0.03), "hazard", bev=0)
-            m.box((cx, 0.102, cz), (0.03, 0.003, 0.14), "hazard", bev=0)
+    """A poured concrete apron: sloped edges into the dirt (not a bevelled game tile), one kerb line."""
+    hw, hh = w / 2 - 0.02, h / 2 - 0.02
+    m.prism_y([(-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)], 0.0, 0.1, "padDark", bev=0.004, top=1.0 - 0.07 / max(w, h))
+    m.box((0, 0.1, 0), (w - 0.2, 0.004, h - 0.2), "pad", bev=0)
 
 
 def wall_block(m, c, s, mat="conc", band=0.5, band_h=0.045, parapet=True, plinth=True, roof="roof"):
@@ -388,7 +390,7 @@ def wall_block(m, c, s, mat="conc", band=0.5, band_h=0.045, parapet=True, plinth
         m.box((x, y0 + 0.03, z), (w + 0.03, 0.06, d + 0.03), "concDark", bev=0.008)
     m.box((x, y0 + h / 2, z), (w, h, d), mat, bev=0.014, seg=2)
     if band:
-        m.box((x, y0 + h * band, z), (w + 0.014, band_h, d + 0.014), "team", bev=0.004)
+        m.box((x, y0 + h * band, z), (w + 0.014, band_h, d + 0.014), "bandTeam", bev=0.004)
     if parapet:
         m.box((x, y0 + h + 0.012, z), (w + 0.02, 0.024, d + 0.02), "concLite", bev=0.006)
         m.box((x, y0 + h + 0.014, z), (w - 0.06, 0.024, d - 0.06), roof, bev=0)
@@ -466,6 +468,7 @@ def build_hq():
     for k in range(3):
         m.box((-0.3, 0.105 + k * 0.012, 1.0 + 0.08 - k * 0.03), (0.44, 0.012, 0.06), "concLite", bev=0.003)
     m.box((-0.3, 0.42, 0.975), (0.5, 0.06, 0.012), "team", bev=0.003)
+    m.lamp(-0.62, 1.12, 0.3)
     # roof clutter
     m.fan_unit((0.25, top + 0.02, 0.6), 0.11)
     m.fan_unit((0.25, top + 0.02, 0.25), 0.11)
@@ -527,15 +530,6 @@ def build_hq():
     m.cyl((-1.05, 0.2, -1.0), 0.17, 0.2, "concDark", n=14, r2=0.15, bev=0.008)
     m.cyl((-1.05, 0.31, -1.0), 0.12, 0.03, "dark", n=14)
     # lamps, bollards, a parked forklift-ish cart
-    for x, z in ((1.38, 1.38), (-1.38, 1.38), (1.38, -0.2)):
-        m.lamp(x, z)
-    for k in range(4):
-        m.cyl((-1.2 + k * 0.18, 0.14, 1.3), 0.014, 0.08, "hazard", n=8)
-    m.crate((1.25, 0.14, 0.35), 0.08)
-    m.crate((1.3, 0.14, 0.22), 0.07, "olive")
-    m.drum(1.15, 0.2)
-    m.drum(1.15, 0.12, mat="team")
-    m.stripes((-1.42, 0, 1.43), (1.42, 0, 1.43), 0.103, 0.035, 18, face="y")
     return m
 
 
@@ -628,9 +622,7 @@ def build_power():
     # the fence round the yard
     fence = [(-0.88, 0.1, 0.25), (-0.36, 0.1, 0.25), (-0.36, 0.1, 0.9), (-0.88, 0.1, 0.9)]
     m.railing(fence, 0.11, "steel", post=0.01, step=0.09, closed=True)
-    m.box((-0.36, 0.17, 0.57), (0.004, 0.06, 0.06), "hazard", bev=0)
-    m.lamp(0.88, 0.88)
-    m.lamp(-0.88, -0.88)
+    m.box((-0.36, 0.17, 0.57), (0.004, 0.06, 0.06), "white", bev=0)
     return m
 
 
@@ -641,7 +633,6 @@ def build_refinery():
     foundation(m, 3, 3)
     # the dock apron: asphalt, chevrons, guide lights
     m.box((0.55, 0.104, 1.0), (1.24, 0.008, 0.84), "tar", bev=0)
-    m.stripes((-0.07, 0, 1.41), (1.17, 0, 1.41), 0.11, 0.05, 10, face="y")
     for k in range(4):
         z = 0.75 + k * 0.17
         m.box((-0.02, 0.112, z), (0.03, 0.01, 0.03), "light", bev=0)
@@ -663,11 +654,11 @@ def build_refinery():
     pilasters(m, (hx - 0.84, hz + 0.7), (hx + 0.84, hz + 0.7), 0.12, 0.58, 8, "z")
     # the unloading bay + hopper at the dock
     m.box((0.2, 0.32, hz + 0.712), (0.36, 0.28, 0.02), "black", bev=0)
-    m.box((0.2, 0.47, hz + 0.72), (0.42, 0.03, 0.03), "hazard", bev=0.004)
+    m.box((0.2, 0.47, hz + 0.72), (0.42, 0.03, 0.03), "steelDark", bev=0.004)
     m.lathe([(0.04, 0.32), (0.16, 0.55), (0.17, 0.6), (0.0, 0.6)], "steelDark", c=(0.25, 0, 0.62), n=12, bev=0)
     for sx in (-1, 1):
         for sz in (-1, 1):
-            m.bar((0.25 + sx * 0.12, 0.1, 0.62 + sz * 0.12), (0.25 + sx * 0.12, 0.5, 0.62 + sz * 0.12), 0.02, "hazard")
+            m.bar((0.25 + sx * 0.12, 0.1, 0.62 + sz * 0.12), (0.25 + sx * 0.12, 0.5, 0.62 + sz * 0.12), 0.02, "steelDark")
     # the conveyor gantry: hopper -> the hall's roof
     a, b = Vector((0.25, 0.62, 0.62)), Vector((-0.1, 1.02, -0.05))
     d = (b - a)
@@ -680,7 +671,7 @@ def build_refinery():
     for k in range(7):
         m.bar((-0.065, -0.035, -L / 2 + k * L / 6), (0.065, 0.035, -L / 2 + (k + 0.5) * L / 6), 0.008, "steelDark")
     m.pop()
-    m.bar((0.1, 0.1, 0.36), (0.1, 0.78, 0.36), 0.025, "hazard")
+    m.bar((0.1, 0.1, 0.36), (0.1, 0.78, 0.36), 0.025, "steelDark")
     # the sauce silos
     for x, z, r in ((0.98, -0.85, 0.3), (0.98, -0.18, 0.27), (1.05, 0.42, 0.22)):
         h = 0.8
@@ -697,10 +688,6 @@ def build_refinery():
     for k, y in enumerate((1.0, 1.12, 1.24)):
         m.cyl((-0.95, y, -0.75), 0.087 - k * 0.003, 0.05, "red" if k % 2 == 0 else "white", n=14)
     m.cyl((-0.95, 1.29, -0.75), 0.08, 0.04, "dark", n=14)
-    m.lamp(-1.35, 1.32)
-    m.lamp(1.38, 1.32)
-    m.drum(-1.3, 0.75)
-    m.drum(-1.22, 0.8, mat="team")
     return m
 
 
@@ -771,7 +758,6 @@ def build_barracks():
     m.crate((0.48, 0.145, 0.3), 0.07)
     m.drum(0.62, 0.48, mat="olive")
     m.drum(0.54, 0.52, mat="team")
-    m.lamp(0.9, -0.9)
     return m
 
 
@@ -824,9 +810,6 @@ def build_factory():
     m.box((0.66, 0.46, fz + 0.04), (0.14, 0.72, 0.1), "concLite", bev=0.012, seg=2)
     m.box((0, 0.86, fz + 0.04), (1.46, 0.16, 0.1), "concLite", bev=0.012, seg=2)
     m.box((0, 0.86, fz + 0.095), (1.2, 0.08, 0.01), "team", bev=0.003)
-    for s in (-1, 1):
-        for k in range(6):
-            m.box((s * 0.66, 0.16 + k * 0.11, fz + 0.093), (0.1, 0.05, 0.006), "hazard" if k % 2 == 0 else "black", bev=0)
     m.box((0, 0.44, fz - 0.01), (1.12, 0.7, 0.02), "black", bev=0)
     for x in (-0.45, 0.45):
         m.box((x, 0.96, fz + 0.1), (0.07, 0.03, 0.05), "dark", bev=0.004)
@@ -845,11 +828,6 @@ def build_factory():
     # the ramp + apron
     m.prism_x([(fz + 0.02, 0.1), (fz + 0.02, 0.135), (fz + 0.36, 0.1)], -0.55, 0.55, "padDark", bev=0.004)
     m.stripes((-0.55, 0, fz + 0.4), (0.55, 0, fz + 0.4), 0.104, 0.03, 10, face="y")
-    m.lamp(-0.95, 1.35)
-    m.lamp(0.95, 1.35)
-    m.crate((1.25, 0.145, 1.0), 0.09)
-    m.drum(1.3, 1.2)
-    m.drum(1.22, 1.25, mat="team")
     return m
 
 
@@ -860,8 +838,6 @@ def build_factory_door():
     for k in range(9):
         m.box((0, -0.3 + k * 0.075, 0.014), (1.04, 0.01, 0.008), "steelDark", bev=0)
     m.box((0, 0.2, 0.019), (0.5, 0.07, 0.006), "team", bev=0)
-    for x in (-0.48, 0.48):
-        m.box((x, 0, 0.016), (0.03, 0.64, 0.006), "hazard", bev=0)
     return m
 
 
@@ -900,9 +876,6 @@ def build_radar():
     m.ladder(tx, tz + 0.14, 0.16, 0.72, "z", w=0.04)
     # the cable tray from the tower to the building
     m.box(((tx + bx + 0.63) / 2 - 0.05, 0.3, tz), (0.2, 0.012, 0.05), "steelDark", bev=0)
-    m.lamp(0.88, 0.88)
-    m.lamp(-0.88, -0.88)
-    m.crate((0.8, 0.145, 0.3), 0.08)
     return m
 
 
@@ -949,8 +922,6 @@ def build_turret():
     m.lathe([(0.27, 0.32), (0.27, 0.33), (0.0, 0.33)], "dark", n=16)
     m.sandbags([(-0.42, 0, 0.44), (0.42, 0, 0.44)], rows=1, size=0.09)
     m.sandbags([(0.44, 0, 0.42), (0.44, 0, -0.42)], rows=1, size=0.09)
-    m.crate((-0.36, 0.14, -0.36), 0.08, "olive")
-    m.box((-0.36, 0.185, -0.36), (0.06, 0.008, 0.06), "dark", bev=0)
     return m
 
 
@@ -1050,8 +1021,8 @@ def build_tank():
         for z in (-0.44, 0.45):
             m.box((s * 0.26, 0.16, z), (0.12, 0.04, 0.006), "rubber", bev=0)
     # the hull: lower tub + an upper deck with a long sloped glacis
-    m.prism_x([(-0.42, 0.11), (-0.44, 0.24), (0.12, 0.27), (0.43, 0.2), (0.43, 0.16), (0.36, 0.1)], -0.19, 0.19, "teamDark", bev=0.01, seg=2)
-    m.prism_x([(-0.4, 0.24), (-0.4, 0.29), (0.14, 0.29), (0.4, 0.215), (0.4, 0.2), (0.12, 0.27)], -0.205, 0.205, "team", bev=0.01, seg=2)
+    m.prism_x([(-0.42, 0.11), (-0.44, 0.24), (0.12, 0.27), (0.43, 0.2), (0.43, 0.16), (0.36, 0.1)], -0.19, 0.19, "armorDark", bev=0.01, seg=2)
+    m.prism_x([(-0.4, 0.24), (-0.4, 0.29), (0.14, 0.29), (0.4, 0.215), (0.4, 0.2), (0.12, 0.27)], -0.205, 0.205, "armor", bev=0.01, seg=2)
     # the engine deck: grilles + exhausts + a rear plate
     for k in range(6):
         m.box((0, 0.296, -0.36 + k * 0.03), (0.3, 0.006, 0.012), "dark", bev=0)
@@ -1065,7 +1036,7 @@ def build_tank():
     # spare track links on the glacis, a tow cable, the driver's hatch
     for k in range(3):
         m.box((-0.1 + k * 0.05, 0.245, 0.3), (0.045, 0.012, 0.03), "rubber", bev=0.002)
-    m.box((0.09, 0.27, 0.22), (0.07, 0.016, 0.06), "teamDark", bev=0.006)
+    m.box((0.09, 0.27, 0.22), (0.07, 0.016, 0.06), "armorDark", bev=0.006)
     m.tube([(-0.17, 0.3, -0.3), (-0.17, 0.3, 0.05), (-0.15, 0.3, 0.08)], 0.008, "steelDark", n=5)
     return m
 
@@ -1076,10 +1047,10 @@ def build_tank_turret():
     m = Model("u.tank_turret")
     plan = [(-0.12, -0.2), (0.12, -0.2), (0.17, -0.06), (0.15, 0.1), (0.07, 0.17), (-0.07, 0.17), (-0.15, 0.1), (-0.17, -0.06)]
     m.prism_y(plan, 0.0, 0.11, "team", bev=0.012, seg=2, top=0.8, topc=(0, -0.02))
-    m.prism_y([(x * 0.98, z * 0.98) for x, z in plan], -0.02, 0.0, "teamDark", bev=0.004)
-    m.box((0, 0.065, 0.17), (0.12, 0.08, 0.06), "teamDark", bev=0.012, seg=2)
+    m.prism_y([(x * 0.98, z * 0.98) for x, z in plan], -0.02, 0.0, "armorDark", bev=0.004)
+    m.box((0, 0.065, 0.17), (0.12, 0.08, 0.06), "armorDark", bev=0.012, seg=2)
     # the cupola + hatch + MG
-    m.cyl((-0.06, 0.13, -0.05), 0.045, 0.04, "teamDark", n=12, bev=0.004)
+    m.cyl((-0.06, 0.13, -0.05), 0.045, 0.04, "armor", n=12, bev=0.004)
     m.cyl((-0.06, 0.155, -0.05), 0.04, 0.012, "steelDark", n=12)
     m.box((-0.03, 0.17, -0.02), (0.012, 0.012, 0.09), "black", bev=0)
     # the sight + smoke launchers
@@ -1099,7 +1070,7 @@ def build_tank_gun():
     """The gun: origin at the trunnion (turret local (0, 0.075, 0.12)); the barrel runs +z with a fume
     extractor and a muzzle brake."""
     m = Model("u.tank_gun")
-    m.cyl((0, 0, 0.04), 0.032, 0.07, "teamDark", n=12, axis="z", bev=0.004)
+    m.cyl((0, 0, 0.04), 0.032, 0.07, "armorDark", n=12, axis="z", bev=0.004)
     m.cyl((0, 0, 0.24), 0.019, 0.36, "dark", n=12, axis="z", r2=0.017)
     m.cyl((0, 0, 0.22), 0.028, 0.08, "dark", n=12, axis="z", bev=0.004)
     m.box((0, 0, 0.43), (0.04, 0.035, 0.05), "black", bev=0.006)
@@ -1116,8 +1087,8 @@ def build_heavy():
             track_run(m, s * 0.31, 0.15, z0, z1, r=0.08, wheels=3, wr=0.06)
         m.prism_x([(-0.53, 0.2), (-0.51, 0.225), (0.48, 0.225), (0.54, 0.2)], s * 0.225, s * 0.395, "team", bev=0.006)
         m.box((s * 0.31, 0.215, 0.0), (0.17, 0.03, 0.05), "teamDark", bev=0.004)
-    m.prism_x([(-0.48, 0.13), (-0.5, 0.29), (0.14, 0.33), (0.5, 0.24), (0.5, 0.2), (0.42, 0.12)], -0.23, 0.23, "teamDark", bev=0.012, seg=2)
-    m.prism_x([(-0.47, 0.29), (-0.47, 0.345), (0.16, 0.345), (0.47, 0.255), (0.47, 0.24), (0.14, 0.33)], -0.245, 0.245, "team", bev=0.012, seg=2)
+    m.prism_x([(-0.48, 0.13), (-0.5, 0.29), (0.14, 0.33), (0.5, 0.24), (0.5, 0.2), (0.42, 0.12)], -0.23, 0.23, "armorDark", bev=0.012, seg=2)
+    m.prism_x([(-0.47, 0.29), (-0.47, 0.345), (0.16, 0.345), (0.47, 0.255), (0.47, 0.24), (0.14, 0.33)], -0.245, 0.245, "armor", bev=0.012, seg=2)
     for k in range(8):
         m.box((0, 0.352, -0.43 + k * 0.03), (0.36, 0.006, 0.012), "dark", bev=0)
     for s in (-1, 1):
@@ -1137,15 +1108,15 @@ def build_heavy_turret():
     m = Model("u.heavy_turret")
     plan = [(-0.16, -0.24), (0.16, -0.24), (0.21, -0.1), (0.2, 0.12), (0.1, 0.22), (-0.1, 0.22), (-0.2, 0.12), (-0.21, -0.1)]
     m.prism_y(plan, 0.0, 0.14, "team", bev=0.014, seg=2, top=0.82, topc=(0, -0.02))
-    m.prism_y([(x * 0.98, z * 0.98) for x, z in plan], -0.02, 0.0, "teamDark", bev=0.004)
-    m.box((0, 0.085, 0.22), (0.2, 0.1, 0.06), "teamDark", bev=0.014, seg=2)
+    m.prism_y([(x * 0.98, z * 0.98) for x, z in plan], -0.02, 0.0, "armorDark", bev=0.004)
+    m.box((0, 0.085, 0.22), (0.2, 0.1, 0.06), "armorDark", bev=0.014, seg=2)
     for s in (-1, 1):
         m.box((s * 0.25, 0.09, -0.02), (0.08, 0.09, 0.2), "steelDark", bev=0.01, seg=2)
         for i in range(2):
             for j in range(2):
                 m.cyl((s * 0.25 + (i - 0.5) * 0.035, 0.07 + j * 0.04, 0.08), 0.013, 0.012, "black", n=8, axis="z")
         m.box((s * 0.2, 0.09, -0.02), (0.03, 0.03, 0.08), "dark", bev=0.003)
-    m.cyl((-0.08, 0.165, -0.07), 0.05, 0.05, "teamDark", n=12, bev=0.004)
+    m.cyl((-0.08, 0.165, -0.07), 0.05, 0.05, "armor", n=12, bev=0.004)
     m.cyl((-0.08, 0.195, -0.07), 0.045, 0.012, "steelDark", n=12)
     m.box((0.09, 0.16, 0.06), (0.05, 0.04, 0.06), "steelDark", bev=0.005)
     m.box((0.09, 0.16, 0.092), (0.04, 0.025, 0.004), "glass", bev=0)
@@ -1157,7 +1128,7 @@ def build_heavy_turret():
 def build_heavy_gun():
     """The twin guns: origin at the trunnion (turret local (0, 0.09, 0.15)), barrels at x ±0.055 to +z."""
     m = Model("u.heavy_gun")
-    m.box((0, 0, 0.03), (0.2, 0.06, 0.06), "teamDark", bev=0.01, seg=2)
+    m.box((0, 0, 0.03), (0.2, 0.06, 0.06), "armorDark", bev=0.01, seg=2)
     for s in (-1, 1):
         x = s * 0.055
         m.cyl((x, 0, 0.26), 0.021, 0.42, "dark", n=12, axis="z", r2=0.019)
@@ -1181,7 +1152,7 @@ def build_harv():
                 m.box((x, 0.11 + math.sin(a) * 0.108, z + math.cos(a) * 0.108), (0.1, 0.014, 0.018), "rubber", bev=0)
             m.cyl((x + s * 0.045, 0.11, z), 0.06, 0.012, "steelDark", n=12, axis="x")
             m.cyl((x + s * 0.052, 0.11, z), 0.025, 0.012, "dark", n=8, axis="x")
-        m.prism_x([(-0.46, 0.2), (-0.46, 0.235), (0.4, 0.235), (0.42, 0.2)], s * 0.2, s * 0.34, "teamDark", bev=0.006)
+        m.prism_x([(-0.46, 0.2), (-0.46, 0.235), (0.4, 0.235), (0.42, 0.2)], s * 0.2, s * 0.34, "armorDark", bev=0.006)
     m.box((0, 0.17, -0.04), (0.36, 0.08, 0.9), "dark", bev=0.01)
     # the cab
     m.prism_x([(0.16, 0.22), (0.16, 0.5), (0.3, 0.5), (0.42, 0.36), (0.44, 0.22)], -0.22, 0.22, "team", bev=0.012, seg=2)
@@ -1193,12 +1164,13 @@ def build_harv():
     m.box((0, 0.51, 0.23), (0.4, 0.02, 0.12), "teamDark", bev=0.004)
     m.box((0.12, 0.53, 0.22), (0.04, 0.02, 0.03), "light", bev=0)
     # the hopper (team) — the load part sits in it (alertUI: (0, 0.36+, -0.2))
-    m.prism_x([(-0.44, 0.22), (-0.47, 0.47), (0.1, 0.47), (0.1, 0.22)], -0.26, 0.26, "team", bev=0.014, seg=2)
+    m.prism_x([(-0.44, 0.22), (-0.47, 0.47), (0.1, 0.47), (0.1, 0.22)], -0.26, 0.26, "armor", bev=0.014, seg=2)
+    m.box((0, 0.42, -0.18), (0.535, 0.04, 0.5), "team", bev=0.004)
     m.box((0, 0.462, -0.18), (0.44, 0.02, 0.48), "black", bev=0)
     for k in range(4):
-        m.box((0.262, 0.34, -0.38 + k * 0.14), (0.008, 0.2, 0.02), "teamDark", bev=0)
-        m.box((-0.262, 0.34, -0.38 + k * 0.14), (0.008, 0.2, 0.02), "teamDark", bev=0)
-    m.box((0, 0.48, 0.1), (0.54, 0.03, 0.03), "hazard", bev=0.004)
+        m.box((0.262, 0.32, -0.38 + k * 0.14), (0.008, 0.16, 0.02), "armorDark", bev=0)
+        m.box((-0.262, 0.32, -0.38 + k * 0.14), (0.008, 0.16, 0.02), "armorDark", bev=0)
+    m.box((0, 0.48, 0.1), (0.54, 0.03, 0.03), "steelDark", bev=0.004)
     # the scoop arms out to the drum at (0, 0.12, 0.52)
     for s in (-1, 1):
         m.bar((s * 0.24, 0.24, 0.3), (s * 0.25, 0.13, 0.52), 0.035, "steelDark")
@@ -1222,7 +1194,7 @@ def build_harv_drum():
         a = k / 18 * TAU * 2
         x = -0.2 + k / 17 * 0.4
         m.push(x, math.sin(a) * 0.09, math.cos(a) * 0.09, 0, -a)
-        m.prism_x([(-0.02, 0.0), (0.02, 0.0), (0.0, 0.035)], -0.01, 0.01, "hazard", bev=0)
+        m.prism_x([(-0.02, 0.0), (0.02, 0.0), (0.0, 0.035)], -0.01, 0.01, "steelDark", bev=0)
         m.pop()
     return m
 
@@ -1243,10 +1215,12 @@ def build_inf(kind):
     Origin on the ground; legs are separate (u.leg at hips ±0.045, y 0.13)."""
     m = Model("u." + ("inf" if kind == "rifle" else "rocket"), smooth_deg=50)
     nugget(m, (0, 0.25, 0), (0.1, 0.125, 0.088), seed=2 if kind == "rifle" else 4, lumps=True, n=14, v=9)
-    m.box((0, 0.23, 0.005), (0.2, 0.09, 0.17), "team", bev=0.03, seg=2)
-    m.box((0, 0.23, 0.092), (0.08, 0.05, 0.012), "teamDark", bev=0.005)
+    m.box((0, 0.23, 0.005), (0.2, 0.09, 0.17), "olive", bev=0.03, seg=2)
+    m.box((0, 0.23, 0.092), (0.08, 0.05, 0.012), "team", bev=0.005)
+    m.box((0.1, 0.27, 0.0), (0.012, 0.04, 0.05), "team", bev=0.003)
+    m.box((-0.1, 0.27, 0.0), (0.012, 0.04, 0.05), "team", bev=0.003)
     m.box((0, 0.27, -0.1), (0.13, 0.12, 0.06), "olive", bev=0.018, seg=2)
-    m.lathe([(0.0, 0.335), (0.072, 0.335), (0.074, 0.348), (0.066, 0.385), (0.042, 0.41), (0.0, 0.416)], "team", c=(0, 0.0, -0.005), n=14)
+    m.lathe([(0.0, 0.335), (0.072, 0.335), (0.074, 0.348), (0.066, 0.385), (0.042, 0.41), (0.0, 0.416)], "teamDark", c=(0, 0.0, -0.005), n=14)
     m.lathe([(0.064, 0.33), (0.086, 0.334), (0.086, 0.341), (0.0, 0.341)], "teamDark", c=(0, 0, -0.005), n=14)
     m.box((0.03, 0.31, 0.083), (0.016, 0.014, 0.008), "black", bev=0)
     m.box((-0.03, 0.31, 0.083), (0.016, 0.014, 0.008), "black", bev=0)
@@ -1306,6 +1280,14 @@ def _tris_of(bm):
 def export(m, occ=None, occ_at=(0, 0, 0)):
     bm = m.bm
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
+    # AO is per VERTEX: a wall that's only four corners gets the ground's darkness at the bottom pair and the
+    # parapet's at the top pair, and the blend greys the whole face. Split long edges so the shadow stays
+    # where it's cast (contact at the foot, a band under the parapet) and the middle of the wall stays lit.
+    for _ in range(3 if m.name.startswith("b.") else 0):
+        long = [e for e in bm.edges if e.calc_length() > 0.24]
+        if not long:
+            break
+        bmesh.ops.subdivide_edges(bm, edges=long, cuts=1, use_grid_fill=True)
     bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method="BEAUTY", ngon_method="BEAUTY")
     bm.normal_update()
     bm.faces.ensure_lookup_table()
@@ -1346,14 +1328,13 @@ def export(m, occ=None, occ_at=(0, 0, 0)):
         a = 1.0 - occl / wsum
         return max(0.38, min(1.0, 0.25 + 0.85 * a))
 
-    out_p, out_n, out_c, out_i = [], [], [], []
+    out_p, out_n, out_c, out_u, out_i = [], [], [], [], []
     seen = {}
     ao_cache = {}
     cos_lim = math.cos(m.smooth)
     for f in bm.faces:
         mat = m.mats[f.material_index]
-        hexc, team = PAL[mat][0], PAL[mat][1]
-        exempt = len(PAL[mat]) > 2
+        hexc, team, cls, exempt = PAL[mat]
         rgb = _rgb(hexc)
         fn = f.normal
         tri = []
@@ -1376,9 +1357,11 @@ def export(m, occ=None, occ_at=(0, 0, 0)):
                 out_p += [round(v.co.x, 4), round(v.co.y, 4), round(v.co.z, 4)]
                 out_n += [round(nrm.x, 3), round(nrm.y, 3), round(nrm.z, 3)]
                 out_c += [int(rgb[0] * ao + 0.5), int(rgb[1] * ao + 0.5), int(rgb[2] * ao + 0.5), 255 if team else 0]
+                # uv = (surface class, grime): the shader dirties cavities by the second channel
+                out_u += [cls, int(max(0.0, min(1.0, (1.0 - ao) / 0.6)) * 255 + 0.5)]
             tri.append(seen[key])
         out_i += tri
-    return {"name": m.name, "p": out_p, "n": out_n, "c": out_c, "i": out_i}
+    return {"name": m.name, "p": out_p, "n": out_n, "c": out_c, "u": out_u, "i": out_i}
 
 
 def to_blend(m, data, x):

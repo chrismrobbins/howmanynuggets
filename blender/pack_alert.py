@@ -28,7 +28,7 @@ def main():
         n = [max(-127, min(127, round(v * 127))) for v in d["n"]]
         nv = len(d["p"]) // 3
         big = nv > 65535
-        out[d["name"]] = {"v": nv, "p": b64("h", p), "n": b64("b", n), "c": b64("B", d["c"]),
+        out[d["name"]] = {"v": nv, "p": b64("h", p), "n": b64("b", n), "c": b64("B", d["c"]), "u": b64("B", d["u"]),
                           "i": b64("I" if big else "H", d["i"]), "big": big}
         total += len(d["i"]) // 3
     body = json.dumps(out, separators=(",", ":"))

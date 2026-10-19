@@ -461,7 +461,7 @@ function alrArtInit() {
 // The procedural models above draw first and stay as the fallback. The Blender set (~1 MB gzipped) is
 // injected the first time the game opens, then swapped in by name: 'b.hq' → alrArt.b.hq, 'u.tank' → alrArt.u.tank.
 // Everything draws through alrArt lookups each frame, so the swap is live; the sidebar cameos are re-shot.
-const ALR_MESH_SRC = 'js/alertMeshData.js?v=1';
+const ALR_MESH_SRC = 'js/alertMeshData.js?v=2';
 function alrMeshUse() {
   const D = window.ALR_MESH_DATA;
   if (!D) {
@@ -485,10 +485,107 @@ function alrMeshUse() {
     for (let k = 0; k < ni.length; k++) n[k] = ni[k] / 127;
     for (let k = 0; k < ci.length; k++) c[k] = ci[k] / 255;
     const i = M.big ? new Uint32Array(raw(M.i)) : new Uint16Array(raw(M.i));
-    const mesh = alrGLMesh({ p, n, c, u: new Float32Array(M.v * 2), i });
+    // uv = (surface class, grime 0..1): see the shader's uMat branch
+    const u = new Float32Array(M.v * 2);
+    if (M.u) { const ui = new Uint8Array(raw(M.u)); for (let k = 0; k < ui.length; k += 2) { u[k] = ui[k]; u[k + 1] = ui[k + 1] / 255; } }
+    const mesh = alrGLMesh({ p, n, c, u, i });
     (grp === 'b' ? alrArt.b : alrArt.u)[key] = mesh;
   }
   alrArt.mesh = true;
+  if (!alrGL.mat) { const L = alrMatLayers(256); alrGLMatTex(256, L.layers, ALR_MAT_SCALE, ALR_MAT_SPEC); }
   if (typeof alr !== 'undefined' && alr.ui && alr.ui.cameosBuilt && typeof alrBuildCameos === 'function') { alrBuildCameos(); alrUISide(true); }
   return true;
+}
+
+// ---- the surfaces: tileable material textures, painted at load (no download) ---------------------------------
+// One layer per surface class (blender/alertrig.py PAL). Each is a grey-centred detail map (128 = the vertex
+// colour unchanged; the shader multiplies by 2×) with its own physical logic: formwork seams + tie holes on cast
+// concrete, slab joints + cracks + oil on the aprons, gravel on roofs, ribs + rust runs on corrugated sheet, weld
+// seams + chipped paint on armour, rivet rows + rust weeping on silos. Scales are repeats per tile.
+const ALR_MAT_SCALE = [0, 2.0, 1.0, 2.2, 3.0, 3.2, 3.0, 8.0, 2.0, 7.0, 5.0, 2.5, 6.0, 3.0];
+const ALR_MAT_SPEC = [1, 0.15, 0.08, 0.25, 0.7, 0.75, 1.1, 0.12, 2.2, 0.05, 0.1, 0.6, 0.3, 0.08];
+function alrMatLayers(S) {
+  const hash = (x, y, s) => { let h = (x * 374761393 + y * 668265263 + s * 2147483647) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+  // tileable value noise: `cells` lattice cells across the tile, wrapped
+  const vn = (x, y, cells, seed) => {
+    const fx = x / S * cells, fy = y / S * cells, ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy;
+    const w = (i) => ((i % cells) + cells) % cells;
+    const a = hash(w(ix), w(iy), seed), b = hash(w(ix + 1), w(iy), seed), c = hash(w(ix), w(iy + 1), seed), d = hash(w(ix + 1), w(iy + 1), seed);
+    const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+    return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+  };
+  const fbm = (x, y, cells, oct, seed) => { let v = 0, a = 0.5, t = 0; for (let o = 0; o < oct; o++) { v += vn(x, y, cells << o, seed + o * 17) * a; t += a; a *= 0.5; } return v / t; };
+  const rnd = (() => { let s = 7; return () => ((s = Math.imul(s, 1103515245) + 12345 | 0) >>> 8) / 16777216; })();
+  const layers = [];
+  const make = (fn) => {
+    const px = new Uint8Array(S * S * 4), L = new Float32Array(S * S * 3);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { const k = (y * S + x) * 3; L[k] = L[k + 1] = L[k + 2] = 128; }
+    fn(L);
+    for (let k = 0, j = 0; k < L.length; k += 3, j += 4) { px[j] = Math.max(0, Math.min(255, L[k])); px[j + 1] = Math.max(0, Math.min(255, L[k + 1])); px[j + 2] = Math.max(0, Math.min(255, L[k + 2])); px[j + 3] = 255; }
+    layers.push(px);
+  };
+  const W = (v) => ((v % S) + S) % S;
+  const add = (L, x, y, r, g, b) => { const k = (W(y) * S + W(x)) * 3; L[k] += r; L[k + 1] += g; L[k + 2] += b; };
+  const each = (L, f) => { for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { const d = f(x, y); if (d) add(L, x, y, d[0], d[1], d[2]); } };
+  const grey = (v) => [v, v, v];
+  const blob = (L, cx, cy, r, d, tint) => { for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) { const q = 1 - Math.hypot(x, y) / r; if (q > 0) { const e = q * q * d * (0.7 + 0.6 * vn(cx + x, cy + y, 32, 99)); add(L, cx + x, cy + y, e * tint[0], e * tint[1], e * tint[2]); } } };
+  const streak = (L, x0, y0, len, w, d, tint) => { for (let t = 0; t < len; t++) { const f = 1 - t / len; for (let k = -w; k <= w; k++) { const e = d * f * (1 - Math.abs(k) / (w + 1)) * (0.6 + 0.8 * vn(x0 + k, y0 + t, 64, 31)); add(L, x0 + k, y0 + t, e * tint[0], e * tint[1], e * tint[2]); } } };
+  const RUST = [0.9, 0.45, 0.1], DIRT = [0.8, 0.75, 0.65];
+  // 1 cast concrete: board-formed panels, tie holes, mottling, damp stains
+  make((L) => {
+    each(L, (x, y) => grey((fbm(x, y, 4, 4, 1) - 0.5) * 36 + (hash(x, y, 2) - 0.5) * 14));
+    each(L, (x, y) => { const row = Math.floor(y / 64), sx = (x + (row % 2) * 64) % 128; return (y % 64 < 2) ? grey(-26) : (sx < 2 ? grey(-18) : (y % 64 === 2 || sx === 2) ? grey(10) : null); });
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) blob(L, c * 64 + 32 + (r % 2) * 32, r * 64 + 32, 3, -55, DIRT);
+    for (let k = 0; k < 6; k++) blob(L, rnd() * S | 0, rnd() * S | 0, 24 + rnd() * 30 | 0, -26, DIRT);
+  });
+  // 2 slab: big joints, hairline cracks, oil stains, grit
+  make((L) => {
+    each(L, (x, y) => grey((fbm(x, y, 3, 5, 5) - 0.5) * 34 + (hash(x, y, 6) - 0.5) * 20));
+    each(L, (x, y) => (x % 128 < 2 || y % 128 < 2) ? grey(-34) : null);
+    for (let k = 0; k < 5; k++) { let x = rnd() * S, y = rnd() * S, a = rnd() * 6.28; for (let t = 0; t < 70 + rnd() * 60; t++) { a += (rnd() - 0.5) * 0.7; x += Math.cos(a); y += Math.sin(a); add(L, x | 0, y | 0, -38, -38, -38); } }
+    for (let k = 0; k < 4; k++) blob(L, rnd() * S | 0, rnd() * S | 0, 12 + rnd() * 18 | 0, -60, [1, 1, 1.05]);
+  });
+  // 3 roofing: gravel ballast over membrane, patched
+  make((L) => {
+    each(L, (x, y) => grey((hash(x, y, 8) - 0.5) * 50 + (fbm(x, y, 6, 3, 9) - 0.5) * 30));
+    each(L, (x, y) => (y % 86 < 2) ? grey(18) : null);
+    for (let k = 0; k < 5; k++) { const x0 = rnd() * S | 0, y0 = rnd() * S | 0, w = 20 + rnd() * 40 | 0, h = 14 + rnd() * 30 | 0, d = (rnd() - 0.5) * 30; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) add(L, x0 + x, y0 + y, d, d, d); }
+  });
+  // 4 corrugated sheet: ribs, rust weeping from the laps
+  make((L) => {
+    each(L, (x, y) => grey(Math.sin(x / 16 * Math.PI * 2) * 26 + (fbm(x, y, 4, 3, 11) - 0.5) * 22));
+    for (let k = 0; k < 9; k++) streak(L, rnd() * S | 0, rnd() * S | 0, 50 + rnd() * 90 | 0, 2, -40, RUST);
+  });
+  // 5 painted armour: plates with weld seams, chipped paint, scuffs
+  make((L) => {
+    each(L, (x, y) => grey((fbm(x, y, 4, 4, 13) - 0.5) * 18 + (hash(x, y, 14) - 0.5) * 6));
+    each(L, (x, y) => { const sx = (x + (Math.floor(y / 96) % 2) * 64) % 128, sy = y % 96; return (sy === 0 || sx === 0) ? grey(-40) : (sy === 1 || sx === 1) ? grey(22) : null; });
+    for (let k = 0; k < 70; k++) { const x = rnd() * S | 0, y = rnd() * S | 0, r = 1 + rnd() * 2.5; blob(L, x, y, r | 0 || 1, 60, [0.75, 0.78, 0.8]); }
+    for (let k = 0; k < 7; k++) blob(L, rnd() * S | 0, rnd() * S | 0, 30 + rnd() * 30 | 0, -18, DIRT);
+  });
+  // 6 steel: brushed grain, scratches, spotting
+  make((L) => {
+    each(L, (x, y) => grey((vn(x, y * 9, 8, 15) - 0.5) * 22 + (fbm(x, y, 4, 3, 16) - 0.5) * 20));
+    for (let k = 0; k < 40; k++) { let x = rnd() * S, y = rnd() * S; const a = rnd() * 6.28, n = 8 + rnd() * 30; for (let t = 0; t < n; t++) add(L, (x += Math.cos(a)) | 0, (y += Math.sin(a)) | 0, 26, 26, 26); }
+    for (let k = 0; k < 6; k++) blob(L, rnd() * S | 0, rnd() * S | 0, 10 + rnd() * 16 | 0, -30, RUST);
+  });
+  // 7 rubber: tread blocks
+  make((L) => { each(L, (x, y) => grey(((y % 32) < 6 || ((x + (Math.floor(y / 32) % 2) * 16) % 32) < 4 ? -40 : 14) + (hash(x, y, 18) - 0.5) * 14)); });
+  // 8 glass: a sky reflection band + dust
+  make((L) => { each(L, (x, y) => grey(Math.max(0, 1 - Math.abs(((x + y) % S) - S * 0.35) / 40) * 50 + (fbm(x, y, 4, 3, 19) - 0.5) * 24)); });
+  // 9 sacking: a coarse weave
+  make((L) => { each(L, (x, y) => grey(((x % 6 < 3) !== (y % 6 < 3) ? 12 : -12) + (fbm(x, y, 8, 3, 20) - 0.5) * 34)); for (let k = 0; k < 6; k++) blob(L, rnd() * S | 0, rnd() * S | 0, 18, -28, DIRT); });
+  // 10 wood: boards, grain, gaps
+  make((L) => { each(L, (x, y) => grey((x % 43 < 2 ? -50 : 0) + Math.sin((y / 7) + vn(x, y, 6, 21) * 9) * 10 + (fbm(x, y, 8, 3, 22) - 0.5) * 24)); });
+  // 11 riveted plate: seams, rivet rows, rust weeping below the rivets
+  make((L) => {
+    each(L, (x, y) => grey((fbm(x, y, 4, 4, 23) - 0.5) * 24));
+    each(L, (x, y) => (y % 64 < 2 || (x + (Math.floor(y / 64) % 2) * 64) % 128 < 2) ? grey(-34) : null);
+    for (let y = 0; y < S; y += 64) for (let x = 6; x < S; x += 12) { add(L, x, y + 5, 40, 40, 40); add(L, x + 1, y + 6, -40, -40, -40); if (hash(x, y, 24) < 0.18) streak(L, x, y + 7, 20 + hash(x, y, 25) * 40 | 0, 1, -45, RUST); }
+  });
+  // 12 breading: crumb
+  make((L) => { each(L, (x, y) => grey((fbm(x, y, 16, 3, 26) - 0.5) * 70 + (hash(x, y, 27) - 0.5) * 30)); for (let k = 0; k < 140; k++) blob(L, rnd() * S | 0, rnd() * S | 0, 2 + rnd() * 4 | 0, rnd() < 0.5 ? -50 : 40, [1, 0.85, 0.6]); });
+  // 13 canvas: fine weave, water marks
+  make((L) => { each(L, (x, y) => grey(((x + y) % 4 < 2 ? 6 : -6) + (fbm(x, y, 3, 4, 28) - 0.5) * 32)); for (let k = 0; k < 5; k++) blob(L, rnd() * S | 0, rnd() * S | 0, 26, -24, DIRT); });
+  return { layers };
 }
