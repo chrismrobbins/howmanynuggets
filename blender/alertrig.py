@@ -1265,19 +1265,6 @@ def build_inf(kind):
     m.lathe([(0.064, 0.33), (0.086, 0.334), (0.086, 0.341), (0.0, 0.341)], "teamDark", c=(0, 0, -0.005), n=14)
     m.box((0.03, 0.31, 0.083), (0.016, 0.014, 0.008), "black", bev=0)
     m.box((-0.03, 0.31, 0.083), (0.016, 0.014, 0.008), "black", bev=0)
-    m.bar((0.09, 0.27, 0.0), (0.06, 0.24, 0.12), 0.04, "breading")
-    m.bar((-0.09, 0.27, 0.0), (-0.02, 0.23, 0.13), 0.04, "breading")
-    if kind == "rifle":
-        m.box((0.02, 0.245, 0.13), (0.02, 0.03, 0.2), "black", bev=0.004)
-        m.box((0.02, 0.24, 0.035), (0.022, 0.04, 0.05), "wood", bev=0.006)
-        m.box((0.02, 0.215, 0.12), (0.014, 0.03, 0.02), "black", bev=0)
-        m.cyl((0.02, 0.25, 0.27), 0.006, 0.08, "black", n=6, axis="z")
-    else:
-        m.cyl((0.075, 0.36, 0.0), 0.034, 0.42, "olive", n=12, axis="z", bev=0.004)
-        m.cyl((0.075, 0.36, 0.215), 0.04, 0.02, "dark", n=12, axis="z")
-        m.cyl((0.075, 0.36, -0.215), 0.04, 0.02, "dark", n=12, axis="z")
-        m.ball((0.075, 0.36, 0.235), 0.026, "sauce", u=10, v=6)
-        m.box((0.075, 0.395, 0.04), (0.02, 0.03, 0.03), "black", bev=0.003)
     return m
 
 
@@ -2016,14 +2003,6 @@ def build_engineer():
     m.lathe([(0.075, 0.338), (0.105, 0.338), (0.105, 0.348), (0.0, 0.348)], "hazard", n=14)
     m.box((0, 0.43, 0), (0.024, 0.016, 0.15), "goldDark", bev=0)
     eyes(m, 0.31)
-    m.bar((0.1, 0.27, 0.0), (0.12, 0.2, 0.07), 0.04, "breading")
-    m.bar((-0.1, 0.27, 0.0), (-0.12, 0.17, 0.0), 0.04, "breading")
-    m.box((-0.13, 0.12, 0.0), (0.06, 0.07, 0.13), "sauce", bev=0.008)
-    m.box((-0.13, 0.162, 0.0), (0.012, 0.016, 0.06), "dark", bev=0)
-    m.push(0.12, 0.2, 0.08, 0, -0.9)
-    m.box((0, 0, 0.02), (0.016, 0.016, 0.1), "wood", bev=0.003)
-    m.box((0, 0, 0.1), (0.06, 0.008, 0.07), "steel", bev=0.002)
-    m.pop()
     return m
 
 
@@ -2038,9 +2017,6 @@ def build_jetpack():
     for s in (-1, 1):
         m.cyl((s * 0.03, 0.35, 0.085), 0.016, 0.01, "glassLit", n=8, axis="z")
     eyes(m, 0.31)
-    m.bar((0.09, 0.27, 0.0), (0.06, 0.24, 0.12), 0.04, "breading")
-    m.bar((-0.09, 0.27, 0.0), (-0.02, 0.23, 0.13), 0.04, "breading")
-    m.box((0.02, 0.245, 0.13), (0.02, 0.03, 0.2), "black", bev=0.004)
     m.box((0, 0.29, -0.1), (0.15, 0.14, 0.06), "steelDark", bev=0.012)
     for s in (-1, 1):
         x = s * 0.055
@@ -2069,11 +2045,6 @@ def build_conscript():
     m.box((0, 0.37, 0.072), (0.12, 0.044, 0.024), "wood", bev=0.008)
     m.box((0, 0.375, 0.085), (0.026, 0.026, 0.006), "team", bev=0.002)
     eyes(m, 0.315)
-    m.bar((0.09, 0.27, 0.0), (0.06, 0.24, 0.12), 0.05, "khaki")
-    m.bar((-0.09, 0.27, 0.0), (-0.02, 0.23, 0.13), 0.05, "khaki")
-    m.box((0.02, 0.255, 0.16), (0.02, 0.03, 0.26), "black", bev=0.004)
-    m.box((0.02, 0.245, 0.04), (0.024, 0.045, 0.09), "wood", bev=0.006)
-    m.cyl((0.02, 0.262, 0.33), 0.004, 0.08, "steel", n=4, axis="z")
     return m
 
 
@@ -2090,13 +2061,6 @@ def build_zapper():
     m.cyl((0, 0.447, 0.01), 0.06, 0.016, "dark", n=12, r2=0.03)
     m.box((0, 0.4, 0.075), (0.1, 0.032, 0.012), "black", bev=0)
     m.box((0, 0.4, 0.08), (0.08, 0.018, 0.008), "glassLit", bev=0)
-    for s in (-1, 1):
-        x = s * 0.12
-        m.box((x, 0.26, 0.04), (0.07, 0.07, 0.1), "armorDark", bev=0.012)
-        m.cyl((x, 0.25, 0.135), 0.03, 0.11, "steel", n=10, axis="z", r2=0.026)
-        for k in range(3):
-            m.torus((x, 0.25, 0.1 + k * 0.03), 0.034, 0.008, "copper", n=12, m=5, axis="z")
-        m.ball((x, 0.25, 0.205), 0.022, "glassLit", u=8, v=5)
     m.box((0, 0.29, -0.13), (0.16, 0.16, 0.08), "dark", bev=0.015)
     m.cyl((0, 0.43, -0.14), 0.018, 0.14, "steel", n=8, r2=0.012)
     for k in range(3):
@@ -3535,45 +3499,6 @@ def build_sniper():
     for s in (-1, 1):
         for k in range(5):
             _ghillie(m, rnd, s * 0.1, 0.31, -0.06 + k * 0.025, s * math.pi / 2, rnd.uniform(0.07, 0.11), 0.2, cols)
-    # arms on the rifle: right hand on the grip, left under the fore-end; the team armband on the left
-    ra, rb = (0.09, 0.27, 0.0), (0.05, 0.255, 0.12)
-    la, lb = (-0.09, 0.27, 0.0), (0.025, 0.262, 0.22)
-    m.bar(ra, rb, 0.042, "oliveDark")
-    m.bar(la, lb, 0.042, "oliveDark")
-    _arm(m, la, lb, 0.042, "oliveDark", 0.2, 0.42, "team", 0.052)
-    _arm(m, ra, rb, 0.042, "oliveDark", 0.22, 0.38, "team", 0.05)
-    m.ball(rb, 0.022, "breading", u=8, v=5)
-    m.ball(lb, 0.022, "breading", u=8, v=5)
-    # the rifle: x 0.04, bore y 0.29, butt at the shoulder (z 0.03) to the muzzle (z 0.385)
-    X = 0.04
-    m.prism_x([(0.03, 0.25), (0.03, 0.305), (0.06, 0.3), (0.11, 0.29), (0.13, 0.285), (0.13, 0.268), (0.09, 0.266),
-               (0.06, 0.258), (0.045, 0.246)], X - 0.011, X + 0.011, "wood", bev=0.004)
-    m.box((X, 0.3, 0.06), (0.024, 0.012, 0.04), "dark", bev=0.003)                     # cheek rest
-    m.box((X, 0.282, 0.175), (0.024, 0.032, 0.1), "black", bev=0.004)                 # receiver
-    m.box((X + 0.013, 0.29, 0.165), (0.012, 0.008, 0.008), "steel", bev=0)            # bolt handle
-    m.box((X, 0.258, 0.18), (0.014, 0.032, 0.028), "black", bev=0.003)                # magazine
-    m.box((X, 0.255, 0.142), (0.006, 0.02, 0.022), "black", bev=0)                    # trigger guard
-    m.box((X, 0.282, 0.255), (0.02, 0.024, 0.07), "oliveDark", bev=0.006)             # cloth-wrapped fore-end
-    m.cyl((X, 0.29, 0.31), 0.0068, 0.13, "dark", n=8, axis="z", r2=0.0058)             # barrel
-    m.cyl((X, 0.29, 0.375), 0.01, 0.024, "black", n=8, axis="z")                      # muzzle brake
-    for z in (0.37, 0.38):
-        m.box((X, 0.29, z), (0.022, 0.004, 0.003), "dark", bev=0)
-    # the scope on two rings, turrets, lenses
-    m.cyl((X, 0.318, 0.175), 0.0115, 0.1, "black", n=10, axis="z")
-    m.cyl((X, 0.318, 0.24), 0.0115, 0.03, "black", n=10, axis="z", r2=0.0155)
-    m.cyl((X, 0.318, 0.26), 0.0158, 0.012, "black", n=10, axis="z")
-    m.cyl((X, 0.318, 0.2665), 0.012, 0.002, "glassLit", n=10, axis="z")
-    m.cyl((X, 0.318, 0.12), 0.0125, 0.012, "black", n=10, axis="z")
-    m.cyl((X, 0.318, 0.1135), 0.009, 0.002, "glass", n=10, axis="z")
-    m.cyl((X, 0.333, 0.18), 0.006, 0.01, "dark", n=8)
-    m.cyl((X + 0.015, 0.318, 0.18), 0.006, 0.01, "dark", n=8, axis="x")
-    for z in (0.15, 0.205):
-        m.box((X, 0.303, z), (0.016, 0.014, 0.008), "dark", bev=0)
-    # the bipod, folded forward under the barrel
-    m.box((X, 0.274, 0.29), (0.02, 0.01, 0.012), "steelDark", bev=0)
-    for dx in (-0.006, 0.006):
-        m.bar((X + dx, 0.272, 0.292), (X + dx, 0.276, 0.36), 0.004, "black")
-        m.box((X + dx, 0.276, 0.362), (0.005, 0.006, 0.008), "rubber", bev=0)
     return m
 
 
@@ -3621,30 +3546,9 @@ def build_greaser():
     m.box((0.0, 0.24, TZ - 0.062), (0.06, 0.04, 0.004), "hazard", bev=0)              # warning label
     m.cyl((0, 0.115, TZ), 0.03, 0.02, "steelDark", n=10)
     # the hose: from the tank's foot round the hip to the wand
-    m.tube([(0.0, 0.11, TZ), (0.06, 0.1, TZ + 0.02), (0.125, 0.12, -0.06), (0.135, 0.14, 0.05), (0.1, 0.18, 0.12), (0.055, 0.205, 0.135)], 0.011, "rubber", n=6)
+    m.tube([(0.0, 0.11, TZ), (0.06, 0.1, TZ + 0.02), (0.125, 0.12, -0.06), (0.135, 0.14, 0.03)], 0.011, "rubber", n=6)   # (the wand carries the rest)
     for z in (-0.06, 0.05):
         m.cyl((0.13, 0.13, z), 0.014, 0.012, "steelDark", n=8, axis="z")
-    # arms (suit + rubber gloves) on the spray wand
-    ra, rb = (0.1, 0.27, 0.0), (0.06, 0.205, 0.14)
-    la, lb = (-0.1, 0.27, 0.0), (0.04, 0.215, 0.235)
-    m.bar(ra, rb, 0.048, "hazmat")
-    m.bar(la, lb, 0.048, "hazmat")
-    _arm(m, ra, rb, 0.048, "hazmat", 0.75, 0.92, "rubber", 0.054)
-    _arm(m, la, lb, 0.048, "hazmat", 0.75, 0.92, "rubber", 0.054)
-    m.ball(rb, 0.026, "rubber", u=7, v=4)
-    m.ball(lb, 0.026, "rubber", u=7, v=4)
-    # the wand: a steel lance with a grip and a trigger lever, flaring into a wide flat fan nozzle
-    WX, WY = 0.045, 0.21
-    m.cyl((WX, WY, 0.14), 0.017, 0.05, "steelDark", n=10, axis="z", bev=0.003)
-    m.box((WX, WY - 0.022, 0.14), (0.016, 0.03, 0.02), "black", bev=0.004)
-    m.cyl((WX, WY, 0.25), 0.009, 0.18, "steel", n=8, axis="z")
-    m.cyl((WX, WY, 0.235), 0.014, 0.03, "dark", n=10, axis="z")
-    rings = []
-    for z, hw, hh in ((0.335, 0.012, 0.012), (0.35, 0.02, 0.011), (0.38, 0.042, 0.009), (0.4, 0.055, 0.008), (0.405, 0.054, 0.007)):
-        rings.append([(WX + hw * _sup(math.cos(j / 12 * TAU), 3.2), WY + hh * _sup(math.sin(j / 12 * TAU), 3.2), z) for j in range(12)])
-    m.loft(rings, "steelDark")
-    m.box((WX, WY, 0.406), (0.096, 0.004, 0.004), "black", bev=0)
-    m.box((WX, WY + 0.012, 0.37), (0.06, 0.006, 0.03), "copperDark", bev=0)
     return m
 
 
@@ -3693,27 +3597,6 @@ def build_bomber():
         m.pop()
     for bx, bz, yaw in bundles[:4]:
         m.tube([(bx, 0.252, bz), (bx * 0.6, 0.262, bz * 0.6 + 0.04 + (0.03 if abs(bz) < 0.01 else 0)), (0, 0.24, 0.095)], 0.0028, "red" if bx < 0 else "black", n=4)
-    # the left arm hangs, a spare stick in the fist; the right arm raised high with the detonator
-    m.bar((-0.085, 0.27, 0.0), (-0.11, 0.17, 0.04), 0.04, "breading")
-    m.ball((-0.11, 0.165, 0.04), 0.021, "breading", u=8, v=5)
-    m.push(-0.11, 0.165, 0.06, 0, 0.3)
-    m.cyl((0, 0, 0.0), 0.012, 0.09, "sauce", n=8, axis="z")
-    m.cyl((0, 0, 0.046), 0.011, 0.008, "black", n=8, axis="z")
-    m.pop()
-    hand = (0.118, 0.43, 0.045)
-    m.bar((0.08, 0.28, 0.0), hand, 0.04, "breading")
-    m.ball(hand, 0.023, "breading", u=8, v=5)
-    m.box((0.118, 0.462, 0.045), (0.032, 0.05, 0.028), "dark", bev=0.005)            # the detonator
-    m.box((0.118, 0.47, 0.06), (0.024, 0.016, 0.004), "hazard", bev=0)
-    m.box((0.106, 0.472, 0.06), (0.006, 0.006, 0.004), "red", bev=0)
-    m.cyl((0.118, 0.5, 0.045), 0.004, 0.028, "steel", n=6)
-    m.ball((0.118, 0.518, 0.045), 0.012, "light", u=8, v=5)
-    rs = random.Random(7)
-    for k in range(7):
-        d = Vector((rs.uniform(-1, 1), rs.uniform(0.2, 1.2), rs.uniform(-1, 1))).normalized()
-        a = Vector((0.118, 0.518, 0.045)) + d * 0.01
-        m.bar(tuple(a), tuple(a + d * rs.uniform(0.02, 0.035)), 0.004, "light")
-    m.tube([(0.118, 0.44, 0.03), (0.1, 0.36, 0.0), (0.06, 0.27, 0.07), (0.012, 0.245, 0.096)], 0.003, "red", n=4)
     return m
 
 
@@ -4377,10 +4260,188 @@ FACTIONS = [build_sniper, build_greaser, build_bomber, build_teslaspud, build_te
             build_flag_union, build_flag_horde, build_flag_cartel]
 
 
+
+# =========================================================================================================
+# ARMS + WEAPONS (the infantry rig): every soldier's body is built WITHOUT arms or weapon. The weapon (or the
+# prop in each hand) is its own model whose ORIGIN is its hold point (the game turns it about that point to
+# aim / carry / reload / recoil), and the arms are a sleeve stretched from the shoulder to wherever the hand has
+# to be, plus a hand. The pivots and grip points live in js/alertUI.js ALR_INF_RIG in body coordinates — keep
+# the P values here and there identical.
+# =========================================================================================================
+def _held(name, P, smooth=50):
+    m = Model(name, smooth_deg=smooth)
+    m.push(-P[0], -P[1], -P[2])          # author in body coordinates; the origin lands on the hold point
+    return m
+
+
+def build_inf_gun():
+    """The trooper's rifle (body coords: along +z at x 0.02). Hold point P = (0.02, 0.24, 0.07)."""
+    m = _held("u.inf_gun", (0.02, 0.24, 0.07))
+    m.box((0.02, 0.245, 0.13), (0.02, 0.028, 0.2), "black", bev=0.004)
+    m.prism_x([(0.0, 0.226), (0.0, 0.252), (0.05, 0.25), (0.06, 0.236), (0.03, 0.22)], 0.009, 0.031, "wood", bev=0.004)
+    m.box((0.02, 0.212, 0.12), (0.014, 0.034, 0.02), "black", bev=0.002)
+    m.box((0.02, 0.222, 0.085), (0.012, 0.03, 0.016), "black", bev=0.002)
+    m.box((0.02, 0.24, 0.185), (0.024, 0.022, 0.06), "wood", bev=0.004)
+    m.cyl((0.02, 0.25, 0.27), 0.006, 0.08, "black", n=6, axis="z")
+    m.box((0.02, 0.262, 0.11), (0.006, 0.01, 0.02), "dark", bev=0)
+    m.pop(); return m
+
+
+def build_rocket_gun():
+    """The rocket tube, carried on the right shoulder. P = (0.075, 0.33, 0.0)."""
+    m = _held("u.rocket_gun", (0.075, 0.33, 0.0))
+    m.cyl((0.075, 0.36, 0.0), 0.034, 0.42, "olive", n=12, axis="z", bev=0.004)
+    m.cyl((0.075, 0.36, 0.215), 0.04, 0.02, "dark", n=12, axis="z")
+    m.cyl((0.075, 0.36, -0.215), 0.04, 0.02, "dark", n=12, axis="z")
+    m.ball((0.075, 0.36, 0.235), 0.026, "sauce", u=10, v=6)
+    m.box((0.075, 0.395, 0.04), (0.02, 0.03, 0.03), "black", bev=0.003)
+    m.box((0.075, 0.322, 0.05), (0.014, 0.03, 0.016), "black", bev=0.002)
+    m.box((0.075, 0.33, 0.15), (0.014, 0.022, 0.014), "black", bev=0.002)
+    m.pop(); return m
+
+
+def build_conscript_gun():
+    """The conscript's long rifle with a fixed bayonet. P = (0.02, 0.25, 0.08)."""
+    m = _held("u.conscript_gun", (0.02, 0.25, 0.08))
+    m.box((0.02, 0.255, 0.16), (0.02, 0.028, 0.26), "black", bev=0.004)
+    m.prism_x([(-0.01, 0.228), (-0.01, 0.262), (0.07, 0.258), (0.09, 0.244), (0.04, 0.226)], 0.008, 0.032, "wood", bev=0.004)
+    m.box((0.02, 0.247, 0.21), (0.024, 0.02, 0.12), "wood", bev=0.004)
+    m.box((0.02, 0.232, 0.12), (0.012, 0.022, 0.03), "black", bev=0)
+    m.cyl((0.02, 0.262, 0.33), 0.004, 0.08, "steel", n=4, axis="z")
+    m.box((0.032, 0.268, 0.1), (0.012, 0.006, 0.006), "steel", bev=0)
+    m.pop(); return m
+
+
+def build_sniper_gun():
+    """The ghillie sniper's scoped rifle (bore y 0.29, butt z 0.03 → muzzle z 0.385). P = (0.04, 0.275, 0.1)."""
+    m = _held("u.sniper_gun", (0.04, 0.275, 0.1))
+    X = 0.04
+    m.prism_x([(0.03, 0.25), (0.03, 0.305), (0.06, 0.3), (0.11, 0.29), (0.13, 0.285), (0.13, 0.268), (0.09, 0.266),
+               (0.06, 0.258), (0.045, 0.246)], X - 0.011, X + 0.011, "wood", bev=0.004)
+    m.box((X, 0.3, 0.06), (0.024, 0.012, 0.04), "dark", bev=0.003)                     # cheek rest
+    m.box((X, 0.282, 0.175), (0.024, 0.032, 0.1), "black", bev=0.004)                 # receiver
+    m.box((X + 0.013, 0.29, 0.165), (0.012, 0.008, 0.008), "steel", bev=0)            # bolt handle
+    m.box((X, 0.258, 0.18), (0.014, 0.032, 0.028), "black", bev=0.003)                # magazine
+    m.box((X, 0.255, 0.142), (0.006, 0.02, 0.022), "black", bev=0)                    # trigger guard
+    m.box((X, 0.282, 0.255), (0.02, 0.024, 0.07), "oliveDark", bev=0.006)             # cloth-wrapped fore-end
+    m.cyl((X, 0.29, 0.31), 0.0068, 0.13, "dark", n=8, axis="z", r2=0.0058)             # barrel
+    m.cyl((X, 0.29, 0.375), 0.01, 0.024, "black", n=8, axis="z")                      # muzzle brake
+    for z in (0.37, 0.38):
+        m.box((X, 0.29, z), (0.022, 0.004, 0.003), "dark", bev=0)
+    # the scope on two rings, turrets, lenses
+    m.cyl((X, 0.318, 0.175), 0.0115, 0.1, "black", n=10, axis="z")
+    m.cyl((X, 0.318, 0.24), 0.0115, 0.03, "black", n=10, axis="z", r2=0.0155)
+    m.cyl((X, 0.318, 0.26), 0.0158, 0.012, "black", n=10, axis="z")
+    m.cyl((X, 0.318, 0.2665), 0.012, 0.002, "glassLit", n=10, axis="z")
+    m.cyl((X, 0.318, 0.12), 0.0125, 0.012, "black", n=10, axis="z")
+    m.cyl((X, 0.318, 0.1135), 0.009, 0.002, "glass", n=10, axis="z")
+    m.cyl((X, 0.333, 0.18), 0.006, 0.01, "dark", n=8)
+    m.cyl((X + 0.015, 0.318, 0.18), 0.006, 0.01, "dark", n=8, axis="x")
+    for z in (0.15, 0.205):
+        m.box((X, 0.303, z), (0.016, 0.014, 0.008), "dark", bev=0)
+    # the bipod, folded forward under the barrel
+    m.box((X, 0.274, 0.29), (0.02, 0.01, 0.012), "steelDark", bev=0)
+    for dx in (-0.006, 0.006):
+        m.bar((X + dx, 0.272, 0.292), (X + dx, 0.276, 0.36), 0.004, "black")
+        m.box((X + dx, 0.276, 0.362), (0.005, 0.006, 0.008), "rubber", bev=0)
+    m.pop(); return m
+
+
+def build_greaser_gun():
+    """The grease wand: grip, trigger lever, lance, the fan nozzle, a short hose to the hip. P = (0.045, 0.21, 0.14)."""
+    m = _held("u.greaser_gun", (0.045, 0.21, 0.14))
+    WX, WY = 0.045, 0.21
+    m.cyl((WX, WY, 0.14), 0.017, 0.05, "steelDark", n=10, axis="z", bev=0.003)
+    m.box((WX, WY - 0.022, 0.14), (0.016, 0.03, 0.02), "black", bev=0.004)
+    m.cyl((WX, WY, 0.25), 0.009, 0.18, "steel", n=8, axis="z")
+    m.cyl((WX, WY, 0.235), 0.014, 0.03, "dark", n=10, axis="z")
+    rings = []
+    for z, hw, hh in ((0.335, 0.012, 0.012), (0.35, 0.02, 0.011), (0.38, 0.042, 0.009), (0.4, 0.055, 0.008), (0.405, 0.054, 0.007)):
+        rings.append([(WX + hw * _sup(math.cos(j / 12 * TAU), 3.2), WY + hh * _sup(math.sin(j / 12 * TAU), 3.2), z) for j in range(12)])
+    m.loft(rings, "steelDark")
+    m.box((WX, WY, 0.406), (0.096, 0.004, 0.004), "black", bev=0)
+    m.box((WX, WY + 0.012, 0.37), (0.06, 0.006, 0.03), "copperDark", bev=0)
+    m.tube([(WX, WY - 0.01, 0.12), (0.08, 0.17, 0.08), (0.12, 0.15, 0.04)], 0.011, "rubber", n=6)
+    m.pop(); return m
+
+
+def build_engineer_tool():
+    """The cook's spatula: origin in the fist, handle + blade along +z."""
+    m = Model("u.engineer_tool", smooth_deg=40)
+    m.box((0, 0, 0.04), (0.016, 0.016, 0.1), "wood", bev=0.003)
+    m.box((0, 0, 0.125), (0.06, 0.008, 0.07), "steel", bev=0.002)
+    for k in range(3):
+        m.box((-0.015 + k * 0.015, 0.0045, 0.13), (0.004, 0.002, 0.04), "steelDark", bev=0)
+    return m
+
+
+def build_engineer_box():
+    """The cook's toolbox: origin at the handle (in the fist), the box hanging below."""
+    m = Model("u.engineer_box")
+    m.box((0, -0.05, 0), (0.06, 0.07, 0.13), "sauce", bev=0.008)
+    m.box((0, -0.012, 0), (0.012, 0.016, 0.07), "dark", bev=0)
+    m.box((0.031, -0.05, 0.0), (0.002, 0.016, 0.03), "steel", bev=0)
+    m.box((0, -0.085, 0), (0.064, 0.006, 0.134), "sauceDark", bev=0)
+    return m
+
+
+def build_bomber_det():
+    """The detonator, held up in the fist (origin): a box, a hazard plate, a sizzling fuse light."""
+    m = Model("u.bomber_det")
+    m.box((0, 0.032, 0), (0.032, 0.05, 0.028), "dark", bev=0.005)
+    m.box((0, 0.04, 0.015), (0.024, 0.016, 0.004), "hazard", bev=0)
+    m.box((-0.012, 0.042, 0.015), (0.006, 0.006, 0.004), "red", bev=0)
+    m.cyl((0, 0.07, 0), 0.004, 0.028, "steel", n=6)
+    m.ball((0, 0.088, 0), 0.012, "light", u=8, v=5)
+    rs = random.Random(7)
+    for k in range(7):
+        d = Vector((rs.uniform(-1, 1), rs.uniform(0.2, 1.2), rs.uniform(-1, 1))).normalized()
+        a = Vector((0, 0.088, 0)) + d * 0.01
+        m.bar(tuple(a), tuple(a + d * rs.uniform(0.02, 0.035)), 0.004, "light")
+    return m
+
+
+def build_bomber_stick():
+    """A spare fry-bomb stick in the other fist (origin)."""
+    m = Model("u.bomber_stick")
+    m.cyl((0, 0, 0.02), 0.012, 0.09, "sauce", n=8, axis="z")
+    m.cyl((0, 0, 0.066), 0.011, 0.008, "black", n=8, axis="z")
+    return m
+
+
+def build_zap_hand():
+    """A Zap Nug's coil gauntlet: origin at the wrist, pointing +z; copper coils, a glowing tip."""
+    m = Model("u.zap_hand", smooth_deg=45)
+    m.cyl((0, 0, 0.055), 0.03, 0.11, "steel", n=10, axis="z", r2=0.026)
+    for k in range(3):
+        m.torus((0, 0, 0.02 + k * 0.03), 0.034, 0.008, "copper", n=12, m=5, axis="z")
+    m.ball((0, 0, 0.12), 0.022, "glassLit", u=8, v=5)
+    return m
+
+
+def _sleeve(name, mat):
+    """An arm: a sleeve along +y from 0 (the shoulder) to 1 (the wrist), radius 0.5 — the game stretches it to
+    the right length and width (alrSpan) between the shoulder and the hand."""
+    m = Model(name, smooth_deg=60)
+    m.lathe([(0.0, -0.05), (0.42, -0.02), (0.5, 0.12), (0.47, 0.75), (0.5, 0.9), (0.46, 1.0), (0.0, 1.03)], mat, n=10)
+    return m
+
+
+def _hand(name, mat):
+    m = Model(name, smooth_deg=60)
+    m.ball((0, 0, 0), 1.0, mat, u=10, v=7, s=(1, 0.9, 1.05))
+    return m
+
+
+ARMS = [build_inf_gun, build_rocket_gun, build_conscript_gun, build_sniper_gun, build_greaser_gun, build_engineer_tool,
+        build_engineer_box, build_bomber_det, build_bomber_stick, build_zap_hand] + \
+       [lambda n=n, mt=mt: _sleeve("u.arm_" + n, mt) for n, mt in (("bread", "breading"), ("khaki", "khaki"), ("ghillie", "oliveDark"), ("hazmat", "hazmat"), ("armor", "armorDark"))] + \
+       [lambda n=n, mt=mt: _hand("u.hand_" + n, mt) for n, mt in (("bread", "breading"), ("rubber", "rubber"))]
+
 MODELS = [build_hq, build_hq_crane, build_power, build_refinery, build_barracks, build_barracks_flag, build_factory,
           build_factory_door, build_radar, build_radar_dish, build_turret, build_turret_head, build_tesla,
           build_tank, build_tank_turret, build_tank_gun, build_heavy, build_heavy_turret, build_heavy_gun,
-          build_harv, build_harv_drum, build_harv_load, lambda: build_inf("rifle"), lambda: build_inf("rocket"), build_leg] + LANDSCAPE + GEMS + PHASE1 + PHASE2 + HELIS + FACTIONS + WATERWORKS
+          build_harv, build_harv_drum, build_harv_load, lambda: build_inf("rifle"), lambda: build_inf("rocket"), build_leg] + LANDSCAPE + GEMS + PHASE1 + PHASE2 + HELIS + FACTIONS + WATERWORKS + ARMS
 
 # the game draws a building's part parented to its body: give the AO bake the body as an occluder
 OCCLUDERS = {"b.hq_crane": "b.hq", "b.radar_dish": "b.radar", "b.turret_head": "b.turret", "b.factory_door": None,
@@ -4402,7 +4463,7 @@ PART_AT = {"b.hq_crane": (-1.05, 0, -1.0), "b.radar_dish": (0.45, 0.78, -0.45), 
            "u.tater_rotor": TATER_ROTOR_AT, "u.tater_tail": TATER_TAIL_AT, "u.hog_rotor": HOG_ROTOR_AT, "u.hog_tail": HOG_TAIL_AT,
            "u.teslaspud_turret": TESLASPUD_TURRET_AT, "b.grandfryer_gun": GRANDFRYER_GUN_AT}
 SUBDIV = {"u.crate": 0.09}   # small models whose big faces sit in corner pieces (AO would grey the whole face)
-NO_GROUND = {"w.bridge_deck", "w.bridge_truss", "w.bridge_portal", "w.bridge_pier", "w.bridge_ruin", "u.gravy_stream", "u.gravy_pool", "u.jet", "u.blimp", "u.blimp_prop", "u.v3_rocket", "b.factory_door", "b.barracks_flag"} | \
+NO_GROUND = {"u.arm_bread", "u.arm_khaki", "u.arm_ghillie", "u.arm_hazmat", "u.arm_armor", "u.hand_bread", "u.hand_rubber", "u.inf_gun", "u.rocket_gun", "u.conscript_gun", "u.sniper_gun", "u.greaser_gun", "u.engineer_tool", "u.engineer_box", "u.bomber_det", "u.bomber_stick", "u.zap_hand", "w.bridge_deck", "w.bridge_truss", "w.bridge_portal", "w.bridge_pier", "w.bridge_ruin", "u.gravy_stream", "u.gravy_pool", "u.jet", "u.blimp", "u.blimp_prop", "u.v3_rocket", "b.factory_door", "b.barracks_flag"} | \
     {"u.hawk", "u.hawk_rotor", "u.hawk_tail", "u.lift", "u.lift_rotor", "u.tater", "u.tater_rotor", "u.tater_tail", "u.hog", "u.hog_rotor", "u.hog_tail"} | {"u.paraplane", "u.chute"}
 
 

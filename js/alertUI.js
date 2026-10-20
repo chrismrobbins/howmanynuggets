@@ -546,6 +546,112 @@ function alrDrawPart(d) {
   const fade = Math.min(1, (d.T - d.t) / 2);
   alrGLDraw(m, alrTRS(d.x, d.y, d.z, d.yaw, 1.1, 1.1, 1.1, 0, d.roll), { team: [0.18, 0.17, 0.16], desat: 0.85, add: [-0.08, -0.08, -0.08], spec: 0.05, alpha: fade < 1 ? fade : undefined });
 }
+
+// ---- the infantry rig: arms that hold things --------------------------------------------------------------------------
+// Each soldier's body (Blender) has no arms; its weapon is its own model whose origin is the hold point P (body
+// coordinates, identical in blender/alertrig.py), with grip points for the right and left hands (and a magazine /
+// bolt point for the routines). Each frame a pose turns the weapon about P; the arms are sleeves stretched from the
+// shoulders to the grips (or to wherever a routine sends a hand); hands go on the ends. No weapon in the mesh set →
+// the old baked-in body is used, so nothing breaks before the mesh file lands.
+const ALR_INF_RIG = {
+  inf:       { gun: 'inf_gun', P: [0.02, 0.24, 0.07], R: [0.02, 0.222, 0.085], L: [0.02, 0.238, 0.185], mag: [0.02, 0.205, 0.12], hold: 'rifle', arm: 'arm_bread', hand: 'hand_bread', w: 0.04, sh: 0.09, idles: ['check', 'reload', 'salute', 'look'] },
+  jetpack:   { gun: 'inf_gun', P: [0.02, 0.24, 0.07], R: [0.02, 0.222, 0.085], L: [0.02, 0.238, 0.185], mag: [0.02, 0.205, 0.12], hold: 'rifle', arm: 'arm_bread', hand: 'hand_bread', w: 0.04, sh: 0.09, idles: ['thrust', 'check', 'look'] },
+  rocket:    { gun: 'rocket_gun', P: [0.075, 0.33, 0.0], R: [0.075, 0.322, 0.05], L: [0.075, 0.33, 0.15], mag: [0.075, 0.36, -0.2], hold: 'tube', arm: 'arm_bread', hand: 'hand_bread', w: 0.04, sh: 0.09, idles: ['shoulder', 'reload', 'look'] },
+  conscript: { gun: 'conscript_gun', P: [0.02, 0.25, 0.08], R: [0.02, 0.232, 0.12], L: [0.02, 0.247, 0.21], mag: [0.02, 0.232, 0.13], hold: 'rifle', arm: 'arm_khaki', hand: 'hand_bread', w: 0.05, sh: 0.09, idles: ['stomp', 'check', 'salute', 'reload'] },
+  sniper:    { gun: 'sniper_gun', P: [0.04, 0.275, 0.1], R: [0.04, 0.255, 0.142], L: [0.04, 0.272, 0.255], mag: [0.04, 0.258, 0.18], bolt: [0.053, 0.29, 0.165], hold: 'rifle', arm: 'arm_ghillie', hand: 'hand_bread', w: 0.042, sh: 0.09, idles: ['scope', 'check', 'look'] },
+  greaser:   { gun: 'greaser_gun', P: [0.045, 0.21, 0.14], R: [0.045, 0.188, 0.14], L: [0.045, 0.21, 0.235], hold: 'wand', arm: 'arm_hazmat', hand: 'hand_rubber', w: 0.048, sh: 0.1, idles: ['vent', 'look'] },
+  engineer:  { props: 'cook', arm: 'arm_bread', hand: 'hand_bread', w: 0.04, sh: 0.1, idles: ['tinker', 'wipe', 'look'] },
+  bomber:    { props: 'bomb', arm: 'arm_bread', hand: 'hand_bread', w: 0.04, sh: 0.085, idles: ['wave', 'twitch'] },
+  zapper:    { props: 'zap', arm: 'arm_armor', hand: null, w: 0.07, sh: 0.12, shy: 0.28, idles: ['crackle', 'flex'] },
+};
+const ALR_IDLE_T = { check: 2.2, reload: 2.4, salute: 2.2, look: 2.5, thrust: 1.4, shoulder: 2.0, stomp: 1.8, scope: 3.2, vent: 2.0, tinker: 2.8, wipe: 1.8, wave: 2.0, twitch: 1.0, crackle: 1.6, flex: 1.6, sniff: 2.6, sit: 4.0, scratch: 2.2, scan: 0 };
+const alrL3 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+// the target pose for this frame: weapon {yaw, pitch, roll, dx, dy, dz}, hand overrides R / L (body coords, or null =
+// on the weapon's grip), prop angles for the hands, and body extras (look, hop, lean)
+function alrInfTarget(u, a, rig) {
+  const tt = alr.t || 0, rt = a.rt, rk = rt ? rt.t / rt.T : 0, inR = rt ? Math.min(1, rt.t / 0.35, (rt.T - rt.t) / 0.35) : 0;
+  const aim = !!(u.target && !u.moving), shot = Math.max(0, Math.min(1, -(a.kick || 0) / 0.15));
+  const T = { yaw: 0, pitch: 0, roll: 0, dx: 0, dy: 0, dz: 0, R: null, L: null, pR: [0, -0.6, 0], pL: [0, 0, 0], look: 0, hop: 0 };
+  const name = rt ? rt.name : '';
+  if (rig.hold) {
+    if (aim) { if (rig.hold === 'wand') T.yaw = Math.sin(tt * 8) * 0.12; }
+    else if (u.moving) {
+      if (rig.hold === 'tube') T.pitch = -0.28; else { T.yaw = -0.6; T.pitch = -0.38 + Math.sin(u.walk || 0) * 0.07; T.dy = 0.01; T.dz = -0.02; }
+    } else if (rig.hold === 'tube') T.pitch = -0.3;
+    else { T.yaw = rig.hold === 'wand' ? -0.2 : -0.35; T.pitch = rig.hold === 'wand' ? 0.45 : 0.5; T.dy = -0.02; }
+    if (!aim && !u.moving && name) {
+      const k = inR;
+      if (name === 'check') { T.yaw += (-0.95 - T.yaw) * k; T.pitch += (-0.15 - T.pitch) * k; T.roll = 0.5 * k; T.dz = -0.03 * k; T.look = 0.35 * k; }
+      else if (name === 'reload') { T.yaw += (-0.4 - T.yaw) * k; T.pitch += (0.75 - T.pitch) * k; if (rig.mag && k > 0.5) T.L = 'mag'; }
+      else if (name === 'salute') { T.yaw = 0; T.pitch += (-1.45 - T.pitch) * k; T.dx = -0.1 * k; T.dy = -0.07 * k; T.dz = -0.03 * k; if (k > 0.6) T.R = [0.05, 0.355, 0.075]; }
+      else if (name === 'shoulder' || name === 'scope') { T.yaw *= 1 - k; T.pitch *= 1 - k; if (name === 'scope') T.look = Math.sin(rt.t * 0.9) * 0.6 * k; }
+      else if (name === 'vent') { T.pitch += (1.0 - T.pitch) * k; }
+      else if (name === 'stomp') { T.hop = Math.abs(Math.sin(rt.t * 9)) * 0.03 * k; }
+      else if (name === 'thrust') { T.hop = Math.sin(Math.min(1, rk * 1.4) * Math.PI) * 0.07; }
+      else if (name === 'look') T.look = Math.sin(rt.t * 1.4) * 0.8 * k;
+    }
+    if (rig.bolt && a.shotT != null && tt - a.shotT > 0.15 && tt - a.shotT < 0.7) T.R = 'bolt';   // the sniper works the bolt after a shot
+    T.dz -= 0.028 * shot; T.pitch -= (rig.hold === 'tube' ? 0.1 : 0.16) * shot;
+    return T;
+  }
+  // the prop-carriers
+  const sw = u.moving ? Math.sin(u.walk || 0) * 0.04 : 0;
+  if (rig.props === 'cook') {
+    T.R = [0.12, 0.2, 0.07 + sw]; T.L = [-0.12, 0.17, -sw]; T.pR = [0, -0.6, 0];
+    if (name === 'tinker') { const k = inR, tap = Math.sin(rt.t * 11) * 0.025; T.R = alrL3(T.R, [-0.04, 0.17 + tap, 0.07], k); T.L = alrL3(T.L, [-0.1, 0.2, 0.05], k); T.pR = [0, -0.6 + 1.0 * k + tap * 8, 0]; T.look = -0.3 * k; }
+    if (name === 'wipe') { const k = inR; T.R = alrL3(T.R, [0.05, 0.345, 0.08 + Math.sin(rt.t * 8) * 0.015], k); T.pR = [0, -0.6 - 1.2 * k, 0]; }
+  } else if (rig.props === 'bomb') {
+    const up = u.moving || u.target;
+    T.R = up ? [0.118 + Math.sin(tt * 13) * 0.012, 0.43, 0.045] : [0.1, 0.24, 0.08]; T.L = [-0.11, 0.165 + sw * 0.5, 0.04 - sw]; T.pR = [0, 0, 0]; T.pL = [0, 0.3, 0];
+    if (name === 'wave') { T.R = alrL3(T.R, [0.12 + Math.sin(rt.t * 9) * 0.035, 0.44, 0.04], inR); }
+    if (name === 'twitch') { T.hop = Math.abs(Math.sin(rt.t * 14)) * 0.03; T.look = Math.sin(rt.t * 23) * 0.25; }
+  } else if (rig.props === 'zap') {
+    const fire = u.target && !u.moving;
+    T.R = fire ? [0.09, 0.27, 0.17] : [0.13, 0.19, 0.06 + sw]; T.L = fire ? [-0.09, 0.27, 0.17] : [-0.13, 0.19, 0.06 - sw];
+    T.pR = [0, fire ? 0 : 0.9, 0]; T.pL = T.pR.slice();
+    if (name === 'crackle') { T.R = alrL3(T.R, [0.11, 0.26, 0.15], inR); T.L = alrL3(T.L, [-0.11, 0.26, 0.15], inR); T.pR = [0, 0.9 * (1 - inR), 0]; T.pL = T.pR.slice(); }
+    if (name === 'flex') { T.R = alrL3(T.R, [0.17, 0.37, 0.03], inR); T.L = alrL3(T.L, [-0.17, 0.37, 0.03], inR); T.pR = [0, -1.4 * inR + 0.9 * (1 - inR), 0]; T.pL = T.pR.slice(); }
+    T.pitchKick = shot;
+  }
+  if (name === 'look') T.look = Math.sin(rt.t * 1.4) * 0.8 * inR;
+  return T;
+}
+// ease the pose toward the target (called from alrAnimStep, which has dt)
+function alrInfEase(u, a, dt) {
+  const rig = ALR_INF_RIG[u.type]; if (!rig) return;
+  const T = alrInfTarget(u, a, rig), k = Math.min(1, dt * 9), P = a.pose || (a.pose = { yaw: T.yaw, pitch: T.pitch, roll: 0, dx: 0, dy: 0, dz: 0, rW: 0, lW: 0, rP: [0, 0.3, 0.1], lP: [0, 0.3, 0.1], pR: T.pR.slice(), pL: T.pL.slice(), look: 0, hop: 0 });
+  for (const f of ['yaw', 'pitch', 'roll', 'dx', 'dy', 'dz', 'look', 'hop']) P[f] += ((T[f] || 0) - P[f]) * k;
+  const tgt = (h) => (Array.isArray(h) ? h : h === 'mag' ? alrInfGrip(rig, P, rig.mag) : h === 'bolt' ? alrInfGrip(rig, P, rig.bolt) : null);
+  const tR = tgt(T.R), tL = tgt(T.L);
+  P.rW += ((tR ? 1 : 0) - P.rW) * k; P.lW += ((tL ? 1 : 0) - P.lW) * k;
+  if (tR) P.rP = alrL3(P.rP, tR, k); if (tL) P.lP = alrL3(P.lP, tL, k);
+  for (let i = 0; i < 3; i++) { P.pR[i] += (T.pR[i] - P.pR[i]) * k; P.pL[i] += (T.pL[i] - P.pL[i]) * k; }
+  if (rig.props && !rig.hold) { P.rW = 1; P.lW = 1; if (tR) P.rP = alrL3(P.rP, tR, Math.min(1, dt * 12)); if (tL) P.lP = alrL3(P.lP, tL, Math.min(1, dt * 12)); }
+}
+function alrInfWeaponM(rig, P) { return alrTRS(rig.P[0] + P.dx, rig.P[1] + P.dy, rig.P[2] + P.dz, P.yaw, 1, 1, 1, P.pitch, P.roll); }
+function alrInfGrip(rig, P, g) { return alrXform(alrInfWeaponM(rig, P), [g[0] - rig.P[0], g[1] - rig.P[1], g[2] - rig.P[2]]); }
+// the parts: weapon / props, two sleeves, two hands — all in body coordinates, then B
+function alrInfRigParts(u, B, add) {
+  const rig = ALR_INF_RIG[u.type], A = alrArt.u;
+  if (!rig || (rig.gun && !A[rig.gun]) || !A[rig.arm]) return false;
+  const P = (u.va && u.va.pose) || { yaw: rig.hold === 'tube' ? 0 : -0.35, pitch: rig.hold === 'tube' ? -0.3 : 0.5, roll: 0, dx: 0, dy: -0.02, dz: 0, rW: rig.props ? 1 : 0, lW: rig.props ? 1 : 0, rP: [0.12, 0.2, 0.07], lP: [-0.12, 0.17, 0], pR: [0, -0.6, 0], pL: [0, 0, 0] };
+  const shy = rig.shy || 0.27, SR = [rig.sh, shy, 0], SL = [-rig.sh, shy, 0];
+  let hR, hL;
+  if (rig.gun) {
+    const W = alrInfWeaponM(rig, P);
+    add(rig.gun, alrMul(B, W));
+    hR = alrL3(alrInfGrip(rig, P, rig.R), P.rP, P.rW);
+    hL = alrL3(alrInfGrip(rig, P, rig.L), P.lP, P.lW);
+  } else { hR = P.rP; hL = P.lP; }
+  const arm = (S, h) => add(rig.arm, alrMul(B, alrSpan(S, h, rig.w)));
+  arm(SR, hR); arm(SL, hL);
+  if (rig.hand) { add(rig.hand, alrMul(B, alrTRS(hR[0], hR[1], hR[2], 0, 0.022))); add(rig.hand, alrMul(B, alrTRS(hL[0], hL[1], hL[2], 0, 0.022))); }
+  const prop = (k, h, ang) => add(k, alrMul(B, alrTRS(h[0], h[1], h[2], ang[0], 1, 1, 1, ang[1], ang[2])));
+  if (rig.props === 'cook') { prop('engineer_tool', hR, P.pR); prop('engineer_box', hL, [0, 0, 0]); }
+  if (rig.props === 'bomb') { prop('bomber_det', hR, P.pR); prop('bomber_stick', hL, P.pL); }
+  if (rig.props === 'zap') { prop('zap_hand', hR, P.pR); prop('zap_hand', hL, P.pL); }
+  return true;
+}
 // ---- the life in them ---------------------------------------------------------------------------------------------
 // Visual-only state per unit (u.va), measured from what the sim did: speed and acceleration (a hull pitches as it
 // starts and stops), turn rate (it leans into a turn), the shot (a spring kicks it back), an order (a soldier's
@@ -560,7 +666,7 @@ function alrAnimStep(u, dt) {
   a.v += (v - a.v) * Math.min(1, dt * 8);
   a.yr += (dy / dt - a.yr) * Math.min(1, dt * 6);
   a.px = u.x; a.pz = u.z; a.py = u.yaw;
-  if ((u.recoil || 0) > a.rc + 0.4) a.kv -= 3.2;                         // a shot: kick the spring
+  if ((u.recoil || 0) > a.rc + 0.4) { a.kv -= 3.2; a.shotT = alr.t; alrShotFx(u); }   // a shot: kick the spring
   a.rc = u.recoil || 0;
   a.kv += (-a.kick * 140 - a.kv * 13) * dt; a.kick += a.kv * dt;
   if (u.order !== a.ord) { if (u.order && u.owner === 0) a.hop = 1; a.ord = u.order; }
@@ -570,12 +676,36 @@ function alrAnimStep(u, dt) {
   a.look += (a.lookTo - a.look) * Math.min(1, dt * 3);
   const hot = u.lastHit && alr.t - u.lastHit < 2.5 && !u.moving;
   a.crouch += ((hot ? 1 : 0) - a.crouch) * Math.min(1, dt * 6);
+  // the idle clock and the routines: after a few quiet seconds, now and then, a unit does its own little thing
+  a.idleT = idle && !hot ? (a.idleT || 0) + dt : 0;
+  const idles = ALR_INF_RIG[u.type] ? ALR_INF_RIG[u.type].idles : u.type === 'dog' ? ['sniff', 'sit', 'scratch'] : null;
+  if (a.rt) { a.rt.t += dt; if (a.rt.t >= a.rt.T || !idle) a.rt = null; else alrRoutineFx(u, a); }
+  else if (idles && a.idleT > 2.5 && Math.random() < dt * 0.22) {
+    let name = idles[(Math.random() * idles.length) | 0];
+    if (name === 'salute' && u.owner !== 0) name = 'look';
+    a.rt = { name, t: 0, T: ALR_IDLE_T[name] || 2 };
+  }
+  // a turret with nothing to shoot sweeps the ground slowly
+  const sc = !u.target && a.idleT > 3 ? Math.sin(alr.t * 0.4 + u.id) * 0.7 * Math.min(1, (a.idleT - 3) / 2) : 0;
+  a.scan = (a.scan || 0) + (sc - (a.scan || 0)) * Math.min(1, dt * (u.target ? 6 : 1.5));
+  alrInfEase(u, a, dt);
   if (u.D.cat === 'veh' && !u.D.air) {
     const f = u.hp / u.max, back = (k) => [u.x - Math.sin(u.yaw) * k, u.z - Math.cos(u.yaw) * k];
     if (u.moving && Math.random() < dt * (a.acc > 0.3 ? 6 : 1.5)) { const [x, z] = back(0.3); alrP({ x, y: 0.34, z, vx: alrRnd(-0.1, 0.1), vy: 0.5, vz: alrRnd(-0.1, 0.1), s: 0.12, gs: 0.35, T: 0.9, r: 0.22, g: 0.22, b: 0.22, a: 0.45, cell: 1 }); }   // exhaust
     if (f < 0.5 && Math.random() < dt * (f < 0.25 ? 7 : 3)) { const [x, z] = back(0.15); alrFxSmoke(x, 0.38, z, f < 0.25 ? 0.3 : 0.2, 1.6, true); }
     if (f < 0.25 && Math.random() < dt * 6) { const [x, z] = back(0.1); alrFxFire(x + alrRnd(-0.08, 0.08), 0.32, z + alrRnd(-0.08, 0.08), 0.18); }
   }
+}
+// the routines' and shots' little effects: sparks off a Zap Nug's coils, a jetpack's test burn, steam off a grease
+// wand, a rocket's back-blast
+function alrRoutineFx(u, a) {
+  const n = a.rt.name, c = Math.cos(u.yaw), s = Math.sin(u.yaw), W = (lx, ly, lz) => [u.x + c * lx + s * lz, ly, u.z - s * lx + c * lz];
+  if (n === 'crackle' && Math.random() < 0.5) { for (const sx of [0.11, -0.11]) { const [x, y, z] = W(sx * 1.3, 0.34, 0.27); alrGLSprite && alrP({ x, y, z, vx: alrRnd(-0.5, 0.5), vy: alrRnd(-0.2, 0.6), vz: alrRnd(-0.5, 0.5), s: 0.05, T: 0.15, r: 0.6, g: 0.85, b: 1, a: 1, cell: 0, add: true }); } }
+  if (n === 'thrust' && Math.random() < 0.6) for (const sx of [0.055, -0.055]) { const [x, y, z] = W(sx * 1.3, 0.2, -0.2); alrP({ x, y, z, vx: 0, vy: -0.8, vz: 0, s: 0.07, T: 0.25, r: 1, g: 0.6, b: 0.2, a: 0.9, cell: 0, add: true }); }
+  if (n === 'vent' && Math.random() < 0.15) { const [x, y, z] = W(0.06, 0.12, 0.3); alrP({ x, y, z, vx: 0, vy: 0.4, vz: 0, s: 0.12, gs: 0.3, T: 0.9, r: 0.8, g: 0.8, b: 0.78, a: 0.35, cell: 1 }); }
+}
+function alrShotFx(u) {
+  if (u.type === 'rocket') { const c = Math.cos(u.yaw), s = Math.sin(u.yaw); for (let k = 0; k < 3; k++) alrFxSmoke(u.x + s * -0.32 + c * 0.1, 0.45, u.z + c * -0.32 - s * 0.1, 0.18, 0.9); }   // back-blast
 }
 // a vehicle's hull, posed by that state: pitch with acceleration and the shot's kick, roll into turns, a faint
 // idle shudder — one matrix about the unit's own ground point, applied to every part
@@ -901,15 +1031,26 @@ function alrUnitParts0(u) {
     const sway = u.moving && !fly ? Math.sin(u.walk) * 0.07 : 0;
     const sy = (u.moving ? 1 : 1 + Math.sin(tt * 2.1 + ph) * 0.014) * (1 - 0.1 * c);
     const B = alrTRS(u.x, alt + bob + hop - 0.025 * c, u.z, u.yaw + (a.look || 0), 1, sy, 1, lean, sway);
-    if (A[ALR_INF_BODY[t]]) add(ALR_INF_BODY[t], B); else if (A.inf) parts.push({ mesh: A.inf, M: B });
+    const B2 = a.pose && (a.pose.look || a.pose.hop) ? alrMul(B, alrTRS(0, a.pose.hop || 0, 0, a.pose.look || 0)) : B;
+    if (A[ALR_INF_BODY[t]]) add(ALR_INF_BODY[t], B2); else if (A.inf) parts.push({ mesh: A.inf, M: B2 });
+    alrInfRigParts(u, B2, add);
     add('leg', alrMul(B, alrTRS(0.045, 0.13, 0, 0, 1, 1, 1, sw + 0.7 * c)));
     add('leg', alrMul(B, alrTRS(-0.045, 0.13, 0, 0, 1, 1, 1, -sw - 0.25 * c)));
     return parts;
   }
   if (t === 'dog') {
-    const B = alrTRS(u.x, (u.leap > 0 ? Math.sin(u.leap / 0.3 * Math.PI) * 0.18 : 0), u.z, u.yaw);
+    // the corn dog's routines: nose down and sniffing about, sitting (rear legs folded), a hind-leg scratch
+    const a = u.va || {}, rt = a.rt, k = rt ? Math.min(1, rt.t / 0.3, (rt.T - rt.t) / 0.3) : 0, n = rt ? rt.name : '', tt = alr.t || 0;
+    const sit = (n === 'sit' || n === 'scratch') ? k : 0, sniff = n === 'sniff' ? k : 0;
+    const pitch = 0.28 * sniff - 0.42 * sit, yaw = sniff ? Math.sin(tt * 6) * 0.25 * sniff : 0;
+    const B = alrTRS(u.x, (u.leap > 0 ? Math.sin(u.leap / 0.3 * Math.PI) * 0.18 : 0) - 0.02 * sit, u.z, u.yaw + yaw + ((a.look || 0) * 0.5), 1, 1, 1, pitch);
     add('dog', B);
-    R.dog_leg.forEach(([x, y, z], i) => add('dog_leg', alrMul(B, alrTRS(x, y, z, 0, 1, 1, 1, u.moving ? Math.sin(u.walk * 1.6 + (i % 2 ? Math.PI : 0) + (i > 1 ? Math.PI / 2 : 0)) * 0.8 : 0))));
+    R.dog_leg.forEach(([x, y, z], i) => {
+      let p = u.moving ? Math.sin(u.walk * 1.6 + (i % 2 ? Math.PI : 0) + (i > 1 ? Math.PI / 2 : 0)) * 0.8 : 0;
+      if (i > 1) p += 1.2 * sit; else p -= 0.42 * sit;
+      if (n === 'scratch' && i === 2) p += Math.sin(tt * 30) * 0.5 * k;
+      add('dog_leg', alrMul(B, alrTRS(x, y, z, 0, 1, 1, 1, p)));
+    });
     return parts;
   }
   if (u.D && u.D.air === 'heli') {
@@ -938,7 +1079,7 @@ function alrUnitParts0(u) {
   }
   if (t === 'tank' || t === 'heavy') {
     const hy = t === 'tank' ? 0.29 : 0.34, gy = t === 'tank' ? 0.075 : 0.09, gz = t === 'tank' ? 0.12 : 0.15;
-    const T = alrTRS(u.x, hy, u.z, u.tYaw), rc = Math.max(0, u.recoil || 0) * 0.07;
+    const T = alrTRS(u.x, hy, u.z, u.tYaw + ((u.va && u.va.scan) || 0)), rc = Math.max(0, u.recoil || 0) * 0.07;
     add(t, H); add(t + '_turret', T); add(t + '_gun', alrMul(T, alrTRS(0, gy, gz - rc, 0)));
     return parts;
   }
@@ -950,11 +1091,11 @@ function alrUnitParts0(u) {
     if (f > 0.02) add('harv_load', alrMul(H, alrTRS(0, 0.36 + f * 0.08, -0.2, 0, 1, Math.max(0.2, f), 1)));
     return parts;
   }
-  if (t === 'ifv' || t === 'prismtank' || t === 'mirage' || t === 'teslaspud') { const r = R[t + '_turret'], [tx, tz] = alrHullAt(u, r[0], r[2]); add(t, H); add(t + '_turret', alrTRS(tx, r[1], tz, u.tYaw)); return parts; }
+  if (t === 'ifv' || t === 'prismtank' || t === 'mirage' || t === 'teslaspud') { const r = R[t + '_turret'], [tx, tz] = alrHullAt(u, r[0], r[2]); add(t, H); add(t + '_turret', alrTRS(tx, r[1], tz, u.tYaw + ((u.va && u.va.scan) || 0))); return parts; }
   if (t === 'flaktrack') { add(t, H); const f = R.flaktrack_head, [tx, tz] = alrHullAt(u, f[0], f[2]); if (alrArt.b.flak_head) parts.push({ mesh: alrArt.b.flak_head, M: alrTRS(tx, f[1], tz, u.tYaw, f[3]) }); return parts; }
   if (t === 'apoc') {
     const r = R.apoc_turret, [tx, tz] = alrHullAt(u, r[0], r[2]);
-    const T = alrTRS(tx, r[1], tz, u.tYaw), rc = Math.max(0, u.recoil || 0) * 0.08, g = R.apoc_gun;
+    const T = alrTRS(tx, r[1], tz, u.tYaw + ((u.va && u.va.scan) || 0)), rc = Math.max(0, u.recoil || 0) * 0.08, g = R.apoc_gun;
     add('apoc', H); add('apoc_turret', T); add('apoc_gun', alrMul(T, alrTRS(g[0], g[1], g[2] - rc, 0)));
     return parts;
   }

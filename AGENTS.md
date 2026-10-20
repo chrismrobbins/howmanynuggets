@@ -3934,3 +3934,36 @@ all visual (the sim is untouched; a CPU-vs-CPU game plays out the same):
     bounces once, settles, smokes). The wreck is drawn without its turret and gun (`tossed`).
 - **Trees** sway in a breeze that comes and goes across the map. **Rocks** are darker weathered stone (they read as
   pale "turtles" before).
+
+### Pass 2: arms that hold things, and a routine for everyone (same day)
+Chris: *"do all of that now"* (articulated arms + per-weapon animation, an idle routine per unit type).
+- **The infantry rig** (blender/alertrig.py `ARMS`, js/alertUI.js `ALR_INF_RIG`):
+  - Every soldier body is built WITHOUT arms or weapon. The weapon is its own model whose origin is its hold
+    point **P**: `u.inf_gun` (also the jetpack's), `u.rocket_gun`, `u.conscript_gun`, `u.sniper_gun`,
+    `u.greaser_gun`.
+  - Prop-carriers instead have a prop in each fist: `u.engineer_tool` + `u.engineer_box`, `u.bomber_det` +
+    `u.bomber_stick`, `u.zap_hand` ×2.
+  - Arms are unit sleeves (`u.arm_bread / khaki / ghillie / hazmat / armor`, +y 0→1, radius 0.5) stretched
+    by `alrSpan` from the shoulder to the hand, plus a hand (`u.hand_bread / rubber`, r 1 → 0.022).
+  - **P and the grip points (R, L, mag, bolt) are in body coordinates and MUST match between the two files.**
+- **The pose**: `alrInfTarget` picks a target per frame and `alrInfEase` eases toward it in `u.va.pose`.
+  `alrInfRigParts` turns the weapon about P (`alrInfWeaponM`), puts each hand on its grip (or on an override
+  point, blended by rW / lW), and stretches the sleeves.
+  - Holds `rifle` / `tube` / `wand`: aim (target and standing), ready (muzzle down, across the body), march
+    (port arms, swinging).
+  - Recoil from the shot spring: back + muzzle up. The sniper's right hand works the bolt after each shot.
+    The rocket has a back-blast (`alrShotFx`). The wand sweeps while spraying.
+- **Idle routines**: after 2.5 quiet seconds, at random, from the type's list (`ALR_INF_RIG[t].idles`,
+  durations in `ALR_IDLE_T`):
+  - rifle: check (tilt and look at the rifle), reload (left hand to the magazine), salute (yours only; the
+    rifle at order arms), look
+  - conscript: stomp (cold feet) · sniper: scope (aim and sweep) · rocket: shoulder · jetpack: thrust
+    (hop + nozzle flames) · greaser: vent (steam)
+  - cook: tinker (the spatula taps the box), wipe (brow) · bomber: wave (detonator overhead), twitch ·
+    Zap Nug: crackle (arms out, sparks), flex
+  - dog: sniff (nose down, wiggling), sit (rear legs fold), scratch (a hind leg)
+  - Vehicles with nothing to shoot sweep their turrets slowly (`va.scan`, added to `tYaw` for drawing only).
+- **Fallback:** if the weapon or arm meshes aren't loaded, the old baked body is drawn (the procedural one
+  in alertArtP1 still has its arms), so nothing is armless before the mesh file arrives.
+- **Cost:** a soldier is now 8 draws (body, 2 legs, weapon, 2 sleeves, 2 hands) instead of 3; full games
+  were unaffected on the test. Batching (instancing) is the fix if infantry armies ever get huge.
