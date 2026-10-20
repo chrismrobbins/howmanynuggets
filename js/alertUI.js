@@ -60,7 +60,7 @@ function alrUIInit() {
     root, glc: q('.alr-gl'), ov: q('.alr-ov'), msgs: q('.alr-msgs'), side: q('.alr-side'), cash: q('.alr-cash'),
     radar: q('.alr-radar'), radarOff: q('.alr-radar-off'), powUse: q('.alr-pow-use'), powMake: q('.alr-pow-make'),
     tabs: q('.alr-tabs'), grid: q('.alr-grid'), load: q('.alr-load'), menu: q('.alr-menu'), end: q('.alr-end'), nogl: q('.alr-nogl'),
-    keysBox: q('.alr-keys'), tab: 'bld', cameos: {}, g: null, rg: null, mouse: { x: 0, y: 0, in: false }, drag: null, keys: {}, lastClick: 0,
+    keysBox: q('.alr-keys'), tab: 'bld', cameos: {}, g: null, rg: null, mouse: { x: 0, y: 0, in: false }, edge: { x: 0, y: 0, on: false, out: 0 }, scv: [0, 0], drag: null, keys: {}, lastClick: 0,
   };
   U.g = U.ov.getContext('2d'); U.rg = U.radar.getContext('2d');
   U.gl = alrGLInit(U.glc);
@@ -92,6 +92,21 @@ function alrUIInit() {
   U.ov.addEventListener('pointermove', alrPointerMove);
   U.ov.addEventListener('pointerup', alrPointerUp);
   U.ov.addEventListener('pointerleave', () => { U.mouse.in = false; });
+  // edge scrolling watches the pointer over the WHOLE window, not just the battlefield: the right-hand edge sits
+  // against the build menu and the top against the browser's chrome, and the old 10px strip let go the moment the
+  // pointer slid one pixel onto either (Chris: "clunky, particularly near the build menu or the top")
+  window.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch') { U.edge.on = false; return; }
+    const r = U.ov.getBoundingClientRect();
+    U.edge.x = e.clientX - r.left; U.edge.y = e.clientY - r.top; U.edge.on = true; U.edge.out = 0;
+  });
+  // pushed out past the window's edge (a browser window, not full screen): keep scrolling that way a moment,
+  // as if the cursor were pinned there like it is full screen — not forever, in case it's off to another window
+  document.addEventListener('mouseout', (e) => {
+    if (e.relatedTarget) return;
+    const W = window.innerWidth, H = window.innerHeight, x = e.clientX, y = e.clientY;
+    if (x <= 2 || y <= 2 || x >= W - 3 || y >= H - 3) U.edge.out = performance.now(); else U.edge.on = false;
+  });
   // (the pointer only counts as 'in' once it has moved: pointerenter carries no position, and edge
   // scrolling read the stale 0,0 as 'at the left edge')
   U.ov.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -1625,17 +1640,29 @@ function alrUIInput(dt) {
   if (!G.right) return;
   let ux = 0, uy = 0;
   if (U.keys.ArrowLeft) ux -= 1; if (U.keys.ArrowRight) ux += 1; if (U.keys.ArrowUp) uy -= 1; if (U.keys.ArrowDown) uy += 1;
-  // the screen edge scrolls (only while the pointer is over the battlefield, and not while dragging a box)
-  if (U.mouse.in && !U.drag && document.hasFocus()) {
-    const m = 10;
-    if (U.mouse.x < m) ux -= 1; else if (U.mouse.x > cam.w - m) ux += 1;
-    if (U.mouse.y < m) uy -= 1; else if (U.mouse.y > cam.h - m) uy += 1;
+  // the screen edge scrolls — a soft band, not a 10px strip: it starts slow where the band begins and runs full
+  // speed at the very edge. The right-hand band reaches a little onto the build menu (its padding, short of the
+  // cameos), so sliding off the battlefield into the sidebar doesn't stop it dead. Not while dragging a box or panning.
+  const E = U.edge;
+  if (E.out && performance.now() - E.out > 1500) E.on = false;
+  if (E.on && !U.drag && !U.pan && document.hasFocus()) {
+    const band = alrClamp(Math.min(cam.w, cam.h) * 0.045, 22, 44);
+    const ramp = (d) => d >= band ? 0 : 0.3 + 0.7 * (1 - Math.max(0, d) / band) ** 1.5;
+    const x = E.x, y = E.y, onSide = x > cam.w;
+    if (!onSide || x < cam.w + 7) {                      // over the battlefield, or the sidebar's own margin
+      ux -= ramp(x); uy -= ramp(y); uy += ramp(cam.h - 1 - y);
+      ux += onSide ? 1 : ramp(cam.w - 1 - x);
+    } else if (y <= 2 || y >= cam.h - 3) uy += y <= 2 ? -1 : 1;   // the sidebar's very top / bottom edge
   }
-  if (ux || uy) {
-    const sp = cam.zoom * 1.25 * dt;
+  // eased: the camera glides up to speed and coasts to a stop instead of jerking on and off
+  const k = 1 - Math.exp(-dt * ((ux || uy) ? 9 : 12));
+  U.scv[0] += (alrClamp(ux, -1, 1) - U.scv[0]) * k; U.scv[1] += (alrClamp(uy, -1, 1) - U.scv[1]) * k;
+  if (Math.abs(U.scv[0]) < 0.002 && !ux) U.scv[0] = 0; if (Math.abs(U.scv[1]) < 0.002 && !uy) U.scv[1] = 0;
+  if (U.scv[0] || U.scv[1]) {
+    const sp = cam.zoom * 1.35 * dt, vx = U.scv[0], vy = U.scv[1];
     const rl = Math.hypot(G.right[0], G.right[2]) || 1, fl = Math.hypot(G.fwd[0], G.fwd[2]) || 1;
-    cam.x += (G.right[0] / rl * ux - G.fwd[0] / fl * uy) * sp;
-    cam.z += (G.right[2] / rl * ux - G.fwd[2] / fl * uy) * sp;
+    cam.x += (G.right[0] / rl * vx - G.fwd[0] / fl * vy) * sp;
+    cam.z += (G.right[2] / rl * vx - G.fwd[2] / fl * vy) * sp;
   }
   cam.x = alrClamp(cam.x, 2, ALR_N - 2); cam.z = alrClamp(cam.z, 2, ALR_N - 2);
 }

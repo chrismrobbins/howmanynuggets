@@ -3967,3 +3967,6 @@ Chris: *"do all of that now"* (articulated arms + per-weapon animation, an idle 
   in alertArtP1 still has its arms), so nothing is armless before the mesh file arrives.
 - **Cost:** a soldier is now 8 draws (body, 2 legs, weapon, 2 sleeves, 2 hands) instead of 3; full games
   were unaffected on the test. Batching (instancing) is the fix if infantry armies ever get huge.
+
+### Nugget Alert — edge scrolling (2026-10-19)
+`alrUIInput` (alertUI.js) scrolls from a soft band (`band` ≈ 4.5% of the view, 22–44px) with speed ramping 30%→100% toward the edge, eased in/out via `U.scv`. The pointer is tracked window-wide in `U.edge` (not the battlefield's `U.mouse`), so the right band reaches 7px onto the sidebar's margin and the top/bottom of the sidebar scroll too; leaving the browser window through an edge keeps scrolling up to 1.5s. Touch pointers are ignored.
