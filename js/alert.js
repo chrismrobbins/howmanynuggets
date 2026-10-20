@@ -60,6 +60,9 @@ const ALR_BLD = {
   spysat:   { name: 'NUG-SAT UPLINK', w: 3, h: 3, hp: 1000, cost: 1500, power: -100, cat: 'def', req: ['lab'], time: 18, sight: 6, blurb: 'reveals the whole map · needs power' },
   grandfryer: { name: 'GRAND FRYER', side: 'A', faction: 'coast', w: 2, h: 2, hp: 1400, cost: 2000, power: -150, cat: 'def', req: ['factory', 'radar'], time: 20, sight: 12, weapon: 'grand', blurb: 'a giant cannon, 14 tiles · needs power' },
   wallF:    { name: 'FRY WALL', side: 'F', w: 1, h: 1, hp: 300, cost: 100, power: 0, cat: 'def', req: ['barracks'], time: 1.5, sight: 1, wall: true, blurb: 'drag to lay a line' },
+  // the navy (RA2's Naval Shipyard / Sub Pen): built ON the water, within 10 tiles of your base; it builds the ships
+  navyA:    { name: 'NUG NAVAL YARD', side: 'A', role: 'navy', w: 3, h: 3, hp: 1500, cost: 1000, power: -20, cat: 'bld', req: ['refinery'], time: 13, sight: 6, naval: true, makes: 'sea', blurb: 'builds ships · goes on the water' },
+  navyF:    { name: 'FRY SUB PEN', side: 'F', role: 'navy', w: 3, h: 3, hp: 1500, cost: 1000, power: -20, cat: 'bld', req: ['refinery'], time: 13, sight: 6, naval: true, makes: 'sea', blurb: 'builds subs and ships · goes on the water' },
   // neutral: an engineer takes it (cash on capture, then a trickle)
   derrick:  { name: 'FRY OIL DERRICK', w: 2, h: 2, hp: 800, cost: 1000, power: 0, sight: 3, tech: true, income: 5 },
   // the water maps' bridges (RA2): neutral, crossed by everyone, brought down only by heavy hits (force-fire:
@@ -98,6 +101,15 @@ const ALR_UNIT = {
   hawk:     { name: 'NUG HAWK', side: 'A', cost: 900, hp: 220, speed: 3.4, cat: 'veh', time: 10, armor: 'air', sight: 7, req: ['factory', 'radar'], r: 0.42, air: 'heli', alt: 1.7, turn: 2.8, carry: 'inf', cap: 5, blurb: 'carries 5 infantry or dogs · D: unload' },
   lift:     { name: 'SKY FRYER', side: 'A', cost: 1400, hp: 420, speed: 2.5, cat: 'veh', time: 14, armor: 'air', sight: 6, req: ['factory', 'radar'], r: 0.6, air: 'heli', alt: 2.2, turn: 1.8, carry: 'veh', cap: 1, sling: -0.8, blurb: 'lifts a tank on its sling · D: set it down' },
   tater:    { name: 'TATER COPTER', side: 'F', cost: 800, hp: 260, speed: 3.1, cat: 'veh', time: 10, armor: 'air', sight: 7, req: ['factory', 'radar'], r: 0.44, air: 'heli', alt: 1.7, turn: 2.6, carry: 'inf', cap: 6, blurb: 'carries 6 infantry or dogs · D: unload' },
+  // ---- the navy (cat 'sea', from the yard). naval: water only. sub: under the surface — only ship-killing
+  // weapons (torpedoes, depth charges, the squid, the dolphin) reach it. amphib: the hovercraft, land and water.
+  destroyer:{ name: 'BREADED DESTROYER', side: 'A', cost: 1000, hp: 600, speed: 2.4, cat: 'sea', time: 11, weapon: 'navgun', weapon2: 'depth', armor: 'veh', sight: 7, req: ['navy'], turret: true, turn: 1.6, r: 0.55, naval: true, blurb: 'deck gun: ships and the shore · depth charges for subs' },
+  aegis:    { name: 'SAUCE AEGIS', side: 'A', cost: 1200, hp: 700, speed: 2.1, cat: 'sea', time: 12, weapon: 'aegis', armor: 'veh', sight: 8, req: ['navy', 'radar'], turret: true, turn: 1.4, r: 0.6, naval: true, blurb: 'missile cruiser: nothing flies near it' },
+  dolphin:  { name: 'NUG DOLPHIN', side: 'A', cost: 500, hp: 200, speed: 3.6, cat: 'sea', time: 6, weapon: 'sonic', armor: 'sub', sight: 7, req: ['navy', 'radar'], turn: 4, r: 0.35, naval: true, sub: true, blurb: 'sonic blasts: ships and subs · hard to hit' },
+  sub:      { name: 'TYPHOON TATER', side: 'F', cost: 1000, hp: 600, speed: 2.3, cat: 'sea', time: 11, weapon: 'torp', armor: 'sub', sight: 7, req: ['navy'], turn: 1.8, r: 0.5, naval: true, sub: true, blurb: 'submarine: torpedoes sink ships · only ships can hit it' },
+  squid:    { name: 'GIANT CALAMARI', side: 'F', cost: 1000, hp: 500, speed: 3.0, cat: 'sea', time: 10, weapon: 'squid', armor: 'sub', sight: 6, req: ['navy', 'radar'], turn: 3, r: 0.45, naval: true, sub: true, blurb: 'grabs a ship and won\'t let go' },
+  dread:    { name: 'DREADNUGHT', side: 'F', cost: 2000, hp: 1000, speed: 1.6, cat: 'sea', time: 18, weapon: 'dreadM', armor: 'veh', sight: 7, req: ['navy', 'lab'], turn: 1.0, r: 0.75, naval: true, blurb: 'shells the shore with missiles from 16 tiles out' },
+  hover:    { name: 'GRAVY BOAT', cost: 900, hp: 400, speed: 2.7, cat: 'sea', time: 9, armor: 'veh', sight: 6, req: ['navy'], turn: 2.6, r: 0.55, amphib: true, carry: 'any', cap: 6, blurb: 'hovercraft: land and water · 6 soldiers or 3 vehicles · D: unload' },
   hog:      { name: 'HOG LIFTER', side: 'F', cost: 1400, hp: 480, speed: 2.3, cat: 'veh', time: 14, armor: 'air', sight: 6, req: ['factory', 'radar'], r: 0.65, air: 'heli', alt: 1.9, turn: 1.6, carry: 'veh', cap: 1, sling: 0.06, blurb: 'clamps a tank between its legs · D: set it down' },
 };
 const ALR_WALL_KINDS = { shell: 1, rocket: 1, v3: 1, bomb: 1, beam: 1, zap: 1, gravy: 1, kaboom: 1 };
@@ -137,6 +149,14 @@ const ALR_WPN = {
   greaseD: { dmg: 26, rof: 0.9, range: 3.0, kind: 'grease', splash: 1.7, vs: { inf: 1, veh: 0.2, bld: 0.1 }, sfx: 'pour' },
   kaboom:  { dmg: 420, rof: 1, range: 0.75, kind: 'kaboom', splash: 1.7, vs: { inf: 1, veh: 1, bld: 1.4 }, sfx: 'boomL' },
   teslaK:  { dmg: 70, rof: 1.6, range: 5, kind: 'zap', vs: { inf: 1.3, veh: 1, bld: 0.6 }, sfx: 'zap' },
+  // the navy's
+  navgun:  { dmg: 55, rof: 1.9, range: 6.8, kind: 'shell', speed: 15, vs: { inf: 0.5, veh: 1, bld: 0.9 }, sfx: 'heavy' },
+  depth:   { dmg: 70, rof: 1.8, range: 4.2, kind: 'torp', speed: 5, only: 'sub', vs: { sub: 1 }, sfx: 'splat' },
+  aegis:   { dmg: 55, rof: 0.9, range: 11, kind: 'rocket', twin: true, speed: 18, air: true, ground: false, vs: { air: 1 }, sfx: 'rocket' },
+  sonic:   { dmg: 45, rof: 1.0, range: 4.6, kind: 'sonic', only: 'naval', vs: { veh: 1, sub: 1 }, sfx: 'zap' },
+  torp:    { dmg: 130, rof: 2.6, range: 6.2, kind: 'torp', speed: 5, only: 'naval', vs: { veh: 1, sub: 1 }, sfx: 'splat' },
+  squid:   { dmg: 32, rof: 0.7, range: 1.35, kind: 'melee', only: 'naval', grab: true, vs: { veh: 1, sub: 0.6 }, sfx: 'squish' },
+  dreadM:  { dmg: 210, rof: 7, range: 16, min: 4, kind: 'v3', twin: true, speed: 6, splash: 1.3, vs: { inf: 0.6, veh: 0.7, bld: 1 }, sfx: 'rocket' },
   grand:   { dmg: 200, rof: 4.2, range: 14, min: 2.5, kind: 'shell', speed: 9, lob: 2.6, splash: 1.0, vs: { inf: 0.7, veh: 1, bld: 1 }, sfx: 'heavy', power: true },
 };
 // ---- the factions: three to an army (RA2's countries). Each keeps its army's core kit, and adds one thing of its
@@ -158,7 +178,7 @@ const ALR_FACTIONS = {
 };
 const ALR_FACTION_OF = { A: ['republic', 'crown', 'coast'], F: ['union', 'horde', 'cartel'] };
 // a definition's class for the mods
-function alrModCat(D) { return D.cat === 'inf' ? 'inf' : D.cat === 'veh' ? (D.air && D.air !== 'hover' ? 'air' : 'veh') : D.cat === 'def' ? 'def' : 'bld'; }
+function alrModCat(D) { return D.cat === 'inf' ? 'inf' : D.cat === 'veh' || D.cat === 'sea' ? (D.air && D.air !== 'hover' ? 'air' : 'veh') : D.cat === 'def' ? 'def' : 'bld'; }
 function alrMod(owner, D, what) {
   const P = alr.players && alr.players[owner], F = P && P.faction && ALR_FACTIONS[P.faction];
   const m = F && F.mods[what];
@@ -174,7 +194,7 @@ const ALR_SIDES = {
 };
 const ALR_CATS = [
   { key: 'bld', name: 'BUILD', icon: '🏗️' }, { key: 'def', name: 'DEFENSE', icon: '🛡️' },
-  { key: 'inf', name: 'INFANTRY', icon: '🪖' }, { key: 'veh', name: 'VEHICLES', icon: '🚜' },
+  { key: 'inf', name: 'INFANTRY', icon: '🪖' }, { key: 'veh', name: 'VEHICLES', icon: '🚜' }, { key: 'sea', name: 'NAVY', icon: '⚓' },
 ];
 const ALR_TIERS = [
   { key: 'rookie', emoji: '🍟', name: 'ROOKIE', mult: 1, cpu: 0.7, firstWave: 330, wave: [4, 6], bonus: 0,
@@ -257,6 +277,13 @@ const ALR_MAPS = [
     blurb: 'a river between you and them. three bridges. drop one, hold one, fix one.' },
   { key: 'isles', name: 'SAUCE ISLES', N: 104, seed: 2468, ring: [4, 36, 0], trees: 0.66, water: 'isles', centre: 1, emoji: '🏝️',
     blurb: 'an island each, ore and oil on the middle one, a long bridge to it. lose the bridge, lose the war.' },
+  // the navy's maps: a shore by every base, so a yard is a short build away
+  { key: 'lake', name: 'GRAVY LAKE', N: 96, seed: 8812, ring: [3, 33, Math.PI * 0.5], trees: 0.64, water: 'lake', emoji: '🛶',
+    blurb: 'three bases round a lake, a road round the shore. oil on the island in the middle: take a boat.' },
+  { key: 'canal', name: 'THE FRY CANAL', N: 96, seed: 4404, ring: [2, 33, Math.PI], trees: 0.66, water: 'canal', emoji: '⚓',
+    blurb: 'a strip of land between two seas, cut by a canal. the bridges for the tanks, the canal for the fleet.' },
+  { key: 'archi', name: 'THE DIP ISLANDS', N: 96, seed: 1357, ring: [2, 30, Math.PI * 0.75], trees: 0.68, water: 'archi', emoji: '🚢',
+    blurb: 'no road between you. ships, aircraft, and the Gravy Boat to carry the army across.' },
   { key: 'plains', name: 'GRAND FRYER PLAINS', N: 128, seed: 6060, ring: [5, 50, Math.PI * 0.5], trees: 0.63, centre: 2, emoji: '⭐',
     blurb: 'five bases, a sea of grass, a huge contested centre. bring a lot of tanks.' },
 ];
@@ -325,13 +352,48 @@ function alrMakeMap(def) {
       return v > 0 ? v + (nzI(qx * 0.2, qz * 0.2) - 0.5) * 0.18 : -1;     // (the wobble only bends coasts; open sea stays sea)
     };
     for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) if (land(x + 0.5, z + 0.5) <= 0.02) W[at(x, z)] = 1;
+  } else if (def.water === 'lake' || def.water === 'canal' || def.water === 'archi') {
+    // the coast is a field sampled in sector 0's frame (so every base gets the same shore), > 0 = water
+    const nzW = alrNoise(seed + 3), TW = (x, z) => { const th = Math.atan2(z - c, x - c), i = ((Math.round((th - A0) / (TAU / K)) % K) + K) % K; return rot([x, z], -i); };
+    const wob = (x, z) => (nzW(x * 0.13, z * 0.13) - 0.5) * 3.2;
+    const segD = (px, pz, a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1, t = alrClamp(((px - a[0]) * dx + (pz - a[1]) * dz) / L2, 0, 1); return Math.hypot(px - a[0] - dx * t, pz - a[1] - dz * t); };
+    const wetAt = (x, z) => {
+      const [qx, qz] = TW(x, z), w = wob(qx, qz), dc = Math.hypot(x - c, z - c);
+      let v = -1;
+      if (def.water === 'lake') {
+        // the lake, a bay reaching toward every base (beside its road out), and an island in the middle
+        v = 17 + w - dc;
+        const bay = segD(qx, qz, [c, c], L(13, 6));
+        v = Math.max(v, 3.2 + w * 0.4 - bay);
+        if (dc < 4.2 + w * 0.3) v = -1;
+      } else if (def.water === 'canal') {
+        // a band of land through both bases between two seas, a canal across the middle of it
+        const ax = Math.cos(A0), az = Math.sin(A0), across = Math.abs(-(x - c) * az + (z - c) * ax), along = Math.abs((x - c) * ax + (z - c) * az);
+        v = across - (17 + w + Math.max(0, along - 20) * 0.15);
+        v = Math.max(v, 2.6 - along + w * 0.15);
+        v = Math.max(v, 3.0 + w * 0.3 - segD(qx, qz, L(3, 12), L(3, 30)));          // a harbour inlet beside every base
+      } else {
+        // the islands: one round every base (a long shore toward the other), little ones between, sea everywhere else
+        v = 1;
+        for (const [sx, sz] of M.starts) v = Math.min(v, Math.hypot(x - sx, z - sz) - (16.5 + w));
+        for (const p of [[c, c, 4.5], ...[0, 1].map((i) => rot(L(R * 0.62, 10), i).concat(3.6)), ...[0, 1].map((i) => rot(L(R * 0.62, -10), i).concat(3.6))]) v = Math.min(v, Math.hypot(x - p[0], z - p[1]) - (p[2] + w * 0.3));
+      }
+      return v;
+    };
+    for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) if (wetAt(x + 0.5, z + 0.5) > 0) W[at(x, z)] = 1;
+    if (def.water === 'canal') crossings.push(L(R, 9), L(R, -9));      // two bridges over the canal (at the centre line ±9)
+    M.island = def.water === 'archi';
   }
   // the tracks: from every base into the middle, bent the same way (straight on the isles: the bridge is on it)
   const onTrack = new Uint8Array(N * N);
   const P0 = [S0, L(R * 0.5, def.water === 'isles' ? 0 : bend), [c, c]];
-  for (let i = 0; i < K; i++) {
+  const mR = (s0, a, r0) => [c + Math.cos(A0 + a) * r0, c + Math.sin(A0 + a) * r0];
+  const routes = def.water === 'lake' ? [[S0, L(4, -9), mR(0, Math.PI / K, R * 0.86)], [S0, L(4, 9), mR(0, -Math.PI / K, R * 0.86)]]
+    : def.water === 'canal' ? [[S0, L(R * 0.5, bend * 0.4), L(R, 9)], [S0, L(R * 0.5, -bend * 0.4), L(R, -9)]]
+    : def.water === 'archi' ? [[S0, L(11, 0)]] : [P0];
+  for (let i = 0; i < K; i++) for (const P1 of routes) {
     const path = [];
-    for (let q = 0; q < P0.length - 1; q++) { const a = rot(P0[q], i), b = rot(P0[q + 1], i); for (let k = 0; k <= 30; k++) { const t = k / 30; path.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); } }
+    for (let q = 0; q < P1.length - 1; q++) { const a = rot(P1[q], i), b = rot(P1[q + 1], i); for (let k = 0; k <= 30; k++) { const t = k / 30; path.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); } }
     M.tracks.push(path);
     for (const [px, pz] of path) disk(px, pz, 2.2, (ii, jj, d) => { onTrack[at(ii, jj)] = 1; ridge[at(ii, jj)] = 0; M.dirt[at(ii, jj)] = Math.max(M.dirt[at(ii, jj)], alrClamp((2.2 - d) / 1.4, 0, 1) * 0.85); });
   }
@@ -355,6 +417,7 @@ function alrMakeMap(def) {
   const mid = [c + Math.cos(A0 + Math.PI / K) * R * 0.63, c + Math.sin(A0 + Math.PI / K) * R * 0.63];
   each(mid, ([x, z]) => field(x, z, 3.4));
   if (def.centre) field(c, c, 3.5 + def.centre * 1.5, 1.3);
+  if (def.water === 'archi') each(L(R * 0.62, -10), ([x, z]) => field(x, z, 2.6, 1.4));     // (rich ore on the little islands: a hauler can't get there)
   // the oil derricks: one in the pass between every pair of bases, one off every base's road on the big maps
   const derrick = (x, z) => {
     if (M.water[at(alrClamp(Math.round(x), 0, N - 1), alrClamp(Math.round(z), 0, N - 1))]) {     // in the water: walk to the nearest land
@@ -368,8 +431,10 @@ function alrMakeMap(def) {
     M.derricks.push([alrClamp(tx, 2, N - 4), alrClamp(tz, 2, N - 4)]);
   };
   if (def.water === 'isles') each([c + Math.cos(A0 + Math.PI / K) * 5.5, c + Math.sin(A0 + Math.PI / K) * 5.5], ([x, z]) => derrick(x, z));   // the oil is on the middle island
+  else if (def.water === 'lake') { derrick(c - 0.5, c - 0.5); each(mR(0, Math.PI / K, R * 0.98), ([x, z]) => derrick(x, z)); }
+  else if (def.water === 'archi') { derrick(c, c); each(L(R * 0.62, 10), ([x, z]) => derrick(x, z)); }
   else each([c + Math.cos(A0 + Math.PI / K) * R * 0.4, c + Math.sin(A0 + Math.PI / K) * R * 0.4], ([x, z]) => derrick(x, z));
-  if ((K === 2 || N >= 96) && def.water !== 'isles') each(L(R * 0.62, -6.5), ([x, z]) => derrick(x, z));
+  if ((K === 2 || N >= 96) && !/isles|lake|archi/.test(def.water || '')) each(L(R * 0.62, -6.5), ([x, z]) => derrick(x, z));
   // the gems (RA2's): small fields worth TWICE as much a load, that never grow back — one between every pair of
   // neighbouring bases, closer in than the pass's ore, so a rich prize to race for and fight over, then gone.
   // (oreMax 0: alrOreGrow leaves them; M.gem marks the tile for the harvest pay, the models, the radar.)
@@ -401,6 +466,8 @@ function alrMakeMap(def) {
     // axis the road runs, two tiles wide, from the last land tile to the next
     const want = [];
     if (def.water === 'river') for (const q of crossings) want.push([q[0], q[1], 'x']);
+    else if (def.water === 'canal') { const ax = Math.abs(Math.cos(A0)) > 0.7 ? 'x' : 'z'; for (const q of crossings) want.push([q[0], q[1], ax]); }
+    else if (def.water === 'lake' || def.water === 'archi') { /* no bridges: round the shore, or by boat */ }
     else for (const path of M.tracks) for (let q = 1; q < path.length; q++) {
       const [x0, z0] = path[q - 1], [x1, z1] = path[q];
       if (!W[at(Math.floor(x0), Math.floor(z0))] && W[at(Math.floor(x1), Math.floor(z1))]) want.push([x1, z1, Math.abs(x1 - x0) >= Math.abs(z1 - z0) ? 'x' : 'z']);
@@ -493,12 +560,12 @@ function alrNewGame(tier, side, mapKey, nAI) {
     team: Object.assign({}, ALR_TEAMS[i], { name: ALR_FACTIONS[facs[i]].name + (m > 2 && i > 0 ? ' · ' + ALR_TEAMS[i].tag : '') }),
     power: ALR_FACTIONS[facs[i]].power ? { kind: ALR_FACTIONS[facs[i]].power.kind, t: ALR_FACTIONS[facs[i]].power.first } : null,
     credits: 7500, make: 0, use: 0, low: false,
-    q: { bld: [], def: [], inf: [], veh: [] }, ready: { bld: null, def: null },
+    q: { bld: [], def: [], inf: [], veh: [], sea: [] }, ready: { bld: null, def: null },
     shroud: new Uint8Array(ALR_N * ALR_N), ai: i > 0 ? alrAINew(i) : null, lost: false, underAttack: 0,
   }));
   // the last seat: the neutral oil derricks (no army, no turn, never the target of an auto-attack)
   alr.NEU = alr.players.length;
-  alr.players.push({ id: alr.NEU, neutral: true, side: '', team: ALR_TEAMS[ALR_TEAMS.length - 1], credits: 0, make: 0, use: 0, low: false, q: { bld: [], def: [], inf: [], veh: [] }, ready: {}, lost: false, underAttack: 0 });
+  alr.players.push({ id: alr.NEU, neutral: true, side: '', team: ALR_TEAMS[ALR_TEAMS.length - 1], credits: 0, make: 0, use: 0, low: false, q: { bld: [], def: [], inf: [], veh: [], sea: [] }, ready: {}, lost: false, underAttack: 0 });
   alrUILoading(true);
   // let the loading card paint before the terrain texture is baked
   setTimeout(() => {
@@ -597,6 +664,8 @@ function alrExit(b) { return b.type === 'factory' ? [b.x, b.tz - 0.45] : [b.x + 
 function alrAlive(e) { return e && e.hp > 0 && alr.byId.has(e.id); }
 function alrBldsOf(o, type) { return alr.ents.filter((e) => e.kind === 'bld' && e.owner === o && e.build >= 1 && (!type || e.type === type)); }
 function alrHas(o, type) { return alr.ents.some((e) => e.kind === 'bld' && e.owner === o && (e.type === type || e.D.role === type) && e.build >= 1 && e.hp > 0); }
+function alrNavyYards(o) { return alr.ents.filter((e) => e.kind === 'bld' && e.owner === o && e.D.role === 'navy' && e.build >= 1 && e.hp > 0); }
+function alrBridgeTile(k) { const M = alr.M; if (!M.bridges.length) return false; for (const B of M.bridges) if (B.tiles.includes(k)) return true; return false; }
 // an Air Nug Command's four pads (local ±0.95; the building is drawn turned 180°, so world = center − local)
 const ALR_PADS = [[-0.95, -0.95], [0.95, -0.95], [-0.95, 0.95], [0.95, 0.95]];
 function alrPadPos(b, i) { return [b.x - ALR_PADS[i][0], b.z - ALR_PADS[i][1]]; }
@@ -656,6 +725,8 @@ function alrCanBuild(P, type) {
   if (D.faction && D.faction !== P.faction) return false;   // another faction's own
   if (!alrHas(P.id, 'hq') && (D.cat === 'bld' || D.cat === 'def')) return false;
   if (D.cat === 'inf' && !alrHas(P.id, 'barracks')) return false;
+  if (D.cat === 'sea' && !alrHas(P.id, 'navy')) return false;
+  if (D.naval && D.cat === 'bld' && !(alr.M && alr.M.wet)) return false;          // (no yard on a dry map)
   if (D.air === 'jet') { if (!alrHas(P.id, 'airhq')) return false; }      // jets come off the pads, four to a command
   else if (D.cat === 'veh' && !alrHas(P.id, 'factory')) return false;
   if (D.air === 'jet') {
@@ -667,7 +738,7 @@ function alrCanBuild(P, type) {
 function alrQueue(P, type) {
   const D = ALR_BLD[type] || ALR_UNIT[type];
   if (!alrCanBuild(P, type)) return false;
-  const q = P.q[D.cat];
+  const q = P.q[D.cat] || (P.q[D.cat] = []);
   if (D.cat === 'bld' || D.cat === 'def') {
     if (P.ready[D.cat]) return false;
     if (q.length) {
@@ -692,15 +763,15 @@ function alrUnqueue(P, type) {
   if (P.human) { alrSay('CANCELED', '#ffd27a'); alrSfx('click'); }
 }
 function alrProduce(P, dt) {
-  for (const cat of ['bld', 'def', 'inf', 'veh']) {
-    const q = P.q[cat];
+  for (const cat of ['bld', 'def', 'inf', 'veh', 'sea']) {
+    const q = P.q[cat] || (P.q[cat] = []);         // (a save from before the navy has no 'sea' queue)
     if (!q.length) continue;
     const it = q[0];
     if (it.hold) continue;
     const D = ALR_BLD[it.type] || ALR_UNIT[it.type];
     if (!alrCanBuild(P, it.type)) continue;
     // more factories, faster; low power, half speed; the CPU's tier sets its pace
-    const nf = cat === 'inf' ? alrBldsOf(P.id, 'barracks').length : cat === 'veh' ? alrBldsOf(P.id, 'factory').length : 1;
+    const nf = cat === 'inf' ? alrBldsOf(P.id, 'barracks').length : cat === 'veh' ? alrBldsOf(P.id, 'factory').length : cat === 'sea' ? alrNavyYards(P.id).length : 1;
     // (RA2: each extra factory of the kind multiplies the build time by 0.8)
     const cost = alrCost(P, D);
     let rate = cost / (D.time * alrMod(P.id, D, 'time')) / Math.pow(0.8, Math.max(0, nf - 1)) * (P.low ? 0.5 : 1);
@@ -731,17 +802,26 @@ function alrDeliver(P, type) {
     if (P.human) { alrSay('UNIT READY', '#9bff9b'); alrSfx('ready'); }
     return;
   }
-  const from = alrBldsOf(P.id, D.cat === 'inf' ? 'barracks' : 'factory');
+  const from = D.cat === 'sea' ? alrNavyYards(P.id) : alrBldsOf(P.id, D.cat === 'inf' ? 'barracks' : 'factory');
   if (!from.length) return;
   const b = from[alr.t % from.length | 0];
-  const [x, z] = alrExit(b);
+  let [x, z] = alrExit(b);
+  if (D.cat === 'sea') {
+    // out of the yard's slip onto open water, on the side facing away from the land
+    const probe = { D };
+    const k = alrNearestFree(alrTile(b.x, b.z), probe);
+    if (k < 0) { P.credits += alrCost(P, D); return; }
+    x = k % ALR_N + 0.5; z = ((k / ALR_N) | 0) + 0.5;
+    b.door = 1.6;
+  }
   const u = alrSpawnUnit(type, P.id, x, z);
-  u.yaw = u.tYaw = Math.PI;
+  u.yaw = u.tYaw = D.cat === 'sea' ? Math.atan2(x - b.x, z - b.z) : Math.PI;
   if (b.type === 'factory') b.door = 1.6;
   if (D.harv) u.order = { type: 'harvest' };
   else if (D.engineer && !P.human) u.order = null;        // the CPU sends its own cooks
   else {
-    const rx = b.rally ? b.rally[0] : x + (P.id === 0 ? 1.5 : -1.5) + alrRnd(-1, 1), rz = b.rally ? b.rally[1] : z - 1.6 + alrRnd(-0.6, 0.6);
+    const sea = D.cat === 'sea', ox = sea ? (x - b.x) * 0.9 : 0, oz = sea ? (z - b.z) * 0.9 : 0;
+    const rx = b.rally ? b.rally[0] : sea ? x + ox + alrRnd(-1, 1) : x + (P.id === 0 ? 1.5 : -1.5) + alrRnd(-1, 1), rz = b.rally ? b.rally[1] : sea ? z + oz + alrRnd(-1, 1) : z - 1.6 + alrRnd(-0.6, 0.6);
     const [sx, sz] = alrRallySlot(u, rx, rz);
     alrOrderMove(u, sx, sz, false);
   }
@@ -750,7 +830,7 @@ function alrDeliver(P, type) {
 // a free spot near a rally point: rings outward at a unit's spacing, skipping where someone of yours stands or is
 // already headed, and ground you can't stand on
 function alrRallySlot(u, x, z) {
-  const gap = u.D.cat === 'veh' ? 0.95 : 0.5;
+  const gap = u.D.cat === 'inf' ? 0.5 : u.D.cat === 'sea' ? 1.3 : 0.95;
   const taken = alr.ents.filter((e) => e !== u && e.kind === 'unit' && e.owner === u.owner && !e.D.air).map((e) => (e.order && e.order.type === 'move' ? [e.order.x, e.order.z] : [e.x, e.z]));
   for (let ring = 0; ring < 7; ring++) {
     const n = ring ? ring * 6 : 1;
@@ -769,13 +849,16 @@ function alrCanPlace(P, type, tx, tz) {
   if (tx < 1 || tz < 1 || tx + D.w > ALR_N - 1 || tz + D.h > ALR_N - 1) return false;
   for (let j = 0; j < D.h; j++) for (let i = 0; i < D.w; i++) {
     const k = (tz + j) * ALR_N + tx + i;
-    if (M.block[k] || M.bld[k] || M.ore[k] > 0 || (M.water && M.water[k])) return false;
+    if (D.naval) { if (!M.water[k] || M.bld[k] || alrBridgeTile(k)) return false; }        // a yard: all of it on open water
+    else if (M.block[k] || M.bld[k] || M.ore[k] > 0 || (M.water && M.water[k])) return false;
     if (P.human && !P.shroud[k]) return false;
   }
+  // a yard needs open water round it to launch into (not jammed in a one-tile creek)
+  if (D.naval) { let open = 0; for (let j = -1; j <= D.h; j++) for (let i = -1; i <= D.w; i++) { if (j >= 0 && j < D.h && i >= 0 && i < D.w) continue; const x = tx + i, z = tz + j; if (alrIn(x, z) && M.water[z * ALR_N + x] && !M.bld[z * ALR_N + x]) open++; } if (open < 5) return false; }
   // nobody standing there
   for (const e of alr.ents) if (e.kind === 'unit' && e.x > tx - 0.2 && e.x < tx + D.w + 0.2 && e.z > tz - 0.2 && e.z < tz + D.h + 0.2) return false;
   let near = false;
-  const reach = D.wall ? 6 : 2;
+  const reach = D.wall ? 6 : D.naval ? 10 : 2;
   for (const e of alr.ents) if (e.kind === 'bld' && e.owner === P.id && e.hp > 0 && !e.D.tech) {
     const gx = Math.max(e.tx - (tx + D.w), tx - (e.tx + e.w), 0), gz = Math.max(e.tz - (tz + D.h), tz - (e.tz + e.h), 0);
     if (Math.max(gx, gz) <= reach) { near = true; break; }
@@ -814,7 +897,15 @@ function alrSell(e) {
 
 // ---- pathfinding: A* on the tile grid, 8 directions, no cutting corners ------------------------------------
 function alrPassable(k, self) {
-  const M = alr.M;
+  const M = alr.M, D = self && self.D;
+  // ships keep to the water (under the bridges too, standing or not); the hovercraft goes either way
+  if (D && (D.naval || D.amphib)) {
+    if (M.bld[k]) return false;
+    const x = k % ALR_N, z = (k / ALR_N) | 0;
+    if (x < 1 || z < 1 || x >= ALR_N - 1 || z >= ALR_N - 1) return false;
+    if (M.water[k]) return true;
+    return !!D.amphib && !M.block[k];
+  }
   if (M.block[k]) return false;
   const b = M.bld[k];
   if (b && (!self || !self.dockFor || self.dockFor !== b)) return false;
@@ -940,20 +1031,46 @@ function alrGroupMove(units, x, z, am) {
 // The Sky Fryer hangs it on a sling under the belly; the Hog Lifter clamps it between its legs.
 function alrCanCarry(h, u) {
   if (!h || !h.D.carry || u === h || u.kind !== 'unit' || h.owner !== u.owner || u.D.air) return false;
-  return h.D.carry === 'inf' ? u.D.cat === 'inf' : u.D.cat === 'veh';
+  if (u.D.carry || u.D.cat === 'sea') return false;
+  return h.D.carry === 'any' ? u.D.cat === 'inf' || u.D.cat === 'veh' : h.D.carry === 'inf' ? u.D.cat === 'inf' : u.D.cat === 'veh';
 }
+// the room one takes (in the Gravy Boat a vehicle takes two places)
+function alrSlots(h, u) { return h.D.carry === 'any' && u.D.cat === 'veh' ? 2 : 1; }
+function alrLoadOf(h) { let n = 0; for (const p of h.load) n += alrSlots(h, p); return n; }
 // spaces left, counting those already on their way in
-function alrRoom(h, but) { return h.D.cap - h.load.length - alr.ents.filter((q) => q !== but && q.order && q.order.type === 'board' && q.order.t === h.id).length; }
+function alrRoom(h, but) { let n = h.D.cap - alrLoadOf(h); for (const q of alr.ents) if (q !== but && q.order && q.order.type === 'board' && q.order.t === h.id) n -= alrSlots(h, q); return n; }
 function alrOrderBoard(u, h) {
-  if (!alrCanCarry(h, u) || !alrAlive(h) || alrRoom(h, u) <= 0) return false;
+  if (!alrCanCarry(h, u) || !alrAlive(h) || alrRoom(h, u) < alrSlots(h, u)) return false;
   u.deployed = false; u.order = { type: 'board', t: h.id }; u.target = null; u.path = null; u.repathT = 0;
   if (h.order && h.order.type === 'move') { h.order = null; h.path = null; }   // it waits for them
   return true;
 }
 function alrOrderUnload(h) {
   if (!h.D.carry || !h.load.length) return;
-  if (!alrLandOk(h.x, h.z, h)) { if (h.owner === 0) { alrSay('CANNOT UNLOAD HERE', '#ff8a7a'); alrSfx('error'); } return; }
+  if (h.D.amphib ? !alrShoreNear(h) : !alrLandOk(h.x, h.z, h)) { if (h.owner === 0) { alrSay('CANNOT UNLOAD HERE', '#ff8a7a'); alrSfx('error'); } return; }
   h.order = { type: 'unload' }; h.path = null; h.dropT = 0.3;
+}
+// the hovercraft unloads on land, or afloat beside it (a tile from the bank)
+function alrShoreNear(h) {
+  if (alrLandOk(h.x, h.z, h)) return true;
+  for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const x = h.x + dx * 1.1, z = h.z + dz * 1.1; if (alrIn(x, z) && alrPassable(alrTile(x, z))) return true; }
+  return false;
+}
+// the hovercraft as a ferry: someone's coming aboard and it's out on the water — run up onto the nearest bank;
+// told to unload — the hold opens, one at a time onto dry land
+function alrFerryStep(u, dt) {
+  const o = u.order;
+  if (!o && u.wantLand > alr.t && alr.M.water[alrTile(u.x, u.z)] && !alrShoreNear(u)) {
+    const k = alrNearestFree(alrTile(u.x, u.z), null);
+    if (k >= 0) { u.order = { type: 'move', x: (k % ALR_N) + 0.5, z: Math.floor(k / ALR_N) + 0.5, am: false }; u.path = alrPath(u.x, u.z, u.order.x, u.order.z, u); u.pi = 0; }
+  }
+  if (o && o.type === 'unload') {
+    u.moving = false; u.vx = u.vz = 0; u.path = null;
+    if ((u.dropT -= dt) <= 0) { u.dropT = 0.25; const p = u.load.shift(); if (p) alrDisembark(p, u, u.load.length); }
+    if (!u.load.length) { u.order = null; u.guardX = u.x; u.guardZ = u.z; if (u.owner === 0) alrSfx('click'); }
+    return true;
+  }
+  return false;
 }
 // the height it sits at on the ground (a sling lifter hovers so the tank under it touches down)
 function alrLandAlt(h) { return h.D.sling < 0 ? -h.D.sling + 0.04 : 0; }
@@ -990,10 +1107,11 @@ function alrHeliStep(u, dt) {
 }
 function alrBoardStep(u, dt) {
   const h = alr.byId.get(u.order.t);
-  if (!alrAlive(h) || !alrCanCarry(h, u) || h.load.length >= h.D.cap) { u.order = null; u.path = null; u.moving = false; return; }
+  if (!alrAlive(h) || !alrCanCarry(h, u) || alrLoadOf(h) + alrSlots(h, u) > h.D.cap) { u.order = null; u.path = null; u.moving = false; return; }
   h.wantLand = alr.t + 0.6;                                   // keep it on the ground while they come
   const d = Math.hypot(h.x - u.x, h.z - u.z), down = h.alt <= alrLandAlt(h) + 0.06 && !h.order;
-  if (down && d < (u.D.cat === 'veh' ? 0.8 : 0.65)) { alrBoard(u, h); return; }
+  // (afloat at the bank, the boat takes them from the water's edge)
+  if (down && d < (h.D.amphib ? 1.35 + u.D.r : u.D.cat === 'veh' ? 0.8 : 0.65)) { alrBoard(u, h); return; }
   if (!down && d < 0.9) { u.moving = false; u.vx = u.vz = 0; return; }   // there: wait for it to touch down
   if (!u.path || (u.repathT -= dt) <= 0) { u.repathT = 0.8; u.path = alrPath(u.x, u.z, h.x, h.z, u); u.pi = 0; }
   u.moving = alrFollow(u, dt);
@@ -1008,7 +1126,7 @@ function alrBoard(u, h) {
 // out of the hold: around the carrier, on the nearest free ground (a vehicle straight down under a lifter)
 function alrDisembark(p, h, i) {
   let x = h.x, z = h.z;
-  if (p.D.cat !== 'veh') { const a = h.yaw + Math.PI + (i - 2) * 0.7, r = 0.55 + (i % 2) * 0.2; x = h.x + Math.sin(a) * r; z = h.z + Math.cos(a) * r; }
+  if (p.D.cat !== 'veh' || h.D.amphib) { const a = h.yaw + Math.PI + (i - 2) * 0.7, r = (h.D.amphib ? 0.85 : 0.55) + (i % 2) * 0.2 + (p.D.cat === 'veh' ? 0.3 : 0); x = h.x + Math.sin(a) * r; z = h.z + Math.cos(a) * r; }
   let k = alrTile(x, z);
   if (!alrIn(x, z) || !alrPassable(k, p) || (alr.M.water && alr.M.water[k])) { k = alrNearestFree(alrTile(h.x, h.z), p); if (k < 0) { h.load.unshift(p); return; } x = (k % ALR_N) + 0.5; z = Math.floor(k / ALR_N) + 0.5; }
   p.x = x; p.z = z; p.yaw = h.yaw; p.tYaw = h.yaw; p.guardX = x; p.guardZ = z; p.order = null; p.path = null; p.target = null;
@@ -1080,9 +1198,25 @@ function alrSim(dt) {
 function alrW(u) { const k = u.deployed && u.D.deploy ? u.D.deploy : u.D.weapon; return k ? ALR_WPN[k] : null; }
 function alrAirborne(t) { return t.kind === 'unit' && !!t.D.air && t.alt > 0.5; }
 function alrArmor(t) { return t.kind === 'bld' ? 'bld' : alrAirborne(t) ? 'air' : t.D.armor === 'air' ? 'veh' : t.D.armor; }
+// a sub under the surface can't be seen — by `viewer` — until it fires (3 s), or one of the viewer's ships or
+// buildings is right on top of it (RA2's subs surfaced to fire; the destroyer's sonar found them)
+function alrSubHidden(e, viewer) {
+  if (e.kind !== 'unit' || !e.D.sub || e.owner === viewer) return false;
+  if (alr.t - (e.firedT == null ? -99 : e.firedT) < 3) return false;
+  for (const q of alr.ents) if (q.owner === viewer && (q.kind === 'bld' ? q.D.naval : q.D.naval) && Math.abs(q.x - e.x) < 3.2 && Math.abs(q.z - e.z) < 3.2) return false;
+  return true;
+}
+// what a weapon can reach at sea: a sub only by weapons made for it; torpedoes and the squid only hit ships
+function alrSeaOk(W, t) {
+  if (t.kind === 'unit' && t.D.sub && !(W.vs && W.vs.sub > 0)) return false;
+  if (W.only === 'naval') return t.kind === 'unit' && !!t.D.naval;
+  if (W.only === 'sub') return t.kind === 'unit' && !!t.D.sub;
+  return true;
+}
 // can this weapon hurt that? (most guns can't shoot up; flak and SAMs can't shoot down; only heavy hits dent a wall)
 function alrCanHit(W, t) {
   if (!W || !t) return false;
+  if (!alrSeaOk(W, t)) return false;
   const air = alrAirborne(t);
   if (air ? !W.air : W.ground === false) return false;
   const v = W.vs[alrArmor(t)];
@@ -1114,6 +1248,7 @@ function alrUnitStep(u, dt) {
   if (u.order && u.order.type === 'board') { alrBoardStep(u, dt); return; }
   if (D.air) u.alt += (D.alt - u.alt) * Math.min(1, dt * 2);
   if (D.engineer) { alrEngineerStep(u, dt); return; }
+  if (D.amphib && D.carry && alrFerryStep(u, dt)) return;
   const o = u.order, W = alrW(u);
   // targets: keep the one we're told to kill; otherwise look around (guard)
   if (o && o.type === 'attack') {
@@ -1194,6 +1329,7 @@ function alrUnitStep(u, dt) {
 // follow the path; vehicles turn before they drive, infantry pivot on the spot, aircraft ignore the ground
 function alrFollow(u, dt) {
   if (!u.path || u.pi >= u.path.length) { u.path = null; u.vx = u.vz = 0; return false; }
+  if (u.grabbed > alr.t) { u.vx = u.vz = 0; return false; }      // held by the Giant Calamari: dead in the water (its guns still work)
   const [wx, wz] = u.path[u.pi];
   const dx = wx - u.x, dz = wz - u.z, d = Math.hypot(dx, dz);
   const last = u.pi === u.path.length - 1, air = !!u.D.air;
@@ -1203,7 +1339,7 @@ function alrFollow(u, dt) {
   const turn = u.D.turn || 9;
   u.yaw += alrClamp(da, -turn * dt, turn * dt);
   const align = u.D.cat === 'inf' ? 1 : Math.max(0, Math.cos(da));
-  let sp = u.D.speed * (u.spd || 1) * ALR_RANK[u.rank].speed * align * (u.D.cat === 'veh' && Math.abs(da) > 0.9 ? 0.15 : 1);
+  let sp = u.D.speed * (u.spd || 1) * ALR_RANK[u.rank].speed * align * (u.D.cat !== 'inf' && Math.abs(da) > 0.9 ? 0.15 : 1);
   if (last) sp = Math.min(sp, d * 4);
   const nx = u.x + Math.sin(u.yaw) * sp * dt, nz = u.z + Math.cos(u.yaw) * sp * dt;
   const k = alrTile(nx, nz);
@@ -1243,6 +1379,7 @@ function alrAcquire(u, range, W) {
     if (e.kind === 'bld' && e.D.wall) continue;                 // nobody shoots at walls on their own
     if (W && !alrCanHit(W, e)) continue;
     if (u.owner === 0 && !alr.players[0].shroud[alrTile(e.x, e.z)]) continue;
+    if (e.D.sub && alrSubHidden(e, u.owner)) continue;
     const d = alrDistTo(u.x, u.z, e);
     if (d > range || (W && W.min && d < W.min)) continue;
     if (e.D.disguise && e.still > 1.2 && d > 1.5) continue;     // that's just a tree
@@ -1592,7 +1729,7 @@ const ALR_HEADS = { turret: 1, sam: 1, flak: 1, bunker: 1 };
 
 // ---- weapons ---------------------------------------------------------------------------------------------------
 // where the shot leaves from: [forward, height] off the turret (or the body) for each unit; the buildings by type
-const ALR_MUZ = { tank: [0.55, 0.4], heavy: [0.62, 0.47], ifv: [0.3, 0.42], prismtank: [0.18, 0.66], mirage: [0.5, 0.42], flaktrack: [0.32, 0.52],
+const ALR_MUZ = { destroyer: [0.68, 0.12], aegis: [0.6, 0.25], dread: [0.5, 0.3], sub: [0.7, -0.05], dolphin: [0.35, 0.0], squid: [0.4, 0.1], tank: [0.55, 0.4], heavy: [0.62, 0.47], ifv: [0.3, 0.42], prismtank: [0.18, 0.66], mirage: [0.5, 0.42], flaktrack: [0.32, 0.52],
   harvF: [0.3, 0.66], apoc: [0.78, 0.6], v3: [0.45, 0.6], inf: [0.27, 0.25], conscript: [0.27, 0.25], rocket: [0.25, 0.36], zapper: [0.2, 0.28], dog: [0.25, 0.12], jetpack: [0.22, 0.25] };
 function alrMuzzle(e, side) {
   const s = side || 0;
@@ -1612,7 +1749,7 @@ function alrAimPoint(t) {
   return [t.x, (t.alt || 0) + (t.D.cat === 'inf' ? 0.22 : 0.3), t.z];
 }
 function alrFire(e, t, W) {
-  if (e.kind === 'unit') e.still = 0;
+  if (e.kind === 'unit') { e.still = 0; e.firedT = alr.t; }
   // the prism towers around this one lend it their light (RA2: each relaying tower +50%, here up to 4)
   let mul = 1;
   if (W.relay) {
@@ -1630,7 +1767,8 @@ function alrFire(e, t, W) {
     const go = () => {
       if (!alr.byId.has(e.id)) return;
       if (W.kind === 'bullet') { alrHit(t, W, e, mul); alrFxTracer(m, a); alrFxMuzzle(m, 0.18); }
-      else if (W.kind === 'melee') { e.leap = 0.3; alrHit(t, W, e, mul); }
+      else if (W.kind === 'melee') { e.leap = 0.3; alrHit(t, W, e, mul); if (W.grab && t.kind === 'unit') { t.grabbed = alr.t + W.rof + 0.3; e.grabT = t.id; } }
+      else if (W.kind === 'sonic') { alrHit(t, W, e, mul); if (typeof alrFxSonic === 'function') alrFxSonic(m, a); }
       else if (W.kind === 'zap') { alrHit(t, W, e, mul); alrFxZap(m, a); }
       else if (W.kind === 'grease') {
         // boiling grease: a spray at the target, and everyone of theirs standing in it gets a coat
@@ -1662,9 +1800,10 @@ function alrFire(e, t, W) {
         const L = Math.hypot(a[0] - m[0], a[2] - m[2]);
         const drop = W.kind === 'bomb' || W.kind === 'gravy';
         const T = drop ? 0.45 + m[1] * 0.12 : L / W.speed;
-        alr.shots.push({ kind: W.kind, x: m[0], y: m[1], z: m[2], a: m.slice(), b: drop ? [t.x, 0.05, t.z] : a, t: 0, T, tid: t.id, W, from: e.id, owner: e.owner, mul });
+        if (W.kind === 'torp') { m[1] = -0.1; a[1] = -0.1; }          // (under the surface, both ends)
+        alr.shots.push({ kind: W.kind, x: m[0], y: m[1], z: m[2], a: m.slice(), b: drop ? [t.x, 0.05, t.z] : a, t: 0, T: W.kind === 'torp' ? Math.hypot(a[0] - m[0], a[2] - m[2]) / W.speed : T, tid: t.id, W, from: e.id, owner: e.owner, mul });
         if (W.kind === 'gravy') { e.pourAt = alr.t; e.pourTo = [t.x, t.z]; e.pourT = T + 1.0; }   // the stream the UI draws
-        if (!drop) alrFxMuzzle(m, W.kind === 'rocket' || W.kind === 'v3' ? 0.25 : 0.4);
+        if (!drop && W.kind !== 'torp') alrFxMuzzle(m, W.kind === 'rocket' || W.kind === 'v3' ? 0.25 : 0.4);
       }
       alrSfx(W.sfx, e.x, e.z);
     };
@@ -1678,7 +1817,7 @@ function alrShotsStep(dt) {
     s.t += dt;
     const u = Math.min(1, s.t / s.T);
     // a rocket lofts a little, a V3 goes way up and comes down on it, a bomb just falls
-    const arc = s.W && s.W.lob ? Math.sin(u * Math.PI) * s.W.lob : s.kind === 'v3' ? Math.sin(u * Math.PI) * 3.2 : s.kind === 'rocket' ? Math.sin(u * Math.PI) * 0.35 : s.kind === 'bomb' ? 0 : Math.sin(u * Math.PI) * 0.12;
+    const arc = s.kind === 'torp' ? 0 : s.W && s.W.lob ? Math.sin(u * Math.PI) * s.W.lob : s.kind === 'v3' ? Math.sin(u * Math.PI) * 3.2 : s.kind === 'rocket' ? Math.sin(u * Math.PI) * 0.35 : s.kind === 'bomb' ? 0 : Math.sin(u * Math.PI) * 0.12;
     const uu = s.kind === 'bomb' || s.kind === 'gravy' ? u * u : u;
     s.px = s.x; s.py = s.y; s.pz = s.z;
     s.x = s.a[0] + (s.b[0] - s.a[0]) * uu; s.z = s.a[2] + (s.b[2] - s.a[2]) * uu; s.y = s.a[1] + (s.b[1] - s.a[1]) * uu + arc;
@@ -1690,6 +1829,7 @@ function alrShotsStep(dt) {
       // splash: everything else of theirs near the blast takes half
       if (s.W.splash) for (const q of alr.ents.slice()) if (q !== t && q.owner !== s.owner && q.owner !== alr.NEU && q.hp > 0 && !alrAirborne(q) && alrDistTo(s.x, s.z, q) < s.W.splash) alrHit(q, s.W, from, 0.5 * s.mul);
       if (s.kind === 'gravy') alrGravyLand(s.x, s.z, s.owner, s.from);
+      else if (s.kind === 'torp') { if (typeof alrFxSplash === 'function') alrFxSplash(s.x, s.z, 0.9); alrFxBlast(s.x, -0.05, s.z, 0.4); }
       else if (s.kind === 'v3' || s.kind === 'bomb' || (s.W && s.W.lob)) alrFxBoom(s.x, 0.2, s.z, s.kind === 'bomb' ? 1.1 : 0.9);
       else if (alrAirborne(t || {})) alrFxFlak([s.x, s.y, s.z]);
       else alrFxBlast(s.x, s.y, s.z, s.kind === 'rocket' ? 0.55 : 0.45);
@@ -1723,6 +1863,7 @@ function alrHit(t, W, from, mul) {
   if (!alrAlive(t)) return;
   if (t.kind === 'bld' && (t.D.wall || t.D.bridge) && !ALR_WALL_KINDS[W.kind]) return;
   if (t.kind === 'bld' && t.D.bhut) return;
+  if (!alrSeaOk(W, t)) return;                       // (a shell's splash doesn't reach a sub)
   const armor = alrArmor(t), v = W.vs[armor] == null ? (armor === 'air' ? 0 : 1) : W.vs[armor];
   const fr = from && from.kind === 'unit' ? ALR_RANK[from.rank || 0].dmg : 1, tr = t.kind === 'unit' ? ALR_RANK[t.rank || 0].armor : 1;
   t.hp -= W.dmg * v * (mul || 1) * fr * tr;
@@ -1754,7 +1895,7 @@ function alrKill(t, from, W) {
     const gravied = t.D.cat === 'inf' && W && W.gravy;
     if (gravied) { alrSfx('scream' + (1 + ((Math.random() * 3) | 0)), t.x, t.z); if (typeof alrFxGravyDeath === 'function') alrFxGravyDeath(t.x, t.z); }
     else if (t.D.cat === 'inf') { alrFxCrumbs(t.x, t.z); if (t.crushed) alrFxSquish(t.x, t.z); }
-    else { alrFxBoom(t.x, 0.3 + (t.alt || 0), t.z, t.type === 'blimp' ? 2.4 : 1); if (!t.D.air && !t.sunk) alr.decor.push({ kind: 'wreck', type: t.type, D: t.D, cargo: 0, x: t.x, z: t.z, yaw: t.yaw, tYaw: t.tYaw, t: 0, T: 9, owner: t.owner, alt: 0, rank: 0 }); }
+    else { alrFxBoom(t.x, 0.3 + (t.alt || 0), t.z, t.type === 'blimp' ? 2.4 : 1); if (!t.D.air && !t.sunk && !(t.D.naval || (t.D.amphib && alr.M.water[alrTile(t.x, t.z)]))) alr.decor.push({ kind: 'wreck', type: t.type, D: t.D, cargo: 0, x: t.x, z: t.z, yaw: t.yaw, tYaw: t.tYaw, t: 0, T: 9, owner: t.owner, alt: 0, rank: 0 }); }
     // the body stays a moment (RA2's infantry never just vanished): toppled by bullets, thrown by blasts,
     // flattened under treads, gone under in gravy — drawn by alertUI (decor 'corpse'), then it sinks away
     if (t.D.cat === 'inf' && !t.D.air && !t.sunk) {
@@ -1762,6 +1903,7 @@ function alrKill(t, from, W) {
       alr.decor.push({ kind: 'corpse', type: t.type, D: t.D, owner: t.owner, x: t.x, z: t.z, yaw: t.yaw, t: 0, T: 8, mode: gravied ? 'sink' : t.crushed ? 'flat' : blast ? 'blast' : 'fall', dir: Math.random() * 6.283, side: Math.random() < 0.5 ? -1 : 1 });
     }
     // a big hit can blow the turret clean off: it tumbles away and the wreck burns without it
+    if (t.D.naval || (t.D.amphib && alr.M.water[alrTile(t.x, t.z)])) { if (typeof alrFxSink === 'function') alrFxSink(t); }
     const tw = t.D.cat === 'veh' && !t.D.air && !t.sunk && alr.decor[alr.decor.length - 1];
     if (tw && tw.kind === 'wreck' && typeof alrArt !== 'undefined' && alrArt.u[t.type + '_turret'] && Math.random() < 0.55) {
       tw.tossed = true;
@@ -1776,7 +1918,8 @@ function alrKill(t, from, W) {
     if (t.load && t.load.length) { if (t.owner === 0) alr.stats.lost += t.load.length; t.load = []; }   // (RA2: nobody gets out of a downed transport)
   } else {
     alrFxBoom(t.x, 0.4, t.z, t.D.wall ? 0.6 : 1.6 + t.w * 0.25);
-    if (!t.D.wall) { alr.decor.push({ kind: 'chain', x: t.x, z: t.z, w: t.w, h: t.h, t: 0, T: 1.4 }); alr.decor.push({ kind: 'rubble', x: t.x, z: t.z, w: t.w, h: t.h, t: 0, T: 1e9 }); }
+    if (!t.D.wall) { alr.decor.push({ kind: 'chain', x: t.x, z: t.z, w: t.w, h: t.h, t: 0, T: 1.4 }); if (!t.D.naval) alr.decor.push({ kind: 'rubble', x: t.x, z: t.z, w: t.w, h: t.h, t: 0, T: 1e9 }); }
+    if (t.D.naval && typeof alrFxSplash === 'function') for (let k = 0; k < 5; k++) { const x = t.x + alrRnd(-1.2, 1.2), z = t.z + alrRnd(-1.2, 1.2); alr.later = (alr.later || []).concat([{ t: alr.t + 0.2 + k * 0.18, fn: () => alrFxSplash(x, z, 1.3) }]); }   // (a yard goes down into the water, not to rubble)
     alrSfx('boomL', t.x, t.z);
     if (killer === 0 && t.owner === 1 && !t.D.wall) { alrEarn(12, t.D.name + ' DESTROYED'); alrEva('ENEMY BUILDING DESTROYED'); }
     if (t.owner === 0 && !t.D.wall) alrSay('BUILDING LOST', '#ff6a5a');
@@ -1850,6 +1993,8 @@ const ALR_AI_ORDER = {
 const ALR_AI_DEF = { A: { ground: ['bunker', 'prism'], air: 'sam' }, F: { ground: ['turret', 'tesla'], air: 'flak' } };
 // (the factions' own are in the lists too: alrAIPick skips what this CPU's faction can't build)
 const ALR_AI_INF = { A: [['inf', 6], ['dog', 1], ['jetpack', 2], ['sniper', 2]], F: [['conscript', 5], ['zapper', 2], ['rocket', 2], ['dog', 1], ['greaser', 3], ['bomber', 2]] };
+const ALR_AI_SEA = { A: [['destroyer', 5], ['aegis', 1], ['dolphin', 2]], F: [['sub', 5], ['squid', 2], ['dread', 2]] };
+const ALR_AI_NAVY = { A: 'navyA', F: 'navyF' };
 const ALR_AI_VEH = { A: [['tank', 5], ['ifv', 2], ['prismtank', 3], ['mirage', 2]], F: [['heavy', 5], ['flaktrack', 2], ['v3', 2], ['apoc', 3], ['teslaspud', 4]] };
 function alrAINew(id) { return { step: 0, think: 0, waveT: null, wave: 0, rally: null, army: [], lastAttack: -999, jetT: 70 }; }
 // a weighted pick of what it can build right now (anti-air counts triple once the enemy flies)
@@ -1916,6 +2061,9 @@ function alrAIStep(P, dt) {
       if ((have[t] || 0) < want[t]) { next = t; break; }
     }
     const pw = side === 'F' ? 'powerF' : 'power';
+    // a water map: once the factory's up, a yard (if there's water in reach of the base yet — it grows toward it)
+    const ny = ALR_AI_NAVY[side];
+    if (alr.M.wet && !have[ny] && have.factory && (A.navyT = (A.navyT || 0) - 0.5) <= 0) { A.navyT = 20; if (alrNavySpot(P, ny, hq)) next = ny; }
     if (P.low && next !== pw) next = pw;
     if (next && alrCanBuild(P, next) && P.credits > ALR_BLD[next].cost * 0.3) alrQueue(P, next);
   }
@@ -1950,6 +2098,18 @@ function alrAIStep(P, dt) {
     if (side === 'F' && alrCanBuild(P, 'blimp') && mine.filter((e) => e.type === 'blimp').length + queued(P.q.veh, 'blimp') < 2 && Math.random() < 0.25) t = 'blimp';
     if (t) alrQueue(P, t);
   }
+  // 2b) the navy: a fleet topped up, and on a map with no road to the rival, Gravy Boats to ferry the army
+  if (A.landOk == null) {
+    const eq = alrBldsOf(enemy, 'hq')[0];
+    if (eq) A.landOk = alrLandLinked(hq.x, hq.z, eq.x, eq.z);
+  }
+  if (alrNavyYards(me).length) {
+    const fleet = mine.filter((e) => e.D.naval), boats = mine.filter((e) => e.type === 'hover');
+    if (!A.landOk && boats.length + queued(P.q.sea, 'hover') < 2) alrQueue(P, 'hover');
+    if (P.q.sea.filter((q) => q.type !== 'hover').length < 1 && fleet.length < 4 + A.wave * 2 && P.credits > 300) { const t = alrAIPick(P, ALR_AI_SEA[side], enemyAir); if (t) alrQueue(P, t); }
+    alrAIFleet(P, A, mine.filter((e) => e.D.naval && e.D.weapon), enemy, hq);
+  }
+  if (!A.landOk) alrAIFerry(P, A, mine, enemy, hq);
   // 3) cooks go for the nearest neutral derrick
   for (const u of mine) if (u.D.engineer && !u.order) {
     let best = null, bd = 1e9;
@@ -1967,7 +2127,7 @@ function alrAIStep(P, dt) {
     }
   }
   // 5) the army
-  const army = mine.filter((e) => e.D.weapon && !e.D.harv && e.D.air !== 'jet');
+  const army = mine.filter((e) => e.D.weapon && !e.D.harv && e.D.air !== 'jet' && !e.D.naval && !(e.order && e.order.type === 'board'));
   if (!A.rally) { const [ex, ez] = alr.M.starts[alr.players[enemy].start], d = Math.hypot(ex - hq.x, ez - hq.z) || 1; A.rally = [hq.x + (ex - hq.x) / d * 7, hq.z + (ez - hq.z) / d * 7]; }
   // defend: the base is hit — everybody home
   if (P.underAttack > 0 && P.attackedAt && Math.hypot(P.attackedAt[0] - hq.x, P.attackedAt[1] - hq.z) < 14) {
@@ -1977,7 +2137,7 @@ function alrAIStep(P, dt) {
   A.waveT -= 0.5;
   const size = Math.round(alrRnd(cfg.wave[0], cfg.wave[1]) + A.wave * 2);
   const home = army.filter((u) => !u.order || (u.order.type === 'move' && !u.order.am));
-  if (A.waveT <= 0 && home.length >= Math.min(size, 6 + A.wave * 2)) {
+  if (A.waveT <= 0 && home.length >= Math.min(size, 6 + A.wave * 2) && A.landOk !== false) {
     // go: at the nearest thing they own (the refinery if it's in reach)
     let tgt = null, bd = 1e9;
     for (const e of alr.ents) if (e.owner === enemy && e.kind === 'bld' && !e.D.wall) { const d = Math.hypot(e.x - A.rally[0], e.z - A.rally[1]) - (e.type === 'refinery' ? 6 : 0); if (d < bd) { bd = d; tgt = e; } }
@@ -1994,8 +2154,81 @@ function alrAIStep(P, dt) {
     if (tgt) alrOrderMove(u, tgt.x, tgt.z, true);
   }
 }
+// is there a way on foot from a to b? (a flood over dry ground and standing bridges; buildings count as ground)
+function alrLandLinked(ax, az, bx, bz) {
+  const M = alr.M, N = ALR_N, seen = new Uint8Array(N * N), st = [alrTile(ax, az)], goal = alrTile(bx, bz);
+  const ok = (k) => !M.water[k] || !M.block[k] ? (!M.block[k] || M.bld[k]) : false;
+  seen[st[0]] = 1;
+  while (st.length) {
+    const k = st.pop(); if (k === goal) return true;
+    const x = k % N, z = (k / N) | 0;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, nz = z + dz; if (nx < 0 || nz < 0 || nx >= N || nz >= N) continue; const q = nz * N + nx; if (!seen[q] && ok(q)) { seen[q] = 1; st.push(q); } }
+  }
+  return false;
+}
+// the fleet: gathers off the yard; every so often, once it's 3 strong, it goes for the rival's shore — the yard
+// first, else whatever of theirs stands nearest the water — and shells it from the sea
+function alrAIFleet(P, A, fleet, enemy, hq) {
+  if (!fleet.length) return;
+  const yard = alrNavyYards(P.id)[0];
+  if ((A.fleetT = (A.fleetT == null ? 120 : A.fleetT) - 0.5) <= 0 && fleet.filter((u) => !u.order).length >= 3) {
+    A.fleetT = 60 + Math.random() * 40;
+    let tgt = alr.ents.find((e) => e.owner === enemy && e.kind === 'bld' && e.D.naval), bd = 1e9;
+    if (!tgt) for (const e of alr.ents) {
+      if (e.owner !== enemy || e.kind !== 'bld' || e.D.wall) continue;
+      const k = alrNearestFree(alrTile(e.x, e.z), fleet[0]); if (k < 0) continue;
+      const d = Math.hypot(k % ALR_N + 0.5 - e.x, ((k / ALR_N) | 0) + 0.5 - e.z);
+      if (d < bd) { bd = d; tgt = e; }
+    }
+    if (tgt) alrGroupMove(fleet.filter((u) => !u.order), tgt.x, tgt.z, true);
+  } else if (yard) for (const u of fleet) if (!u.order && !u.target && Math.hypot(u.x - yard.x, u.z - yard.z) > 9) alrOrderMove(u, yard.x + alrRnd(-3, 3), yard.z + alrRnd(-3, 3), false);
+}
+// the ferry (no road to the rival): a Gravy Boat waits on the shore by the rally point, the idle army boards; full
+// (or after a while), it crosses, runs up the far beach short of their base, and unloads them into an attack
+function alrAIFerry(P, A, mine, enemy, hq) {
+  const eq = alrBldsOf(enemy, 'hq')[0] || alr.ents.find((e) => e.owner === enemy && e.kind === 'bld');
+  if (!eq || !A.rally) return;
+  for (const h of mine) {
+    if (h.type !== 'hover') continue;
+    const st = h.ferry || (h.ferry = 'load');
+    if (st === 'load') {
+      // (the landing: the nearest open ground to the rally point — the rally itself may be under a building)
+      if (!A.ferryAt) { const k = alrNearestFree(alrTile(A.rally[0], A.rally[1]), h); A.ferryAt = k < 0 ? A.rally.slice() : [k % ALR_N + 0.5, ((k / ALR_N) | 0) + 0.5]; }
+      if (Math.hypot(h.x - A.ferryAt[0], h.z - A.ferryAt[1]) > 2.5) { if (!h.order) { alrOrderMove(h, A.ferryAt[0], A.ferryAt[1], false); if (!h.path) A.ferryAt = [h.x, h.z]; } continue; }
+      if (h.order) continue;
+      for (const u of mine) if (u.D.weapon && !u.D.naval && !u.D.air && !u.D.harv && !u.order && alrRoom(h, u) >= alrSlots(h, u) && Math.hypot(u.x - h.x, u.z - h.z) < 14) alrOrderBoard(u, h);
+      h.loadT = (h.loadT || 0) + 0.5;
+      if (alrLoadOf(h) >= h.D.cap - 1 || (h.load.length && h.loadT > 45)) {
+        const dx = hq.x - eq.x, dz = hq.z - eq.z, L = Math.hypot(dx, dz) || 1;
+        let k = alrNearestFree(alrTile(eq.x + dx / L * 9, eq.z + dz / L * 9), null);
+        if (k < 0) continue;
+        h.ferry = 'go'; h.loadT = 0; alrOrderMove(h, k % ALR_N + 0.5, ((k / ALR_N) | 0) + 0.5, false);
+      }
+    } else if (st === 'go') {
+      if (!h.order) { alrOrderUnload(h); h.ferry = 'drop'; }
+    } else if (st === 'drop') {
+      if (!h.load.length && !h.order) {
+        for (const u of mine) if (!u.order && !u.D.naval && u.D.weapon && Math.hypot(u.x - h.x, u.z - h.z) < 4) alrOrderMove(u, eq.x + alrRnd(-1, 1), eq.z + alrRnd(-1, 1), true);
+        h.ferry = 'load';
+      } else if (!h.order && h.load.length) alrOrderUnload(h);
+    }
+  }
+}
 // where to put a building: a spiral out from the yard, a gap of one tile kept clear, defenses toward the enemy
+// a yard's spot: open water within reach of the base, nearest the yard (CPU)
+function alrNavySpot(P, type, hq) {
+  let best = null, bs = 1e9;
+  const R0 = 26, x0 = Math.max(1, Math.floor(hq.x - R0)), x1 = Math.min(ALR_N - 4, Math.ceil(hq.x + R0)), z0 = Math.max(1, Math.floor(hq.z - R0)), z1 = Math.min(ALR_N - 4, Math.ceil(hq.z + R0));
+  for (let tz = z0; tz <= z1; tz++) for (let tx = x0; tx <= x1; tx++) {
+    if (!alr.M.water[tz * ALR_N + tx] || !alr.M.water[(tz + 2) * ALR_N + tx + 2]) continue;
+    const sc = Math.hypot(tx + 1.5 - hq.x, tz + 1.5 - hq.z);
+    if (sc >= bs || !alrCanPlace(P, type, tx, tz)) continue;
+    bs = sc; best = [tx, tz];
+  }
+  return best;
+}
 function alrAISpot(P, type, hq) {
+  if (ALR_BLD[type].naval) return alrNavySpot(P, type, hq);
   // (defenses face the nearest rival's start)
   let enemy = null, ed = 1e9;
   for (const Q of alr.players) if (Q !== P && !Q.neutral && !Q.lost) { const st = alr.M.starts[Q.start], d = Math.hypot(st[0] - hq.x, st[1] - hq.z); if (d < ed) { ed = d; enemy = st; } }

@@ -201,7 +201,7 @@ function alrBuildCameos() {
   for (const k of all) {
     const B = ALR_BLD[k];
     const UD = ALR_UNIT[k];
-    const zoom = B ? (B.w >= 3 ? 4.1 : B.w === 2 ? 3.0 : B.wall ? 1.6 : 2.3) : (UD.cat === 'inf' ? 0.85 : k === 'blimp' ? 2.8 : k === 'apoc' ? 1.8 : UD.air === 'heli' ? (UD.carry === 'veh' ? 2.5 : 2.0) : 1.45);
+    const zoom = B ? (B.w >= 3 ? 4.1 : B.w === 2 ? 3.0 : B.wall ? 1.6 : 2.3) : (UD.cat === 'inf' ? 0.85 : k === 'dread' ? 2.1 : k === 'destroyer' || k === 'aegis' ? 1.6 : k === 'sub' ? 1.45 : k === 'hover' ? 1.35 : k === 'squid' ? 1.2 : k === 'dolphin' ? 0.8 : k === 'blimp' ? 2.8 : k === 'apoc' ? 1.8 : UD.air === 'heli' ? (UD.carry === 'veh' ? 2.5 : 2.0) : 1.45);
     const lift = B ? -0.35 : UD.cat === 'inf' ? -0.2 : -0.12;
     const parts = alrModelParts(k).filter((p) => p.mesh).map((p) => ({ mesh: p.mesh, M: alrMul(alrTRS(0, lift, 0, B ? ALR_BLD_YAW : Math.PI * 1.15), p.M) }));
     if (!parts.length) continue;
@@ -225,6 +225,7 @@ function alrUISide(rebuild) {
   U.side.classList.toggle('low', P.low);
   for (const b of U.tabs.children) {
     const cat = b.dataset.tab, any = alrTypesIn(cat).some((t) => alrCanBuild(P, t));
+    if (cat === 'sea') { b.hidden = !(alr.M && alr.M.wet); if (b.hidden && U.tab === 'sea') U.tab = 'bld'; }   // (the navy tab only on a water map)
     b.classList.toggle('on', cat === U.tab); b.classList.toggle('dim', !any);
     b.classList.toggle('ready', !!(P.ready[cat]));
   }
@@ -507,7 +508,7 @@ function alrFxStep(dt) {
   for (const f of alr.fx) {
     f.t += dt;
     if (f.kind === 'p') { f.vy -= f.grav * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.z += f.vz * dt; f.s = Math.max(0.01, f.s + f.gs * dt); f.rot += f.vr * dt; if (f.y < 0.02 && f.grav) { f.y = 0.02; f.vy *= -0.3; f.vx *= 0.6; f.vz *= 0.6; } }
-    else if (f.kind === 'chunk') { f.vy -= 11 * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.z += f.vz * dt; f.rx += f.vrx * dt; if (f.y < 0.03) { f.y = 0.03; f.vy *= -0.35; f.vx *= 0.5; f.vz *= 0.5; f.vrx *= 0.5; } if (Math.random() < dt * 14 && f.t < 1) alrFxSmoke(f.x, f.y, f.z, 0.12, 0.6, true); }
+    else if (f.kind === 'chunk') { f.vy -= 11 * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.z += f.vz * dt; f.rx += f.vrx * dt; if (f.y < 0.03 && alr.M && alr.M.wet && alr.M.water[alrTile(alrClamp(f.x, 0, ALR_N - 1), alrClamp(f.z, 0, ALR_N - 1))]) { f.t = f.T; if (Math.random() < 0.5) alrP({ x: f.x, y: ALR_WATER_Y + 0.02, z: f.z, vy: 0.8, s: 0.06, T: 0.4, r: 0.85, g: 0.92, b: 0.95, a: 0.7, cell: 0, grav: 4 }); } else if (f.y < 0.03) { f.y = 0.03; f.vy *= -0.35; f.vx *= 0.5; f.vz *= 0.5; f.vrx *= 0.5; } if (Math.random() < dt * 14 && f.t < 1) alrFxSmoke(f.x, f.y, f.z, 0.12, 0.6, true); }
     else if (f.kind === 'text') f.y += dt * 0.5;
   }
   alr.fx = alr.fx.filter((f) => f.t < f.T);
@@ -527,7 +528,30 @@ function alrFxStep(dt) {
   }
   alr.decor = alr.decor.filter((d) => d.t < d.T);
   for (const u of alr.ents) if (u.kind === 'unit' && u.moving && u.D.cat === 'veh' && Math.random() < dt * 5) alrFxDust(u.x - Math.sin(u.yaw) * 0.35, u.z - Math.cos(u.yaw) * 0.35);
+  for (const u of alr.ents) if (u.kind === 'unit' && u.moving && (u.D.naval || u.D.amphib)) alrFxWake(u, dt);
   for (const u of alr.ents) if (u.kind === 'unit') alrAnimStep(u, dt);
+}
+// a boat under way: foam peeling off the bow, a churned trail astern (bubbles from a sub; the hovercraft spray
+// on water, dust on land)
+function alrFxWake(u, dt) {
+  const s = Math.sin(u.yaw), c = Math.cos(u.yaw), L = u.D.r * 1.4, y = ALR_WATER_Y + 0.02;
+  const wet = alr.M.water[alrTile(u.x, u.z)];
+  if (!wet) { if (Math.random() < dt * 8) alrFxDust(u.x - s * L, u.z - c * L); return; }
+  if (u.D.sub) { if (Math.random() < dt * 10) alrP({ x: u.x - s * L + alrRnd(-0.1, 0.1), y: y - 0.02, z: u.z - c * L + alrRnd(-0.1, 0.1), vy: 0.12, s: 0.07, gs: 0.1, T: 1.0, r: 0.85, g: 0.93, b: 0.96, a: 0.5, cell: 0 }); return; }
+  const n = u.type === 'dolphin' ? 4 : 12;
+  if (Math.random() < dt * n) { const sd = Math.random() < 0.5 ? -1 : 1; alrP({ x: u.x + s * L * 0.8 + c * sd * u.D.r * 0.5, y, z: u.z + c * L * 0.8 - s * sd * u.D.r * 0.5, vx: c * sd * 0.5, vy: 0.35, vz: -s * sd * 0.5, s: 0.12, gs: 0.4, T: 0.8, r: 0.9, g: 0.95, b: 0.97, a: 0.55, cell: 1, grav: 0.8 }); }
+  if (Math.random() < dt * n) alrP({ x: u.x - s * L + alrRnd(-0.08, 0.08), y, z: u.z - c * L + alrRnd(-0.08, 0.08), vx: -s * 0.2, vz: -c * 0.2, s: u.D.r * 0.5, gs: u.D.r * 0.9, T: 1.6, r: 0.88, g: 0.94, b: 0.96, a: 0.42, cell: 1 });
+  if (u.D.amphib && Math.random() < dt * 14) alrP({ x: u.x + alrRnd(-0.3, 0.3), y: y + 0.04, z: u.z + alrRnd(-0.3, 0.3), vx: alrRnd(-0.6, 0.6), vy: 0.3, vz: alrRnd(-0.6, 0.6), s: 0.16, gs: 0.5, T: 0.6, r: 0.92, g: 0.96, b: 0.98, a: 0.35, cell: 1 });
+}
+// a sonic blast (the Nug Dolphin): rings rolling out along the line
+function alrFxSonic(a, b) {
+  for (let k = 0; k < 6; k++) { const f = k / 6; alr.later = (alr.later || []).concat([{ t: alr.t + k * 0.04, fn: () => alrP({ x: a[0] + (b[0] - a[0]) * f, y: Math.max(ALR_WATER_Y + 0.05, a[1] + (b[1] - a[1]) * f), z: a[2] + (b[2] - a[2]) * f, s: 0.12, gs: 0.9, T: 0.35, r: 0.55, g: 0.85, b: 1, a: 0.8, cell: 0, add: true }) }]); }
+  alrFxSplash(b[0], b[2], 0.5);
+}
+// a ship goes down: a boom, a splash, and the hull rolls over and slides under (decor 'sink')
+function alrFxSink(t) {
+  alrFxSplash(t.x, t.z, 1.3);
+  alr.decor.push({ kind: 'sink', type: t.type, D: t.D, owner: t.owner, x: t.x, z: t.z, yaw: t.yaw, tYaw: t.tYaw, t: 0, T: 5, side: Math.random() < 0.5 ? -1 : 1, stub: true, id: t.id });
 }
 // ---- a body: how it went down, then a few seconds lying there, then it sinks into the ground ------------------------
 function alrDrawCorpse(d, team) {
@@ -726,6 +750,13 @@ function alrShotFx(u) {
 // idle shudder — one matrix about the unit's own ground point, applied to every part
 function alrHullRock(u) {
   const a = u.va;
+  if (a && (u.D.naval || u.D.amphib) && u.type !== 'dolphin') {
+    // afloat: a slow swell under the hull, a lean into the turn, the bow up under way, a jolt on the shot
+    const tt = alr.t || 0, sw = u.D.amphib ? 0.4 : 1;
+    const pitch = Math.sin(tt * 1.3 + u.id) * 0.02 * sw - Math.min(1, a.v / u.D.speed) * 0.05 + alrClamp(a.kick, -0.08, 0.08) * 0.5;
+    const roll = Math.sin(tt * 0.9 + u.id * 2) * 0.035 * sw + alrClamp(-a.yr * a.v * 0.04, -0.12, 0.12);
+    return alrMul(alrMul(alrTRS(u.x, 0, u.z, u.yaw, 1, 1, 1, pitch, roll), alrTRS(0, 0, 0, -u.yaw)), alrTRS(-u.x, 0, -u.z, 0));
+  }
   if (!a || u.D.cat !== 'veh' || u.D.air) return null;
   const pitch = alrClamp(-a.acc * 0.022, -0.07, 0.07) + alrClamp(a.kick, -0.08, 0.08) * 0.9;
   const roll = alrClamp(-a.yr * a.v * 0.025, -0.06, 0.06);
@@ -798,6 +829,13 @@ function alrUIRender(dt) {
       for (const p of alrUnitParts(d)) if (!gone || !gone.includes(p.mesh)) alrGLDraw(p.mesh, p.M, o);
     }
     if (d.kind === 'corpse') alrDrawCorpse(d, team);
+    if (d.kind === 'sink') {
+      const u = d.t / d.T, k = Math.min(1, d.t / 1.2), M = alrMul(alrMul(alrTRS(d.x, -0.55 * u * u, d.z, d.yaw, 1, 1, 1, -0.35 * u, d.side * 0.7 * k), alrTRS(0, 0, 0, -d.yaw)), alrTRS(-d.x, 0, -d.z, 0));
+      const o = { team: [0.2, 0.19, 0.18], desat: 0.8, add: [-0.06, -0.06, -0.06], spec: 0.1, alpha: u > 0.7 ? (1 - u) / 0.3 : undefined };
+      for (const p of alrUnitParts0(d)) alrGLDraw(p.mesh, alrMul(M, p.M), o);
+      if (Math.random() < 0.3) alrP({ x: d.x + alrRnd(-0.3, 0.3), y: ALR_WATER_Y + 0.02, z: d.z + alrRnd(-0.3, 0.3), vy: 0.25, s: 0.1, gs: 0.2, T: 0.8, r: 0.9, g: 0.95, b: 0.97, a: 0.5, cell: 0 });
+      if (d.t < 2 && Math.random() < 0.4) alrFxSmoke(d.x, 0.2, d.z, 0.3, 1.6, true);
+    }
     if (d.kind === 'part') alrDrawPart(d);
   }
   for (const f of alr.fx) if (f.kind === 'decal') {
@@ -829,7 +867,8 @@ function alrUIRender(dt) {
   for (const u of alr.ents) {
     if (u.kind !== 'unit' || !onScreen(u.x, u.z)) continue;
     if (u.owner !== 0 && !seen(u.x, u.z)) continue;
-    const o = { team: team(u.owner), spec: u.D.cat === 'veh' ? 0.55 : 0.2, add: u.flash > 0 ? [0.4, 0.35, 0.3] : null };
+    if (u.D.sub && alrSubHidden(u, 0)) continue;              // (an enemy sub, running silent)
+    const o = { team: team(u.owner), spec: u.D.cat === 'inf' ? 0.2 : 0.55, add: u.flash > 0 ? [0.4, 0.35, 0.3] : null };
     // the Mirage, parked: a tree to them (and to you, a tree with a ghost of your tank in it)
     if (u.D.disguise && u.still > 1.2) {
       const tr = alrArt.trees[(u.id % 3) * 2 + 1] || alrArt.trees[0];
@@ -866,6 +905,12 @@ function alrUIRender(dt) {
       continue;
     }
     if (s.kind === 'bomb') { alrGLSprite(s.x, s.y, s.z, 0.22, 0, 0.25, 0.22, 0.2, 1, 3, false); continue; }
+    if (s.kind === 'torp') {
+      // a torpedo: a dark shape just under the surface, a line of bubbles and a white streak behind it
+      alrGLSprite(s.x, ALR_WATER_Y + 0.01, s.z, 0.12, 0, 0.12, 0.14, 0.16, 0.9, 0, false);
+      if (Math.random() < 0.7) alrP({ x: s.x, y: ALR_WATER_Y + 0.02, z: s.z, vy: 0.05, s: 0.08, gs: 0.25, T: 1.1, r: 0.92, g: 0.96, b: 0.98, a: 0.55, cell: 1 });
+      continue;
+    }
     if (s.kind === 'rocket') { alrGLSprite(s.x, s.y, s.z, 0.32, 0, 1, 0.7, 0.3, 1, 0, true); alrGLSprite(s.x, s.y, s.z, 0.14, 0, 1, 1, 0.9, 1, 0, true); }
     else { alrGLSprite(s.x, s.y, s.z, 0.2, 0, 1, 0.85, 0.5, 1, 0, true); const bk = 0.25 / Math.max(0.01, Math.hypot(s.b[0] - s.a[0], s.b[2] - s.a[2])); alrGLBeam([s.x - (s.b[0] - s.a[0]) * bk, s.y, s.z - (s.b[2] - s.a[2]) * bk], [s.x, s.y, s.z], 0.05, 1, 0.8, 0.45, 0.8); }
   }
@@ -981,6 +1026,8 @@ const ALR_RIG = {
   // the helicopters' rotors (blender/alertrig.py *_ROTOR_AT): main rotors spin about y, tail rotors about x
   hawk_rotor: [0, 0.485, 0.04], hawk_tail: [0.05, 0.58, -0.69], lift_rotor: [[0, 0.54, 0.52], [0, 0.67, -0.52]],
   tater_rotor: [0, 0.52, 0.02], tater_tail: [-0.05, 0.62, -0.735], hog_rotor: [0, 0.94, 0], hog_tail: [0.05, 0.72, -1.0],
+  // the navy (blender/alertrig.py NAVY): gun mounts turn about y on the deck; the hovercraft's fans spin about z
+  destroyer_turret: [0, 0.105, 0.4], aegis_turret: [0, 0.11, 0.5], hover_fan: [[-0.17, 0.2, -0.46], [0.17, 0.2, -0.46]],
   blimp_prop: [[0.44, -0.3, -0.63], [-0.44, -0.3, -0.63]], dog_leg: [[0.05, 0.12, 0.11], [-0.05, 0.12, 0.11], [0.05, 0.12, -0.11], [-0.05, 0.12, -0.11]],
 };
 // a point on the hull (local x, z) in the world, for a turret that sits off-center
@@ -1021,7 +1068,7 @@ function alrBldParts(b) {
 }
 // a unit's parts, posed: legs walk, a turret turns, a gun recoils, the hauler's drum spins, a jet banks
 // (drawn a size up from their footprint so a soldier reads at battle zoom, the way RA2's sprites did)
-const ALR_DRAW_SCALE = { inf: 1.3, rocket: 1.3, conscript: 1.3, engineer: 1.3, zapper: 1.3, jetpack: 1.3, dog: 1.25, tank: 1.15, heavy: 1.12, harv: 1.1, harvF: 1.1, ifv: 1.12, prismtank: 1.12, mirage: 1.12, flaktrack: 1.12, v3: 1.1, apoc: 1.05, sniper: 1.3, greaser: 1.3, bomber: 1.3, teslaspud: 1.12 };
+const ALR_DRAW_SCALE = { destroyer: 1.3, aegis: 1.3, dread: 1.25, sub: 1.3, dolphin: 1.4, squid: 1.35, hover: 1.2, inf: 1.3, rocket: 1.3, conscript: 1.3, engineer: 1.3, zapper: 1.3, jetpack: 1.3, dog: 1.25, tank: 1.15, heavy: 1.12, harv: 1.1, harvF: 1.1, ifv: 1.12, prismtank: 1.12, mirage: 1.12, flaktrack: 1.12, v3: 1.1, apoc: 1.05, sniper: 1.3, greaser: 1.3, bomber: 1.3, teslaspud: 1.12 };
 const ALR_INF_BODY = { inf: 'inf', rocket: 'rocket', conscript: 'conscript', engineer: 'engineer', zapper: 'zapper', jetpack: 'jetpack', sniper: 'sniper', greaser: 'greaser', bomber: 'bomber' };
 function alrUnitParts(u) {
   let parts = alrUnitParts0(u);
@@ -1032,8 +1079,21 @@ function alrUnitParts(u) {
   const S = alrMul(alrMul(alrTRS(u.x, 0, u.z, 0), alrTRS(0, 0, 0, 0, k)), alrTRS(-u.x, 0, -u.z, 0));
   return parts.map((p) => ({ mesh: p.mesh, M: alrMul(S, p.M) }));
 }
+// where a boat sits: on the water (a sub low in it, a dolphin arcing out of it), the hovercraft on its cushion
+// just over water or land
+function alrSeaY(u) {
+  const D = u.D, tt = alr.t || 0;
+  if (u.stub || !alr.M) return D.naval ? ALR_WATER_Y : 0;
+  if (D.naval) {
+    const bob = Math.sin(tt * 1.6 + (u.id || 0)) * 0.012;
+    if (u.type === 'dolphin') { const a = u.moving ? Math.max(0, Math.sin((u.walk || 0) * 0.35)) : 0; return ALR_WATER_Y - 0.06 + a * a * 0.3 + bob; }
+    return ALR_WATER_Y + bob - (D.sub ? 0.05 : 0);
+  }
+  const M = alr.M, g = M.wet ? alrGroundY(M, alrWaterBlur(M), u.x, u.z) : 0;
+  return Math.max(g, ALR_WATER_Y) + 0.05 + Math.sin(tt * 3 + (u.id || 0)) * 0.008;
+}
 function alrUnitParts0(u) {
-  const A = alrArt.u, t = u.type, R = ALR_RIG, parts = [], alt = u.alt || 0;
+  const A = alrArt.u, t = u.type, R = ALR_RIG, parts = [], alt = u.D && (u.D.naval || u.D.amphib) ? alrSeaY(u) : u.alt || 0;
   const add = (k, M) => { const m = A[k] || (k === t ? A[ALR_FALLBACK[k]] : null); if (m) parts.push({ mesh: m, M }); };
   if (ALR_INF_BODY[t]) {
     const fly = u.D && u.D.air, a = u.va || {}, tt = alr.t || 0, ph = (u.id || 0) * 1.7;
@@ -1114,6 +1174,19 @@ function alrUnitParts0(u) {
     add('apoc', H); add('apoc_turret', T); add('apoc_gun', alrMul(T, alrTRS(g[0], g[1], g[2] - rc, 0)));
     return parts;
   }
+  if (u.D && (u.D.naval || u.D.amphib)) {
+    add(t, H);
+    const rt = R[t + '_turret'];
+    if (rt) { const rc = Math.max(0, u.recoil || 0) * 0.05; add(t + '_turret', alrMul(H, alrTRS(rt[0], rt[1], rt[2] - rc, (u.tYaw || 0) - u.yaw + ((u.va && u.va.scan) || 0)))); }
+    if (t === 'hover') for (const f of R.hover_fan) add('hover_fan', alrMul(H, alrTRS(f[0], f[1], f[2], 0, 1, 1, 1, 0, (alr.t || 0) * (u.moving ? 30 : 9) + f[0] * 7)));
+    if (t === 'squid') {
+      // the arms: eight of them, rippling; wrapped round a ship it's holding, they squeeze in
+      const hold = u.grabT && alr.byId.get(u.grabT) && alr.byId.get(u.grabT).grabbed > alr.t, tt = alr.t || 0;
+      for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; add('squid_arm', alrMul(H, alrTRS(Math.sin(a) * 0.12, 0, Math.cos(a) * 0.12, a, 1, 1, 1, (hold ? -0.5 : 0.15) + Math.sin(tt * (hold ? 9 : 3) + k * 1.3) * 0.22))); }
+    }
+    if (t === 'dolphin') { parts.length = 0; const pit = u.moving ? -Math.cos((u.walk || 0) * 0.35) * 0.45 : 0; add('dolphin', alrTRS(u.x, alt, u.z, u.yaw, 1, 1, 1, pit)); }
+    return parts;
+  }
   if (t === 'v3') {
     const r = R.v3_rack, K = alrMul(H, alrTRS(r[0], r[1], r[2], 0));
     add('v3', H); add('v3_rack', K);
@@ -1125,8 +1198,8 @@ function alrUnitParts0(u) {
   return parts;
 }
 // until a model exists, borrow a close one (so nothing is ever invisible)
-const ALR_FALLBACK = { conscript: 'inf', engineer: 'inf', zapper: 'inf', jetpack: 'inf', ifv: 'tank', prismtank: 'tank', mirage: 'tank', apoc: 'heavy', flaktrack: 'tank', harvF: 'harv', v3: 'tank', jet: 'tank', blimp: 'harv', dog: 'leg', hawk: 'jet', tater: 'jet', lift: 'harv', hog: 'harv', sniper: 'inf', greaser: 'inf', bomber: 'inf', teslaspud: 'heavy' };
-const ALR_BLD_FALLBACK = { grandfryer: 'turret', grandfryer_gun: 'turret_head' };
+const ALR_FALLBACK = { destroyer: 'heavy', aegis: 'heavy', dread: 'apoc', sub: 'harv', dolphin: 'dog', squid: 'dog', hover: 'harv', conscript: 'inf', engineer: 'inf', zapper: 'inf', jetpack: 'inf', ifv: 'tank', prismtank: 'tank', mirage: 'tank', apoc: 'heavy', flaktrack: 'tank', harvF: 'harv', v3: 'tank', jet: 'tank', blimp: 'harv', dog: 'leg', hawk: 'jet', tater: 'jet', lift: 'harv', hog: 'harv', sniper: 'inf', greaser: 'inf', bomber: 'inf', teslaspud: 'heavy' };
+const ALR_BLD_FALLBACK = { navyA: 'refinery', navyF: 'refinery', grandfryer: 'turret', grandfryer_gun: 'turret_head' };
 
 // ---- the overlay: selection brackets, health pips, the drag box, floating text --------------------------------------
 function alrOverlay() {
@@ -1175,7 +1248,7 @@ function alrOverlay() {
       if (e.D.carry && (sel || hover)) {
         // one pip a seat: lit for each aboard
         const n = e.D.cap, pw = n > 1 ? 5 : 12, x0 = top[0] - (n * (pw + 2) - 2) / 2;
-        for (let k = 0; k < n; k++) { g.fillStyle = '#000'; g.fillRect(x0 + k * (pw + 2) - 1, top[1] - 1, pw + 2, 5); g.fillStyle = k < e.load.length ? '#5cff6a' : '#2b3a2e'; g.fillRect(x0 + k * (pw + 2), top[1], pw, 3); }
+        for (let k = 0; k < n; k++) { g.fillStyle = '#000'; g.fillRect(x0 + k * (pw + 2) - 1, top[1] - 1, pw + 2, 5); g.fillStyle = k < alrLoadOf(e) ? '#5cff6a' : '#2b3a2e'; g.fillRect(x0 + k * (pw + 2), top[1], pw, 3); }
       }
     } else {
       // the bracket around a building's box on screen
@@ -1347,6 +1420,7 @@ function alrPickAt(px, py) {
   for (const e of alr.ents) {
     if (e.kind !== 'unit') continue;
     if (e.owner !== 0 && S[alrTile(e.x, e.z)] < 40) continue;
+    if (e.D.sub && alrSubHidden(e, 0)) continue;
     const p = alrGLProject(e.x, (e.alt || 0) + (e.D.cat === 'inf' ? 0.25 : 0.2), e.z), r = e.D.cat === 'inf' ? 14 : e.type === 'blimp' ? 40 : e.D.air === 'heli' ? (e.D.carry === 'veh' ? 34 : 28) : 22, d = Math.hypot(p[0] - px, p[1] - py);
     if (d < r && d < bd) { bd = d; best = e; }
   }
@@ -1490,7 +1564,7 @@ function alrUICursorPick() {
   else if (alrForceOn(h)) cur = ALR_CURSOR.attack;   // force-fire on your own: the red reticle, so you know
   else if (h && h.owner === 0 && h.type === 'refinery' && alr.sel.some((s) => s.kind === 'unit' && s.owner === 0 && s.D.harv)) cur = ALR_CURSOR.board;
   else if (h && h.owner === 0 && h.D.carry && alr.sel.some((s) => alrCanCarry(h, s))) cur = alrRoom(h) > 0 ? ALR_CURSOR.board : ALR_CURSOR.nogo;
-  else if (h && h.owner === 0 && h.D.carry && alr.sel.includes(h) && h.load.length) cur = alrLandOk(h.x, h.z, h) ? ALR_CURSOR.unload : ALR_CURSOR.nogo;
+  else if (h && h.owner === 0 && h.D.carry && alr.sel.includes(h) && h.load.length) cur = (h.D.amphib ? alrShoreNear(h) : alrLandOk(h.x, h.z, h)) ? ALR_CURSOR.unload : ALR_CURSOR.nogo;
   else if (alr.mode === 'am') cur = ALR_CURSOR.amove;
   else if (h && h.owner !== 0 && mine) cur = ALR_CURSOR.attack;
   else if (h && h.owner === 0) cur = 'pointer';

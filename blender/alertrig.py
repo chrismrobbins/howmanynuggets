@@ -4438,10 +4438,574 @@ ARMS = [build_inf_gun, build_rocket_gun, build_conscript_gun, build_sniper_gun, 
        [lambda n=n, mt=mt: _sleeve("u.arm_" + n, mt) for n, mt in (("bread", "breading"), ("khaki", "khaki"), ("ghillie", "oliveDark"), ("hazmat", "hazmat"), ("armor", "armorDark"))] + \
        [lambda n=n, mt=mt: _hand("u.hand_" + n, mt) for n, mt in (("bread", "breading"), ("rubber", "rubber"))]
 
+# =========================================================================================================
+# THE NAVY (Chris: "build several more water maps that could use water craft. add water based vehicles and
+# buildings"). Boats face +z with their origin ON THE WATERLINE (the game sits them at ALR_WATER_Y and the
+# water's surface hides what's under it); a sub's origin is a little above its deck so it rides low. The yards
+# are 3×3 buildings set on the water: their origin is the ground level (the water is 0.08 below), piles to
+# the riverbed (−0.42).
+# =========================================================================================================
+DESTROYER_TURRET_AT = (0, 0.105, 0.4)
+AEGIS_TURRET_AT = (0, 0.11, 0.5)
+HOVER_FAN_AT = [(-0.17, 0.2, -0.46), (0.17, 0.2, -0.46)]
+
+
+def _hull(m, st, mat, n_keel=0.12, tumble=0.0):
+    """A ship's hull lofted through stations [(z, half-beam, deck height, draft)], stern first. Each ring runs
+    from the starboard deck edge down round the bilge to the keel and back up to port; the loft closes the ring
+    across the deck."""
+    rings = []
+    for z, hw, dy, dr in st:
+        hw = max(hw, 0.004)
+        pts = [(hw * (1 - tumble), dy), (hw, dy * 0.45), (hw * 0.97, 0.0), (hw * 0.86, -dr * 0.45), (hw * 0.5, -dr * 0.88), (0, -dr)]
+        ring = pts + [(-x, y) for x, y in reversed(pts[:-1])]
+        rings.append([(x, y, z) for x, y in ring])
+    m.loft(rings, mat, bev=0)
+    return m
+
+
+def _boot(m, st, mat, y0=-0.004, y1=0.022, out=1.012):
+    """The boot-top: a painted band at the waterline round the hull (team colour on ours)."""
+    rings = []
+    for z, hw, dy, dr in st:
+        hw = max(hw, 0.004) * out
+        rings.append([(hw, y1, z), (hw, y0, z), (-hw, y0, z), (-hw, y1, z)])
+    m.loft(rings, mat, bev=0)
+
+
+def _deck(m, st, y, mat, inset=0.012):
+    """A deck plate inside the gunwales, along the stations (a flat ring-less loft)."""
+    rings = []
+    for z, hw, dy, dr in st:
+        w = max(0.003, hw - inset)
+        rings.append([(w, y, z), (-w, y, z), (-w, y - 0.006, z), (w, y - 0.006, z)])
+    m.loft(rings, mat, bev=0)
+
+
+def _rail(m, st, y, post=0.006):
+    for s in (-1, 1):
+        pts = [(s * max(0.004, hw - 0.006), y, z) for z, hw, dy, dr in st]
+        for a, b in zip(pts, pts[1:]):
+            m.bar(a, b, post * 0.8, "steel")
+            m.bar((a[0], a[1] + 0.03, a[2]), (b[0], b[1] + 0.03, b[2]), post * 0.7, "steel")
+        for p in pts[::1]:
+            m.bar(p, (p[0], p[1] + 0.03, p[2]), post * 0.7, "steel")
+
+
+def _radar_mast(m, x, y0, z, h, mat="steelDark"):
+    m.lattice((x, y0, z), (x, y0 + h, z), 0.04, 0.012, mat, bays=3, w=0.007)
+    m.box((x, y0 + h + 0.005, z), (0.11, 0.008, 0.02), "dark", bev=0)
+    m.cyl((x, y0 + h + 0.02, z), 0.008, 0.03, "steel", n=6)
+    m.ball((x, y0 + h + 0.04, z), 0.012, "white", u=8, v=5)
+
+
+def build_destroyer():
+    """⚓ BREADED DESTROYER (Alliance): a sharp flush-deck destroyer in pale Alliance grey — a raked bow with
+    a flared knuckle, team boot-top, a stepped bridge with wraparound windows, a lattice mast with radar, a
+    raked funnel with a team band, torpedo tubes amidships, depth-charge racks and rails on the fantail. The
+    gun mount is u.destroyer_turret at DESTROYER_TURRET_AT."""
+    m = FModel("u.destroyer")
+    ST = [(-0.72, 0.13, 0.085, 0.05), (-0.62, 0.165, 0.085, 0.08), (-0.4, 0.18, 0.088, 0.1), (0.0, 0.18, 0.092, 0.11),
+          (0.3, 0.165, 0.1, 0.11), (0.5, 0.125, 0.115, 0.1), (0.64, 0.07, 0.13, 0.085), (0.74, 0.012, 0.145, 0.06)]
+    _hull(m, ST, "allyDark")
+    _boot(m, ST, "team")
+    _deck(m, ST, 0.094, "steelDark")
+    _rail(m, ST[1:-1], 0.094)
+    # the forecastle break, the anchor hawses
+    for s in (-1, 1):
+        m.cyl((s * 0.09, 0.09, 0.62), 0.012, 0.02, "black", n=8, axis="x")
+    # the bridge: stepped blocks, windows round the front, a wing each side
+    m.box((0, 0.14, 0.18), (0.22, 0.09, 0.2), "allyArmor", bev=0.01)
+    m.box((0, 0.205, 0.17), (0.18, 0.05, 0.15), "allyArmor", bev=0.008)
+    m.box((0, 0.208, 0.247), (0.15, 0.022, 0.006), "glass", bev=0)
+    for s in (-1, 1):
+        m.box((s * 0.091, 0.208, 0.19), (0.006, 0.022, 0.08), "glass", bev=0)
+        m.box((s * 0.14, 0.19, 0.22), (0.07, 0.008, 0.05), "allyDark", bev=0)
+    m.box((0, 0.235, 0.17), (0.2, 0.01, 0.17), "steelDark", bev=0)
+    _radar_mast(m, 0, 0.24, 0.12, 0.2)
+    m.box((0, 0.42, 0.12), (0.12, 0.012, 0.02), "dark", bev=0)
+    # the funnel: raked, a cap, a team band, a vent each side
+    m.push(0, 0.1, -0.08, 0, -0.18)
+    m.lathe([(0.055, 0.0), (0.055, 0.15), (0.048, 0.17), (0.0, 0.17)], "allyArmor", n=14)
+    m.lathe([(0.057, 0.09), (0.057, 0.125), (0.05, 0.125), (0.05, 0.09)], "team", n=14, ring=True)
+    m.cyl((0, 0.172, 0), 0.04, 0.01, "black", n=12)
+    m.pop()
+    m.box((0, 0.125, -0.06), (0.16, 0.05, 0.22), "allyArmor", bev=0.008)
+    # amidships: a quad torpedo-tube mount each side, boats in davits
+    for s in (-1, 1):
+        m.push(s * 0.09, 0.115, -0.25, s * 0.5)
+        for k in range(3):
+            m.cyl((-0.02 + k * 0.02, 0.0, 0.0), 0.009, 0.14, "steelDark", n=8, axis="z")
+        m.box((0, -0.012, -0.02), (0.07, 0.012, 0.05), "dark", bev=0)
+        m.pop()
+        m.prism_z([(s * 0.12, 0.13), (s * 0.15, 0.115), (s * 0.15, 0.13)], -0.07, 0.02, "paintWhite", bev=0.004)
+    # the fantail: depth-charge racks, rails, a jackstaff with a team flag
+    for s in (-1, 1):
+        for k in range(4):
+            m.cyl((s * 0.08, 0.115, -0.5 - k * 0.04), 0.017, 0.035, "dark", n=8)
+    m.box((0, 0.11, -0.43), (0.12, 0.03, 0.08), "allyArmor", bev=0.006)
+    m.cyl((0, 0.15, -0.69), 0.003, 0.11, "dark", n=4)
+    m.box((0, 0.185, -0.705), (0.003, 0.025, 0.035), "team", bev=0)
+    # a second gun tub aft (fixed) with an AA mount
+    m.cyl((0, 0.11, -0.34), 0.05, 0.03, "allyArmor", n=14)
+    m.cyl((0, 0.135, -0.34), 0.02, 0.02, "steelDark", n=8)
+    for s in (-1, 1):
+        m.cyl((s * 0.012, 0.145, -0.31), 0.004, 0.07, "dark", n=5, axis="z")
+    return m
+
+
+def build_destroyer_turret():
+    """The destroyer's twin gun house: a sloped shield, two barrels with blast bags, a rangefinder."""
+    m = FModel("u.destroyer_turret")
+    m.cyl((0, 0.005, 0), 0.07, 0.012, "steelDark", n=16)
+    m.prism_y([(-0.07, -0.06), (0.07, -0.06), (0.075, 0.03), (0.04, 0.07), (-0.04, 0.07), (-0.075, 0.03)], 0.01, 0.075, "allyArmor", bev=0.01, top=0.85, topc=(0, 0))
+    m.box((0, 0.078, -0.01), (0.1, 0.006, 0.09), "allyDark", bev=0)
+    for s in (-1, 1):
+        m.cyl((s * 0.028, 0.045, 0.1), 0.012, 0.07, "rubber", n=8, axis="z")
+        m.cyl((s * 0.028, 0.045, 0.2), 0.0085, 0.18, "steelDark", n=8, axis="z")
+        m.cyl((s * 0.028, 0.045, 0.29), 0.011, 0.012, "dark", n=8, axis="z")
+    m.cyl((0, 0.06, -0.04), 0.008, 0.16, "dark", n=6, axis="x")
+    m.box((0, 0.04, 0.071), (0.11, 0.012, 0.004), "team", bev=0)
+    return m
+
+
+def build_aegis():
+    """🛡️ SAUCE AEGIS (Alliance): a missile cruiser — a long clean hull, a tall slab-sided deckhouse with
+    the four flat octagonal radar faces, vertical-launch cell grids fore and aft, a raked mast, twin stacks.
+    Its twin-arm launcher is u.aegis_turret at AEGIS_TURRET_AT."""
+    m = FModel("u.aegis")
+    ST = [(-0.78, 0.15, 0.09, 0.05), (-0.66, 0.19, 0.09, 0.08), (-0.4, 0.2, 0.092, 0.11), (0.0, 0.2, 0.095, 0.12),
+          (0.3, 0.185, 0.1, 0.12), (0.55, 0.14, 0.115, 0.1), (0.7, 0.08, 0.13, 0.085), (0.8, 0.012, 0.145, 0.06)]
+    _hull(m, ST, "allyDark")
+    _boot(m, ST, "team")
+    _deck(m, ST, 0.098, "steelDark")
+    _rail(m, ST[1:-1], 0.098)
+    # the deckhouse: two tiers, slab sides
+    m.box((0, 0.17, 0.12), (0.26, 0.15, 0.34), "allyArmor", bev=0.01, taper=(0.92, 0.95))
+    m.box((0, 0.29, 0.14), (0.2, 0.1, 0.2), "allyArmor", bev=0.008, taper=(0.9, 0.9))
+    m.box((0, 0.3, 0.241), (0.16, 0.02, 0.006), "glass", bev=0)
+    # the four radar faces (octagons, angled out), two forward, one each side aft
+    for yaw, x, z in ((0.55, 0.075, 0.24), (-0.55, -0.075, 0.24), (math.pi - 0.55, 0.11, 0.0), (math.pi + 0.55, -0.11, 0.0)):
+        m.push(x, 0.22, z, yaw, -0.15)
+        oc = [(math.cos(k / 8 * TAU + TAU / 16) * 0.055, math.sin(k / 8 * TAU + TAU / 16) * 0.055) for k in range(8)]
+        m.prism_z(oc, 0.0, 0.01, "steelDark", bev=0.002)
+        m.prism_z([(x2 * 0.85, y2 * 0.85) for x2, y2 in oc], 0.01, 0.013, "dark", bev=0)
+        m.pop()
+    _radar_mast(m, 0, 0.34, 0.1, 0.18)
+    # stacks
+    for z in (-0.12, -0.28):
+        m.box((0, 0.17, z), (0.13, 0.1, 0.1), "allyArmor", bev=0.008)
+        m.box((0, 0.225, z), (0.1, 0.01, 0.07), "black", bev=0)
+        m.box((0, 0.2, z + 0.051), (0.13, 0.015, 0.004), "team", bev=0)
+    # the VLS grids
+    for z0, nz in ((0.33, 3), (-0.5, 4)):
+        for i in range(4):
+            for j in range(nz):
+                m.box((-0.06 + i * 0.04, 0.103, z0 + j * 0.045), (0.034, 0.006, 0.038), "steel" if (i + j) % 2 else "steelDark", bev=0)
+    # boats + a helicopter pad on the fantail
+    m.cyl((0, 0.1, -0.66), 0.09, 0.006, "dark", n=16)
+    m.torus((0, 0.104, -0.66), 0.075, 0.004, "white", n=16, m=4)
+    for s in (-1, 1):
+        m.prism_z([(s * 0.13, 0.145), (s * 0.165, 0.125), (s * 0.165, 0.145)], -0.2, -0.08, "paintWhite", bev=0.004)
+    return m
+
+
+def build_aegis_turret():
+    """The cruiser's twin-arm missile launcher: a drum base, a pivoting yoke, two rails each with a missile."""
+    m = FModel("u.aegis_turret")
+    m.cyl((0, 0.02, 0), 0.06, 0.04, "allyArmor", n=16, bev=0.006)
+    m.cyl((0, 0.05, 0), 0.03, 0.03, "steelDark", n=10)
+    m.box((0, 0.07, 0), (0.12, 0.02, 0.03), "steelDark", bev=0.004)
+    for s in (-1, 1):
+        m.push(s * 0.05, 0.085, 0.0, 0, -0.35)
+        m.box((0, 0, 0.02), (0.016, 0.012, 0.12), "steel", bev=0)
+        m.cyl((0, 0.016, 0.03), 0.011, 0.13, "paintWhite", n=8, axis="z")
+        m.cyl((0, 0.016, 0.105), 0.011, 0.02, "red", n=8, axis="z", r2=0.0)
+        for k in range(4):
+            a = k / 4 * TAU
+            m.box((math.cos(a) * 0.014, 0.016 + math.sin(a) * 0.014, -0.025), (0.004 if k % 2 == 0 else 0.016, 0.016 if k % 2 == 0 else 0.004, 0.02), "dark", bev=0)
+        m.pop()
+    return m
+
+
+def build_dread():
+    """☢️ DREADNUGHT (Federation): a huge, slab-sided battleship of the Fry Federation — a tall pagoda bridge
+    tower, a forest of vertical missile silos fore and aft with their hatches open, a broad team-red funnel,
+    anti-air tubs on the beam, a flared clipper bow."""
+    m = FModel("u.dread")
+    ST = [(-1.05, 0.22, 0.11, 0.06), (-0.9, 0.27, 0.11, 0.1), (-0.5, 0.285, 0.112, 0.14), (0.0, 0.285, 0.115, 0.15),
+          (0.45, 0.27, 0.12, 0.15), (0.75, 0.2, 0.135, 0.13), (0.95, 0.1, 0.155, 0.1), (1.08, 0.015, 0.17, 0.07)]
+    _hull(m, ST, "armorDark")
+    _boot(m, ST, "team")
+    _deck(m, ST, 0.118, "wood")
+    _rail(m, ST[1:-1], 0.118)
+    # the citadel + the pagoda
+    m.box((0, 0.17, 0.05), (0.34, 0.11, 0.6), "armor", bev=0.012, taper=(0.94, 0.97))
+    for k, (w, h, d) in enumerate(((0.24, 0.08, 0.26), (0.19, 0.07, 0.2), (0.15, 0.07, 0.15), (0.12, 0.06, 0.11))):
+        y = 0.26 + sum(q[1] for q in ((0.24, 0.08, 0.26), (0.19, 0.07, 0.2), (0.15, 0.07, 0.15), (0.12, 0.06, 0.11))[:k])
+        m.box((0, y, 0.18), (w, h, d), "armor", bev=0.008)
+        m.box((0, y + h * 0.15, 0.18 + d / 2 + 0.002), (w * 0.8, h * 0.3, 0.005), "glassLit" if k == 2 else "glass", bev=0)
+    _radar_mast(m, 0, 0.54, 0.18, 0.22, mat="dark")
+    # the funnel: broad, raked, a team band, a cap
+    m.push(0, 0.22, -0.18, 0, -0.12)
+    m.box((0, 0.1, 0), (0.15, 0.2, 0.17), "armor", bev=0.02, seg=2, taper=(0.9, 0.85))
+    m.box((0, 0.13, 0), (0.152, 0.04, 0.172), "team", bev=0)
+    m.box((0, 0.205, 0), (0.12, 0.01, 0.13), "black", bev=0)
+    m.pop()
+    # the missile silos: banks of round hatches, a few open with the nose cone showing
+    def silos(z0, rows):
+        for i in range(3):
+            for j in range(rows):
+                x, z = -0.1 + i * 0.1, z0 + j * 0.1
+                m.cyl((x, 0.13, z), 0.035, 0.03, "steelDark", n=12)
+                if (i + j) % 2 == 0:
+                    m.cyl((x, 0.146, z), 0.026, 0.004, "black", n=12)
+                    m.cyl((x, 0.17, z), 0.02, 0.05, "red", n=10, r2=0.0)
+                    m.push(x + 0.04, 0.15, z, 0, 0, -1.2)
+                    m.cyl((0, 0, 0), 0.034, 0.008, "steel", n=12)
+                    m.pop()
+                else:
+                    m.cyl((x, 0.148, z), 0.034, 0.006, "steel", n=12)
+    silos(0.45, 3)
+    silos(-0.85, 3)
+    # AA tubs on the beam, a crane on the quarterdeck
+    for s in (-1, 1):
+        for z in (-0.3, 0.3):
+            m.cyl((s * 0.2, 0.15, z), 0.04, 0.03, "armor", n=12)
+            for d in (-0.012, 0.012):
+                m.cyl((s * 0.2 + d, 0.17, z + 0.03), 0.004, 0.06, "dark", n=5, axis="z")
+    m.lattice((0.12, 0.12, -0.55), (0.12, 0.32, -0.55), 0.02, 0.008, "steelDark", bays=3, w=0.006)
+    m.bar((0.12, 0.32, -0.55), (0.0, 0.3, -0.42), 0.008, "steelDark")
+    # the bow: a team star on each flank, the anchors
+    for s in (-1, 1):
+        _star(m, (0.8, 0.07), 0.04, s * 0.2, s * 0.207, mat="team")
+        m.box((s * 0.15, 0.06, 0.9), (0.02, 0.04, 0.03), "dark", bev=0)
+    return m
+
+
+def build_sub():
+    """🥔 TYPHOON TATER (Federation): a potato-plump submarine — a fat round hull (only the casing and the
+    sail break the surface), a tall sail with diving planes and periscopes, a cruciform tail with a shrouded
+    prop, torpedo-tube doors in the bow, the team colour on the sail."""
+    m = FModel("u.sub", smooth_deg=40)
+    n, rings = 18, []
+    for i in range(15):
+        t = -1 + 2 * i / 14
+        z = t * 0.68
+        r = 0.115 * (max(0.0, 1 - t ** 8) ** 0.35 if t > 0 else max(0.0, 1 - abs(t) ** 2.4) ** 0.6) + 0.004
+        rings.append([(math.cos(j / n * TAU) * r * 1.05, -0.035 + math.sin(j / n * TAU) * r, z) for j in range(n)])
+    m.loft(rings, "armorDark", cap0=False, cap1=False)
+    # a flat casing along the top (the deck you see awash)
+    m.box((0, 0.075, 0.02), (0.06, 0.02, 0.9), "armor", bev=0.008)
+    for k in range(10):
+        m.box((0, 0.086, -0.38 + k * 0.085), (0.045, 0.003, 0.004), "dark", bev=0)
+    # the sail: a tall rounded fin, team top band, planes on it
+    m.push(0, 0.085, 0.16)
+    m.prism_y([(-0.035, -0.11), (0.035, -0.11), (0.04, 0.02), (0.025, 0.1), (0.0, 0.12), (-0.025, 0.1), (-0.04, 0.02)], 0.0, 0.15, "armor", bev=0.01, top=0.92, topc=(0, 0))
+    m.prism_y([(-0.033, -0.1), (0.033, -0.1), (0.037, 0.02), (0.023, 0.09), (0.0, 0.11), (-0.023, 0.09), (-0.037, 0.02)], 0.115, 0.15, "team", bev=0, top=0.92, topc=(0, 0))
+    for s in (-1, 1):
+        m.prism_x([(-0.0, 0.0), (0.06, 0.0), (0.05, 0.006), (0.0, 0.006)], s * 0.035, s * 0.12, "armorDark", bev=0.003)
+    m.cyl((0.012, 0.18, 0.02), 0.005, 0.07, "dark", n=6)
+    m.cyl((-0.012, 0.17, -0.03), 0.004, 0.05, "dark", n=6)
+    m.box((0.012, 0.215, 0.025), (0.008, 0.01, 0.014), "glass", bev=0)
+    m.pop()
+    # tail: cruciform fins, a shrouded prop
+    for roll in (0, math.pi / 2, math.pi, -math.pi / 2):
+        m.push(0, -0.035, -0.6, 0, 0, roll)
+        m.prism_x([(0.0, 0.0), (0.1, 0.0), (0.04, 0.09), (0.0, 0.09)], -0.005, 0.005, "armorDark", bev=0.003)
+        m.pop()
+    m.push(0, -0.035, -0.69, 0, math.pi / 2)
+    m.lathe([(0.075, -0.03), (0.075, 0.03), (0.066, 0.03), (0.066, -0.03)], "steelDark", n=18, ring=True)
+    m.pop()
+    m.cyl((0, -0.035, -0.69), 0.012, 0.03, "copper", n=8, axis="z")
+    # bow: torpedo doors
+    for s in (-1, 1):
+        for dy in (-0.06, -0.01):
+            m.push(s * 0.07, dy, 0.52, s * 0.35)
+            m.box((0, 0, 0), (0.004, 0.022, 0.05), "black", bev=0)
+            m.pop()
+    return m
+
+
+def build_dolphin():
+    """🐬 NUG DOLPHIN (Alliance): a trained dolphin in a team-coloured harness with a sonic emitter on its brow
+    — a smooth grey body (pale belly), beak, dorsal fin, pectorals, tail flukes."""
+    m = FModel("u.dolphin", smooth_deg=50)
+    n, rings = 16, []
+    for i in range(13):
+        t = i / 12
+        z = -0.3 + t * 0.6
+        r = 0.075 * math.sin(math.pi * min(1, t * 1.12)) ** 0.6 + 0.004
+        if t > 0.85:
+            r = 0.018 + (1 - t) * 0.1
+        rings.append([(math.cos(j / n * TAU) * r * 0.95, math.sin(j / n * TAU) * r, z) for j in range(n)])
+    m.loft(rings, "steel", cap0=True, cap1=True)
+    m.cyl((0, -0.006, 0.33), 0.016, 0.06, "steel", n=10, axis="z", r2=0.01)      # the beak
+    m.ball((0, -0.03, 0.04), 0.06, "white", u=12, v=6, s=(1.0, 0.6, 3.0))          # the belly
+    m.prism_x([(-0.05, 0.06), (0.04, 0.06), (-0.05, 0.14), (-0.08, 0.14)], -0.006, 0.006, "steelDark", bev=0.004)
+    for s in (-1, 1):
+        m.push(s * 0.06, -0.035, 0.1, s * 0.6, 0.2, s * 0.6)
+        m.box((0, 0, 0), (0.07, 0.006, 0.035), "steelDark", bev=0.004)
+        m.pop()
+        m.push(s * 0.045, 0.0, -0.32, s * 0.35)
+        m.box((0, 0, 0), (0.07, 0.006, 0.04), "steelDark", bev=0.004)
+        m.pop()
+        m.ball((s * 0.04, 0.025, 0.23), 0.008, "black", u=6, v=4)
+    # the harness: a team strap round the middle, a sonic emitter on the head
+    m.push(0, 0, 0.05, 0, math.pi / 2)
+    m.lathe([(0.08, -0.012), (0.08, 0.012), (0.074, 0.012), (0.074, -0.012)], "team", n=16, ring=True)
+    m.pop()
+    m.cyl((0, 0.072, 0.17), 0.016, 0.03, "dark", n=10, axis="z")
+    m.cyl((0, 0.072, 0.19), 0.012, 0.006, "glassLit", n=10, axis="z")
+    return m
+
+
+def build_squid():
+    """🦑 GIANT CALAMARI (Federation): a monstrous squid, battered and fried like a calamari ring — a long
+    breaded mantle with fins (the batter crackle is the breading material), big eyes, a team-coloured tag
+    on a collar. Its eight arms are u.squid_arm, laid round the head by the game."""
+    m = FModel("u.squid", smooth_deg=45)
+    n, rings = 16, []
+    for i in range(11):
+        t = i / 10
+        z = -0.42 + t * 0.48
+        r = 0.11 * math.sin(math.pi * (0.1 + t * 0.9)) ** 0.5 + 0.01
+        if t < 0.25:
+            r = 0.02 + t * 0.4
+        rings.append([(math.cos(j / n * TAU) * r, 0.03 + math.sin(j / n * TAU) * r * 0.8, z) for j in range(n)])
+    m.loft(rings, "breading", cap0=True, cap1=False)
+    # the fins at the tail
+    for s in (-1, 1):
+        m.prism_y([(0, -0.42), (s * 0.16, -0.36), (s * 0.04, -0.24), (0, -0.25)], 0.02, 0.03, "breadDark", bev=0.005)
+    # batter crackle: lumps over the mantle
+    rnd = random.Random(7)
+    for k in range(26):
+        t = rnd.uniform(0.25, 0.95)
+        a = rnd.uniform(0.15, math.pi - 0.15)
+        z = -0.42 + t * 0.48
+        r = 0.11 * math.sin(math.pi * (0.1 + t * 0.9)) ** 0.5
+        m.rock((math.cos(a) * r, 0.03 + math.sin(a) * r * 0.8, z), 0.022, "breadDark" if k % 3 == 0 else "breading", sub=1, amp=0.4, seed=k)
+    # the head: eyes, the collar with a team tag
+    m.ball((0, 0.05, 0.08), 0.09, "breading", u=14, v=8, s=(1.0, 0.8, 0.9))
+    for s in (-1, 1):
+        m.ball((s * 0.075, 0.08, 0.1), 0.032, "white", u=10, v=6)
+        m.ball((s * 0.098, 0.085, 0.11), 0.016, "black", u=8, v=5)
+    m.push(0, 0.05, 0.01, 0, math.pi / 2)
+    m.lathe([(0.105, -0.015), (0.105, 0.015), (0.095, 0.015), (0.095, -0.015)], "team", n=16, ring=True)
+    m.pop()
+    m.box((0, 0.16, 0.01), (0.04, 0.03, 0.006), "teamLite", bev=0.003)
+    return m
+
+
+def build_squid_arm():
+    """One of the calamari's arms: origin at its root, lying along +z, tapering, curling up at the tip,
+    battered, with sucker rings on the underside."""
+    m = FModel("u.squid_arm", smooth_deg=50)
+    pts = []
+    for k in range(9):
+        t = k / 8
+        pts.append((0, 0.02 + math.sin(t * math.pi * 0.9) * 0.03 + (t ** 3) * 0.08, 0.04 + t * 0.4))
+    n, rings = 8, []
+    for k, p in enumerate(pts):
+        r = 0.032 * (1 - k / 9) + 0.006
+        rings.append([(p[0] + math.cos(j / n * TAU) * r, p[1] + math.sin(j / n * TAU) * r, p[2]) for j in range(n)])
+    m.loft(rings, "breading")
+    for k in range(1, 7):
+        p = pts[k]
+        m.cyl((p[0], p[1] - 0.026 * (1 - k / 9) - 0.004, p[2]), 0.01 * (1 - k / 10), 0.006, "gravyLt", n=8)
+    return m
+
+
+def build_hover():
+    """🛥️ GRAVY BOAT (both armies): an assault hovercraft — a black rubber skirt, a flat deck with a cargo
+    well and a bow ramp shaped like a gravy boat's spout, a control cabin on the starboard side, two big
+    ducted fans at the back (the fans are u.hover_fan, at HOVER_FAN_AT), team panels on the ducts."""
+    m = FModel("u.hover")
+    # the skirt: a fat rubber ring round the hull plan
+    plan = [(-0.27, -0.5), (0.27, -0.5), (0.3, -0.3), (0.3, 0.3), (0.22, 0.48), (0.0, 0.56), (-0.22, 0.48), (-0.3, 0.3), (-0.3, -0.3)]
+    m.prism_y(plan, -0.02, 0.06, "rubber", bev=0.03, seg=2, top=0.96, topc=(0, 0))
+    m.prism_y([(x * 0.94, z * 0.94) for x, z in plan], 0.06, 0.1, "armor", bev=0.01)
+    # the cargo well (a sunken deck between bulwarks), the bow ramp (a spout)
+    m.box((0, 0.101, -0.02), (0.36, 0.006, 0.66), "steelDark", bev=0)
+    for s in (-1, 1):
+        m.box((s * 0.2, 0.14, -0.05), (0.04, 0.08, 0.7), "armor", bev=0.008)
+        m.box((s * 0.222, 0.15, -0.05), (0.004, 0.02, 0.6), "team", bev=0)
+    m.prism_x([(0.34, 0.1), (0.5, 0.16), (0.53, 0.18), (0.36, 0.14)], -0.12, 0.12, "armorDark", bev=0.006)
+    m.prism_x([(0.36, 0.14), (0.53, 0.18), (0.55, 0.19), (0.37, 0.16)], -0.06, 0.06, "gravyLt", bev=0.004)
+    # the cabin: starboard, forward of the fans
+    m.box((0.19, 0.22, -0.18), (0.1, 0.1, 0.16), "armor", bev=0.01)
+    m.box((0.19, 0.245, -0.098), (0.08, 0.03, 0.004), "glass", bev=0)
+    m.box((0.241, 0.245, -0.18), (0.004, 0.03, 0.12), "glass", bev=0)
+    m.cyl((0.19, 0.3, -0.2), 0.004, 0.08, "dark", n=4)
+    m.ball((0.19, 0.345, -0.2), 0.01, "red", u=6, v=4)
+    # the fan ducts: rings with struts, a rudder vane behind each
+    for x, y, z in HOVER_FAN_AT:
+        m.push(x, y, z, 0, math.pi / 2)
+        m.lathe([(0.13, -0.04), (0.13, 0.04), (0.115, 0.04), (0.115, -0.04)], "armor", n=20, ring=True)
+        m.lathe([(0.1315, -0.025), (0.1315, 0.025), (0.13, 0.025), (0.13, -0.025)], "team", n=20, ring=True)
+        m.pop()
+        m.bar((x, y - 0.13, z), (x, 0.09, z + 0.08), 0.02, "armorDark")
+        m.box((x, y, z - 0.07), (0.006, 0.2, 0.05), "armorDark", bev=0)
+    m.bar((-0.17, 0.33, -0.46), (0.17, 0.33, -0.46), 0.012, "steelDark")
+    return m
+
+
+def build_hover_fan():
+    """A hovercraft's fan: hub and five blades, spun about z (origin = the duct's centre)."""
+    m = FModel("u.hover_fan")
+    m.cyl((0, 0, 0), 0.03, 0.05, "dark", n=10, axis="z")
+    for k in range(5):
+        m.push(0, 0, 0, 0, 0, k * TAU / 5)
+        m.push(0, 0.065, 0, 0.35)
+        m.box((0, 0, 0), (0.03, 0.09, 0.006), "steel", bev=0.002)
+        m.pop()
+        m.pop()
+    return m
+
+
+def _piles(m, pts, top, r=0.035, mat="concDark"):
+    for x, z in pts:
+        m.cyl((x, (top - 0.44) / 2, z), r, top + 0.44, mat, n=10)
+
+
+def build_navyA():
+    """⚓ NUG NAVAL YARD (Alliance): a concrete pier yard on piles — two finger piers either side of an open
+    slip (open to the front, +z), a gantry crane straddling the slip on rails, a harbour-master's tower with a
+    team band, a fuel tank, bollards, lamps, a team-striped dock gate."""
+    m = FModel("b.navyA")
+    D = 0.07
+    # the piles and the deck (U-shaped: the slip down the middle stays water)
+    _piles(m, [(x, z) for x in (-1.3, -0.75, 0.75, 1.3) for z in (-1.2, -0.4, 0.4, 1.2)], D)
+    m.box((0, D - 0.04, -1.2), (2.9, 0.08, 0.55), "conc", bev=0.015)
+    for s in (-1, 1):
+        m.box((s * 1.03, D - 0.04, 0.12), (0.84, 0.08, 2.2), "conc", bev=0.015)
+        m.box((s * 0.6, D + 0.004, 0.12), (0.03, 0.008, 2.2), "hazard", bev=0)
+        # rails for the gantry
+        m.box((s * 0.66, D + 0.01, 0.1), (0.02, 0.01, 2.0), "steelDark", bev=0)
+        for k in range(5):
+            m.cyl((s * 0.6, D + 0.03, -0.7 + k * 0.4), 0.02, 0.04, "dark", n=8)      # bollards
+        # fenders on the slip side
+        for k in range(6):
+            m.cyl((s * 0.6, D - 0.06, -0.8 + k * 0.36), 0.025, 0.07, "rubber", n=8, axis="x")
+    m.box((0, D + 0.005, -0.93), (1.2, 0.01, 0.04), "hazard", bev=0)
+    # the slip's floor (a dark ramp just under the water) and the gate at the head of it
+    m.box((0, -0.2, -0.3), (1.15, 0.04, 1.4), "concDark", bev=0)
+    m.box((0, D + 0.12, -0.96), (1.16, 0.22, 0.06), "teamDark", bev=0.01)
+    for k in range(6):
+        m.box((-0.5 + k * 0.2, D + 0.12, -0.925), (0.012, 0.2, 0.006), "dark", bev=0)
+    # the gantry crane: two legs on each rail, a girder, a trolley + hook
+    for s in (-1, 1):
+        for dz in (-0.12, 0.12):
+            m.bar((s * 0.66, D, 0.3 + dz), (s * 0.62, D + 0.62, 0.3), 0.04, "hazard")
+        m.box((s * 0.66, D + 0.03, 0.3), (0.08, 0.06, 0.32), "steelDark", bev=0.006)
+    m.box((0, D + 0.64, 0.3), (1.44, 0.07, 0.1), "hazard", bev=0.01)
+    m.box((0, D + 0.68, 0.3), (1.44, 0.012, 0.1), "black", bev=0)
+    m.box((0.18, D + 0.58, 0.3), (0.14, 0.08, 0.12), "steelDark", bev=0.008)
+    m.box((0.18, D + 0.58, 0.361), (0.08, 0.04, 0.004), "glass", bev=0)
+    m.bar((0.18, D + 0.54, 0.3), (0.18, D + 0.3, 0.3), 0.006, "dark")
+    m.box((0.18, D + 0.29, 0.3), (0.05, 0.02, 0.03), "dark", bev=0)
+    # the harbour-master's tower on the left pier, front corner
+    m.box((-1.05, D + 0.25, 0.85), (0.4, 0.5, 0.4), "concLite", bev=0.012)
+    m.box((-1.05, D + 0.43, 0.85), (0.405, 0.06, 0.405), "team", bev=0)
+    m.box((-1.05, D + 0.6, 0.85), (0.3, 0.2, 0.3), "concLite", bev=0.01)
+    m.windows((-1.2, 1.006), (-0.9, 1.006), D + 0.6, 3, 0.06, 0.08, "z", lit=1)
+    m.windows((-0.9 + 0.006, 0.7), (-0.9 + 0.006, 1.0), D + 0.6, 3, 0.06, 0.08, "x", lit=0)
+    m.box((-1.05, D + 0.71, 0.85), (0.34, 0.02, 0.34), "roof", bev=0)
+    _radar_mast(m, -1.05, D + 0.72, 0.85, 0.22)
+    m.windows((-1.25, 1.056), (-0.85, 1.056), D + 0.22, 2, 0.08, 0.1, "z", lit=0)
+    # a fuel tank + pipes on the right pier, crates and a lamp
+    m.cyl((1.05, D + 0.16, 0.8), 0.22, 0.3, "white", n=20, bev=0.01)
+    m.cyl((1.05, D + 0.32, 0.8), 0.2, 0.03, "steelDark", n=20, r2=0.15)
+    m.lathe([(0.223, 0.2), (0.223, 0.25), (0.22, 0.25), (0.22, 0.2)], "team", c=(1.05, D, 0.8), n=20, ring=True)
+    m.tube([(0.85, D + 0.05, 0.8), (0.66, D + 0.05, 0.8), (0.66, D + 0.05, 0.4)], 0.015, "steelDark", n=6)
+    m.ladder(1.05, 1.02, D, D + 0.31, face="z")
+    for k in range(3):
+        m.crate((1.25 - k * 0.11, D + 0.04, -0.2), 0.08, "crateWood")
+    m.lamp(-0.7, 1.25, h=0.4, y0=D)
+    m.lamp(0.7, 1.25, h=0.4, y0=D)
+    m.lamp(-0.7, -0.85, h=0.4, y0=D)
+    m.lamp(0.7, -0.85, h=0.4, y0=D)
+    return m
+
+
+def build_navyF():
+    """⚓ FRY SUB PEN (Federation): a massive reinforced-concrete submarine pen on the water — a vaulted roof
+    over a covered slip open to the front (+z), buttressed walls, blast-door frames, a team-red band and star
+    over the mouth, flak tubs on the roof, a dockside crane, a periscope-shaped vent stack."""
+    m = FModel("b.navyF")
+    D = 0.07
+    _piles(m, [(x, z) for x in (-1.3, 1.3) for z in (-1.25, -0.4, 0.45, 1.25)], D, r=0.05)
+    # the walls (either side of the slip) + the back wall, with buttresses
+    for s in (-1, 1):
+        m.box((s * 1.0, D + 0.16, -0.05), (0.9, 0.42, 2.6), "conc", bev=0.02)
+        for k in range(4):
+            m.box((s * 1.47, D + 0.12, -1.0 + k * 0.62), (0.08, 0.34, 0.12), "concDark", bev=0.01, taper=(0.5, 1.0))
+        # the dock walkway inside the slip
+        m.box((s * 0.52, D, 0.0), (0.12, 0.04, 2.5), "concDark", bev=0.006)
+    m.box((0, D + 0.16, -1.25), (1.15, 0.42, 0.1), "conc", bev=0.02)
+    # the vaulted roof: a barrel vault over the slip, thick slab over the walls
+    rings = []
+    for k in range(11):
+        a = math.pi * k / 10
+        rings.append((math.cos(a) * 0.62, D + 0.37 + math.sin(a) * 0.22))
+    m.prism_z(rings + [(-0.62, D + 0.33), (0.62, D + 0.33)], -1.3, 1.2, "conc", bev=0.0)
+    for k in range(6):
+        z = -1.15 + k * 0.45
+        m.prism_z([(math.cos(math.pi * q / 10) * 0.635, D + 0.37 + math.sin(math.pi * q / 10) * 0.232) for q in range(11)] + [(-0.6, D + 0.37), (0.6, D + 0.37)], z - 0.025, z + 0.025, "concDark", bev=0)
+    m.box((0, D + 0.4, -0.05), (2.9, 0.1, 2.6), "conc", bev=0.03)
+    # the roof's weathering and kit: tar-sealed seams, a burster-course rim, hatches, vents, a painted star
+    for k in range(5):
+        for s in (-1, 1):
+            m.box((s * 1.0, D + 0.452, -1.1 + k * 0.52), (0.84, 0.004, 0.025), "tar", bev=0)
+    for s in (-1, 1):
+        m.box((s * 1.43, D + 0.47, -0.05), (0.06, 0.04, 2.62), "concDark", bev=0.01)
+        m.box((s * 1.0, D + 0.455, -0.05), (0.04, 0.006, 2.4), "concDark", bev=0)
+        m.vent((s * 0.85, D + 0.45, -0.3), r=0.035, h=0.07)
+        m.fan_unit((s * 1.15, D + 0.45, 0.25), s=0.12, mat="steelDark")
+        m.box((s * 1.2, D + 0.462, -1.0), (0.12, 0.02, 0.12), "steelDark", bev=0.006)
+    m.box((0, D + 0.47, -1.32), (2.9, 0.04, 0.06), "concDark", bev=0.01)
+    m.push(-1.0, D + 0.455, -0.6, 0, 0, math.pi / 2)
+    _star(m, (0, 0), 0.16, -0.003, 0.003, mat="teamDark")
+    m.pop()
+    # the mouth: a frame, the team band and star over it, a raised blast door half-open
+    m.box((0, D + 0.4, 1.26), (1.3, 0.14, 0.06), "teamDark", bev=0.01)
+    m.push(0, D + 0.4, 1.295, math.pi / 2)
+    _star(m, (0, 0), 0.06, -0.004, 0.004, mat="emblemGold")
+    m.pop()
+    for s in (-1, 1):
+        m.box((s * 0.6, D + 0.14, 1.26), (0.07, 0.36, 0.08), "concDark", bev=0.01)
+    m.box((0, D + 0.29, 1.24), (1.12, 0.1, 0.05), "steelDark", bev=0.006)
+    for k in range(9):
+        m.box((-0.48 + k * 0.12, D + 0.29, 1.268), (0.01, 0.09, 0.004), "dark", bev=0)
+    # the dark inside of the pen
+    m.box((0, D + 0.1, -0.1), (1.1, 0.34, 2.2), "black", bev=0)
+    # the roof: flak tubs, the vent stack, a railing
+    for x, z in ((-1.0, 0.8), (1.0, -0.8)):
+        m.cyl((x, D + 0.5, z), 0.13, 0.08, "concDark", n=14)
+        m.cyl((x, D + 0.56, z), 0.04, 0.05, "steelDark", n=8)
+        for d in (-0.015, 0.015):
+            m.cyl((x + d, D + 0.6, z + 0.07), 0.006, 0.12, "dark", n=5, axis="z")
+    m.cyl((0.95, D + 0.65, 0.3), 0.06, 0.4, "steelDark", n=12)
+    m.cyl((0.95, D + 0.86, 0.3), 0.075, 0.03, "teamDark", n=12)
+    m.box((0.95, D + 0.86, 0.36), (0.05, 0.05, 0.08), "steelDark", bev=0.006)
+    m.railing([(-1.4, D + 0.45, 1.25), (1.4, D + 0.45, 1.25)], 0.06, step=0.2)
+    # the dockside crane on the right wall, front corner
+    m.cyl((1.15, D + 0.48, 1.0), 0.07, 0.06, "dark", n=12)
+    m.lattice((1.15, D + 0.5, 1.0), (1.15, D + 0.9, 1.0), 0.05, 0.03, "hazard", bays=3, w=0.01)
+    m.bar((1.15, D + 0.9, 1.0), (0.55, D + 0.85, 1.35), 0.025, "hazard")
+    m.bar((0.55, D + 0.85, 1.35), (0.55, D + 0.55, 1.35), 0.004, "dark")
+    m.box((1.15, D + 0.92, 0.98), (0.1, 0.06, 0.08), "steelDark", bev=0.006)
+    return m
+
+
+NAVY = [build_destroyer, build_destroyer_turret, build_aegis, build_aegis_turret, build_dread, build_sub, build_dolphin,
+        build_squid, build_squid_arm, build_hover, build_hover_fan, build_navyA, build_navyF]
+
+
 MODELS = [build_hq, build_hq_crane, build_power, build_refinery, build_barracks, build_barracks_flag, build_factory,
           build_factory_door, build_radar, build_radar_dish, build_turret, build_turret_head, build_tesla,
           build_tank, build_tank_turret, build_tank_gun, build_heavy, build_heavy_turret, build_heavy_gun,
-          build_harv, build_harv_drum, build_harv_load, lambda: build_inf("rifle"), lambda: build_inf("rocket"), build_leg] + LANDSCAPE + GEMS + PHASE1 + PHASE2 + HELIS + FACTIONS + WATERWORKS + ARMS
+          build_harv, build_harv_drum, build_harv_load, lambda: build_inf("rifle"), lambda: build_inf("rocket"), build_leg] + LANDSCAPE + GEMS + PHASE1 + PHASE2 + HELIS + FACTIONS + WATERWORKS + ARMS + NAVY
 
 # the game draws a building's part parented to its body: give the AO bake the body as an occluder
 OCCLUDERS = {"b.hq_crane": "b.hq", "b.radar_dish": "b.radar", "b.turret_head": "b.turret", "b.factory_door": None,
@@ -4451,7 +5015,8 @@ OCCLUDERS = {"b.hq_crane": "b.hq", "b.radar_dish": "b.radar", "b.turret_head": "
              "u.apoc_turret": "u.apoc", "u.harvF_gun": "u.harvF", "b.spysat_dish": "b.spysat",
              "u.hawk_rotor": "u.hawk", "u.hawk_tail": "u.hawk", "u.lift_rotor": "u.lift", "u.tater_rotor": "u.tater",
              "u.tater_tail": "u.tater", "u.hog_rotor": "u.hog", "u.hog_tail": "u.hog",
-             "u.teslaspud_turret": "u.teslaspud", "b.grandfryer_gun": "b.grandfryer"}
+             "u.teslaspud_turret": "u.teslaspud", "b.grandfryer_gun": "b.grandfryer",
+             "u.destroyer_turret": "u.destroyer", "u.aegis_turret": "u.aegis", "u.hover_fan": "u.hover"}
 PART_AT = {"b.hq_crane": (-1.05, 0, -1.0), "b.radar_dish": (0.45, 0.78, -0.45), "b.turret_head": (0, 0.32, 0),
            "u.tank_turret": (0, 0.29, 0), "u.heavy_turret": (0, 0.34, 0), "u.harv_drum": (0, 0.12, 0.52),
            "b.sam_head": (0, 0.3, 0), "b.flak_head": (0, 0.3, 0), "b.derrick_pump": (-0.3, 0.44, 0.45),
@@ -4461,10 +5026,12 @@ PART_AT = {"b.hq_crane": (-1.05, 0, -1.0), "b.radar_dish": (0.45, 0.78, -0.45), 
            "u.tank_gun": (0, 0.365, 0.12), "u.heavy_gun": (0, 0.43, 0.15), "u.harv_load": (0, 0.42, -0.2),
            "u.hawk_rotor": HAWK_ROTOR_AT, "u.hawk_tail": HAWK_TAIL_AT, "u.lift_rotor": LIFT_ROTOR_FRONT_AT,   # (+ LIFT_ROTOR_REAR_AT)
            "u.tater_rotor": TATER_ROTOR_AT, "u.tater_tail": TATER_TAIL_AT, "u.hog_rotor": HOG_ROTOR_AT, "u.hog_tail": HOG_TAIL_AT,
-           "u.teslaspud_turret": TESLASPUD_TURRET_AT, "b.grandfryer_gun": GRANDFRYER_GUN_AT}
+           "u.teslaspud_turret": TESLASPUD_TURRET_AT, "b.grandfryer_gun": GRANDFRYER_GUN_AT,
+           "u.destroyer_turret": DESTROYER_TURRET_AT, "u.aegis_turret": AEGIS_TURRET_AT, "u.hover_fan": HOVER_FAN_AT[0]}
 SUBDIV = {"u.crate": 0.09}   # small models whose big faces sit in corner pieces (AO would grey the whole face)
 NO_GROUND = {"u.arm_bread", "u.arm_khaki", "u.arm_ghillie", "u.arm_hazmat", "u.arm_armor", "u.hand_bread", "u.hand_rubber", "u.inf_gun", "u.rocket_gun", "u.conscript_gun", "u.sniper_gun", "u.greaser_gun", "u.engineer_tool", "u.engineer_box", "u.bomber_det", "u.bomber_stick", "u.zap_hand", "w.bridge_deck", "w.bridge_truss", "w.bridge_portal", "w.bridge_pier", "w.bridge_ruin", "u.gravy_stream", "u.gravy_pool", "u.jet", "u.blimp", "u.blimp_prop", "u.v3_rocket", "b.factory_door", "b.barracks_flag"} | \
-    {"u.hawk", "u.hawk_rotor", "u.hawk_tail", "u.lift", "u.lift_rotor", "u.tater", "u.tater_rotor", "u.tater_tail", "u.hog", "u.hog_rotor", "u.hog_tail"} | {"u.paraplane", "u.chute"}
+    {"u.hawk", "u.hawk_rotor", "u.hawk_tail", "u.lift", "u.lift_rotor", "u.tater", "u.tater_rotor", "u.tater_tail", "u.hog", "u.hog_rotor", "u.hog_tail"} | {"u.paraplane", "u.chute"} | \
+    {"u.destroyer", "u.destroyer_turret", "u.aegis", "u.aegis_turret", "u.dread", "u.sub", "u.dolphin", "u.squid", "u.squid_arm", "u.hover_fan"}
 
 
 # =========================================================================================================
