@@ -1,0 +1,215 @@
+{
+ "v": 1792710184,
+ "vo": {
+  "pbp|KICKOFF": [
+   "vo/pbp-kickoff-0.mp3",
+   "vo/pbp-kickoff-1.mp3"
+  ],
+  "pbp|GOAL": [
+   "vo/pbp-goal-0.mp3",
+   "vo/pbp-goal-1.mp3",
+   "vo/pbp-goal-2.mp3"
+  ],
+  "pbp|GOAL_GREAT": [
+   "vo/pbp-goal-great-0.mp3",
+   "vo/pbp-goal-great-1.mp3"
+  ],
+  "pbp|GOAL_HEADER": [
+   "vo/pbp-goal-header-0.mp3",
+   "vo/pbp-goal-header-1.mp3"
+  ],
+  "pbp|GOAL_PEN": [
+   "vo/pbp-goal-pen-0.mp3",
+   "vo/pbp-goal-pen-1.mp3"
+  ],
+  "pbp|OWN_GOAL": [
+   "vo/pbp-own-goal-0.mp3",
+   "vo/pbp-own-goal-1.mp3"
+  ],
+  "pbp|EQUALISER": [
+   "vo/pbp-equaliser-0.mp3",
+   "vo/pbp-equaliser-1.mp3"
+  ],
+  "pbp|LATE_GOAL": [
+   "vo/pbp-late-goal-0.mp3",
+   "vo/pbp-late-goal-1.mp3"
+  ],
+  "pbp|SAVE": [
+   "vo/pbp-save-0.mp3",
+   "vo/pbp-save-1.mp3"
+  ],
+  "pbp|SAVE_GREAT": [
+   "vo/pbp-save-great-0.mp3",
+   "vo/pbp-save-great-1.mp3"
+  ],
+  "pbp|MISS": [
+   "vo/pbp-miss-0.mp3",
+   "vo/pbp-miss-1.mp3"
+  ],
+  "pbp|POST": [
+   "vo/pbp-post-0.mp3",
+   "vo/pbp-post-1.mp3"
+  ],
+  "pbp|BLOCKED": [
+   "vo/pbp-blocked-0.mp3",
+   "vo/pbp-blocked-1.mp3"
+  ],
+  "pbp|TACKLE": [
+   "vo/pbp-tackle-0.mp3",
+   "vo/pbp-tackle-1.mp3"
+  ],
+  "pbp|FOUL": [
+   "vo/pbp-foul-0.mp3",
+   "vo/pbp-foul-1.mp3"
+  ],
+  "pbp|YELLOW": [
+   "vo/pbp-yellow-0.mp3",
+   "vo/pbp-yellow-1.mp3"
+  ],
+  "pbp|RED": [
+   "vo/pbp-red-0.mp3"
+  ],
+  "pbp|PENALTY": [
+   "vo/pbp-penalty-0.mp3",
+   "vo/pbp-penalty-1.mp3"
+  ],
+  "pbp|OFFSIDE": [
+   "vo/pbp-offside-0.mp3"
+  ],
+  "pbp|CORNER": [
+   "vo/pbp-corner-0.mp3",
+   "vo/pbp-corner-1.mp3"
+  ],
+  "pbp|FREEKICK": [
+   "vo/pbp-freekick-0.mp3"
+  ],
+  "pbp|HALFTIME": [
+   "vo/pbp-halftime-0.mp3"
+  ],
+  "pbp|FULLTIME_WIN": [
+   "vo/pbp-fulltime-win-0.mp3",
+   "vo/pbp-fulltime-win-1.mp3"
+  ],
+  "pbp|FULLTIME_DRAW": [
+   "vo/pbp-fulltime-draw-0.mp3"
+  ],
+  "pbp|CUP_FINAL_INTRO": [
+   "vo/pbp-cup-final-intro-0.mp3"
+  ],
+  "pbp|CUP_WINNERS": [
+   "vo/pbp-cup-winners-0.mp3"
+  ],
+  "pbp|SHOOTOUT_START": [
+   "vo/pbp-shootout-start-0.mp3"
+  ],
+  "pbp|SHOOTOUT_SCORE": [
+   "vo/pbp-shootout-score-0.mp3",
+   "vo/pbp-shootout-score-1.mp3"
+  ],
+  "pbp|SHOOTOUT_MISS": [
+   "vo/pbp-shootout-miss-0.mp3",
+   "vo/pbp-shootout-miss-1.mp3"
+  ],
+  "pbp|TEAM_rovers": [
+   "vo/pbp-team-rovers-0.mp3"
+  ],
+  "pbp|TEAM_sauce": [
+   "vo/pbp-team-sauce-0.mp3"
+  ],
+  "pbp|TEAM_crumb": [
+   "vo/pbp-team-crumb-0.mp3"
+  ],
+  "pbp|TEAM_dippers": [
+   "vo/pbp-team-dippers-0.mp3"
+  ],
+  "pbp|TEAM_ranch": [
+   "vo/pbp-team-ranch-0.mp3"
+  ],
+  "pbp|TEAM_hash": [
+   "vo/pbp-team-hash-0.mp3"
+  ],
+  "pbp|TEAM_curly": [
+   "vo/pbp-team-curly-0.mp3"
+  ],
+  "pbp|TEAM_pickle": [
+   "vo/pbp-team-pickle-0.mp3"
+  ],
+  "col|GOAL": [
+   "vo/col-goal-0.mp3",
+   "vo/col-goal-1.mp3",
+   "vo/col-goal-2.mp3"
+  ],
+  "col|SAVE": [
+   "vo/col-save-0.mp3",
+   "vo/col-save-1.mp3"
+  ],
+  "col|MISS": [
+   "vo/col-miss-0.mp3",
+   "vo/col-miss-1.mp3"
+  ],
+  "col|TACKLE": [
+   "vo/col-tackle-0.mp3",
+   "vo/col-tackle-1.mp3"
+  ],
+  "col|FOUL": [
+   "vo/col-foul-0.mp3",
+   "vo/col-foul-1.mp3"
+  ],
+  "col|HALFTIME": [
+   "vo/col-halftime-0.mp3"
+  ],
+  "col|FULLTIME_WIN": [
+   "vo/col-fulltime-win-0.mp3",
+   "vo/col-fulltime-win-1.mp3"
+  ],
+  "col|IDLE": [
+   "vo/col-idle-0.mp3",
+   "vo/col-idle-1.mp3",
+   "vo/col-idle-2.mp3",
+   "vo/col-idle-3.mp3"
+  ],
+  "col|CUP_WINNERS": [
+   "vo/col-cup-winners-0.mp3"
+  ]
+ },
+ "music": {
+  "menu": {
+   "file": "music/menu.mp3",
+   "loop": true
+  },
+  "goal": {
+   "file": "music/goal.mp3",
+   "loop": false
+  },
+  "cupwin": {
+   "file": "music/cupwin.mp3",
+   "loop": false
+  }
+ },
+ "sfx": {
+  "crowd1": "sfx/crowd1.mp3",
+  "crowd2": "sfx/crowd2.mp3",
+  "chant1": "sfx/chant1.mp3",
+  "chant2": "sfx/chant2.mp3",
+  "chant3": "sfx/chant3.mp3",
+  "roar": "sfx/roar.mp3",
+  "ooh1": "sfx/ooh1.mp3",
+  "ooh2": "sfx/ooh2.mp3",
+  "applause": "sfx/applause.mp3",
+  "boo": "sfx/boo.mp3",
+  "whistle_short": "sfx/whistle_short.mp3",
+  "whistle_long": "sfx/whistle_long.mp3",
+  "whistle_end": "sfx/whistle_end.mp3",
+  "kick_pass1": "sfx/kick_pass1.mp3",
+  "kick_pass2": "sfx/kick_pass2.mp3",
+  "kick_shot1": "sfx/kick_shot1.mp3",
+  "kick_shot2": "sfx/kick_shot2.mp3",
+  "header": "sfx/header.mp3",
+  "net": "sfx/net.mp3",
+  "post": "sfx/post.mp3",
+  "bounce": "sfx/bounce.mp3",
+  "tackle": "sfx/tackle.mp3",
+  "slide": "sfx/slide.mp3",
+  "catch": "sfx/catch.mp3"
+ }
+}

@@ -3977,3 +3977,83 @@ Chris: "build several more water maps that could use water craft. add water base
 - **Rules** (alert.js): new build cat `sea` (NAVY tab, hidden on dry maps; `P.q.sea`, lazily created for old saves). Yards `navyA` / `navyF` (`D.naval`, role `navy`) are placed on open water within 10 tiles of the base (`alrCanPlace`). Units: destroyer (deck gun + depth charges), aegis (AA), dolphin, sub, squid, dread (16-tile missiles), hover (Gravy Boat: `amphib`, `carry: 'any'`, 6 seats, a vehicle = 2 via `alrSlots`). `alrPassable(k, self)`: `D.naval` water only (under bridges too), `D.amphib` either. Subs: `D.sub` → armour `sub`, only weapons with `vs.sub` hit them (`alrSeaOk`), invisible to a viewer until they fire or that viewer has a ship/yard within ~3 tiles (`alrSubHidden`). `W.only: 'naval'|'sub'`. The squid's melee sets `t.grabbed` (alrFollow won't move it). Ships sink (decor `sink`), no wrecks or rubble on water.
 - **CPU**: builds a yard once it has a factory and water in reach (`alrNavySpot`), keeps a fleet (`ALR_AI_SEA`) and raids the rival's shore (`alrAIFleet`); with no land route (`alrLandLinked` flood fill) it ferries the army in Gravy Boats (`alrAIFerry`: load at the rally → cross → unload short of their base → attack-move).
 - **Art**: blender/alertrig.py `NAVY` (origin on the waterline; ships in NO_GROUND). The game sits boats at `alrSeaY` (water level, subs lower, the dolphin arcs), rocks them (`alrHullRock`), wakes (`alrFxWake`), torpedoes run under the surface (shot kind `torp`).
+
+## ⚽ NUGGET SOCCER (game 22, mode `soccer`) — 2026-10-22
+Chris: *"come up with a nugget game like FIFA Soccer. Call it Nugget Soccer. Use blender, make this as good as
+possible. Take everything we've learned from Nugget Blitz and Red Alert. Be sure to make the mobile controls work
+similar to what we did with Nugget Blitz … an arcade cabinet … easy access … a direct url … Eleven Labs"*.
+
+**Decisions:** **11 v 11**; modes **Quick Match v CPU** + **the Nugget Cup** (a drawn cup tie goes to penalties); the
+full audio plan (music/SFX cap raised to 16,500 + a new 2,200-credit commentary budget); the cabinet is the east
+island's inner upright **facing the doors** (Nugmo Bowl keeps its back-facing one). The clubs are original nugget clubs
+— never real clubs, players or FIFA marks. Direct link: **`?play=soccer`** (the generic `?play=<mode>` handler in
+app.js). Memory: `nugget-soccer-plan`.
+
+**Files**
+- `js/soccer.js` — THE GAME (no drawing): pitch (Laws of the Game: 105×68, goal 7.32×2.44, boxes, 11 m spot), ball
+  physics, players, rules, CPU, match flow, the shootout, payouts, `window.soccerDebug` (whole headless matches).
+- `js/soccerGL.js` — the renderer: Alert's WebGL2 renderer copied into its OWN state (`sgl`; the two games never
+  share a context), with a **perspective** camera, **three kit masks** (vertex alpha 1 / 0.5 / 0.25 = shirt / shorts /
+  socks — `blender/alertrig.py` export maps palette team 1/2/3 → 255/128/64), textured draws, the shadow box fitted to
+  the visible pitch, `sglMerge` (thousands of fans → one mesh), `sglDecodeModels` (per-model position scale).
+- `js/soccerUI.js` — the stadium, players' poses, the broadcast camera, the HUD, menus, the cup, input + 📱 the pad.
+- `js/soccerAudio.js` — crowd beds + chants + reactions, whistles, ball, the two commentators' queue, the menu theme.
+- `css/soccer.css`; `blender/soccerrig.py` + `blender/pack_soccer.py` → `js/soccerMeshData.js` (21 models, injected
+  when the game opens; procedural stand-ins until then); `tools/soccer-vo/render.py` → `audio/soccer/`.
+- Arcade wiring (storm MODE_* / pausesStorm / sync+step, HUD button, score tile, leaderboard tab, account.js,
+  worker GAMES + cap 60e6, the island cabinet with `innerFront`, street-atlas `soccerFace` + `soccerTopper`).
+
+**The frame:** metres; x = the length (goals at ±52.5), z = the width (touchlines ±34), y up. **The broadcast camera
+sits on the +z touchline looking −z** (from the −z side screen-right was −x: the whole picture — and every ad board —
+came out mirrored). So the stick's "up the screen" is world −z; the radar draws −z at the top. Team 0 attacks +x in
+the first half (`T.dir`), ends swap at half time.
+
+**The sim (and what the headless ledger found)**
+- Ball: gravity, drag 0.012·v², Magnus curl from sidespin, bounce 0.6 / friction 0.8, rolling decel
+  `1.1 + 0.012·v²` (it was 1.9 + 0.02·v² = 6.4 m/s² at 15 m/s: passes died and were cut out). Pass speed is solved
+  exactly for that decel (`socPassSpeed`). Posts, bar and a net that soaks the ball up.
+- Players: jog ~5.4, sprint ~7.4–8.8 m/s by pace, ×0.88 on the ball, accel 9 (7 with it). Dribbling = the ball pulled
+  ahead of the feet. Actions with wind-ups: kick (pass / through / lob / cross / shot), tackle, slide, keeper dive,
+  header, throw, fall, celebrate.
+- The CPU: a 4-4-2 slot squeezed and slid toward the ball, pushed up in possession, dropped off out of it; forwards
+  kept onside; runs in behind; the carrier scores shot (an xG-ish mouth angle × distance × blockers) / passes (progress
+  + openness − interception risk from a time-to-the-lane race) / through balls (only if the runner WINS THE RACE to the
+  space — 60% of them were lost before) / crosses / dribble; first defender presses goal-side and tackles, second
+  covers, the rest mark goal-side; loose balls: each side's best two by time-to-intercept on the predicted path;
+  keeper: the angle off his line, dives at a shot he can reach (reaction by tier), sweeps, distributes.
+- Ledger fixes, in order: (1) the 2nd half ended instantly (`end = M.half·45 min`); (2) event data with its own
+  `kind` overwrote the event's kind (a 'kick' arrived as 'pass') — data's kind is `what` now; (3) passes were "lost"
+  0.02 s after they were played to whoever stood at the passer's feet → a just-struck ball only takes a lucky block
+  near the passer, and a fast ball is a skill check to cut out; (4) THE THROW-IN LOOP: the thrower walked to the line
+  facing OFF the pitch, the carried ball went straight back out (42 throws a half) → takers face the play; (5) the
+  through-ball race. Now (AI v AI, PRO, 2×2-min halves): pass completion ~70–80%, 1–6 shots a side, 0–3 goals,
+  a few corners/throws/offsides, never stuck, ~2 s of CPU per headless match.
+- Restarts: kick-off, throw, goal kick, corner (attackers into the box), free kick (shoot from <28 m), penalty;
+  offside flagged at the moment of the pass; fouls (from behind / a mistimed slide), yellow (32% of bad slides), red
+  (a 2nd yellow / a professional foul), penalties in the box.
+- Payouts (`socPay`, perFlyer × tier mult 1/2/3): a goal 6, a win 12, a draw 4, a clean sheet 2, the Cup 40.
+
+**The human**
+- Keyboard: arrows or WASD move · **J** pass · **K** shoot (hold = the power bar; past full it balloons) · **L**
+  through ball · **I** lob/cross · **Shift** sprint · **Q** switch; defence: J tackle (hold = jockey), K slide, L
+  team-mate press. FIFA's classic Arrows layout works too (S pass · A lob · W through · D shoot · E sprint).
+- Gamepad: A pass · B shoot · Y through · X lob · RT sprint · LB switch · RB press · Start pause.
+- Assisted passing: the team-mate nearest the stick's direction, power from the distance; FIFA-style auto-switch to
+  the nearest when defending.
+- 📱 The phone (the Blitz pattern): a FLOATING stick anywhere on the left 45% (push past the ring = sprint), four
+  context buttons on the right — attack PASS · SHOOT (hold) · THROUGH · LOB, defence TACKLE · SLIDE · PRESS · SWITCH —
+  and a pause. The storm pill hides on a phone. The pad only shows over a match.
+- Stale presses expire after 0.4 s (a J tapped during a dead ball fired a pass the next time anyone had it); a
+  kick-off press before the whistle is kept and played on it.
+
+**Presentation:** a broadcast camera (critically damped, leads the ball, zooms out with ball speed), the score bug +
+clock, a radar, the controlled player's tag + power bar, a ring at his feet; GOAL! / CORNER / CARD cards; a goal:
+the scorer runs to a corner flag, the crowd bounces, then a slow-motion REPLAY from behind that goal (any key / tap
+skips); half-time and full-time cards with stats. The stadium: a painted pitch canvas (mown stripes, every marking),
+scrolling ad boards (original nugget sponsors), Blender stands (16 rows), corners, floodlights, and the crowd seated on
+the rows in the clubs' colours (no near stand — it's under the camera). The Nugget Cup: 8 clubs, QF → SF → F, saved in
+`localStorage nugSoccerCup`, the other ties played headless.
+
+**Tests** (Playwright, scratchpad): headless match ledger (`soccerDebug.match`), keyboard kick-off / shot / pass,
+goal → celebration → replay → skip → kick-off, half time → second half → full time → the cup bracket (with a CPU tie on
+penalties), the phone (pad on, PASS takes the kick-off, the stick moves him), 60 fps desktop.

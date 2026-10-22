@@ -53,17 +53,18 @@ const MODE_HINTS = {
   fortune: 'the house wheel — HOLD space (or the wheel) and release to SPIN · pick a letter (type / tap) · vowels pay half · solve the phrase · mind the 💀',
   blitz:   'NUGGET BLITZ — 1-9 play · WASD/arrows move · SHIFT turbo (before the snap: TAUNT) · SPACE hike · J K L throw to THAT receiver (tap lob / hold bullet) · I hot route (pre-snap) / pump fake · with the ball: I showboat (open field) or hurdle, L spin, K stiff arm, J dive · D: L switch, J dive, K big hit · TD: J spike K dance L backflip I flex · N music · M sound · V announcer',
   cricket: 'BIRYANI BLITZ: CRICKET EDITION — BAT: J bat · K big hit · L block, AS THE BALL ARRIVES (early = leg side, late = off side) · arrows aim · SPACE run · L send back — BOWL: arrows aim the marker · J pace · K spin · SPACE in the green · M sound · N music · V commentary',
+  soccer:  'NUGGET SOCCER — WASD/arrows move · J pass · K shoot (hold = power) · L through ball · I lob/cross · SHIFT sprint · Q switch player · on defence: J tackle · K slide · L teammate press · N music · M sound · V commentary',
   bowl:    'NUGMO BOWL — pick 1 of 4 plays (they guess one — so do you) · arrows move · A = SPACE/J throw · dive · MASH to break tackles · B = SHIFT/K next receiver · switch defender',
   alert:   'NUGGET ALERT — left-click select / drag a box · click the ground to move, an enemy to attack · right-click deselect · A attack-move · D deploy · S stop · Ctrl+1-9 groups · arrows / edge scroll · wheel zoom · build from the sidebar · Esc menu',
   bots:    'CLUCKED METAL — WASD drive (hold where you want to GO) · mouse aims · click fires · SPACE special · SHIFT nitro · grab sauces off the pads · last bot rolling',
 };
-const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘', run: '🏃', knight: '⚔️', brawl: '🥊', ranch: '🐔', kart: '🏎️', reel: '🎣', gta: '🚗', beat: '🎧', drain: '🕳️', croft: '🕯️', fortune: '🎡', bots: '🤖', bowl: '🏈', blitz: '💥', cricket: '🏏', alert: '🚨' };
+const MODE_BADGE = { catch: '🧺', blaster: '🎯', flappy: '🐤', dunk: '🥣', sim: '🧘', run: '🏃', knight: '⚔️', brawl: '🥊', ranch: '🐔', kart: '🏎️', reel: '🎣', gta: '🚗', beat: '🎧', drain: '🕳️', croft: '🕯️', fortune: '🎡', bots: '🤖', bowl: '🏈', blitz: '💥', cricket: '🏏', alert: '🚨', soccer: '⚽' };
 
 // Free-roam games draw their own rich in-game HUD, so the storm card backs
 // off to a slim translucent pill — hover it (or tap the game badge on touch)
 // to bring back the hint + mode switch. See .storm-hud.compact in storm.css.
-const MODE_COMPACT_HUD = new Set(['gta', 'beat', 'croft', 'fortune', 'bots', 'bowl', 'blitz', 'cricket', 'alert']);
-const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated', run: 'ran', knight: 'vanquished', brawl: 'sauced', ranch: 'harvested', kart: 'delivered', reel: 'reeled in', gta: 'boosted', beat: 'dropped', drain: 'plumbed', croft: 'delved', fortune: 'won', bots: 'battered', bowl: 'rushed', blitz: 'blitzed', cricket: 'scored', alert: 'conquered' };
+const MODE_COMPACT_HUD = new Set(['gta', 'beat', 'croft', 'fortune', 'bots', 'bowl', 'blitz', 'cricket', 'alert', 'soccer']);
+const MODE_VERB  = { catch: 'caught', blaster: 'blasted', flappy: 'scored', dunk: 'dunked', sim: 'contemplated', run: 'ran', knight: 'vanquished', brawl: 'sauced', ranch: 'harvested', kart: 'delivered', reel: 'reeled in', gta: 'boosted', beat: 'dropped', drain: 'plumbed', croft: 'delved', fortune: 'won', bots: 'battered', bowl: 'rushed', blitz: 'blitzed', cricket: 'scored', alert: 'conquered', soccer: 'scored' };
 
 // Self-contained minigames run their own entities and pause the storm's own
 // falling-nugget spawner + auto-complete (like Flappy). Catch and Blaster both
@@ -189,7 +190,8 @@ function pausesStorm() {
          storm.mode === 'gta' || storm.mode === 'beat' || storm.mode === 'blaster' ||
          storm.mode === 'drain' || storm.mode === 'croft' ||
          storm.mode === 'fortune' || storm.mode === 'bots' || storm.mode === 'bowl' ||
-         storm.mode === 'blitz' || storm.mode === 'cricket' || storm.mode === 'alert';
+         storm.mode === 'blitz' || storm.mode === 'cricket' || storm.mode === 'alert' ||
+         storm.mode === 'soccer';
 }
 
 const storm = {
@@ -253,6 +255,7 @@ function setStormMode(mode) {
   syncBlitz();
   syncCricket();
   syncAlert();
+  syncSoccer();
   nugDailyMarkSwitch();
   updateStormHud();
 }
@@ -391,6 +394,9 @@ function updateStormHud() {
   } else if (storm.mode === 'alert') {
     stormLabel.textContent = '🚨 Nugget Alert';
     stormTally.textContent = alertTally();
+  } else if (storm.mode === 'soccer') {
+    stormLabel.textContent = '⚽ Nugget Soccer';
+    stormTally.textContent = soccerTally();
   } else if (storm.mode === 'flappy') {
     stormLabel.textContent = '🐤 Flappy Nug';
     stormTally.textContent = flappyTally();
@@ -490,6 +496,7 @@ function stepStorm(ts) {
   else if (storm.mode === 'blitz') stepBlitz(dt, w, h);
   else if (storm.mode === 'cricket') stepCricket(dt, w, h);
   else if (storm.mode === 'alert') stepAlert(dt, w, h);
+  else if (storm.mode === 'soccer') stepSoccer(dt, w, h);
 
   updateStormHud();
 
@@ -594,6 +601,7 @@ function stopStorm(completed = false) {
   syncBlitz();
   syncCricket();
   syncAlert();
+  syncSoccer();
   if (completed) {
     // Leave a short victory-lap summary in the HUD, then tuck it away.
     stormLabel.textContent = '✅ Storm complete';

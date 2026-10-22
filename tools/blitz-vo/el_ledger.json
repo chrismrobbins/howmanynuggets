@@ -1,6 +1,6 @@
 {
  "cap": 10000,
- "spent": 12579.5,
+ "spent": 14254.5,
  "calls": [
   {
    "t": "2026-10-09 15:34",
@@ -681,6 +681,222 @@
    "secs": 30,
    "credits": 375.0,
    "file": "fac_cartel.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "music",
+   "what": "Upbeat anthemic indie electronic instrumental, euphoric stadium energy, driving four-on-the-floor drums, bright jangly g",
+   "secs": 40,
+   "credits": 500.0,
+   "file": "menu.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "music",
+   "what": "Short triumphant stadium sting, punchy drums and a bright brass and synth hit, celebratory, football goal jingle",
+   "secs": 6,
+   "credits": 75.0,
+   "file": "goal.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "music",
+   "what": "Triumphant trophy fanfare, majestic brass and timpani with cymbal swells, glorious championship victory, short orchestra",
+   "secs": 10,
+   "credits": 125.0,
+   "file": "cupwin.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Big football stadium crowd ambience, steady murmur and cheering of tens of thousands of fans, no announcer, seamless loo",
+   "secs": 20,
+   "credits": 200.0,
+   "file": "crowd1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Lively football stadium crowd atmosphere, excited fans, distant drums and claps, no announcer, seamless loop",
+   "secs": 20,
+   "credits": 200.0,
+   "file": "crowd2.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Football stadium crowd chanting in unison, rhythmic wordless oh-oh-oh terrace song, thousands of fans",
+   "secs": 8,
+   "credits": 80.0,
+   "file": "chant1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Football crowd singing a terrace anthem together, unintelligible words, stadium echo, clapping on the beat",
+   "secs": 8,
+   "credits": 80.0,
+   "file": "chant2.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Football fans chanting with drums and rhythmic clapping, wordless stadium chant, huge crowd",
+   "secs": 8,
+   "credits": 80.0,
+   "file": "chant3.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Huge football stadium crowd erupting in a goal celebration roar, cheering and screaming",
+   "secs": 6,
+   "credits": 60.0,
+   "file": "roar.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Football stadium crowd groaning ooh at a near miss",
+   "secs": 3,
+   "credits": 30.0,
+   "file": "ooh1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Big crowd gasp and disappointed aah after a shot just misses, football stadium",
+   "secs": 3,
+   "credits": 30.0,
+   "file": "ooh2.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Football stadium crowd applauding, clapping and light cheers",
+   "secs": 4,
+   "credits": 40.0,
+   "file": "applause.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Football stadium crowd booing the referee",
+   "secs": 4,
+   "credits": 40.0,
+   "file": "boo.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Single short sharp referee whistle blast, football",
+   "secs": 0.8,
+   "credits": 8.0,
+   "file": "whistle_short.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "One long referee whistle blast, football",
+   "secs": 1.5,
+   "credits": 15.0,
+   "file": "whistle_long.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Referee blowing three whistle blasts for full time, short short long, football",
+   "secs": 3,
+   "credits": 30.0,
+   "file": "whistle_end.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Football boot passing a soccer ball, short thump, close",
+   "secs": 0.5,
+   "credits": 5.0,
+   "file": "kick_pass1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Soft side-foot pass of a soccer ball on grass, single kick",
+   "secs": 0.5,
+   "credits": 5.0,
+   "file": "kick_pass2.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Powerful hard strike of a soccer ball, loud thwack",
+   "secs": 0.7,
+   "credits": 7.0,
+   "file": "kick_shot1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Football striker blasting a shot, hard leather ball kick, punchy",
+   "secs": 0.7,
+   "credits": 7.0,
+   "file": "kick_shot2.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Soccer ball headed, a dull thud off a forehead",
+   "secs": 0.5,
+   "credits": 5.0,
+   "file": "header.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Soccer ball hitting and rippling the goal net, swish of netting",
+   "secs": 1.5,
+   "credits": 15.0,
+   "file": "net.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Soccer ball hitting the metal goal post, ringing clang",
+   "secs": 1,
+   "credits": 10.0,
+   "file": "post.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "kind": "sfx",
+   "what": "Single soccer ball bounce on grass",
+   "secs": 0.5,
+   "credits": 5.0,
+   "file": "bounce.mp3"
+  },
+  {
+   "t": "2026-10-22 16:03",
+   "kind": "sfx",
+   "what": "Football tackle, bodies colliding and a boot hitting the ball, grunt",
+   "secs": 0.7,
+   "credits": 7.0,
+   "file": "tackle.mp3"
+  },
+  {
+   "t": "2026-10-22 16:03",
+   "kind": "sfx",
+   "what": "Football slide tackle across wet grass, sliding swoosh",
+   "secs": 1,
+   "credits": 10.0,
+   "file": "slide.mp3"
+  },
+  {
+   "t": "2026-10-22 16:03",
+   "kind": "sfx",
+   "what": "Goalkeeper gloves catching a soccer ball, firm padded slap",
+   "secs": 0.6,
+   "credits": 6.0,
+   "file": "catch.mp3"
   }
  ]
 }

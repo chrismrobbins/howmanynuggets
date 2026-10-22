@@ -30,3 +30,4 @@ blender/sheet_preview.jpg
 
 # Verification shots (blender/tools/*.js writes here) — images, not source
 blender/tools/_shots/
+blender/render_soccer/

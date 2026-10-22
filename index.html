@@ -27,6 +27,7 @@
   <link rel="stylesheet" href="css/bowl.css" />
   <link rel="stylesheet" href="css/blitz.css?v=12" />
   <link rel="stylesheet" href="css/cricket.css?v=1" />
+  <link rel="stylesheet" href="css/soccer.css?v=1" />
   <link rel="stylesheet" href="css/alert.css?v=6" />
   <link rel="stylesheet" href="css/arcade.css" />
   <link rel="stylesheet" href="css/locker.css" />
@@ -128,6 +129,7 @@
         <div class="score-tile"><div class="game">🏈</div><div class="game-name">Bowl</div><div class="best" id="myBowl">0</div></div>
         <div class="score-tile"><div class="game">💥</div><div class="game-name">Blitz</div><div class="best" id="myBlitz">0</div></div>
         <div class="score-tile"><div class="game">🏏</div><div class="game-name">Biryani Blitz</div><div class="best" id="myCricket">0</div></div>
+        <div class="score-tile"><div class="game">⚽</div><div class="game-name">Soccer</div><div class="best" id="mySoccer">0</div></div>
       </div>
     </div>
 
@@ -181,6 +183,7 @@
       <button type="button" data-mode="bowl" title="Nugmo Bowl — nine-on-nine nugget football. four plays, they guess one. Bo knows.">🏈</button>
       <button type="button" data-mode="blitz" title="Nugget Blitz — seven-on-seven, 30 yards for a first, turbo, late hits. no refs.">💥</button>
       <button type="button" data-mode="cricket" title="Biryani Blitz: Cricket Edition — bat and bowl, three wickets, sixes into the stands.">🏏</button>
+      <button type="button" data-mode="soccer" title="Nugget Soccer — eleven a side. pass, through ball, shoot. win the Nugget Cup.">⚽</button>
     </span>
     <button id="stormStop" type="button">Stop</button>
   </div>
@@ -254,6 +257,9 @@
 
   <!-- Biryani Blitz: Cricket Edition (internally `cricket`): bat + bowl, nugget nations (canvas injected by js/cricket.js) -->
   <div id="cricketWorld"></div>
+
+  <!-- Nugget Soccer (game 22, mode `soccer`): 11 v 11 nugget football on a 3D pitch (js/soccer*.js) -->
+  <div id="soccerWorld"></div>
   <!-- Nugget Alert (mode `alert`, hidden: ?play=alert only): an RTS skirmish vs the CPU (js/alert*.js) -->
   <div id="alertWorld"></div>
 
@@ -355,6 +361,7 @@
         <button type="button" data-game="bowl">🏈 Bowl</button>
         <button type="button" data-game="blitz">💥 Blitz</button>
         <button type="button" data-game="cricket">🍛 Biryani Blitz</button>
+        <button type="button" data-game="soccer">⚽ Soccer</button>
       </div>
       <div id="lbBody"><div class="lb-loading">Loading…</div></div>
     </div>
@@ -469,6 +476,10 @@
   <script src="js/cricket.js?v=8"></script>
   <script src="js/cricketVO.js?v=2"></script>
   <script src="js/cricketAudio.js?v=3"></script>
+  <script src="js/soccerGL.js?v=1"></script>
+  <script src="js/soccer.js?v=1"></script>
+  <script src="js/soccerUI.js?v=1"></script>
+  <script src="js/soccerAudio.js?v=1"></script>
   <script src="js/alertGL.js?v=5"></script>
   <script src="js/alertArt.js?v=17"></script>
   <script src="js/alertArtP1.js?v=3"></script>

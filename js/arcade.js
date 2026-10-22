@@ -4848,10 +4848,10 @@ void main() {
           quadN(sx0 - rx * TW - nx * sd / 2, sz0 - rz * TW - nz * sd / 2, -rx, -rz, sd / 2, T0, T1, suv.sw_black, {});
           const tl = [sx0 - rx * TW, T1, sz0 - rz * TW], tr = [sx0 + rx * TW, T1, sz0 + rz * TW];
           ST.quad(tl, tr, [tr[0] - nx * sd, T1, tr[2] - nz * sd], [tl[0] - nx * sd, T1, tl[2] - nz * sd], suv.sw_black, {});
-          H.glows.push({ p: [fx + nx * 0.2, (T0 + T1) / 2, fz + nz * 0.2], c: mode === 'cricket' ? [0.35, 1, 0.4] : [1, 0.5, 0.15], s: 1.25, a: 0.2, k: 'neon' });
+          H.glows.push({ p: [fx + nx * 0.2, (T0 + T1) / 2, fz + nz * 0.2], c: mode === 'cricket' ? [0.35, 1, 0.4] : mode === 'soccer' ? [0.45, 1, 0.55] : [1, 0.5, 0.15], s: 1.25, a: 0.2, k: 'neon' });
         }
-        const neonC = mode === 'bowl' ? [1, 0.72, 0.3] : mode === 'blitz' ? [1, 0.55, 0.25] : mode === 'cricket' ? [0.45, 1, 0.4] : [1, 0.82, 0.3];
-        const crtC = mode === 'bowl' || mode === 'blitz' || mode === 'cricket' ? [0.45, 1, 0.5] : [0.5, 0.85, 1];
+        const neonC = mode === 'bowl' ? [1, 0.72, 0.3] : mode === 'blitz' ? [1, 0.55, 0.25] : mode === 'cricket' ? [0.45, 1, 0.4] : mode === 'soccer' ? [0.55, 1, 0.6] : [1, 0.82, 0.3];
+        const crtC = mode === 'soccer' ? [0.5, 1, 0.62] : mode === 'bowl' || mode === 'blitz' || mode === 'cricket' ? [0.45, 1, 0.5] : [0.5, 0.85, 1];
         H.glows.push({ p: [fx + nx * 0.12, Y1 - 0.2, fz + nz * 0.12], c: neonC, s: 0.9, a: 0.14, k: 'neon' });
         H.glows.push({ p: [fx + nx * 0.1, 1.3, fz + nz * 0.1], c: crtC, s: 0.7, a: 0.08, k: 'crt' });
         const sx = fx + nx * 1.1, sz = fz + nz * 1.1;
@@ -4876,7 +4876,12 @@ void main() {
         { mode: 'bowl', side: 1, face: suv.bowlFace, tube: suv.sw_red, lc: [0.55, 0.34, 0.14],
           label: '🏈 NUGMO BOWL — FOUR PLAYS. THEY GUESS ONE. BO KNOWS.',
           outer: { mode: 'blitz', face: suv.blitzFace, tube: suv.sw_amber, topper: suv.blitzTopper,
-            label: '💥 NUGGET BLITZ — 7 ON 7. 30 YARDS FOR A FIRST. NO REFS.' } },
+            label: '💥 NUGGET BLITZ — 7 ON 7. 30 YARDS FOR A FIRST. NO REFS.' },
+          // ⚽ game 22 (2026-10-22): the INNER upright facing the DOORS became NUGGET
+          // SOCCER (Chris's pick) — the inner one facing the thrones stays Bowl.
+          // `innerFront` overrides only the x = ±2.75, +z-facing upright.
+          innerFront: { mode: 'soccer', face: suv.soccerFace, tube: suv.sw_amber, topper: suv.soccerTopper,
+            label: '⚽ NUGGET SOCCER — 11 A SIDE. PASS · THROUGH BALL · SHOOT. THE NUGGET CUP.' } },
         // 🏏 game 20 (2026-10-09): the WEST island's outer pair became NUGGET CRICKET,
         // mirroring Blitz on the east — two Fortunes and two Crickets back to back.
         { mode: 'fortune', side: -1, face: suv.fortuneFace, tube: suv.sw_amber, lc: [0.55, 0.42, 0.16],
@@ -4888,7 +4893,8 @@ void main() {
         const xs = [I.side * 2.75, I.side * 3.65];
         for (const x of xs) {
           const U = I.outer && x === xs[1] ? I.outer : I;
-          upright(U.mode, U.face, U.tube, x, ZC + D / 2 + 0.02, 0, 1, U.label, U.topper);   // faces the doors
+          const F = I.innerFront && x === xs[0] ? I.innerFront : U;
+          upright(F.mode, F.face, F.tube, x, ZC + D / 2 + 0.02, 0, 1, F.label, F.topper);   // faces the doors
           upright(U.mode, U.face, U.tube, x, ZC - D / 2 - 0.02, 0, -1, U.label, U.topper);  // faces the thrones
         }
         // one marquee light per face row, out in the aisle it lights

@@ -5051,6 +5051,11 @@ def _tris_of(bm):
     return [[v.co.copy() for v in f.verts] for f in bm.faces]
 
 
+# vertex alpha = the team mask. Mask 1 (255) is every Alert team surface; 2 and 3 (128, 64) are extra
+# repaintable channels (Nugget Soccer: shirt / shorts / socks). Any other truthy team value = 255, as before.
+TEAM_ALPHA = {1: 255, 2: 128, 3: 64}
+
+
 def export(m, occ=None, occ_at=(0, 0, 0)):
     bm = m.bm
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
@@ -5131,7 +5136,7 @@ def export(m, occ=None, occ_at=(0, 0, 0)):
                 seen[key] = len(out_p) // 3
                 out_p += [round(v.co.x, 4), round(v.co.y, 4), round(v.co.z, 4)]
                 out_n += [round(nrm.x, 3), round(nrm.y, 3), round(nrm.z, 3)]
-                out_c += [int(rgb[0] * ao + 0.5), int(rgb[1] * ao + 0.5), int(rgb[2] * ao + 0.5), 255 if team else 0]
+                out_c += [int(rgb[0] * ao + 0.5), int(rgb[1] * ao + 0.5), int(rgb[2] * ao + 0.5), TEAM_ALPHA.get(team, 255) if team else 0]
                 # uv = (surface class, grime): the shader dirties cavities by the second channel
                 out_u += [cls, int(max(0.0, min(1.0, (1.0 - ao) / 0.6)) * 255 + 0.5)]
             tri.append(seen[key])

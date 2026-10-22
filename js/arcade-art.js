@@ -50,6 +50,9 @@ const ArcadeArt = (() => {
     // game 20 — cricket, Blitz's tech on an oval: the two outer uprights on the
     // west island (Reel of Fortune keeps the inner pair). Street-page face (cricketFace).
     { mode: 'cricket', title: 'BIRYANI BLITZ', icon: '🍛', c1: '#3ae85a', c2: '#ffd23a', tag: 'HOWZAT?' },
+    // game 22 — FIFA, but it's nuggets: the east island's INNER upright facing the
+    // doors (Bowl keeps the throne-facing inner one). Street-page face (soccerFace).
+    { mode: 'soccer', title: 'NUGGET SOCCER', icon: '⚽', c1: '#2aa84a', c2: '#f2c41e', tag: 'GOOOAL!' },
     // (game 17, BatteredBots, moved to GAMES — it has a cabinet on the back wall
     // now; the garage shutter on the street stays as a second door, botsFace.)
   ];
@@ -1611,6 +1614,9 @@ const ArcadeArt = (() => {
     // 🏏 game 20 — the cricket upright's face + its lit sign box
     alloc('cricketFace', 128, 224, pCricketFace);
     alloc('cricketTopper', 256, 96, pCricketTopper);
+    // ⚽ game 22 — the soccer upright's face + its lit sign box
+    alloc('soccerFace', 128, 224, pSoccerFace);
+    alloc('soccerTopper', 256, 96, pSoccerTopper);
     const SW2 = {
       iron: '#3a4256', wood: '#6d5426', woodDark: '#42320e', red: '#e8412c',
       amber: '#ffb020', curb: '#3c3c46', black: '#0a0a12', white: '#f4f0e6',
@@ -2338,6 +2344,133 @@ const ArcadeArt = (() => {
     g.restore();
     g.fillStyle = '#d0201a'; g.beginPath(); g.arc(40, h * 0.7, 6, 0, 7); g.fill();
     g.strokeStyle = '#f4e0d0'; g.lineWidth = 1; g.beginPath(); g.arc(40, h * 0.7, 6, -0.9, 0.9); g.stroke();
+    g.strokeStyle = '#3ae85a'; g.lineWidth = 3; g.strokeRect(2, 2, w - 4, h - 4);
+  }
+
+  // ⚽ game 22 — a football, pentagon-and-seams, for the soccer face + topper
+  function socBall(g, x, y, r) {
+    g.fillStyle = '#f6f6f0'; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+    g.strokeStyle = '#111'; g.lineWidth = Math.max(0.8, r * 0.12); g.stroke();
+    const pent = (px, py, pr, rot) => {
+      g.beginPath();
+      for (let i = 0; i < 5; i++) { const a = rot + i * Math.PI * 0.4; g[i ? 'lineTo' : 'moveTo'](px + Math.cos(a) * pr, py + Math.sin(a) * pr); }
+      g.closePath(); g.fill();
+    };
+    g.fillStyle = '#141414';
+    pent(x, y, r * 0.36, -Math.PI / 2);
+    g.save(); g.beginPath(); g.arc(x, y, r, 0, 7); g.clip();
+    for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + Math.PI / 5 + i * Math.PI * 0.4; pent(x + Math.cos(a) * r * 0.92, y + Math.sin(a) * r * 0.92, r * 0.3, a); }
+    g.restore();
+  }
+  // ⚽ the soccer upright: NUGGET SOCCER on a green-and-white marquee with a gold rule,
+  // the CRT is the broadcast view down the pitch at the goal, a nugget striker lining it up
+  function pSoccerFace(g, w, h) {
+    g.fillStyle = '#08140c'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#1f7a3a'; g.lineWidth = 4; g.strokeRect(2, 2, w - 4, h - 4);
+    // marquee: dark plate (the hall's glow washes pale fills out), white SOCCER, gold rule
+    const mq = g.createLinearGradient(0, 6, 0, h * 0.2);
+    mq.addColorStop(0, '#0f5a26'); mq.addColorStop(1, '#052410');
+    g.fillStyle = mq; g.fillRect(6, 6, w - 12, h * 0.2 - 8);
+    for (let x = 6; x < w - 6; x += 12) { g.fillStyle = 'rgba(255,255,255,0.05)'; g.fillRect(x, 6, 6, h * 0.2 - 8); } // mown stripes
+    g.fillStyle = '#f2c41e'; g.fillRect(6, h * 0.2 - 4, w - 12, 2);
+    g.save();
+    g.translate(w / 2 + 6, h * 0.112); g.transform(1, 0, -0.16, 1, 0, 0);
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+    g.font = '900 italic 9px Impact, Haettenschweiler, sans-serif';
+    g.fillStyle = '#f2c41e'; g.fillText('NUGGET', -4, -h * 0.062);
+    g.font = '900 italic 27px Impact, Haettenschweiler, sans-serif';
+    g.lineWidth = 4; g.strokeStyle = '#021a08'; g.strokeText('SOCCER', 0, h * 0.014);
+    const st = g.createLinearGradient(0, -12, 0, 14);
+    st.addColorStop(0, '#ffffff'); st.addColorStop(0.6, '#e4efe6'); st.addColorStop(1, '#9cc8a6');
+    g.fillStyle = st; g.fillText('SOCCER', 0, h * 0.014);
+    g.restore();
+    socBall(g, 15, h * 0.06, 6);
+    // the CRT: down the pitch at the goal — mown stripes in perspective, the box, the net
+    const sx = 10, sy = h * 0.24, sw = w - 20, sh = h * 0.36;
+    g.fillStyle = '#05060a'; g.fillRect(sx - 3, sy - 3, sw + 6, sh + 6);
+    g.fillStyle = '#24304a'; g.fillRect(sx, sy, sw, sh * 0.2);                                    // the stands
+    for (let i = 0; i < sw; i += 2) { g.fillStyle = ['#2aa84a', '#f4f4f0', '#f2c41e', '#1a6a32'][(i * 7) % 4]; g.fillRect(sx + i, sy + sh * 0.07 + (i % 3), 1, 1); }
+    g.fillStyle = '#e8e8e0'; g.fillRect(sx, sy + sh * 0.2, sw, 2);                                 // ad boards
+    const top = sy + sh * 0.22, bot = sy + sh, cx = sx + sw / 2;
+    for (let i = 0; i < 8; i++) {
+      const u0 = i / 8, u1 = (i + 1) / 8;
+      const y0 = top + (bot - top) * u0 * u0, y1 = top + (bot - top) * u1 * u1;
+      g.fillStyle = i % 2 ? '#2f8a3a' : '#3a9c44'; g.fillRect(sx, y0, sw, y1 - y0 + 0.5);
+    }
+    const py = (u) => top + (bot - top) * u * u, phw = (u) => sw * (0.34 + 0.4 * u * u);
+    g.strokeStyle = '#eef4ee'; g.lineWidth = 1;
+    // the 18-yard box + the six
+    const box = (u1, f) => { g.beginPath(); g.moveTo(cx - phw(0) * f, py(0)); g.lineTo(cx - phw(u1) * f, py(u1)); g.lineTo(cx + phw(u1) * f, py(u1)); g.lineTo(cx + phw(0) * f, py(0)); g.stroke(); };
+    g.beginPath(); g.moveTo(sx, py(0) + 0.5); g.lineTo(sx + sw, py(0) + 0.5); g.stroke();              // goal line
+    box(0.5, 0.62); box(0.22, 0.3);
+    g.beginPath(); g.ellipse(cx, py(0.5), 8, 3, 0, 0, Math.PI); g.stroke();                       // the D
+    // the goal: posts, crossbar, the net behind
+    const gw2 = 15, gy0 = top - 10, gy1 = top + 1;
+    g.fillStyle = 'rgba(230,236,240,0.35)'; g.fillRect(cx - gw2, gy0, gw2 * 2, gy1 - gy0);
+    g.strokeStyle = 'rgba(255,255,255,0.45)';
+    for (let x = -gw2; x <= gw2; x += 3) { g.beginPath(); g.moveTo(cx + x, gy0); g.lineTo(cx + x, gy1); g.stroke(); }
+    for (let y = gy0; y <= gy1; y += 3) { g.beginPath(); g.moveTo(cx - gw2, y); g.lineTo(cx + gw2, y); g.stroke(); }
+    g.fillStyle = '#ffffff'; g.fillRect(cx - gw2 - 1, gy0 - 1, 2, gy1 - gy0 + 2); g.fillRect(cx + gw2 - 1, gy0 - 1, 2, gy1 - gy0 + 2); g.fillRect(cx - gw2 - 1, gy0 - 1, gw2 * 2 + 2, 2);
+    // the keeper (gold kit, gloves out), two defenders in white, our nugget striker in green
+    g.fillStyle = '#d99a3c'; g.fillRect(cx - 2, top - 6, 4, 5); g.fillStyle = '#f2c41e'; g.fillRect(cx - 2, top - 5, 4, 2);
+    g.fillStyle = '#ffffff'; g.fillRect(cx - 5, top - 5, 2, 1); g.fillRect(cx + 3, top - 5, 2, 1);
+    for (const [dx, u] of [[-18, 0.42], [14, 0.36]]) { const y = py(u); g.fillStyle = '#d99a3c'; g.fillRect(cx + dx - 2, y - 7, 5, 7); g.fillStyle = '#f4f4f0'; g.fillRect(cx + dx - 2, y - 6, 5, 3); }
+    {
+      const nx = cx - 4, ny = py(0.86);
+      g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(nx + 2, ny + 1, 9, 2, 0, 0, 7); g.fill();
+      g.fillStyle = '#d99a3c'; g.beginPath(); g.ellipse(nx, ny - 9, 7, 9, 0.15, 0, 7); g.fill();       // the nugget
+      g.fillStyle = '#b8782a'; g.beginPath(); g.ellipse(nx + 2, ny - 7, 3, 4, 0.3, 0, 7); g.fill();
+      g.fillStyle = '#1f9a44'; g.fillRect(nx - 6, ny - 10, 12, 5);                                   // green shirt
+      g.fillStyle = '#ffffff'; g.fillRect(nx - 1, ny - 10, 2, 5);
+      g.fillStyle = '#f4f4f0'; g.fillRect(nx - 5, ny - 5, 4, 3); g.fillRect(nx + 1, ny - 5, 4, 3);    // white shorts
+      g.fillStyle = '#d99a3c'; g.fillRect(nx - 4, ny - 2, 2, 3); g.fillRect(nx + 3, ny - 3, 5, 2);   // the kicking leg
+      g.fillStyle = '#111'; g.fillRect(nx + 3, ny - 1, 2, 1); g.fillRect(nx + 7, ny - 3, 2, 2);
+      g.fillStyle = '#111'; g.fillRect(nx - 3, ny - 12, 1, 1); g.fillRect(nx + 1, ny - 12, 1, 1);    // eyes on the goal
+      socBall(g, nx + 11, ny - 2, 3);
+    }
+    g.fillStyle = 'rgba(0,0,0,0.18)'; for (let y = sy; y < sy + sh; y += 2) g.fillRect(sx, y, sw, 1);
+    g.textAlign = 'center';
+    g.fillStyle = '#f2c41e'; g.font = '700 8px Consolas, monospace';
+    g.fillText('GOOOAL!', w / 2, h * 0.655);
+    // the deck: a stick and four buttons (PASS · SHOOT · THROUGH · LOB)
+    g.fillStyle = '#123a1e'; g.fillRect(6, h * 0.69, w - 12, h * 0.15);
+    g.fillStyle = '#06160a'; g.fillRect(6, h * 0.69, w - 12, 2);
+    const bx = w * 0.26, by = h * 0.765;
+    g.fillStyle = '#0a0a10'; g.beginPath(); g.arc(bx, by + 3, 5, 0, 7); g.fill();
+    g.fillStyle = '#f4f4f0'; g.beginPath(); g.arc(bx, by - 3, 4, 0, 7); g.fill();
+    [['#2aa84a', 0.5], ['#f2c41e', 0.62], ['#f4f4f0', 0.74], ['#1a6aa8', 0.86]].forEach(([c, px]) => { g.fillStyle = c; g.beginPath(); g.arc(w * px, by, 3.6, 0, 7); g.fill(); });
+    g.fillStyle = '#e4f2e6'; g.font = '900 9px Consolas, monospace';
+    g.fillText('FREE PLAY', w / 2, h * 0.885);
+    g.fillStyle = '#86b08e'; g.font = '700 7px Consolas, monospace';
+    g.fillText('THE NUGGET CUP', w / 2, h * 0.925);
+    g.fillStyle = '#1f5030'; for (let i = 0; i < 2; i++) g.fillRect(14, h * 0.95 + i * 3.4, w - 28, 2);
+  }
+  // the lit box on top of the soccer upright
+  function pSoccerTopper(g, w, h) {
+    // a dark pitch-green plate (cream/white fills blow out under the hall's glow), mown stripes
+    g.fillStyle = '#062a12'; g.fillRect(0, 0, w, h);
+    for (let x = 0; x < w; x += 20) { g.fillStyle = (x / 20) % 2 ? '#083316' : '#0a3a1a'; g.fillRect(x, 0, 10, h); }
+    // a halfway line + centre circle peeking out behind the lettering
+    g.strokeStyle = 'rgba(240,248,240,0.25)'; g.lineWidth = 2;
+    g.beginPath(); g.arc(w / 2 + 20, h / 2, 30, 0, 7); g.stroke();
+    g.beginPath(); g.moveTo(w / 2 + 20, 4); g.lineTo(w / 2 + 20, h - 4); g.stroke();
+    g.save();
+    g.translate(w / 2 + 22, h * 0.56); g.transform(1, 0, -0.16, 1, 0, 0);
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+    g.font = '900 italic 50px Impact, Haettenschweiler, sans-serif';
+    g.lineWidth = 7; g.strokeStyle = '#021006'; g.strokeText('SOCCER', 0, 4);
+    g.fillStyle = '#0d5a24'; g.fillText('SOCCER', 2.5, 6.5);
+    const st = g.createLinearGradient(0, -22, 0, 26);
+    st.addColorStop(0, '#ffffff'); st.addColorStop(0.65, '#e8f2ea'); st.addColorStop(1, '#a8d4b2');
+    g.fillStyle = st; g.fillText('SOCCER', 0, 4);
+    g.font = '900 italic 16px Impact, Haettenschweiler, sans-serif';
+    g.lineWidth = 4; g.strokeText('NUGGET', -60, -30);
+    g.fillStyle = '#f2c41e'; g.fillText('NUGGET', -60, -30);
+    g.restore();
+    // the ball, left, with a little motion trail
+    for (let i = 3; i > 0; i--) { g.fillStyle = `rgba(242,196,30,${0.12 * (4 - i)})`; g.beginPath(); g.arc(30 - i * 6, h * 0.6 + i * 2, 15 - i, 0, 7); g.fill(); }
+    socBall(g, 32, h * 0.58, 16);
+    g.fillStyle = '#f2c41e'; g.fillRect(4, h - 7, w - 8, 3);
     g.strokeStyle = '#3ae85a'; g.lineWidth = 3; g.strokeRect(2, 2, w - 4, h - 4);
   }
 

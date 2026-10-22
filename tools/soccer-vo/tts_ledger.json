@@ -1,0 +1,552 @@
+{
+ "cap": 2200,
+ "spent": 852.0,
+ "calls": [
+  {
+   "t": "2026-10-22 16:00",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] And we're underway!",
+   "credits": 12.0,
+   "file": "pbp-kickoff-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:00",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Here we go!",
+   "credits": 8.0,
+   "file": "pbp-kickoff-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:00",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[shouting] GOAL!",
+   "credits": 6.0,
+   "file": "pbp-goal-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:00",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[shouting] He scores! What a finish!",
+   "credits": 14.0,
+   "file": "pbp-goal-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:00",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] It's in!",
+   "credits": 7.0,
+   "file": "pbp-goal-2.mp3"
+  },
+  {
+   "t": "2026-10-22 16:00",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[shouting] OH, WHAT A STRIKE!",
+   "credits": 12.0,
+   "file": "pbp-goal-great-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:00",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[shouting] That is a worldie!",
+   "credits": 12.0,
+   "file": "pbp-goal-great-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:00",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[shouting] Headed in! GOAL!",
+   "credits": 11.0,
+   "file": "pbp-goal-header-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:00",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] What a header!",
+   "credits": 10.0,
+   "file": "pbp-goal-header-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:00",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Sends the keeper the wrong way!",
+   "credits": 16.0,
+   "file": "pbp-goal-pen-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:00",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Cool as you like!",
+   "credits": 11.0,
+   "file": "pbp-goal-pen-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[gasps] Oh no, into his own net!",
+   "credits": 13.0,
+   "file": "pbp-own-goal-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[shocked] An own goal!",
+   "credits": 9.0,
+   "file": "pbp-own-goal-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[shouting] They're level!",
+   "credits": 10.0,
+   "file": "pbp-equaliser-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] The equaliser!",
+   "credits": 10.0,
+   "file": "pbp-equaliser-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[shouting] LATE DRAMA!",
+   "credits": 9.0,
+   "file": "pbp-late-goal-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[shouting] At the death!",
+   "credits": 10.0,
+   "file": "pbp-late-goal-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Good save!",
+   "credits": 8.0,
+   "file": "pbp-save-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "Kept out by the keeper.",
+   "credits": 9.0,
+   "file": "pbp-save-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[shouting] WHAT A SAVE!",
+   "credits": 9.0,
+   "file": "pbp-save-great-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Fingertips! Magnificent!",
+   "credits": 14.0,
+   "file": "pbp-save-great-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[groans] Just wide!",
+   "credits": 8.0,
+   "file": "pbp-miss-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[disappointed] Over the bar.",
+   "credits": 11.0,
+   "file": "pbp-miss-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[shouting] Off the post!",
+   "credits": 10.0,
+   "file": "pbp-post-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] The woodwork!",
+   "credits": 9.0,
+   "file": "pbp-post-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Blocked!",
+   "credits": 7.0,
+   "file": "pbp-blocked-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "Charged down.",
+   "credits": 5.0,
+   "file": "pbp-blocked-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Great tackle!",
+   "credits": 9.0,
+   "file": "pbp-tackle-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "Wins it back.",
+   "credits": 5.0,
+   "file": "pbp-tackle-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "Free kick, that's a foul.",
+   "credits": 10.0,
+   "file": "pbp-foul-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[sighs] Clipped him there.",
+   "credits": 10.0,
+   "file": "pbp-foul-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "That's a yellow card.",
+   "credits": 8.0,
+   "file": "pbp-yellow-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "Into the book he goes.",
+   "credits": 9.0,
+   "file": "pbp-yellow-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[shocked] It's red! He's off!",
+   "credits": 12.0,
+   "file": "pbp-red-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[shouting] PENALTY!",
+   "credits": 8.0,
+   "file": "pbp-penalty-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] He points to the spot!",
+   "credits": 13.0,
+   "file": "pbp-penalty-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "The flag is up. Offside.",
+   "credits": 10.0,
+   "file": "pbp-offside-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "Corner kick.",
+   "credits": 5.0,
+   "file": "pbp-corner-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Behind for a corner!",
+   "credits": 12.0,
+   "file": "pbp-corner-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "Free kick, in a dangerous area.",
+   "credits": 12.0,
+   "file": "pbp-freekick-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "And that's half time.",
+   "credits": 8.0,
+   "file": "pbp-halftime-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] It's all over! They've done it!",
+   "credits": 16.0,
+   "file": "pbp-fulltime-win-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Full time! The points are theirs!",
+   "credits": 17.0,
+   "file": "pbp-fulltime-win-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "Full time, and it ends all square.",
+   "credits": 14.0,
+   "file": "pbp-fulltime-draw-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Welcome to the Cup Final! The stage is set, and the Golden Nugget awaits!",
+   "credits": 33.0,
+   "file": "pbp-cup-final-intro-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[shouting] THEY HAVE WON THE CUP!",
+   "credits": 13.0,
+   "file": "pbp-cup-winners-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[serious] So, it comes down to penalties.",
+   "credits": 16.0,
+   "file": "pbp-shootout-start-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Scores!",
+   "credits": 7.0,
+   "file": "pbp-shootout-score-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "Buried it.",
+   "credits": 4.0,
+   "file": "pbp-shootout-score-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[shouting] Saved!",
+   "credits": 7.0,
+   "file": "pbp-shootout-miss-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[groans] He's missed it!",
+   "credits": 10.0,
+   "file": "pbp-shootout-miss-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Fry Valley Rovers!",
+   "credits": 11.0,
+   "file": "pbp-team-rovers-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Sauce City!",
+   "credits": 8.0,
+   "file": "pbp-team-sauce-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Crumb Athletic!",
+   "credits": 10.0,
+   "file": "pbp-team-crumb-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Dippers United!",
+   "credits": 10.0,
+   "file": "pbp-team-dippers-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Ranch Wanderers!",
+   "credits": 10.0,
+   "file": "pbp-team-ranch-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Hash Brown Albion!",
+   "credits": 11.0,
+   "file": "pbp-team-hash-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Curly Fry City!",
+   "credits": 10.0,
+   "file": "pbp-team-curly-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "onwK4e9ZLuTAKqWW03F9",
+   "text": "[excited] Pickle Park Rangers!",
+   "credits": 12.0,
+   "file": "pbp-team-pickle-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "[laughs] Oh, he enjoyed that.",
+   "credits": 12.0,
+   "file": "col-goal-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "Clinical. Absolutely clinical.",
+   "credits": 12.0,
+   "file": "col-goal-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "Defending there was soft as a fresh nugget.",
+   "credits": 17.0,
+   "file": "col-goal-2.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "Strong wrists from the keeper.",
+   "credits": 12.0,
+   "file": "col-save-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "He read that all the way.",
+   "credits": 10.0,
+   "file": "col-save-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "[sighs] He'll have nightmares about that.",
+   "credits": 16.0,
+   "file": "col-miss-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "Has to hit the target.",
+   "credits": 9.0,
+   "file": "col-miss-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "Timed to perfection.",
+   "credits": 8.0,
+   "file": "col-tackle-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "Proper tackle, that.",
+   "credits": 8.0,
+   "file": "col-tackle-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "[chuckles] Bit late, that.",
+   "credits": 10.0,
+   "file": "col-foul-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:01",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "He knew what he was doing.",
+   "credits": 10.0,
+   "file": "col-foul-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "Plenty for both managers to think about.",
+   "credits": 16.0,
+   "file": "col-halftime-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "Deserved it, on the balance of play.",
+   "credits": 14.0,
+   "file": "col-fulltime-win-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "[warmly] They'll enjoy the bus home.",
+   "credits": 14.0,
+   "file": "col-fulltime-win-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "Lovely evening for football.",
+   "credits": 11.0,
+   "file": "col-idle-0.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "Patient build-up here.",
+   "credits": 9.0,
+   "file": "col-idle-1.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "They need more width.",
+   "credits": 8.0,
+   "file": "col-idle-2.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "[chuckles] Crowd are in good voice.",
+   "credits": 14.0,
+   "file": "col-idle-3.mp3"
+  },
+  {
+   "t": "2026-10-22 16:02",
+   "voice": "JBFqnCBsd6RMkjVDRZzb",
+   "text": "[warmly] What a moment. They'll remember this forever.",
+   "credits": 22.0,
+   "file": "col-cup-winners-0.mp3"
+  }
+ ]
+}
