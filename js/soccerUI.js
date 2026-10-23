@@ -394,7 +394,9 @@ function socRender(dt) {
   for (const c of SU.crowd || []) sglDraw(c, alrTRS(0, jump, 0, 0), { spec: 0.05, noCast: true });
   for (const L of SU.lights || []) sglDraw(SU.meshes.floodlight, L, { spec: 0.3, noCast: true });
   // the goals and the flags
-  for (const sx of [-1, 1]) sglDraw(SU.meshes.goal, alrTRS(sx * SOC.HL, 0, 0, sx > 0 ? Math.PI / 2 : -Math.PI / 2), { spec: 0.5 });
+  // (the model's mouth faces its +z: turned so it faces the pitch — +x end yaw −90°, −x end +90°; the first cut had
+  // them the other way round, the nets out on the pitch and the mouths to the stands)
+  for (const sx of [-1, 1]) sglDraw(SU.meshes.goal, alrTRS(sx * SOC.HL, 0, 0, sx > 0 ? -Math.PI / 2 : Math.PI / 2), { spec: 0.5 });
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) sglDraw(SU.meshes.flag, alrTRS(sx * SOC.HL, 0, sz * SOC.HW, socHash(sx, sz) * 6), { spec: 0.2 });
   // the players and the ball
   if (M && (SU.screen === 'match' || SU.replay)) {
